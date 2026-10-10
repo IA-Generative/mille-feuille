@@ -1,6 +1,6 @@
 [project]
 name = "mille-feuille-backend"
-version = "0.13.0-rc"
+version = "0.13.0"
 description = "BFF (Backend For Frontend) de mille-feuille"
 requires-python = ">=3.12"
 dependencies = [
