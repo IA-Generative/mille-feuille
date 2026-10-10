@@ -66,6 +66,7 @@ def _build_system_prompt(
     analyse_description: str | None = None,
     can_propose_updates: bool = False,
     notes: list[str] | None = None,
+    can_add_notes: bool = False,
 ) -> str:
     """Construit le prompt système pour le chat : rôle de l'assistant,
     contexte du dossier (synthèses existantes), et consignes de réponse."""
@@ -99,6 +100,19 @@ def _build_system_prompt(
                 "l'utilisateur la confirme. Dis-lui que tu la lui proposes, sans jamais affirmer qu'elle est "
                 "appliquée. Ne propose rien pour une simple question, une supposition ou une information déjà à "
                 "jour.",
+            ]
+        )
+
+    if can_add_notes:
+        parts.extend(
+            [
+                "",
+                "Quand l'utilisateur te demande explicitement d'ajouter une note (« ajoute une note », « note que… »), "
+                "appelle add_note avec le texte à consigner : la note est enregistrée tout de suite dans les notes "
+                "internes du dossier, et tu peux le lui confirmer. N'ajoute jamais de note de ta propre initiative. "
+                "Une note n'est pas une proposition de modification de l'analyse : n'utilise propose_update que si "
+                "l'utilisateur veut corriger ou compléter un élément de l'analyse, et ne parle pas de « mettre à "
+                "jour les notes » pour une proposition.",
             ]
         )
 
@@ -264,6 +278,7 @@ def run_chat(
         analyse_description,
         can_propose_updates=tools.has_analysis,
         notes=notes,
+        can_add_notes=tools.can_add_notes,
     )
 
     graph = build_chat_graph()

@@ -58,6 +58,14 @@ class InternalNoteOut(BaseModel):
     analysis_requested_by: str | None
 
 
+class InternalNoteCreateIn(BaseModel):
+    """Note déposée par le chat du dossier pour le compte d'une personne : ``author`` est la personne qui l'a
+    demandée, préfixée par l'origine (``chat-agent:<id>``), comme les propositions."""
+
+    content: str = Field(min_length=1, max_length=20000)
+    author: str = Field(min_length=1, max_length=255)
+
+
 class InternalNoteAnalysisIn(BaseModel):
     status: str = Field(pattern="^(terminé|échec)$")
     proposal_count: int | None = Field(default=None, ge=0)

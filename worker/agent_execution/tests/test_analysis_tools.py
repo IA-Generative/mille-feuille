@@ -302,3 +302,61 @@ def test_chat_without_proposal_has_no_marker(monkeypatch) -> None:
     )
     assert answer == "Voici l'information demandée."
     assert backend.proposals == []
+
+
+# --- add_note ---
+
+
+class _NotesBackend:
+    def __init__(self, *, refuse: bool = False) -> None:
+        self.notes: list[dict] = []
+        self.refuse = refuse
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path.endswith("/dossiers/dossier-1/notes"):
+            if self.refuse:
+                return httpx.Response(404, json={"detail": "Dossier introuvable"})
+            body = json.loads(request.content)
+            self.notes.append(body)
+            return httpx.Response(201, json={"id": f"note-{len(self.notes)}", **body})
+        return httpx.Response(404)
+
+    def tools(self) -> AgentTools:
+        from app.note_tools import NoteWriter
+
+        client = httpx.Client(base_url="http://backend/api/internal", transport=httpx.MockTransport(self.handler))
+        writer = NoteWriter(client=client, dossier_id="dossier-1", user_id="user-42")
+        return AgentTools({"id": "dossier-1", "documents": []}, notes=writer)
+
+
+def test_add_note_is_exposed_only_when_the_chat_can_write_notes() -> None:
+    assert "add_note" in _names(_NotesBackend().tools())
+    assert "add_note" not in _names(AgentTools({"id": "dossier-1", "documents": []}))
+
+
+def test_add_note_stores_an_internal_note_for_the_user() -> None:
+    backend = _NotesBackend()
+    tools = backend.tools()
+
+    result = tools.dispatch_tool("add_note", {"content": "  Appel de l'avocat du requérant  "})
+
+    assert backend.notes == [{"content": "Appel de l'avocat du requérant", "author": "chat-agent:user-42"}]
+    assert "Note enregistrée" in result
+
+
+def test_add_note_ignores_repeats_and_empty_notes_and_is_bounded() -> None:
+    backend = _NotesBackend()
+    tools = backend.tools()
+
+    assert "obligatoire" in tools.dispatch_tool("add_note", {"content": "   "})
+    tools.dispatch_tool("add_note", {"content": "Pièce vérifiée"})
+    assert "déjà été ajoutée" in tools.dispatch_tool("add_note", {"content": " pièce   VÉRIFIÉE "})
+    tools.dispatch_tool("add_note", {"content": "Deuxième note"})
+    tools.dispatch_tool("add_note", {"content": "Troisième note"})
+    assert "Limite atteinte" in tools.dispatch_tool("add_note", {"content": "Quatrième note"})
+    assert len(backend.notes) == 3
+
+
+def test_add_note_reports_a_refused_note_to_the_model() -> None:
+    backend = _NotesBackend(refuse=True)
+    assert "pas pu être enregistrée" in backend.tools().dispatch_tool("add_note", {"content": "Une note"})

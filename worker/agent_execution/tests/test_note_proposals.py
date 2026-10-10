@@ -206,6 +206,12 @@ def test_chat_prompt_without_notes_is_unchanged() -> None:
     assert "Notes internes" not in chat_graph._build_system_prompt([], [], notes=[])
 
 
+def test_chat_prompt_asks_for_add_note_only_on_explicit_request() -> None:
+    prompt = chat_graph._build_system_prompt([], [], can_add_notes=True)
+    assert "add_note" in prompt and "explicitement" in prompt and "jamais de note de ta propre initiative" in prompt
+    assert "add_note" not in chat_graph._build_system_prompt([], [])
+
+
 def test_notes_context_is_bounded_and_skips_empty_notes() -> None:
     notes = [{"content": "  "}, {"content": "a" * 4000}, {"content": "b" * 4000}, {"content": "c"}]
     selected = _notes_for_prompt(notes)

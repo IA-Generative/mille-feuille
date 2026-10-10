@@ -201,6 +201,13 @@ def get_note(client: httpx.Client, note_id: str) -> dict:
     return response.json()
 
 
+def create_dossier_note(client: httpx.Client, dossier_id: str, content: str, author: str) -> dict:
+    """Ajoute une note interne au dossier (chat : à la demande de l'utilisateur)."""
+    response = client.post(f"/dossiers/{dossier_id}/notes", json={"content": content, "author": author})
+    response.raise_for_status()
+    return response.json()
+
+
 def list_dossier_notes(client: httpx.Client, dossier_id: str) -> list[dict]:
     """Notes internes (non archivées) du dossier, la plus récente d'abord :
     contexte du chat. Tolérant : sans notes, le chat répond comme avant."""
