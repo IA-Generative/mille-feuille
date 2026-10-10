@@ -88,20 +88,19 @@ const cards = computed<ResultCard[]>(() => {
       preview: step.output ?? "",
     });
   });
-  // Carte résumé du dossier (issue #52) : affichée dès que le résumé
-  // existe ou est en cours de génération.
+  // Carte résumé du dossier (issue #52) : affichée dès que le résumé existe ou est en cours de génération, et
+  // pour un dossier terminé même sans résumé (« Non généré ») : sans elle, rien ne permettait de le générer à la
+  // main. Cliquable sauf pendant la génération, y compris après un échec (erreur et nouvelle tentative).
   const summary = props.dossier.summary;
   const summaryStatus = props.dossier.summaryStatus;
-  if (summaryStatus !== "en_attente" || summary) {
+  if (summaryStatus !== "en_attente" || summary || props.dossier.status === "terminé") {
     items.push({
       id: "dossier-summary",
       kind: "summary",
       icon: "ri-file-text-line",
       title: "Résumé du dossier",
-      pending: !summary,
-      preview: summaryStatus === "en_cours"
-        ? SUMMARY_STATUS_LABELS[summaryStatus]
-        : summary?.content ?? "",
+      pending: summaryStatus === "en_cours" && !summary,
+      preview: summary?.content ?? (summaryStatus === "en_attente" ? "Non généré" : SUMMARY_STATUS_LABELS[summaryStatus]),
     });
   }
   return items;
@@ -212,7 +211,7 @@ function scrollCarousel(direction: 1 | -1) {
           @click="emit('regenerateSummary')"
         >
           <VIcon name="ri-refresh-line" />
-          Régénérer le résumé
+          {{ dossier.summary ? "Régénérer le résumé" : "Générer le résumé" }}
         </button>
       </div>
 
