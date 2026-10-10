@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/IA-Generative/mille-feuille/compare/v0.14.0...v0.15.0) (2026-10-10)
+
+
+### Features
+
+* **analyse:** pagination des éléments et des notes (5, 10 ou 20 par page) ([057f7d6](https://github.com/IA-Generative/mille-feuille/commit/057f7d6120c8511d046be97508cc8c57d5cd45d9))
+
 ## [0.14.0](https://github.com/IA-Generative/mille-feuille/compare/v0.13.1...v0.14.0) (2026-10-10)
 
 
