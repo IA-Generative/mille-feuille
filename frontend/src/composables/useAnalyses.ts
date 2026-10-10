@@ -85,6 +85,7 @@ function mapAnalyse(api: any): Analyse {
     name: api.name,
     description: api.description,
     createdAt: api.created_at,
+    version: api.version,
     classification: {
       prompt: api.classification.prompt,
       promptVersions: api.classification.prompt_versions.map((v: any) => mapVersion(v, identity<string>)),

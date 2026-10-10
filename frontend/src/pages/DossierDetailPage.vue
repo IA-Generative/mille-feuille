@@ -11,6 +11,7 @@ import SourceViewerModal from "@/components/SourceViewerModal.vue";
 import DueDatePicker from "@/components/dossiers/DueDatePicker.vue";
 import DossierDocuments from "@/components/dossiers/DossierDocuments.vue";
 import DossierResults from "@/components/dossiers/DossierResults.vue";
+import RelaunchBanner from "@/components/dossiers/RelaunchBanner.vue";
 import FeedbackReasonsModal from "@/components/dossiers/FeedbackReasonsModal.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { useChatStream } from "@/composables/useChatStream";
@@ -40,6 +41,7 @@ const {
   assignAnalyse,
   setWorkflowStatus,
   setDueAt,
+  launch,
 } = useDossiers();
 const { getById: getAnalyseById, fetchAnalyse } = useAnalyses();
 const {
@@ -172,6 +174,28 @@ const suggestionBadgeType: Record<SuggestionStatus, "new" | "info" | "success" |
 const isUnassigned = computed(() => !dossier.value?.analyseId);
 
 const statusError = ref("");
+// Relance de l'analyse (échec, ou analyse mise à jour depuis le dernier lancement). Le flux du dossier s'était fermé
+// à la fin de la dernière exécution : on le rouvre pour suivre la nouvelle.
+const relaunchBusy = ref(false);
+const relaunchError = ref<string | undefined>(undefined);
+const canRelaunch = computed(
+  () => !isUnassigned.value && !!dossier.value && ["terminé", "arrêté", "échec"].includes(dossier.value.status),
+);
+
+async function onRelaunch() {
+  relaunchBusy.value = true;
+  relaunchError.value = undefined;
+  try {
+    await launch(dossierId);
+    closeStream?.();
+    closeStream = streamDossier(dossierId, () => {});
+  } catch (e) {
+    relaunchError.value = e instanceof Error ? e.message : "Impossible de relancer l'analyse";
+  } finally {
+    relaunchBusy.value = false;
+  }
+}
+
 const dueBusy = ref(false);
 async function onDueChange(dueAt: string | null) {
   statusError.value = "";
@@ -393,6 +417,16 @@ async function onDeleteConversation() {
         </div>
       </div>
     </div>
+
+    <RelaunchBanner
+      v-if="canRelaunch"
+      :failed="dossier.status === 'échec'"
+      :launched-version="dossier.analyseVersion"
+      :current-version="analyse?.version"
+      :busy="relaunchBusy"
+      @relaunch="onRelaunch"
+    />
+    <DsfrAlert v-if="relaunchError" type="error" :title="relaunchError" small class="fr-mb-2w" />
 
     <DossierResults :dossier="dossier" :analyse="analyse" @regenerate-summary="regenerateDossierSummary(dossierId)" />
 

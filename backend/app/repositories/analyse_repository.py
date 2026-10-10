@@ -713,6 +713,7 @@ class AnalyseRepository:
             name=analyse.name,
             description=analyse.description,
             created_at=analyse.created_at,
+            version=self.get_version_label(analyse),
             classification=classification,
             extraction=extraction,
             custom_fields=[CustomFieldOut.model_validate(field) for field in analyse.custom_fields],
