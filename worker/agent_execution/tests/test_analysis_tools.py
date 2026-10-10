@@ -131,6 +131,31 @@ def test_propose_update_stores_a_pending_proposal_for_the_user() -> None:
     assert tools.analysis_proposals() == ("analysis-1", ["prop-1"])
 
 
+def test_the_same_proposal_is_not_deposited_twice_in_one_answer() -> None:
+    backend = _Backend()
+    tools = _tools(backend)
+    args = {"element_id": "el-nom", "value": "Marek ILIEV", "reason": "Le requérant est Marek ILIEV"}
+
+    first = tools.dispatch_tool("propose_update", args)
+    repeats = [tools.dispatch_tool("propose_update", {**args, "value": " marek iliev "}) for _ in range(4)]
+
+    assert len(backend.proposals) == 1
+    assert tools.analysis_proposals() == ("analysis-1", ["prop-1"])
+    assert "EN ATTENTE" in first
+    assert all("existe déjà" in r for r in repeats)
+
+
+def test_a_new_element_and_a_different_value_are_still_proposed() -> None:
+    backend = _Backend()
+    tools = _tools(backend)
+
+    tools.dispatch_tool("propose_update", {"kind": "entity", "name": "adresse", "value": "1 rue A", "reason": "r"})
+    tools.dispatch_tool("propose_update", {"kind": "entity", "name": "adresse", "value": "2 rue B", "reason": "r"})
+    tools.dispatch_tool("propose_update", {"kind": "entity", "name": "ville", "value": "1 rue A", "reason": "r"})
+
+    assert len(backend.proposals) == 3
+
+
 def test_proposed_value_shape_follows_the_element_kind() -> None:
     backend = _Backend()
     tools = _tools(backend)

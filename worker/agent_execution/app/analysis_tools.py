@@ -57,6 +57,9 @@ class AnalysisProposer:
     _loaded: bool = field(default=False, init=False, repr=False)
     analysis_id: str | None = field(default=None, init=False)
     proposal_ids: list[str] = field(default_factory=list, init=False)
+    # Propositions déjà déposées pendant cette réponse (cible, valeur) : le LLM rappelle parfois l'outil avec la
+    # même information jusqu'à la limite, ce qui affichait cinq cartes identiques.
+    _proposed: set[tuple] = field(default_factory=set, init=False, repr=False)
 
     def _analysis_data(self) -> dict | None:
         if not self._loaded:
@@ -118,6 +121,13 @@ class AnalysisProposer:
                 "Les relations ne peuvent pas être proposées ici : l'utilisateur les saisit dans l'analyse du dossier."
             )
 
+        key = (element_id or (kind, (name or "").strip().lower()), value.strip().casefold())
+        if key in self._proposed:
+            return (
+                "Cette proposition existe déjà dans cette réponse : ne la répète pas. N'appelle plus propose_update "
+                "pour cette information et réponds à l'utilisateur."
+            )
+
         body = {
             "proposed_by": f"{self.actor}:{self.user_id}",
             "value": {_VALUE_KEY[kind]: value.strip()},
@@ -140,10 +150,11 @@ class AnalysisProposer:
             return f"La proposition a été refusée : {detail}"
         self.analysis_id = analysis["id"]
         self.proposal_ids.append(proposal["id"])
+        self._proposed.add(key)
         return (
             "Proposition enregistrée, EN ATTENTE de confirmation de l'utilisateur : rien n'est modifié tant qu'il "
             "ne l'a pas acceptée. Dis-lui simplement que tu lui proposes cette modification, sans affirmer qu'elle "
-            "est appliquée."
+            "est appliquée. Ne la propose pas une seconde fois."
         )
 
 
