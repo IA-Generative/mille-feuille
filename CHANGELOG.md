@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.16.0](https://github.com/IA-Generative/mille-feuille/compare/v0.15.0...v0.16.0) (2026-10-10)
+
+
+### Features
+
+* **dossier:** carte résumé cliquable pour générer ou relancer le résumé (non généré, échec) ([21f2692](https://github.com/IA-Generative/mille-feuille/commit/21f2692e06b0f2d5aa76b1f0cbca38a9d8ea5a28))
+
+
+### Bug Fixes
+
+* **worker:** le résumé du dossier est aussi généré quand l'analyse n'a aucun agent ([35b43b1](https://github.com/IA-Generative/mille-feuille/commit/35b43b189a6e15d8557d5c72fc37a7e1724398fd))
+
 ## [0.15.0-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.14.0...v0.15.0-rc) (2026-10-10)
 
 
