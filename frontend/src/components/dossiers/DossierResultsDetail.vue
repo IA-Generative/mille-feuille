@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 
+import PageThumbnail from "@/components/dossiers/PageThumbnail.vue";
 import type { ChatWindowSource } from "@/components/ChatWindow.vue";
 import { type ResultKind, type ResultRow, useDossierResults } from "@/composables/useDossierResults";
 
@@ -71,18 +72,26 @@ watch(pageIndex, (index) => loadRows(props.kind, index + 1));
 
       <ul v-else class="results-detail__rows" :aria-busy="isLoading">
         <li v-for="row in rows" :key="row.id" class="results-detail__row">
-          <div class="results-detail__row-main">
-            <span v-if="!isLabel" class="fr-text--sm results-detail__muted">{{ row.name }}</span>
-            <span class="results-detail__value">{{ row.value }}</span>
+          <PageThumbnail
+            :dossier-id="dossierId"
+            :document-id="row.documentId"
+            :page-id="row.pages[0].id"
+            :bounding-boxes="row.boundingBoxes.filter((b) => b.pageId === row.pages[0].id)"
+          />
+          <div class="results-detail__row-body">
+            <div class="results-detail__row-main">
+              <span v-if="!isLabel" class="fr-text--sm results-detail__muted">{{ row.name }}</span>
+              <span class="results-detail__value">{{ row.value }}</span>
+            </div>
+            <div class="fr-text--sm results-detail__muted results-detail__row-meta">
+              <span>{{ row.documentName }} · {{ pagesLabel(row) }}</span>
+              <span v-if="row.confidence !== undefined">{{ Math.round(row.confidence * 100) }}%</span>
+            </div>
+            <button type="button" class="fr-link fr-text--sm results-detail__view" @click="viewPage(row)">
+              <VIcon name="ri-file-text-line" scale="0.8" />
+              Voir la page
+            </button>
           </div>
-          <div class="fr-text--sm results-detail__muted results-detail__row-meta">
-            <span>{{ row.documentName }} · {{ pagesLabel(row) }}</span>
-            <span v-if="row.confidence !== undefined">{{ Math.round(row.confidence * 100) }}%</span>
-          </div>
-          <button type="button" class="fr-link fr-text--sm results-detail__view" @click="viewPage(row)">
-            <VIcon name="ri-file-text-line" scale="0.8" />
-            Voir la page
-          </button>
         </li>
       </ul>
 
@@ -133,6 +142,17 @@ watch(pageIndex, (index) => loadRows(props.kind, index + 1));
 .results-detail__file-name {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.results-detail__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+}
+
+.results-detail__row-body {
+  flex: 1;
+  min-width: 0;
 }
 
 .results-detail__row-main {

@@ -14,14 +14,14 @@ Dans la page d'un dossier, les cartes **Classification** et **Entités** ne donn
 ![Détail de la classification](02-detail-classification.png)
 
 - **Répartition par fichier** : pour chaque fichier, les pages classifiées sur ses pages totales. Un fichier ignoré ou en échec se repère ici.
-- **Liste** : une ligne par page, avec le label, le fichier, le numéro de page et la confiance.
+- **Liste** : une ligne par page, avec une vignette de la page, le label, le fichier, le numéro de page et la confiance.
 
 ## Le détail des entités
 
 ![Détail des entités](03-detail-entites.png)
 
 - **Répartition par fichier** : le nombre d'entités et de pages de chaque fichier.
-- **Liste** : le nom de l'entité, sa valeur, le fichier, les pages qu'elle couvre (une entité peut s'étendre sur plusieurs pages) et la confiance.
+- **Liste** : une vignette de la page (avec la zone de l'entité encadrée), le nom de l'entité, sa valeur, le fichier, les pages qu'elle couvre (une entité peut s'étendre sur plusieurs pages) et la confiance.
 
 La liste est **paginée par 10** :
 
