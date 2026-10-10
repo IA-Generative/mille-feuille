@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/IA-Generative/mille-feuille/compare/v0.13.0...v0.13.1) (2026-10-10)
+
+
+### Bug Fixes
+
+* **worker:** une proposition identique n'est déposée qu'une fois par réponse du chat ([e00d8dc](https://github.com/IA-Generative/mille-feuille/commit/e00d8dc2ea3ca9a84c070949b37bbecf70c365f7))
+
 ## [0.13.0](https://github.com/IA-Generative/mille-feuille/compare/v0.12.4...v0.13.0) (2026-10-10)
 
 
