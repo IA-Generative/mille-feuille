@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.4](https://github.com/IA-Generative/mille-feuille/compare/v0.12.3...v0.12.4) (2026-10-10)
+
+
+### Bug Fixes
+
+* **chart:** worker_agent reçoit le secret millefeuille-openai ([491c3f4](https://github.com/IA-Generative/mille-feuille/commit/491c3f4101c9112f97b16327500c078206c62635))
+
 ## [0.12.4-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.12.3...v0.12.4-rc) (2026-10-10)
 
 

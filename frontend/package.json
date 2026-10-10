@@ -1,7 +1,7 @@
 {
   "name": "mille-feuille-frontend",
   "private": true,
-  "version": "0.12.4-rc",
+  "version": "0.12.4",
   "type": "module",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
