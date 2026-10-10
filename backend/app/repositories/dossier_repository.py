@@ -457,6 +457,69 @@ class DossierRepository:
         )
         return result.scalars().all(), total or 0
 
+    def _dossier_predictions_filter(self, dossier_id: uuid.UUID, kind: PredictionKind):
+        """Prédictions d'un type dont au moins une page appartient à un document du dossier."""
+        return DocumentPrediction.kind == kind, DocumentPrediction.id.in_(
+            select(prediction_pages.c.prediction_id)
+            .join(DocumentPage, DocumentPage.id == prediction_pages.c.document_page_id)
+            .join(DossierDocument, DossierDocument.id == DocumentPage.dossier_document_id)
+            .where(DossierDocument.dossier_id == dossier_id)
+        )
+
+    async def list_predictions_paginated(
+        self, *, dossier_id: uuid.UUID, kind: PredictionKind, page: int, page_size: int
+    ) -> tuple[Sequence[DocumentPrediction], int]:
+        """Détail paginé des classifications (LABEL) ou entités (ENTITY) d'un dossier, avec les pages et leur
+        document pour situer chaque résultat. Ordre stable : nom puis création."""
+        conditions = self._dossier_predictions_filter(dossier_id, kind)
+        total = await self.db.scalar(select(func.count()).select_from(DocumentPrediction).where(*conditions))
+        result = await self.db.execute(
+            select(DocumentPrediction)
+            .options(selectinload(DocumentPrediction.pages).selectinload(DocumentPage.document))
+            .where(*conditions)
+            .order_by(DocumentPrediction.name, DocumentPrediction.created_at, DocumentPrediction.id)
+            .limit(page_size)
+            .offset((page - 1) * page_size)
+        )
+        return result.scalars().all(), total or 0
+
+    async def results_breakdown(self, dossier_id: uuid.UUID) -> list[dict]:
+        """Par fichier : nombre de pages, pages classifiées et entités extraites."""
+        documents = (
+            await self.db.execute(
+                select(DossierDocument.id, DossierDocument.name, func.count(DocumentPage.id))
+                .outerjoin(DocumentPage, DocumentPage.dossier_document_id == DossierDocument.id)
+                .where(DossierDocument.dossier_id == dossier_id)
+                .group_by(DossierDocument.id, DossierDocument.name, DossierDocument.created_at)
+                .order_by(DossierDocument.created_at, DossierDocument.id)
+            )
+        ).all()
+
+        async def count_by_document(kind: PredictionKind, distinct_column) -> dict[uuid.UUID, int]:
+            rows = await self.db.execute(
+                select(DocumentPage.dossier_document_id, func.count(func.distinct(distinct_column)))
+                .select_from(prediction_pages)
+                .join(DocumentPage, DocumentPage.id == prediction_pages.c.document_page_id)
+                .join(DocumentPrediction, DocumentPrediction.id == prediction_pages.c.prediction_id)
+                .join(DossierDocument, DossierDocument.id == DocumentPage.dossier_document_id)
+                .where(DossierDocument.dossier_id == dossier_id, DocumentPrediction.kind == kind)
+                .group_by(DocumentPage.dossier_document_id)
+            )
+            return {document_id: count for document_id, count in rows.all()}
+
+        classified = await count_by_document(PredictionKind.LABEL, DocumentPage.id)
+        entities = await count_by_document(PredictionKind.ENTITY, DocumentPrediction.id)
+        return [
+            {
+                "document_id": document_id,
+                "document_name": name,
+                "page_count": page_count,
+                "classified_page_count": classified.get(document_id, 0),
+                "entity_count": entities.get(document_id, 0),
+            }
+            for document_id, name, page_count in documents
+        ]
+
     async def list_conversations_for_user(self, user_id: str) -> Sequence[Conversation]:
         """Toutes les conversations de l'utilisateur, tous dossiers confondus,
         triées par activité la plus récente (dernier message). Utilisé par la

@@ -554,6 +554,62 @@ def test_entity_prediction_can_span_several_pages_and_bboxes(
     assert all(prediction["id"] in [p["id"] for p in page["predictions"]] for page in pages)
 
 
+def test_dossier_results_paginated_with_breakdown_per_file(client: TestClient) -> None:
+    analyse_id = _create_analyse(client, "Analyse résultats")
+    dossier = client.post("/api/dossiers", json={"name": "Dossier résultats", "analyse_id": analyse_id}).json()
+    dossier = client.post(
+        f"/api/dossiers/{dossier['id']}/documents",
+        files=[
+            ("files", ("a.pdf", b"fake-bytes", "application/pdf")),
+            ("files", ("b.pdf", b"fake-bytes", "application/pdf")),
+        ],
+    ).json()
+    dossier_id = dossier["id"]
+    doc_a, doc_b = (d["id"] for d in sorted(dossier["documents"], key=lambda d: d["name"]))
+    a1, a2 = _create_page(client, doc_a, 1, "a1"), _create_page(client, doc_a, 2, "a2")
+    b1 = _create_page(client, doc_b, 1, "b1")
+
+    def predict(page: dict, kind: str, name: str, value: str, **extra) -> None:
+        response = client.post(
+            f"/api/internal/pages/{page['id']}/predictions",
+            json={"kind": kind, "name": name, "value": value, "confidence": 0.9, **extra},
+            headers=INTERNAL_HEADERS,
+        )
+        assert response.status_code == 201, response.text
+
+    predict(a1, "label", "CNI", "CNI")
+    predict(a2, "label", "RIB", "RIB")
+    predict(b1, "label", "CNI", "CNI")
+    predict(a1, "entity", "adresse", "12 rue X", page_ids=[a2["id"]])
+    predict(b1, "entity", "nom", "Dupont")
+
+    breakdown = client.get(f"/api/dossiers/{dossier_id}/results/breakdown").json()
+    assert [
+        (r["document_name"], r["page_count"], r["classified_page_count"], r["entity_count"]) for r in breakdown
+    ] == [
+        ("a.pdf", 2, 2, 1),
+        ("b.pdf", 1, 1, 1),
+    ]
+
+    first = client.get(f"/api/dossiers/{dossier_id}/results", params={"kind": "label", "page_size": 2}).json()
+    assert (first["total"], first["pages"], len(first["items"])) == (3, 2, 2)
+    second = client.get(
+        f"/api/dossiers/{dossier_id}/results", params={"kind": "label", "page_size": 2, "page": 2}
+    ).json()
+    assert len(second["items"]) == 1
+    labels = first["items"] + second["items"]
+    assert sorted((r["document_name"], r["name"]) for r in labels) == [
+        ("a.pdf", "CNI"),
+        ("a.pdf", "RIB"),
+        ("b.pdf", "CNI"),
+    ]
+
+    entities = client.get(f"/api/dossiers/{dossier_id}/results", params={"kind": "entity"}).json()
+    address = next(r for r in entities["items"] if r["name"] == "adresse")
+    assert (address["document_name"], address["page_numbers"], address["value"]) == ("a.pdf", [1, 2], "12 rue X")
+    assert entities["total"] == 2
+
+
 def test_assistant_message_with_sources(client: TestClient) -> None:
     analyse_id = _create_analyse(client, "Analyse sources")
     dossier = client.post("/api/dossiers", json={"name": "Dossier sources", "analyse_id": analyse_id}).json()
