@@ -59,6 +59,15 @@ def test_classification_prompt_is_versioned(client: TestClient) -> None:
     assert restored["classification"]["prompt"] == "Identifie le document."
 
 
+def test_analyse_exposes_its_current_version(client: TestClient) -> None:
+    analyse = client.post("/api/analyses", json={"name": "Version courante", "description": "Test"}).json()
+    assert analyse["version"] == "v1"
+
+    changed = client.put(f"/api/analyses/{analyse['id']}/classification/prompt", json={"prompt": "Identifie."}).json()
+    assert changed["version"] == "v2"
+    assert client.get(f"/api/analyses/{analyse['id']}").json()["version"] == "v2"
+
+
 def test_labels_round_trip_and_version(client: TestClient) -> None:
     analyse = client.post("/api/analyses", json={"name": "Labels test", "description": "Test"}).json()
     analyse_id = analyse["id"]

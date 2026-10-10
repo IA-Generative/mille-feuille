@@ -236,6 +236,14 @@ function isUnassigned(dossier: Dossier) {
                         size="sm"
                         @click="launch(dossier.id)"
                       />
+                      <DsfrButton
+                        v-if="dossier.status === 'échec' && !isUnassigned(dossier)"
+                        label="Relancer"
+                        secondary
+                        icon="ri-refresh-line"
+                        size="sm"
+                        @click="launch(dossier.id)"
+                      />
                       <RouterLink
                         v-if="dossier.status === 'terminé' || dossier.status === 'échec'"
                         :to="`/dossiers/${dossier.id}`"

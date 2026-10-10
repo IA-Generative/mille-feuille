@@ -17,6 +17,8 @@ const baseUrl = process.argv[2] ?? "http://localhost:5173";
 const docsRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../docs/frontend");
 
 const ANALYSE_ID = "an-subv";
+// Version courante de l'analyse simulée : v1 partout, sauf dans le scénario de relance (analyse mise à jour).
+let currentAnalyseVersion = "v1";
 const iso = (days) => new Date(Date.now() + days * 86_400_000).toISOString();
 
 const profiles = {
@@ -205,6 +207,13 @@ const NOTES = Array.from({ length: 12 }, (_, i) => ({
   analysis_proposal_count: null,
   analysis_error: null,
 }));
+
+// Relance de l'analyse : un dossier en échec et un dossier terminé avec une version plus ancienne de l'analyse.
+const FAILED_STEP = { id: "st-f", kind: "classification", label: "Classification documentaire", status: "échec", started_at: iso(-1), ended_at: iso(-1), output: "Le hub LLM ne répond pas" };
+const RELAUNCH_DOSSIERS = {
+  "dos-21": dossier(21, "Recours titre de séjour n°215", { status: "échec", analyse_version: "v3", execution_steps: [FAILED_STEP] }),
+  "dos-22": dossier(22, "Recours titre de séjour n°198", { status: "terminé", analyse_version: "v1" }),
+};
 
 // Journal d'événements d'un dossier (#169, #171), du plus récent au plus ancien.
 const ALEX = { actor_id: "u1", actor_name: "Alex Martin" };
@@ -427,6 +436,7 @@ function api(role) {
     name: "Instruction subventions",
     description: "Instruction des demandes de subvention des associations.",
     created_at: iso(-90),
+    version: currentAnalyseVersion,
     classification: { prompt: "", prompt_versions: [], labels: [], labels_versions: [] },
     extraction: { prompt: "", prompt_versions: [], entities: [], entities_versions: [] },
     statuses,
@@ -586,6 +596,16 @@ function api(role) {
         document_id: file.id,
         document_name: file.name,
       });
+    }
+    const relaunchMatch = path.match(/^\/api\/dossiers\/(dos-2[12])(\/launch)?$/);
+    if (relaunchMatch) {
+      const target = RELAUNCH_DOSSIERS[relaunchMatch[1]];
+      if (relaunchMatch[2] && method === "POST") {
+        target.status = "en_cours";
+        target.analyse_version = currentAnalyseVersion;
+        target.execution_steps = [{ id: "st-n", kind: "classification", label: "Classification documentaire", status: "en_cours", started_at: iso(0), ended_at: null, output: null }];
+      }
+      return json(withDue(target));
     }
     if (path === "/api/dossiers/dos-20/results/breakdown") return json(RESULTS_BREAKDOWN);
     if (path === "/api/dossiers/dos-20/results") {
@@ -1084,8 +1104,33 @@ async function analysisPagination(browser) {
   await page.context().close();
 }
 
+// ---------------------------------------------------------------------------
+// Relance de l'analyse d'un dossier (échec, analyse mise à jour)
+// ---------------------------------------------------------------------------
+async function relaunch(browser) {
+  const dir = "relance-de-l-analyse";
+  currentAnalyseVersion = "v3";
+  try {
+    const page = await newPage(browser, "admin", { width: 1280, height: 720 });
+    await page.goto(`${baseUrl}/dossiers/dos-21`, { waitUntil: "networkidle" });
+    await page.getByText("L'analyse de ce dossier a échoué.").waitFor();
+    await shot(page, dir, "01-analyse-en-echec.png");
+
+    await page.goto(`${baseUrl}/dossiers/dos-22`, { waitUntil: "networkidle" });
+    await page.getByText("L'analyse a été mise à jour.").waitFor();
+    await shot(page, dir, "02-analyse-mise-a-jour.png");
+
+    await page.getByRole("button", { name: "Relancer avec la nouvelle version" }).click();
+    await page.getByText("En cours").first().waitFor();
+    await shot(page, dir, "03-analyse-relancee.png");
+    await page.context().close();
+  } finally {
+    currentAnalyseVersion = "v1";
+  }
+}
+
 const only = process.argv.slice(3);
-const scenarios = { dashboard, tracking, access, statuses: workflowStatuses, history, due: dueDate, results, pagination: analysisPagination };
+const scenarios = { dashboard, tracking, access, statuses: workflowStatuses, history, due: dueDate, results, pagination: analysisPagination, relaunch };
 const browser = await chromium.launch();
 try {
   for (const [name, run] of Object.entries(scenarios)) {
