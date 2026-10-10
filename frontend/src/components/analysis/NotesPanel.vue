@@ -7,9 +7,11 @@
  * **proposer** des mises à jour de l'analyse : rien n'est appliqué, les
  * propositions apparaissent dans la liste des propositions en attente.
  */
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
+import PaginationBar from "@/components/PaginationBar.vue";
 import { useDossierNotes } from "@/composables/useDossierNotes";
+import { usePageSize } from "@/composables/usePageSize";
 import type { DossierNote, NoteVersion } from "@/types/dossierNote";
 
 const props = defineProps<{
@@ -133,6 +135,18 @@ const analysisMessage = (note: DossierNote): string | null => {
 };
 
 const hasNotes = computed(() => notes.value.length > 0);
+
+// Pagination : taille commune à toutes les listes ; on revient à la dernière page si elle disparaît (archivage...).
+const pageSize = usePageSize();
+const pageIndex = ref(0);
+const lastPage = computed(() => Math.max(0, Math.ceil(notes.value.length / pageSize.value) - 1));
+watch(lastPage, (last) => {
+  if (pageIndex.value > last) pageIndex.value = last;
+});
+const pagedNotes = computed(() => {
+  const start = Math.min(pageIndex.value, lastPage.value) * pageSize.value;
+  return notes.value.slice(start, start + pageSize.value);
+});
 </script>
 
 <template>
@@ -165,7 +179,7 @@ const hasNotes = computed(() => notes.value.length > 0);
     <p v-else-if="!hasNotes" class="notes__empty">Aucune note pour l'instant.</p>
 
     <ul v-else class="notes__list">
-      <li v-for="note in notes" :key="note.id" class="note" :class="{ 'note--archived': note.archived }">
+      <li v-for="note in pagedNotes" :key="note.id" class="note" :class="{ 'note--archived': note.archived }">
         <div class="note__head">
           <span class="note__meta">
             {{ note.lastAuthorId }} · {{ formatDate(note.updatedAt) }} · version {{ note.versionNumber }}
@@ -222,6 +236,7 @@ const hasNotes = computed(() => notes.value.length > 0);
         </div>
       </li>
     </ul>
+    <PaginationBar v-if="hasNotes" v-model:page-index="pageIndex" v-model:page-size="pageSize" :total="notes.length" />
 
     <label class="notes__archived-toggle">
       <input

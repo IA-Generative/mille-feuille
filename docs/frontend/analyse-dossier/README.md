@@ -76,6 +76,16 @@ Comment ça marche :
 - Une proposition en attente **identique** (même cible, même valeur) n'est pas dupliquée : demander l'analyse deux fois ne double pas les propositions.
 - Une seule analyse à la fois par note ; impossible sur une note archivée, sans analyse de dossier ou si l'analyse est figée.
 
+## Listes paginées
+
+Quand un groupe de la vue (classifications, entités, synthèses...) ou la liste des notes dépasse 5 éléments, une barre de pagination apparaît sous la liste : « 1–10 sur 23 », le choix du nombre d'éléments par page (**5, 10 ou 20**) et la navigation par page. Chaque groupe garde sa propre page ; un groupe de 5 éléments ou moins n'affiche pas de barre.
+
+![Listes paginées](pagination-des-listes.png)
+
+Le choix du nombre d'éléments par page est **commun** aux listes et **mémorisé** dans le navigateur.
+
+![Entités, 20 par page](pagination-des-entites-20-par-page.png)
+
 ## Travail à plusieurs
 
 Issue : [#118](https://github.com/IA-Generative/mille-feuille/issues/118).

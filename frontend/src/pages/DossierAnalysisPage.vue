@@ -13,9 +13,11 @@ import ElementHistoryModal from "@/components/analysis/ElementHistoryModal.vue";
 import NotesPanel from "@/components/analysis/NotesPanel.vue";
 import ProposalCard from "@/components/analysis/ProposalCard.vue";
 import MarkdownText from "@/components/MarkdownText.vue";
+import PaginationBar from "@/components/PaginationBar.vue";
 import { useAnalysisLive, type PresenceEntry } from "@/composables/useAnalysisLive";
 import { useDossierAnalysis } from "@/composables/useDossierAnalysis";
 import { useDossiers } from "@/composables/useDossiers";
+import { usePageSize } from "@/composables/usePageSize";
 import {
   ELEMENT_KIND_LABELS,
   VERSION_ORIGIN_LABELS,
@@ -88,6 +90,24 @@ const groups = computed(() =>
     elements: (analysis.value?.elements ?? []).filter((e) => e.kind === kind),
   })).filter((group) => group.elements.length > 0),
 );
+
+// Pagination par groupe (classifications, entités...) : une page courante par type, une taille commune.
+const pageSize = usePageSize();
+const pageByKind = ref<Partial<Record<AnalysisElementKind, number>>>({});
+
+function pageOf(group: { kind: AnalysisElementKind; elements: AnalysisElement[] }): number {
+  const last = Math.max(0, Math.ceil(group.elements.length / pageSize.value) - 1);
+  return Math.min(pageByKind.value[group.kind] ?? 0, last);
+}
+
+function setPage(kind: AnalysisElementKind, index: number) {
+  pageByKind.value = { ...pageByKind.value, [kind]: index };
+}
+
+function visibleElements(group: { kind: AnalysisElementKind; elements: AnalysisElement[] }): AnalysisElement[] {
+  const start = pageOf(group) * pageSize.value;
+  return group.elements.slice(start, start + pageSize.value);
+}
 
 const elementNames = computed(() => {
   const names = new Map<string, string>();
@@ -319,7 +339,7 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
       >
         <h2 :id="`group-${group.kind}`" class="fr-h5">{{ group.label }} ({{ group.elements.length }})</h2>
         <ul class="analysis-page__elements">
-          <li v-for="element in group.elements" :key="element.id" class="element">
+          <li v-for="element in visibleElements(group)" :key="element.id" class="element">
             <div class="element__head">
               <strong class="element__name">{{ element.definitionName ?? ELEMENT_KIND_LABELS[element.kind] }}</strong>
               <DsfrBadge
@@ -403,6 +423,12 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
             </form>
           </li>
         </ul>
+        <PaginationBar
+          :total="group.elements.length"
+          :page-index="pageOf(group)"
+          v-model:page-size="pageSize"
+          @update:page-index="(index) => setPage(group.kind, index)"
+        />
       </section>
 
       <details v-if="canEdit" class="analysis-page__add">

@@ -168,6 +168,44 @@ const RESULTS_BREAKDOWN = RESULTS_FILES.map((f) => ({
   entity_count: RESULT_ROWS.entity.filter((r) => r.document_id === f.id).length,
 }));
 
+// Analyse d'un dossier avec beaucoup d'éléments et de notes, pour la pagination des listes.
+const ANALYSIS_ELEMENT = (n, kind, definition_name, value, extra = {}) => ({
+  id: `el-${n}`,
+  analysis_id: "an-r1",
+  unit_id: null,
+  kind,
+  definition_name,
+  document_id: null,
+  first_page_number: (n % 8) + 1,
+  origin_element_id: null,
+  needs_review: false,
+  review_reason: null,
+  retained_version: { id: `v-${n}`, element_id: `el-${n}`, version_number: 1, value, confidence: 0.9 - (n % 5) * 0.03, origin: "model", prediction_id: null, author_id: null, reason: null, source_type: null, source_id: null, restored_from_version_id: null, created_at: iso(-1) },
+  latest_model_version: null,
+  created_at: iso(-1),
+  ...extra,
+});
+const ENTITY_NAMES = ["nom", "prénom", "date de naissance", "nationalité", "adresse", "numéro de dossier", "préfecture", "date de décision"];
+const ANALYSIS_ELEMENTS = [
+  ...RESULT_LABELS.map((label, i) => ANALYSIS_ELEMENT(i, "classification", "Type de pièce", { label })),
+  ...Array.from({ length: 23 }, (_, i) => ANALYSIS_ELEMENT(10 + i, "entity", ENTITY_NAMES[i % ENTITY_NAMES.length], { value: `valeur ${ENTITY_NAMES[i % ENTITY_NAMES.length]} ${Math.floor(i / ENTITY_NAMES.length) + 1}` }, i === 4 ? { needs_review: true, review_reason: "Deux valeurs différentes dans les pièces" } : {})),
+];
+const NOTES = Array.from({ length: 12 }, (_, i) => ({
+  id: `note-${i + 1}`,
+  dossier_id: "dos-20",
+  created_by: "u1",
+  archived: false,
+  content: `Note ${i + 1} : ${["pièce d'identité vérifiée par téléphone", "justificatif de domicile à renouveler", "appel de l'avocat du requérant", "recours gracieux reçu"][i % 4]}.`,
+  version_number: 1,
+  last_author_id: "u1",
+  created_at: iso(-i),
+  updated_at: iso(-i),
+  analysis_status: null,
+  analysis_version_number: null,
+  analysis_proposal_count: null,
+  analysis_error: null,
+}));
+
 // Journal d'événements d'un dossier (#169, #171), du plus récent au plus ancien.
 const ALEX = { actor_id: "u1", actor_name: "Alex Martin" };
 const CAMILLE = { actor_id: "u2", actor_name: "Camille Durand" };
@@ -527,6 +565,10 @@ function api(role) {
       target.due_at = next;
       return json(withDue(target));
     }
+    if (path === "/api/dossiers/dos-20/analyses-dossier") return json([{ id: "an-r1", dossier_id: "dos-20", sequence: 1, status: "en_cours", analyse_version: "v1", model: null, started_at: iso(-1), ended_at: null, created_at: iso(-1) }]);
+    if (path === "/api/dossiers/dos-20/analyses-dossier/an-r1") return json({ id: "an-r1", dossier_id: "dos-20", sequence: 1, status: "en_cours", analyse_version: "v1", model: null, started_at: iso(-1), ended_at: null, created_at: iso(-1), elements: ANALYSIS_ELEMENTS });
+    if (path === "/api/dossiers/dos-20/analyses-dossier/an-r1/proposals") return json([]);
+    if (path === "/api/dossiers/dos-20/notes") return json(NOTES);
     if (path === "/api/dossiers/dos-20") return json(withDue(RESULTS_DOSSIER));
     const pageMatch = path.match(/^\/api\/dossiers\/dos-20\/documents\/(doc-r\d)\/pages\/pg-doc-r\d-(\d+)(\/screenshot)?$/);
     if (pageMatch) {
@@ -1024,8 +1066,26 @@ async function results(browser) {
   await page.context().close();
 }
 
+// ---------------------------------------------------------------------------
+// Pagination de l'analyse d'un dossier (éléments et notes)
+// ---------------------------------------------------------------------------
+async function analysisPagination(browser) {
+  const dir = "analyse-dossier";
+  const page = await newPage(browser, "admin", { width: 1280, height: 1500 });
+  await page.goto(`${baseUrl}/dossiers/dos-20/analyse`, { waitUntil: "networkidle" });
+  await page.getByText("Entités (23)").waitFor();
+  await shot(page, dir, "pagination-des-listes.png");
+
+  // Entités : 20 par page, puis page 2
+  await page.locator(".analysis-page__section", { hasText: "Entités (23)" }).getByLabel("Par page").selectOption("20");
+  await settle(page);
+  await page.locator(".analysis-page__section", { hasText: "Entités (23)" }).locator(".fr-pagination__link", { hasText: /^2$/ }).click();
+  await shot(page, dir, "pagination-des-entites-20-par-page.png");
+  await page.context().close();
+}
+
 const only = process.argv.slice(3);
-const scenarios = { dashboard, tracking, access, statuses: workflowStatuses, history, due: dueDate, results };
+const scenarios = { dashboard, tracking, access, statuses: workflowStatuses, history, due: dueDate, results, pagination: analysisPagination };
 const browser = await chromium.launch();
 try {
   for (const [name, run] of Object.entries(scenarios)) {
