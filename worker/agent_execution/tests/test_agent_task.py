@@ -167,7 +167,9 @@ def test_run_agents_executes_and_completes(monkeypatch) -> None:
     assert sent_tasks == [("app.tasks.run_dossier_summary", ("dossier-1",))]
 
 
-def test_run_agents_no_agents_defined(monkeypatch) -> None:
+def test_run_agents_no_agents_defined_still_generates_the_dossier_summary(monkeypatch) -> None:
+    complete_calls: list[str] = []
+
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/dossiers/dossier-1"):
             return httpx.Response(200, json=_make_dossier_response())
@@ -175,6 +177,8 @@ def test_run_agents_no_agents_defined(monkeypatch) -> None:
             resp = _make_analyse_response()
             resp["agents"] = []
             return httpx.Response(200, json=resp)
+        if request.url.path.endswith("/complete"):
+            complete_calls.append(request.url.path)
         return httpx.Response(404)
 
     monkeypatch.setattr(
@@ -185,9 +189,21 @@ def test_run_agents_no_agents_defined(monkeypatch) -> None:
             transport=httpx.MockTransport(handler),
         ),
     )
+    waited: list[list[str]] = []
+    monkeypatch.setattr(agent_mod, "_wait_for_steps", lambda client, dossier, kinds: waited.append(kinds) or {})
+    sent_tasks: list[tuple[str, tuple]] = []
+    monkeypatch.setattr(
+        agent_mod.celery_app,
+        "send_task",
+        lambda name, args=None, queue=None: sent_tasks.append((name, tuple(args or ()))),
+    )
 
     run_agents.run("dossier-1")
-    # No agents → no complete calls, no errors
+
+    # Aucun agent à exécuter, mais le résumé du dossier est lancé, après classification et extraction.
+    assert complete_calls == []
+    assert waited == [["classification", "extraction"]]
+    assert sent_tasks == [("app.tasks.run_dossier_summary", ("dossier-1",))]
 
 
 def test_run_agents_agent_failure_completes_with_echec(monkeypatch) -> None:

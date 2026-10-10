@@ -90,12 +90,12 @@ def run_agents(self, dossier_id: str) -> None:
             agents = definitions.get("agents", [])
 
             if not agents:
-                logger.info("No agents defined for analyse %s, skipping", analyse_id)
-                return
+                logger.info("No agents defined for analyse %s, nothing to run", analyse_id)
 
             # Attend que la classification et l'extraction soient terminées
             # avant de lancer les agents (les agents utilisent les
-            # prédictions déposées par ces étapes).
+            # prédictions déposées par ces étapes). Sans agent, on attend aussi : le
+            # résumé du dossier, lancé plus bas, s'appuie sur ces résultats.
             _wait_for_steps(client, dossier, ["classification", "extraction"])
 
             for agent in agents:
@@ -137,7 +137,9 @@ def run_agents(self, dossier_id: str) -> None:
             raise
         else:
             # Déclenche la génération du résumé global du dossier (issue #52) :
-            # tous les agents ont terminé, les synthèses sont disponibles.
+            # tous les agents ont terminé, les synthèses sont disponibles. Aussi pour une
+            # analyse sans agent : un `return` dans le `try` sautait ce bloc, et un dossier
+            # sans agent n'avait jamais de résumé.
             celery_app.send_task(
                 "app.tasks.run_dossier_summary",
                 args=[dossier_id],
