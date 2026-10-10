@@ -580,7 +580,8 @@ def test_dossier_results_paginated_with_breakdown_per_file(client: TestClient) -
     predict(a1, "label", "CNI", "CNI")
     predict(a2, "label", "RIB", "RIB")
     predict(b1, "label", "CNI", "CNI")
-    predict(a1, "entity", "adresse", "12 rue X", page_ids=[a2["id"]])
+    bbox = _create_bbox(client, a1["id"], x_min=0.1, y_min=0.2, x_max=0.6, y_max=0.3)
+    predict(a1, "entity", "adresse", "12 rue X", page_ids=[a2["id"]], bounding_box_ids=[bbox["id"]])
     predict(b1, "entity", "nom", "Dupont")
 
     breakdown = client.get(f"/api/dossiers/{dossier_id}/results/breakdown").json()
@@ -606,7 +607,12 @@ def test_dossier_results_paginated_with_breakdown_per_file(client: TestClient) -
 
     entities = client.get(f"/api/dossiers/{dossier_id}/results", params={"kind": "entity"}).json()
     address = next(r for r in entities["items"] if r["name"] == "adresse")
-    assert (address["document_name"], address["page_numbers"], address["value"]) == ("a.pdf", [1, 2], "12 rue X")
+    assert (address["document_name"], [p["page_number"] for p in address["pages"]], address["value"]) == (
+        "a.pdf",
+        [1, 2],
+        "12 rue X",
+    )
+    assert [(b["id"], b["document_page_id"]) for b in address["bounding_boxes"]] == [(bbox["id"], a1["id"])]
     assert entities["total"] == 2
 
 

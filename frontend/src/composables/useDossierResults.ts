@@ -11,7 +11,8 @@ export interface ResultRow {
   confidence?: number;
   documentId: string;
   documentName: string;
-  pageNumbers: number[];
+  pages: { id: string; pageNumber: number }[];
+  boundingBoxes: { id: string; pageId: string; xMin: number; yMin: number; xMax: number; yMax: number }[];
 }
 
 export interface ResultsBreakdownRow {
@@ -30,7 +31,15 @@ function mapRow(api: any): ResultRow {
     confidence: api.confidence ?? undefined,
     documentId: api.document_id,
     documentName: api.document_name,
-    pageNumbers: api.page_numbers,
+    pages: api.pages.map((p: any) => ({ id: p.id, pageNumber: p.page_number })),
+    boundingBoxes: api.bounding_boxes.map((b: any) => ({
+      id: b.id,
+      pageId: b.document_page_id,
+      xMin: b.x_min,
+      yMin: b.y_min,
+      xMax: b.x_max,
+      yMax: b.y_max,
+    })),
   };
 }
 

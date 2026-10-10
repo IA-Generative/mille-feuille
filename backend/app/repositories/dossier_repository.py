@@ -475,7 +475,10 @@ class DossierRepository:
         total = await self.db.scalar(select(func.count()).select_from(DocumentPrediction).where(*conditions))
         result = await self.db.execute(
             select(DocumentPrediction)
-            .options(selectinload(DocumentPrediction.pages).selectinload(DocumentPage.document))
+            .options(
+                selectinload(DocumentPrediction.pages).selectinload(DocumentPage.document),
+                selectinload(DocumentPrediction.bounding_boxes),
+            )
             .where(*conditions)
             .order_by(DocumentPrediction.name, DocumentPrediction.created_at, DocumentPrediction.id)
             .limit(page_size)
@@ -491,7 +494,7 @@ class DossierRepository:
                 .outerjoin(DocumentPage, DocumentPage.dossier_document_id == DossierDocument.id)
                 .where(DossierDocument.dossier_id == dossier_id)
                 .group_by(DossierDocument.id, DossierDocument.name, DossierDocument.created_at)
-                .order_by(DossierDocument.created_at, DossierDocument.id)
+                .order_by(DossierDocument.created_at, DossierDocument.name, DossierDocument.id)
             )
         ).all()
 
