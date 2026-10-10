@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import type { ChatWindowSource } from "@/components/ChatWindow.vue";
 import DossierResultsDetail from "@/components/dossiers/DossierResultsDetail.vue";
 import MarkdownText from "@/components/MarkdownText.vue";
+import SourceViewerModal from "@/components/SourceViewerModal.vue";
 import type { Analyse } from "@/types/analyse";
 import { SUMMARY_STATUS_LABELS, type Dossier } from "@/types/dossier";
 
@@ -115,6 +117,20 @@ function openDetail(card: ResultCard) {
   isDetailOpened.value = true;
 }
 
+// Page source d'un résultat : s'ouvre par-dessus la modale de résultats, qui reste en dessous (même page de la liste
+// à la fermeture).
+const viewedSource = ref<ChatWindowSource | null>(null);
+const isSourceOpened = ref(false);
+
+function openSource(source: ChatWindowSource) {
+  viewedSource.value = source;
+  isSourceOpened.value = true;
+}
+
+function closeSource() {
+  isSourceOpened.value = false;
+}
+
 const carouselRef = ref<HTMLElement | null>(null);
 function scrollCarousel(direction: 1 | -1) {
   carouselRef.value?.scrollBy({ left: direction * 240, behavior: "smooth" });
@@ -174,6 +190,7 @@ function scrollCarousel(direction: 1 | -1) {
         :key="selectedCard.kind"
         :dossier-id="dossier.id"
         :kind="selectedCard.kind === 'classification' ? 'label' : 'entity'"
+        @view-page="openSource"
       />
 
       <MarkdownText v-else-if="selectedCard.kind === 'agent'" :content="selectedCard.preview" class="dossier-results__agent-output" />
@@ -207,6 +224,8 @@ function scrollCarousel(direction: 1 | -1) {
         Voir la configuration
       </RouterLink>
     </DsfrModal>
+
+    <SourceViewerModal :opened="isSourceOpened" :dossier-id="dossier.id" :source="viewedSource" @close="closeSource" />
   </div>
 </template>
 

@@ -133,12 +133,16 @@ const RESULTS_DOSSIER = dossier(20, "Recours titre de séjour n°215", {
     { id: "st-ex", kind: "extraction", label: "Entités", status: "terminé", started_at: iso(-1), ended_at: iso(-1), output: "24 entité(s) extraite(s) sur 8 page(s)" },
   ],
 });
+const resultPage = (f, n) => ({ id: `pg-${f.id}-${n}`, page_number: n });
+const resultBox = (f, n) => ({ id: `bb-${f.id}-${n}`, document_page_id: `pg-${f.id}-${n}`, x_min: 0.08, y_min: 0.17, x_max: 0.62, y_max: 0.24 });
+// Page « scannée » factice : un en-tête, des lignes de texte et un bloc encadré par la zone du résultat.
+const resultPageSvg = (title) => `<svg xmlns="http://www.w3.org/2000/svg" width="620" height="877" viewBox="0 0 620 877"><rect width="620" height="877" fill="#fff"/><rect x="40" y="40" width="180" height="14" rx="3" fill="#161616"/><text x="40" y="110" font-family="Marianne, Arial, sans-serif" font-size="22" font-weight="bold" fill="#161616">${title}</text>${Array.from({ length: 22 }, (_, i) => `<rect x="40" y="${200 + i * 28}" width="${480 - ((i * 53) % 160)}" height="9" rx="3" fill="#cecece"/>`).join("")}</svg>`;
 const RESULT_LABELS = ["Demande", "Pièce d'identité", "Justificatif de domicile", "Avis d'imposition"];
 const RESULT_ROWS = {
   label: RESULTS_FILES.flatMap((f, fi) =>
     Array.from({ length: f.pages }, (_, i) => {
       const label = RESULT_LABELS[(fi + i) % RESULT_LABELS.length];
-      return { id: `lab-${f.id}-${i}`, name: label, value: label, confidence: 0.99 - ((fi + i) % 5) * 0.04, document_id: f.id, document_name: f.name, page_numbers: [i + 1] };
+      return { id: `lab-${f.id}-${i}`, name: label, value: label, confidence: 0.99 - ((fi + i) % 5) * 0.04, document_id: f.id, document_name: f.name, pages: [resultPage(f, i + 1)], bounding_boxes: [resultBox(f, i + 1)] };
     }),
   ),
   entity: ["nom", "prénom", "date de naissance", "nationalité", "adresse", "numéro de dossier"].flatMap((name, n) =>
@@ -150,7 +154,8 @@ const RESULT_ROWS = {
         confidence: 0.97 - ((n + i) % 4) * 0.05,
         document_id: f.id,
         document_name: f.name,
-        page_numbers: i ? [1, 2] : [i + 1],
+        pages: (i ? [1, 2] : [i + 1]).map((n) => resultPage(f, n)),
+        bounding_boxes: (i ? [1, 2] : [i + 1]).map((n) => resultBox(f, n)),
       })),
     ),
   ),
@@ -523,6 +528,23 @@ function api(role) {
       return json(withDue(target));
     }
     if (path === "/api/dossiers/dos-20") return json(withDue(RESULTS_DOSSIER));
+    const pageMatch = path.match(/^\/api\/dossiers\/dos-20\/documents\/(doc-r\d)\/pages\/pg-doc-r\d-(\d+)(\/screenshot)?$/);
+    if (pageMatch) {
+      const file = RESULTS_FILES.find((f) => f.id === pageMatch[1]);
+      const number = Number(pageMatch[2]);
+      if (pageMatch[3]) return route.fulfill({ status: 200, contentType: "image/svg+xml", body: resultPageSvg(file.name.replace(".pdf", "")) });
+      return json({
+        id: `pg-${file.id}-${number}`,
+        page_number: number,
+        width: 620,
+        height: 877,
+        content: "RÉPUBLIQUE FRANÇAISE\nPréfecture du Rhône\nDemande de renouvellement de titre de séjour\nNom : Iliev\nPrénom : Marek\nAdresse : 12 rue de la République, 69001 Lyon",
+        has_screenshot: true,
+        bounding_boxes: [resultBox(file, number)],
+        document_id: file.id,
+        document_name: file.name,
+      });
+    }
     if (path === "/api/dossiers/dos-20/results/breakdown") return json(RESULTS_BREAKDOWN);
     if (path === "/api/dossiers/dos-20/results") {
       const rows = RESULT_ROWS[url.searchParams.get("kind")] ?? [];
@@ -575,6 +597,13 @@ async function shot(page, dir, file) {
 async function shotModal(page, dir, file) {
   await settle(page, 600);
   await page.locator(".fr-modal--opened .fr-modal__body").first().screenshot({ path: out(dir, file) });
+  console.log(`✓ ${dir}/${file}`);
+}
+
+/** Capture de la modale du dessus quand plusieurs sont ouvertes (ex. la page source par-dessus une liste). */
+async function shotTopModal(page, dir, file) {
+  await settle(page, 600);
+  await page.locator(".fr-modal--opened .fr-modal__body").last().screenshot({ path: out(dir, file) });
   console.log(`✓ ${dir}/${file}`);
 }
 
@@ -976,6 +1005,12 @@ async function results(browser) {
   await page.getByRole("button", { name: /Classification/ }).click();
   await page.getByText("Répartition par fichier").waitFor();
   await shotModal(page, dir, "02-detail-classification.png");
+  await page.getByRole("button", { name: "Voir la page" }).first().click();
+  await page.locator(".source-viewer__image").waitFor();
+  await shotTopModal(page, dir, "05-page-d-une-classification.png");
+  // « Fermer » de la page source : la liste reste ouverte dessous.
+  await page.locator(".fr-modal--opened .fr-btn--close").last().click();
+  await page.getByText("Répartition par fichier").waitFor();
   await closeModal(page);
 
   await page.getByRole("button", { name: /Entités/ }).click();
@@ -983,6 +1018,9 @@ async function results(browser) {
   await shotModal(page, dir, "03-detail-entites.png");
   await page.locator(".fr-modal--opened .fr-pagination__link", { hasText: /^2$/ }).click();
   await shotModal(page, dir, "04-detail-entites-page-2.png");
+  await page.getByRole("button", { name: "Voir la page" }).first().click();
+  await page.locator(".source-viewer__image").waitFor();
+  await shotTopModal(page, dir, "06-page-d-une-entite.png");
   await page.context().close();
 }
 
