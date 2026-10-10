@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.15.0-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.14.0...v0.15.0-rc) (2026-10-10)
+
+
+### Features
+
+* **analyse:** pagination des éléments et des notes (5, 10 ou 20 par page) ([057f7d6](https://github.com/IA-Generative/mille-feuille/commit/057f7d6120c8511d046be97508cc8c57d5cd45d9))
+* **dossier:** carte résumé cliquable pour générer ou relancer le résumé (non généré, échec) ([3d3d30e](https://github.com/IA-Generative/mille-feuille/commit/3d3d30ed9f43ccf815af8542e8f1002e2c26e75c))
+
+
+### Bug Fixes
+
+* **worker:** le résumé du dossier est aussi généré quand l'analyse n'a aucun agent ([9478ae8](https://github.com/IA-Generative/mille-feuille/commit/9478ae8e9bce9d157a311a5c4e5e4f96cf2c8425))
+
 ## [0.15.0](https://github.com/IA-Generative/mille-feuille/compare/v0.14.0...v0.15.0) (2026-10-10)
 
 
