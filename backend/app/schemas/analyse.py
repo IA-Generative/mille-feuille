@@ -255,6 +255,9 @@ class AnalyseOut(BaseModel):
     name: str
     description: str
     created_at: datetime
+    # Version courante (v1, v2...) : un dossier garde celle de son dernier lancement, ce qui permet de voir qu'il
+    # a été traité avec une version plus ancienne.
+    version: str
     classification: ClassificationOut
     extraction: ExtractionOut
     # Statuts de dossier de l'analyse (issue #168), dans l'ordre, et leurs versions précédentes.

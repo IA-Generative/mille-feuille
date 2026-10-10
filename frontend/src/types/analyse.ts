@@ -124,6 +124,8 @@ export interface Analyse {
   name: string;
   description: string;
   createdAt: string;
+  /** Version courante (v1, v2...) ; un dossier garde celle de son dernier lancement. */
+  version: string;
   classification: Classification;
   extraction: Extraction;
   statuses: WorkflowStatus[];
