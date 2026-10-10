@@ -182,6 +182,8 @@ worker_agent:
   - secretRef:
       name: "millefeuille-s3"
   - secretRef:
+      name: "millefeuille-openai"
+  - secretRef:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"

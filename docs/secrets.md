@@ -14,7 +14,7 @@ Chaque secret ci-dessous correspond à un **chemin Vault** (`mirai` mount, kv-v2
 | ------------------------- | ------------------------------ | --------------------------- | ------------------------------------ |
 | `millefeuille-s3`            | `millefeuille-s3`                 | Opaque                      | backend, worker_document, worker_agent, worker_render |
 | `millefeuille-keycloak`      | `millefeuille-keycloak`           | Opaque                      | backend                               |
-| `millefeuille-openai`        | `millefeuille-openai`             | Opaque                      | backend                               |
+| `millefeuille-openai`        | `millefeuille-openai`             | Opaque                      | backend, worker_agent                 |
 | `millefeuille-worker`        | `millefeuille-worker`             | Opaque                      | backend, worker_document, worker_agent |
 | `millefeuille-redis`         | `millefeuille-redis`              | Opaque                      | backend, worker_document, worker_agent, worker_render, redis sub-chart, KEDA |
 | `millefeuille-meilisearch`   | `millefeuille-meilisearch`        | Opaque                      | backend (envFrom)                     |
@@ -82,7 +82,7 @@ Variables attendues dans Vault :
 > **Note** : `OPENAI_API_BASE_URL` est aussi défini en clair dans `common-values.yaml`
 > (commenté). Si la valeur est publique, elle peut rester en clair ; sinon la mettre dans le secret.
 
-**Consommateurs** : backend (`LlmSettings`).
+**Consommateurs** : backend (`LlmSettings`), worker_agent.
 
 ---
 
