@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import DossierResultsDetail from "@/components/dossiers/DossierResultsDetail.vue";
 import MarkdownText from "@/components/MarkdownText.vue";
 import type { Analyse } from "@/types/analyse";
 import { SUMMARY_STATUS_LABELS, type Dossier } from "@/types/dossier";
@@ -168,22 +169,12 @@ function scrollCarousel(direction: 1 | -1) {
       :title="selectedCard.title"
       :icon="selectedCard.icon"
     >
-      <template v-if="selectedCard.kind === 'classification'">
-        <p class="dossier-results__detail-label">{{ classificationResult?.label }}</p>
-        <div v-if="classificationResult?.confidence !== undefined" class="dossier-results__gauge">
-          <div class="dossier-results__gauge-track">
-            <div class="dossier-results__gauge-fill" :style="{ width: `${classificationResult.confidence}%` }" />
-          </div>
-          <span class="fr-text--sm dossier-results__gauge-value">{{ classificationResult.confidence }}%</span>
-        </div>
-      </template>
-
-      <dl v-else-if="selectedCard.kind === 'extraction' && extractionResult" class="dossier-results__entities">
-        <div v-for="entity in extractionResult" :key="entity.name" class="dossier-results__entity">
-          <dt class="fr-text--sm dossier-results__entity-name">{{ entity.name }}</dt>
-          <dd class="dossier-results__entity-value">{{ entity.value }}</dd>
-        </div>
-      </dl>
+      <DossierResultsDetail
+        v-if="selectedCard.kind === 'classification' || selectedCard.kind === 'extraction'"
+        :key="selectedCard.kind"
+        :dossier-id="dossier.id"
+        :kind="selectedCard.kind === 'classification' ? 'label' : 'entity'"
+      />
 
       <MarkdownText v-else-if="selectedCard.kind === 'agent'" :content="selectedCard.preview" class="dossier-results__agent-output" />
 
@@ -331,68 +322,6 @@ function scrollCarousel(direction: 1 | -1) {
   -webkit-line-clamp: 3;
   line-clamp: 3;
   -webkit-box-orient: vertical;
-}
-
-.dossier-results__detail-label {
-  font-size: 1.25rem;
-  font-weight: bold;
-  margin: 0 0 0.75rem;
-}
-
-.dossier-results__gauge {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.dossier-results__gauge-track {
-  flex: 1;
-  height: 0.5rem;
-  border-radius: 999px;
-  background: var(--background-alt-grey);
-  overflow: hidden;
-}
-
-.dossier-results__gauge-fill {
-  height: 100%;
-  border-radius: 999px;
-  background: linear-gradient(90deg, #5b4fd1 0%, #8b4fd6 50%, #d1477a 100%);
-}
-
-.dossier-results__gauge-value {
-  font-weight: bold;
-  white-space: nowrap;
-}
-
-.dossier-results__entities {
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.dossier-results__entity {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--border-default-grey);
-}
-
-.dossier-results__entity:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.dossier-results__entity-name {
-  color: var(--text-mention-grey);
-}
-
-.dossier-results__entity-value {
-  margin: 0;
-  font-weight: bold;
-  text-align: right;
 }
 
 .dossier-results__agent-output {

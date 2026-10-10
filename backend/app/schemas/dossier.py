@@ -97,6 +97,30 @@ class DocumentPredictionOut(DocumentPredictionSummaryOut):
     pages: list[DocumentPageSummaryOut]
 
 
+class DossierResultRowOut(BaseModel):
+    """Une ligne du détail des résultats d'un dossier (modale des cartes
+    Classification / Entités) : la prédiction, le fichier et les pages qu'elle
+    couvre."""
+
+    id: uuid.UUID
+    name: str
+    value: str
+    confidence: float | None
+    document_id: uuid.UUID
+    document_name: str
+    page_numbers: list[int]
+
+
+class DossierResultsBreakdownRowOut(BaseModel):
+    """Répartition des résultats d'un dossier pour un fichier."""
+
+    document_id: uuid.UUID
+    document_name: str
+    page_count: int
+    classified_page_count: int
+    entity_count: int
+
+
 class DocumentPageIn(BaseModel):
     page_number: int
     width: int | None = None

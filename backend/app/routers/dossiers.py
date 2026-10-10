@@ -35,6 +35,7 @@ from app.db import get_db
 from app.models.analyse import Analyse
 from app.models.app_user import AppUser
 from app.models.conversation import Message, MessageRole
+from app.models.document_page import PredictionKind
 from app.models.dossier import Dossier, DossierStatus, TextExtractionStatus
 from app.models.dossier_access import Visibility
 from app.models.dossier_event import DossierEventType
@@ -65,6 +66,8 @@ from app.schemas.dossier import (
     DossierDocumentOut,
     DossierGroupOut,
     DossierOut,
+    DossierResultRowOut,
+    DossierResultsBreakdownRowOut,
     DueAtUpdate,
     FeedbackIn,
     MessageIn,
@@ -693,6 +696,50 @@ async def assign_dossier(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Analyse introuvable")
     await repository.assign_analyse(dossier, analyse, actor=user)
     return await _get_or_404(repository, dossier_id)
+
+
+@router.get("/{dossier_id}/results/breakdown", response_model=list[DossierResultsBreakdownRowOut])
+async def get_results_breakdown(
+    dossier_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> list[dict]:
+    """Répartition par fichier des pages classifiées et des entités extraites (cartes Classification / Entités)."""
+    repository = DossierRepository(db)
+    await _get_or_404(repository, dossier_id, user)
+    return await repository.results_breakdown(dossier_id)
+
+
+@router.get("/{dossier_id}/results", response_model=Page[DossierResultRowOut])
+async def list_results(
+    dossier_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+    kind: Annotated[PredictionKind, Query(description="label : classifications, entity : entités")],
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 10,
+) -> Page[DossierResultRowOut]:
+    """Détail paginé des classifications ou des entités d'un dossier, avec fichier et pages."""
+    repository = DossierRepository(db)
+    await _get_or_404(repository, dossier_id, user)
+    predictions, total = await repository.list_predictions_paginated(
+        dossier_id=dossier_id, kind=kind, page=page, page_size=page_size
+    )
+    rows = []
+    for prediction in predictions:
+        first_page = prediction.pages[0]
+        rows.append(
+            DossierResultRowOut(
+                id=prediction.id,
+                name=prediction.name,
+                value=prediction.value,
+                confidence=prediction.confidence,
+                document_id=first_page.document.id,
+                document_name=first_page.document.name,
+                page_numbers=[p.page_number for p in prediction.pages if p.document.id == first_page.document.id],
+            )
+        )
+    return Page.of(rows, total=total, page=page, page_size=page_size)
 
 
 @router.get("/{dossier_id}/conversations", response_model=Page[ConversationOut])
