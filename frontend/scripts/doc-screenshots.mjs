@@ -1,5 +1,5 @@
 // Prend les captures d'écran de la documentation du tableau de bord (#174), des statuts de dossier (#170), de l'historique du dossier (#171), de l'échéance (#172),
-// du tableau de suivi (#173, #186) et de l'accès par groupe (#177), sous
+// du tableau de suivi (#173, #186), de l'accès par groupe (#177) et du détail des résultats d'un dossier, sous
 // docs/frontend/<fonctionnalité>/.
 //
 // Les écrans s'appuient sur des données simulées côté interface ; l'API est
@@ -106,6 +106,62 @@ const dossiers = [
   dossier(1, "Convention de partenariat culturelle n°100", { due_at: dayKey(-4) }),
   dossier(9, "Aide au projet sportif jeunesse n°108", { workflow_status: STATUSES[2], due_at: dayKey(40) }),
 ];
+
+// Détail des résultats d'un dossier : un dossier à part, pour ne pas changer les captures des autres fonctionnalités.
+const RESULTS_FILES = [
+  { id: "doc-r1", name: "demande-de-titre-de-sejour.pdf", pages: 3 },
+  { id: "doc-r2", name: "justificatifs-de-domicile.pdf", pages: 5 },
+];
+const RESULTS_DOSSIER = dossier(20, "Recours titre de séjour n°215", {
+  summary_status: "en_attente",
+  documents: RESULTS_FILES.map((f) => ({
+    id: f.id,
+    name: f.name,
+    size: 482113,
+    s3_key: `dossiers/dos-20/${f.id}`,
+    mimetype: "application/pdf",
+    label: null,
+    text_extraction_status: "terminé",
+    text_extraction_error: null,
+    file_hash: null,
+    summary_status: "terminé",
+    summary_error: null,
+    summary: null,
+  })),
+  execution_steps: [
+    { id: "st-cl", kind: "classification", label: "Classification", status: "terminé", started_at: iso(-1), ended_at: iso(-1), output: "8/8 page(s) classifiée(s)" },
+    { id: "st-ex", kind: "extraction", label: "Entités", status: "terminé", started_at: iso(-1), ended_at: iso(-1), output: "24 entité(s) extraite(s) sur 8 page(s)" },
+  ],
+});
+const RESULT_LABELS = ["Demande", "Pièce d'identité", "Justificatif de domicile", "Avis d'imposition"];
+const RESULT_ROWS = {
+  label: RESULTS_FILES.flatMap((f, fi) =>
+    Array.from({ length: f.pages }, (_, i) => {
+      const label = RESULT_LABELS[(fi + i) % RESULT_LABELS.length];
+      return { id: `lab-${f.id}-${i}`, name: label, value: label, confidence: 0.99 - ((fi + i) % 5) * 0.04, document_id: f.id, document_name: f.name, page_numbers: [i + 1] };
+    }),
+  ),
+  entity: ["nom", "prénom", "date de naissance", "nationalité", "adresse", "numéro de dossier"].flatMap((name, n) =>
+    RESULTS_FILES.flatMap((f, fi) =>
+      Array.from({ length: 2 }, (_, i) => ({
+        id: `ent-${n}-${f.id}-${i}`,
+        name,
+        value: `${name === "nom" ? "Iliev" : name === "prénom" ? "Marek" : `valeur ${name}`}${i ? " (bis)" : ""}`,
+        confidence: 0.97 - ((n + i) % 4) * 0.05,
+        document_id: f.id,
+        document_name: f.name,
+        page_numbers: i ? [1, 2] : [i + 1],
+      })),
+    ),
+  ),
+};
+const RESULTS_BREAKDOWN = RESULTS_FILES.map((f) => ({
+  document_id: f.id,
+  document_name: f.name,
+  page_count: f.pages,
+  classified_page_count: f.pages,
+  entity_count: RESULT_ROWS.entity.filter((r) => r.document_id === f.id).length,
+}));
 
 // Journal d'événements d'un dossier (#169, #171), du plus récent au plus ancien.
 const ALEX = { actor_id: "u1", actor_name: "Alex Martin" };
@@ -465,6 +521,14 @@ function api(role) {
       EVENTS.unshift(event(100 + EVENTS.length, "due_date_changed", ALEX, new Date().toISOString(), { from: target.due_at, to: next }));
       target.due_at = next;
       return json(withDue(target));
+    }
+    if (path === "/api/dossiers/dos-20") return json(withDue(RESULTS_DOSSIER));
+    if (path === "/api/dossiers/dos-20/results/breakdown") return json(RESULTS_BREAKDOWN);
+    if (path === "/api/dossiers/dos-20/results") {
+      const rows = RESULT_ROWS[url.searchParams.get("kind")] ?? [];
+      const size = Number(url.searchParams.get("page_size") ?? 10);
+      const page = Number(url.searchParams.get("page") ?? 1);
+      return json({ items: rows.slice((page - 1) * size, page * size), total: rows.length, page, page_size: size, pages: Math.max(1, Math.ceil(rows.length / size)) });
     }
     const match = path.match(/^\/api\/dossiers\/(dos-\d+)$/);
     if (match) return json(withDue(dossiers.find((d) => `dos-${match[1].slice(4)}` === d.id) ?? dossiers[0]));
@@ -899,8 +963,31 @@ async function dueDate(browser) {
   await page.context().close();
 }
 
+// ---------------------------------------------------------------------------
+// Détail des résultats d'un dossier (classification, entités)
+// ---------------------------------------------------------------------------
+async function results(browser) {
+  const dir = "resultats-du-dossier";
+  const page = await newPage(browser, "admin", { width: 1280, height: 1300 });
+  await page.goto(`${baseUrl}/dossiers/dos-20`, { waitUntil: "networkidle" });
+  await page.getByText("8/8 page(s) classifiée(s)").waitFor();
+  await shot(page, dir, "01-cartes-de-resultats.png");
+
+  await page.getByRole("button", { name: /Classification/ }).click();
+  await page.getByText("Répartition par fichier").waitFor();
+  await shotModal(page, dir, "02-detail-classification.png");
+  await closeModal(page);
+
+  await page.getByRole("button", { name: /Entités/ }).click();
+  await page.getByText("Répartition par fichier").waitFor();
+  await shotModal(page, dir, "03-detail-entites.png");
+  await page.locator(".fr-modal--opened .fr-pagination__link", { hasText: /^2$/ }).click();
+  await shotModal(page, dir, "04-detail-entites-page-2.png");
+  await page.context().close();
+}
+
 const only = process.argv.slice(3);
-const scenarios = { dashboard, tracking, access, statuses: workflowStatuses, history, due: dueDate };
+const scenarios = { dashboard, tracking, access, statuses: workflowStatuses, history, due: dueDate, results };
 const browser = await chromium.launch();
 try {
   for (const [name, run] of Object.entries(scenarios)) {
