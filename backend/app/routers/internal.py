@@ -73,7 +73,7 @@ from app.schemas.dossier_analysis import (
     InvalidElementValueError,
     ReusedEntity,
 )
-from app.schemas.dossier_note import InternalNoteAnalysisIn, InternalNoteOut
+from app.schemas.dossier_note import InternalNoteAnalysisIn, InternalNoteCreateIn, InternalNoteOut
 from app.schemas.user_task import UserTaskOut, UserTaskUpdateIn
 from app.services import analysis_builder, analysis_carryover, generation_prompt
 from app.services.document_fields import FieldValueError, load_revision_elements
@@ -451,6 +451,17 @@ async def list_dossier_notes(dossier_id: uuid.UUID, db: Annotated[AsyncSession, 
     """Notes internes (non archivées) d'un dossier : contexte du chat (issue #117)."""
     notes = await DossierNoteRepository(db).list(dossier_id)
     return [_internal_note(note) for note in notes]
+
+
+@router.post("/dossiers/{dossier_id}/notes", response_model=InternalNoteOut, status_code=status.HTTP_201_CREATED)
+async def create_dossier_note(
+    dossier_id: uuid.UUID, body: InternalNoteCreateIn, db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """Le chat du dossier ajoute une note interne à la demande de l'utilisateur (``author`` : ``chat-agent:<id>``)."""
+    if await DossierRepository(db).get(dossier_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dossier introuvable")
+    note = await DossierNoteRepository(db).create(dossier_id, content=body.content.strip(), user_id=body.author)
+    return _internal_note(note)
 
 
 @router.get("/notes/{note_id}", response_model=InternalNoteOut)

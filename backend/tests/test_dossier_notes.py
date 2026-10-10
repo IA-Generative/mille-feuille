@@ -237,6 +237,29 @@ def test_internal_notes_list_only_live_notes_with_their_current_content(
     assert [(n["id"], n["content"], n["version_number"]) for n in notes] == [(kept["id"], "Gardée (modifiée)", 2)]
 
 
+def test_chat_adds_a_note_through_the_internal_route(client: TestClient) -> None:
+    dossier_id = _dossier(client)
+    url = f"/api/internal/dossiers/{dossier_id}/notes"
+
+    created = client.post(url, json={"content": "  Appel de l'avocat  ", "author": "chat-agent:u1"}, headers=INTERNAL)
+    assert created.status_code == 201, created.text
+    assert (created.json()["content"], created.json()["version_number"]) == ("Appel de l'avocat", 1)
+
+    # La note apparaît dans la liste côté utilisateur, attribuée au chat pour le compte de la personne.
+    [note] = [n for n in client.get(f"/api/dossiers/{dossier_id}/notes").json() if n["id"] == created.json()["id"]]
+    assert (note["content"], note["created_by"], note["last_author_id"]) == (
+        "Appel de l'avocat",
+        "chat-agent:u1",
+        "chat-agent:u1",
+    )
+
+    assert client.post(url, json={"content": "", "author": "chat-agent:u1"}, headers=INTERNAL).status_code == 422
+    bad = {"X-App-Token": "wrong"}
+    assert client.post(url, json={"content": "x", "author": "chat-agent:u1"}, headers=bad).status_code == 401
+    unknown = f"/api/internal/dossiers/{uuid.uuid4()}/notes"
+    assert client.post(unknown, json={"content": "x", "author": "a"}, headers=INTERNAL).status_code == 404
+
+
 def test_internal_note_exposes_the_requester(client: TestClient, dispatched: list[str]) -> None:
     dossier_id = _dossier(client)
     _launch(client, dossier_id)

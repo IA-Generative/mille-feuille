@@ -23,6 +23,7 @@ from app.analysis_tools import AnalysisProposer
 from app.celery_app import celery_app
 from app.chat_graph import run_chat as run_chat_graph
 from app.config import settings
+from app.note_tools import NoteWriter
 from app.tools import AgentTools
 
 logger = logging.getLogger(__name__)
@@ -112,7 +113,8 @@ def run_chat(self, conversation_id: str, dossier_id: str) -> None:
                 model=model or settings.LLM_MODEL,
                 source_message_id=_last_user_message_id(conversation),
             )
-            tools = AgentTools(dossier, analysis=proposer)
+            note_writer = NoteWriter(client=client, dossier_id=dossier_id, user_id=conversation.get("user_id", ""))
+            tools = AgentTools(dossier, analysis=proposer, notes=note_writer)
 
             # 3. Récupère les synthèses existantes et les notes internes du dossier.
             syntheses = _extract_syntheses(dossier)

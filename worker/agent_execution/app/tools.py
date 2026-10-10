@@ -25,6 +25,7 @@ from app.bm25 import BM25Index, build_index_from_dossier
 
 if TYPE_CHECKING:
     from app.analysis_tools import AnalysisProposer
+    from app.note_tools import NoteWriter
 
 logger = logging.getLogger(__name__)
 
@@ -47,10 +48,14 @@ class AgentTools:
     consultés pendant l'exécution. Le graphe de chat les récupère via
     consulted_sources() pour les déposer sur le message assistant final."""
 
-    def __init__(self, dossier: dict, analysis: "AnalysisProposer | None" = None) -> None:
+    def __init__(
+        self, dossier: dict, analysis: "AnalysisProposer | None" = None, notes: "NoteWriter | None" = None
+    ) -> None:
         self._dossier = dossier
         # Propositions de modification de l'analyse (chat du dossier seulement).
         self._analysis = analysis
+        # Ajout de notes internes (chat du dossier seulement).
+        self._notes = notes
         self._index: BM25Index = build_index_from_dossier(dossier)
         self._pages_by_id: dict[str, dict] = {}
         self._pages_by_number: dict[int, dict] = {}
@@ -71,6 +76,15 @@ class AgentTools:
     def has_analysis(self) -> bool:
         """Le chat peut-il proposer de modifier l'analyse de ce dossier ?"""
         return self._analysis is not None and self._analysis.available
+
+    # --- Notes internes ---
+
+    @property
+    def can_add_notes(self) -> bool:
+        return self._notes is not None
+
+    def add_note(self, content: str) -> str:
+        return self._notes.add(content) if self._notes else "Les notes sont indisponibles."
 
     def view_analysis(self) -> str:
         return self._analysis.list_elements() if self._analysis else "Analyse indisponible."
@@ -307,7 +321,36 @@ class AgentTools:
                     },
                 },
             },
-        ] + self._analysis_tool_definitions()
+        ] + [*self._note_tool_definitions(), *self._analysis_tool_definitions()]
+
+    def _note_tool_definitions(self) -> list[dict[str, Any]]:
+        """Outil d'ajout de note interne : seulement quand le chat est branché sur les notes du dossier."""
+        if not self.can_add_notes:
+            return []
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "add_note",
+                    "description": (
+                        "Ajoute une note interne au dossier, à la demande EXPLICITE de l'utilisateur (« ajoute une "
+                        "note », « note que… », « garde en note… »). La note est enregistrée tout de suite, jamais "
+                        "visible de l'usager. N'appelle pas cet outil de ta propre initiative, ni pour une simple "
+                        "question. Une seule note par demande."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "content": {
+                                "type": "string",
+                                "description": "Le texte de la note, fidèle à ce que l'utilisateur a demandé de noter",
+                            }
+                        },
+                        "required": ["content"],
+                    },
+                },
+            }
+        ]
 
     def _analysis_tool_definitions(self) -> list[dict[str, Any]]:
         """Outils de proposition de modification de l'analyse : seulement quand
@@ -376,6 +419,8 @@ class AgentTools:
             return self.view_entities()
         if name == "suggest_assistant":
             return self.suggest_assistant(arguments.get("question", ""))
+        if name == "add_note":
+            return self.add_note(arguments.get("content", ""))
         if name == "view_analysis":
             return self.view_analysis()
         if name == "propose_update":
