@@ -1,6 +1,6 @@
 [project]
 name = "mille-feuille-worker-document-process"
-version = "0.13.1"
+version = "0.14.0"
 description = "Worker Celery : extraction de texte PDF, NER et relations"
 requires-python = ">=3.12"
 dependencies = [

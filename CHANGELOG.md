@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/IA-Generative/mille-feuille/compare/v0.13.1...v0.14.0) (2026-10-10)
+
+
+### Features
+
+* **chat:** le chat peut ajouter une note interne au dossier (outil add_note) ([86e7802](https://github.com/IA-Generative/mille-feuille/commit/86e7802b9bbf06a76c052479cec8befe68119bb5))
+
 ## [0.13.1](https://github.com/IA-Generative/mille-feuille/compare/v0.13.0...v0.13.1) (2026-10-10)
 
 

@@ -1,6 +1,6 @@
 [project]
 name = "mille-feuille-worker-agent-execution"
-version = "0.13.1"
+version = "0.14.0"
 description = "Worker Celery : exécution de l'agent d'instruction de dossier"
 requires-python = ">=3.12"
 dependencies = [

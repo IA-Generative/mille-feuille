@@ -1,6 +1,6 @@
 [project]
 name = "mille-feuille-worker-document-render"
-version = "0.13.1"
+version = "0.14.0"
 description = "Worker Celery : remplissage de modèles ODT et conversion PDF avec LibreOffice"
 requires-python = ">=3.12"
 dependencies = [
