@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.13.0-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.12.4...v0.13.0-rc) (2026-10-10)
+
+
+### Features
+
+* **dossier:** détail paginé des classifications et entités, répartition par fichier ([855b764](https://github.com/IA-Generative/mille-feuille/commit/855b76430c0b9d69c5f2e8f67a18be590f910a62))
+* **dossier:** vignette de la page dans la liste des résultats ([ef54b99](https://github.com/IA-Generative/mille-feuille/commit/ef54b99cc933405be78346c4822831d7c48c984b))
+* **dossier:** voir la page source depuis le détail des classifications et entités ([85c5ca8](https://github.com/IA-Generative/mille-feuille/commit/85c5ca83613f6e7c04350d17b47f62f9726f8c29))
+
 ## [0.12.4](https://github.com/IA-Generative/mille-feuille/compare/v0.12.3...v0.12.4) (2026-10-10)
 
 
