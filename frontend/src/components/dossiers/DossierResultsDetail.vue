@@ -86,6 +86,7 @@ watch(pageIndex, (index) => loadRows(props.kind, index + 1));
 }
 
 .results-detail__muted {
+  margin: 0;
   color: var(--text-mention-grey);
 }
 
@@ -100,6 +101,7 @@ watch(pageIndex, (index) => loadRows(props.kind, index + 1));
 
 .results-detail__file,
 .results-detail__row {
+  margin: 0;
   padding: 0.6rem 0;
   border-bottom: 1px solid var(--border-default-grey);
 }
@@ -111,6 +113,7 @@ watch(pageIndex, (index) => loadRows(props.kind, index + 1));
 }
 
 .results-detail__file-name {
+  margin: 0;
   overflow-wrap: anywhere;
 }
 
@@ -120,11 +123,13 @@ watch(pageIndex, (index) => loadRows(props.kind, index + 1));
 }
 
 .results-detail__value {
+  margin: 0;
   font-weight: bold;
   overflow-wrap: anywhere;
 }
 
 .results-detail__row-meta {
+  margin: 0;
   display: flex;
   justify-content: space-between;
   gap: 0.75rem;
