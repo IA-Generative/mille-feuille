@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 
-import { type ResultKind, useDossierResults } from "@/composables/useDossierResults";
+import type { ChatWindowSource } from "@/components/ChatWindow.vue";
+import { type ResultKind, type ResultRow, useDossierResults } from "@/composables/useDossierResults";
 
 const props = defineProps<{ dossierId: string; kind: ResultKind }>();
+const emit = defineEmits<{ viewPage: [source: ChatWindowSource] }>();
 
 const { breakdown, rows, total, pageCount, isLoading, error, loadBreakdown, loadRows } = useDossierResults(
   props.dossierId,
@@ -18,8 +20,20 @@ const pages = computed(() =>
   Array.from({ length: pageCount.value }, (_, i) => ({ label: String(i + 1), title: `Page ${i + 1}` })),
 );
 
-function pagesLabel(pageNumbers: number[]): string {
-  return `${pageNumbers.length > 1 ? "pages" : "page"} ${pageNumbers.join(", ")}`;
+function pagesLabel(row: ResultRow): string {
+  const numbers = row.pages.map((p) => p.pageNumber);
+  return `${numbers.length > 1 ? "pages" : "page"} ${numbers.join(", ")}`;
+}
+
+/** Ouvre la page source du résultat (capture, zones encadrées, texte) dans la modale de source du chat. */
+function viewPage(row: ResultRow) {
+  emit("viewPage", {
+    id: row.id,
+    excerpt: isLabel.value ? undefined : row.value,
+    pages: row.pages,
+    dossierDocumentId: row.documentId,
+    boundingBoxes: row.boundingBoxes,
+  });
 }
 
 onMounted(() => {
@@ -62,9 +76,13 @@ watch(pageIndex, (index) => loadRows(props.kind, index + 1));
             <span class="results-detail__value">{{ row.value }}</span>
           </div>
           <div class="fr-text--sm results-detail__muted results-detail__row-meta">
-            <span>{{ row.documentName }} · {{ pagesLabel(row.pageNumbers) }}</span>
+            <span>{{ row.documentName }} · {{ pagesLabel(row) }}</span>
             <span v-if="row.confidence !== undefined">{{ Math.round(row.confidence * 100) }}%</span>
           </div>
+          <button type="button" class="fr-link fr-text--sm results-detail__view" @click="viewPage(row)">
+            <VIcon name="ri-file-text-line" scale="0.8" />
+            Voir la page
+          </button>
         </li>
       </ul>
 
@@ -126,6 +144,17 @@ watch(pageIndex, (index) => loadRows(props.kind, index + 1));
   margin: 0;
   font-weight: bold;
   overflow-wrap: anywhere;
+}
+
+.results-detail__view {
+  margin: 0.35rem 0 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
 }
 
 .results-detail__row-meta {

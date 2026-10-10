@@ -727,16 +727,19 @@ async def list_results(
     )
     rows = []
     for prediction in predictions:
-        first_page = prediction.pages[0]
+        document = prediction.pages[0].document
+        pages = [p for p in prediction.pages if p.document.id == document.id]
+        page_ids = {p.id for p in pages}
         rows.append(
             DossierResultRowOut(
                 id=prediction.id,
                 name=prediction.name,
                 value=prediction.value,
                 confidence=prediction.confidence,
-                document_id=first_page.document.id,
-                document_name=first_page.document.name,
-                page_numbers=[p.page_number for p in prediction.pages if p.document.id == first_page.document.id],
+                document_id=document.id,
+                document_name=document.name,
+                pages=pages,
+                bounding_boxes=[b for b in prediction.bounding_boxes if b.document_page_id in page_ids],
             )
         )
     return Page.of(rows, total=total, page=page, page_size=page_size)

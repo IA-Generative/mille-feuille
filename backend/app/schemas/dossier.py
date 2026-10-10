@@ -108,7 +108,9 @@ class DossierResultRowOut(BaseModel):
     confidence: float | None
     document_id: uuid.UUID
     document_name: str
-    page_numbers: list[int]
+    # Pages du fichier couvertes par la prédiction et zones qui les surlignent : de quoi ouvrir la page source.
+    pages: list[DocumentPageSummaryOut]
+    bounding_boxes: list[BoundingBoxOut]
 
 
 class DossierResultsBreakdownRowOut(BaseModel):
