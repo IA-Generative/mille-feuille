@@ -153,7 +153,13 @@ def run_agent(
     finale (synthèse) produite par le LLM."""
     graph = build_agent_graph()
     initial_state: AgentState = {
-        "messages": [],
+        # Certains serveurs LLM exigent un message user pour injecter les outils.
+        "messages": [
+            {
+                "role": "user",
+                "content": "Exécute la tâche décrite dans tes instructions en utilisant les outils disponibles, puis produis ta réponse finale.",
+            }
+        ],
         "agent_prompt": agent_prompt,
         "model": model,
         "tools": tools,
