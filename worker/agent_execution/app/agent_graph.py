@@ -157,7 +157,10 @@ def run_agent(
         "messages": [
             {
                 "role": "user",
-                "content": "Exécute la tâche décrite dans tes instructions en utilisant les outils disponibles, puis produis ta réponse finale.",
+                "content": (
+                    "Exécute la tâche décrite dans tes instructions en utilisant "
+                    "les outils disponibles, puis produis ta réponse finale."
+                ),
             }
         ],
         "agent_prompt": agent_prompt,
