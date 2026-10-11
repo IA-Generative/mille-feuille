@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/IA-Generative/mille-feuille/compare/v0.17.0...v0.17.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* **agent:** ajoute un message user initial pour éviter l'erreur 400 sur les outils ([81492ec](https://github.com/IA-Generative/mille-feuille/commit/81492ec2d0a9469951d08f02224ccc1d9df541dc))
+
 ## [0.17.0](https://github.com/IA-Generative/mille-feuille/compare/v0.16.0...v0.17.0) (2026-10-11)
 
 
