@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.16.0...v0.17.0-rc) (2026-10-11)
+
+
+### Features
+
+* **dossier:** bandeau et bouton pour relancer l'analyse (échec ou analyse mise à jour) ([898bb8b](https://github.com/IA-Generative/mille-feuille/commit/898bb8b497429515b9b5b2882c722f1ed1ab4c78))
+
 ## [0.16.0](https://github.com/IA-Generative/mille-feuille/compare/v0.15.0...v0.16.0) (2026-10-10)
 
 
