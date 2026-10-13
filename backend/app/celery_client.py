@@ -13,23 +13,31 @@ _redis_settings = RedisSettings()
 celery_client = Celery("mille-feuille-backend", broker=_redis_settings.REDIS_URL, backend=_redis_settings.REDIS_URL)
 
 
+# Files des workers dédiés (voir worker/agent_execution, CELERY_QUEUES) : la classification et l'extraction d'entités
+# ne partagent plus la file agent_execution.
+CLASSIFICATION_QUEUE = "classification"
+ENTITY_EXTRACTION_QUEUE = "entity_extraction"
+
+
 def dispatch_text_extraction(document_id: str) -> str:
     return celery_client.send_task("app.tasks.extract_document_text", args=[document_id]).id
 
 
 def dispatch_classification(dossier_id: str) -> str:
     """Dépose la tâche de classification documentaire sur la file
-    agent_execution. Le worker télécharge les captures de pages depuis S3,
+    classification. Le worker télécharge les captures de pages depuis S3,
     les décrit via un VLM, puis classifie chaque page via un LLM en
     structured output."""
-    return celery_client.send_task("app.tasks.classify_dossier", args=[dossier_id], queue="agent_execution").id
+    return celery_client.send_task("app.tasks.classify_dossier", args=[dossier_id], queue=CLASSIFICATION_QUEUE).id
 
 
 def dispatch_entity_extraction(dossier_id: str) -> str:
-    """Dépose la tâche d'extraction d'entités sur la file agent_execution.
+    """Dépose la tâche d'extraction d'entités sur la file entity_extraction.
     Le worker regroupe les pages par batch et extrait les entités via un
     LLM en structured output."""
-    return celery_client.send_task("app.tasks.extract_dossier_entities", args=[dossier_id], queue="agent_execution").id
+    return celery_client.send_task(
+        "app.tasks.extract_dossier_entities", args=[dossier_id], queue=ENTITY_EXTRACTION_QUEUE
+    ).id
 
 
 def dispatch_agent_execution(dossier_id: str) -> str:

@@ -17,7 +17,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from app.extraction_planner import estimate_tokens
+_CHARS_PER_TOKEN = 4
+
+
+def estimate_tokens(text: str | None) -> int:
+    """Estimation grossière du nombre de jetons d'un texte (un jeton ~ 4 caractères)."""
+    return max(1, (len(text or "") + _CHARS_PER_TOKEN - 1) // _CHARS_PER_TOKEN)
+
 
 # Garde-fous : ajoutés après le prompt versionné, jamais éditables avec lui.
 GUARDRAILS = """

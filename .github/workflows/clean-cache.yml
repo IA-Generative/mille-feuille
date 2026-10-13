@@ -82,6 +82,8 @@ jobs:
           - backend
           - worker-document-process
           - worker-agent-execution
+          - worker-classification
+          - worker-extraction
           - worker-document-render
     with:
       IMAGE: ${{ needs.list-closed-prs.outputs.image-base }}/${{ matrix.service }}:pr-${{ matrix.pr.number }}
@@ -100,6 +102,8 @@ jobs:
           - backend
           - worker-document-process
           - worker-agent-execution
+          - worker-classification
+          - worker-extraction
           - worker-document-render
     with:
       IMAGE: ${{ needs.list-closed-prs.outputs.image-base }}/${{ matrix.service }}
