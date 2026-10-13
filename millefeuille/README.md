@@ -986,6 +986,228 @@ Kubernetes: `>=1.25.0-0`
 | worker_async_api.strategy.rollingUpdate.maxUnavailable | int | `1` | The maximum number of pods that can be unavailable during the update process. |
 | worker_async_api.strategy.type | string | `"RollingUpdate"` | Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`. Only applied when `deploymentType` is "Deployment". |
 
+### WorkerClassification
+
+#### General
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.affinity | object | `{}` | Affinity used for app pod. |
+| worker_classification.args | list | `[]` | Worker_classification container command args. |
+| worker_classification.automountServiceAccountToken | bool | `false` | Mount the ServiceAccount token into the app pods. Defaults to false so a compromised container holds no API credentials; the API server does not need the token unless the app actually talks to the Kubernetes API. Applied at pod level so it holds even when `serviceAccount.name` points at an SA that automounts. |
+| worker_classification.command | list | `[]` | Worker_classification container command. |
+| worker_classification.containerPort | int | `8080` | Worker_classification container port number. Set to `null`/`0` (and disable `service`/probes) for components that don't listen on any port (e.g. a queue consumer). |
+| worker_classification.containerPortName | string | `"http"` | Worker_classification container port name. |
+| worker_classification.deploymentType | string | `"Deployment"` | Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet" (validated at render time - an unknown value fails instead of producing a release with no workload). Use the top-level `jobs` / `cronjobs` maps for one-off or scheduled workloads. Some values only apply to certain kinds: `replicaCount`/`autoscaling` and `strategy` are Deployment-only (`autoscaling` also works on a StatefulSet), `volumeClaims`/`extraVolumeClaims` are StatefulSet-only, and `updateStrategy` covers StatefulSet and DaemonSet. |
+| worker_classification.dnsConfig | object | `{}` | Pod DNS configuration, merged with `dnsPolicy` by the kubelet. |
+| worker_classification.dnsPolicy | string | `""` (`ClusterFirstWithHostNet` when `hostNetwork` is true) | Pod DNS policy. Left empty, it defaults to `ClusterFirstWithHostNet` when `hostNetwork` is true (otherwise a hostNetwork pod silently stops resolving cluster DNS) and to the Kubernetes default `ClusterFirst` when it isn't. |
+| worker_classification.enableServiceLinks | bool | `false` | Inject the legacy `{SVC}_SERVICE_HOST`/`_PORT` environment variables for every Service in the namespace. Defaults to false: the variables are rarely used, leak the namespace's topology into every container, and can collide with the app's own configuration. Set to true only for an app that genuinely reads them. |
+| worker_classification.env | object | `{}` | Map or array of environment variables to inject into the app container (`valueFrom` supported). |
+| worker_classification.envCm | object | `{}` | Map of environment variables to inject into a configmap loaded by the app container (`valueFrom` not supported). |
+| worker_classification.envFrom | list | `[]` | Worker_classification container env variables loaded from configmap or secret reference. List or map (merged with `global.envFrom` above, global entries first); see `global.envFrom` for both forms. |
+| worker_classification.envSecret | object | `{}` | Map of environment variables to inject into a secret loaded by the app container (`valueFrom` not supported). Values placed here are stored in plain text in the values file AND in the Helm release secret, so use it for non-sensitive-but-secret-shaped config only. For real credentials prefer referencing a Secret you manage elsewhere via `envFrom`, or have an operator materialise it (see the `VaultStaticSecret` example under `extraObjects`). |
+| worker_classification.extraContainers | list | `[]` | Extra containers to add to the app pod as sidecars. |
+| worker_classification.extraPorts | list | `[]` | Worker_classification extra container ports. |
+| worker_classification.extraVolumeClaims | list | `[]` | Additional volumeClaims to add, concatenated with `volumeClaims` above at render time. |
+| worker_classification.extraVolumeMounts | list | `[]` | Additional volumeMounts to add, concatenated with `volumeMounts` above at render time. |
+| worker_classification.extraVolumes | list | `[]` | Additional volumes to add, concatenated with `volumes` above at render time (e.g. to mount a cert or config from a values override without repeating the chart's own volumes). |
+| worker_classification.hostAliases | list | `[]` | Host aliases that will be injected at pod-level into /etc/hosts. |
+| worker_classification.hostNetwork | bool | `false` | Share the host network namespace. Container ports then bind directly on the node, so they must not collide with anything else running there. |
+| worker_classification.hostPID | bool | `false` | Share the host PID namespace (lets the container see and signal host processes). |
+| worker_classification.imagePullSecrets | list | `[]` | Image credentials configuration. |
+| worker_classification.initContainers | list | `[]` | Init containers to add to the app pod. |
+| worker_classification.nodeSelector | object | `{}` | Default node selector for app. |
+| worker_classification.podAnnotations | object | `{}` | Annotations for the app deployed pods. |
+| worker_classification.podLabels | object | `{}` | Labels for the app deployed pods. |
+| worker_classification.podSecurityContext | object | `{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard. Rendered via `toYaml`, so any `PodSecurityContext` field is accepted. Adjust the UID/GID to whatever your image actually ships with - `runAsNonRoot` makes the kubelet refuse to start a container that would run as root, which is the intended failure mode rather than something to switch off. Set to `null` to omit the block entirely. |
+| worker_classification.priorityClassName | string | `""` | PriorityClass to schedule the pods with (e.g. `system-node-critical` for a node agent that must not be evicted under pressure). |
+| worker_classification.replicaCount | int | `1` | The number of application controller pods to run. Ignored when `deploymentType` is "DaemonSet" (one pod per node) or when `autoscaling.enabled` is true. |
+| worker_classification.revisionHistoryLimit | int | `10` | Revision history limit for the app. |
+| worker_classification.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000}` | Container-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard: no privilege escalation, no capabilities, immutable root filesystem. Rendered via `toYaml`, so any `SecurityContext` field is accepted. Note `readOnlyRootFilesystem` requires the app to write only to mounted volumes - the default `volumes`/`volumeMounts` below provide an `emptyDir` on /tmp for that reason. Set to `null` to omit the block entirely. |
+| worker_classification.terminationGracePeriodSeconds | int | `null` (Kubernetes default of 30) | Grace period, in seconds, given to the pod to shut down cleanly before it is killed. |
+| worker_classification.tolerations | list | `[]` | Default tolerations for app. |
+| worker_classification.topologySpreadConstraints | list | `[]` | Topology spread constraints used to spread the pods across failure domains. |
+| worker_classification.updateStrategy | object | `{}` | Update strategy applied when `deploymentType` is "StatefulSet" or "DaemonSet" (ignored for a Deployment, which uses `strategy` above). Rendered verbatim via `toYaml`, so it takes the native `StatefulSetUpdateStrategy`/`DaemonSetUpdateStrategy` shape of the selected kind; left empty, Kubernetes applies its own default (`RollingUpdate` for both). |
+| worker_classification.volumeClaims | list | `[]` | List of volumeClaims to add, rendered as the StatefulSet's `volumeClaimTemplates`. Requires `deploymentType: "StatefulSet"` - setting it on a Deployment or DaemonSet fails at render time rather than being silently dropped (use `volumes`/`extraVolumes` there instead). |
+| worker_classification.volumeMounts | list | `[{"mountPath":"/tmp","name":"tmp"}]` | List of mounts to add (normally used with `volumes` or `volumeClaims`). Prefer this for mounts the chart itself always needs; use `extraVolumeMounts` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to the `/tmp` mount backing the hardened `readOnlyRootFilesystem` default (see `volumes` above). |
+| worker_classification.volumes | list | `[{"emptyDir":{},"name":"tmp"}]` | List of volumes to add. Prefer this for volumes the chart itself always needs (e.g. security-hardening `emptyDir`s); use `extraVolumes` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to a `/tmp` `emptyDir`, which is what makes the default `securityContext.readOnlyRootFilesystem: true` usable - drop it only if you also relax that. Helm replaces lists wholesale rather than merging them, so overriding this key means restating the entries you want to keep. |
+
+#### Autoscaling
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.autoscaling.enabled | bool | `false` | Enable Horizontal Pod Autoscaler for the app. |
+| worker_classification.autoscaling.maxReplicas | int | `3` | Maximum number of replicas for the app. |
+| worker_classification.autoscaling.minReplicas | int | `1` | Minimum number of replicas for the app. |
+| worker_classification.autoscaling.targetCPUUtilizationPercentage | int | `80` | Average CPU utilization percentage for the app. |
+| worker_classification.autoscaling.targetMemoryUtilizationPercentage | int | `80` | Average memory utilization percentage for the app. |
+
+#### GrpcRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.grpcRoute.annotations | object | `{}` | Additional GRPCRoute annotations. |
+| worker_classification.grpcRoute.enabled | bool | `false` | Enable a GRPCRoute resource for this service. |
+| worker_classification.grpcRoute.hostnames | list | `[]` | Hostnames for the GRPCRoute to match. |
+| worker_classification.grpcRoute.labels | object | `{}` | Additional GRPCRoute labels. |
+| worker_classification.grpcRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the GRPCRoute to. |
+| worker_classification.grpcRoute.rules | list | `[]` | Routing rules for the GRPCRoute. |
+
+#### HttpRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.httpRoute.annotations | object | `{}` | Additional HTTPRoute annotations. |
+| worker_classification.httpRoute.enabled | bool | `false` | Enable an HTTPRoute resource for this service. |
+| worker_classification.httpRoute.hostnames | list | `[]` | Hostnames for the HTTPRoute to match. |
+| worker_classification.httpRoute.labels | object | `{}` | Additional HTTPRoute labels. |
+| worker_classification.httpRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the HTTPRoute to. |
+| worker_classification.httpRoute.rules | list | `[]` | Routing rules for the HTTPRoute. |
+
+#### Image
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.image.digest | string | `""` | Image digest (`sha256:...`). When set it takes precedence over `tag`, pinning the exact image content so the same release can never resolve to a different build - preferred over a mutable tag for anything you deploy to production. |
+| worker_classification.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the app. |
+| worker_classification.image.registry | string | `"ghcr.io"` | Registry to use for the app. |
+| worker_classification.image.repository | string | `"ia-generative/mille-feuille/worker-classification"` | Repository to use for the app. |
+| worker_classification.image.tag | string | `""` | Tag to use for the app. Overrides the image tag whose default is the chart appVersion. |
+
+#### Ingress
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.ingress.annotations | object | `{}` | Additional ingress annotations. |
+| worker_classification.ingress.className | string | `""` | Defines which ingress controller will implement the resource. |
+| worker_classification.ingress.enabled | bool | `false` | Whether or not ingress should be enabled. |
+| worker_classification.ingress.hosts[0].name | string | `"domain.local"` | Name of the host record. |
+| worker_classification.ingress.hosts[0].paths | list | `[{"backend":{"portNumber":null,"serviceName":""},"path":"/","pathType":"Prefix"}]` | Paths of the host record to manage routing (avoids repeating the same host for multiple paths/backends). |
+| worker_classification.ingress.hosts[0].paths[0].backend.portNumber | string | `nil` | Port used by the backend service linked to the path (leave null to use the app service port). |
+| worker_classification.ingress.hosts[0].paths[0].backend.serviceName | string | `""` | Name of the backend service linked to the path (leave empty to use the app service). |
+| worker_classification.ingress.hosts[0].paths[0].path | string | `"/"` | Path of the host record to manage routing. |
+| worker_classification.ingress.hosts[0].paths[0].pathType | string | `"Prefix"` | Path type of the host record. |
+| worker_classification.ingress.labels | object | `{}` | Additional ingress labels. |
+| worker_classification.ingress.tls | list | `[]` | Enable TLS configuration. |
+
+#### Metrics
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.metrics.enabled | bool | `false` | Deploy metrics service. |
+| worker_classification.metrics.service.annotations | object | `{}` | Metrics service annotations. |
+| worker_classification.metrics.service.labels | object | `{}` | Metrics service labels. |
+| worker_classification.metrics.service.port | int | `9000` | Metrics service port. |
+| worker_classification.metrics.service.portName | string | `"metrics"` | Metrics service port name. |
+| worker_classification.metrics.service.targetPort | int | `9000` | Metrics service target port. |
+| worker_classification.metrics.service.type | string | `"ClusterIP"` | Type of metrics service to create. |
+| worker_classification.metrics.serviceMonitor.annotations | object | `{}` | Prometheus ServiceMonitor annotations. |
+| worker_classification.metrics.serviceMonitor.enabled | bool | `false` | Enable a prometheus ServiceMonitor. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].basicAuth.password | string | `""` | The secret in the service monitor namespace that contains the password for authentication. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].basicAuth.username | string | `""` | The secret in the service monitor namespace that contains the username for authentication. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.key | string | `""` | Secret key to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.name | string | `""` | Secret name to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].honorLabels | bool | `false` | When true, honorLabels preserves the metric’s labels when they collide with the target’s labels. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].interval | string | `"30s"` | Prometheus ServiceMonitor interval. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].metricRelabelings | list | `[]` | Prometheus MetricRelabelConfigs to apply to samples before ingestion. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].path | string | `"/metrics"` | Path used by the Prometheus ServiceMonitor to scrape metrics. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].relabelings | list | `[]` | Prometheus RelabelConfigs to apply to samples before scraping. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].scheme | string | `""` | Prometheus ServiceMonitor scheme. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].scrapeTimeout | string | `"10s"` | Prometheus ServiceMonitor scrapeTimeout. If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].selector | object | `{}` | Prometheus ServiceMonitor selector. |
+| worker_classification.metrics.serviceMonitor.endpoints[0].tlsConfig | object | `{}` | Prometheus ServiceMonitor tlsConfig. |
+| worker_classification.metrics.serviceMonitor.labels | object | `{}` | Prometheus ServiceMonitor labels. |
+
+#### NetworkPolicy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.networkPolicy.annotations | object | `{}` | Annotations to be added to the app NetworkPolicy. |
+| worker_classification.networkPolicy.create | bool | `false` | Create NetworkPolicy object for the app. The policy always selects this component's pods only (via its selector labels), never the whole namespace. |
+| worker_classification.networkPolicy.egress | list | `[]` | Egress rules for the NetworkPolicy object. |
+| worker_classification.networkPolicy.ingress | list | `[]` | Ingress rules for the NetworkPolicy object. |
+| worker_classification.networkPolicy.labels | object | `{}` | Labels to be added to the app NetworkPolicy. |
+| worker_classification.networkPolicy.policyTypes | list | `["Ingress"]` | Policy types used in the NetworkPolicy object. |
+
+#### Pdb
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.pdb.annotations | object | `{}` | Annotations to be added to app pdb. |
+| worker_classification.pdb.enabled | bool | `false` | Deploy a PodDisruptionBudget for the app |
+| worker_classification.pdb.labels | object | `{}` | Labels to be added to app pdb. |
+| worker_classification.pdb.maxUnavailable | string | `""` | Number of pods that are unavailable after eviction as number or percentage (eg.: 50%). Has higher precedence over `worker_classification.pdb.minAvailable`. |
+| worker_classification.pdb.minAvailable | string | `""` | Number of pods that are available after eviction as number or percentage (eg.: 50%). One of `minAvailable` / `maxUnavailable` must be set when `pdb.enabled` is true - a budget of 0 is the same as having no budget at all, so leaving both empty fails at render time. |
+
+#### Probes
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.probes.livenessProbe.failureThreshold | int | `3` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_classification.probes.livenessProbe.httpGet.path | string | `"/"` | Worker_classification container healthcheck endpoint (livenessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_classification.probes.livenessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_classification.probes.livenessProbe.initialDelaySeconds | int | `30` | Number of seconds after the container has started before probe is initiated. |
+| worker_classification.probes.livenessProbe.periodSeconds | int | `30` | How often (in seconds) to perform the probe. |
+| worker_classification.probes.livenessProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_classification.probes.livenessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_classification.probes.readinessProbe.failureThreshold | int | `2` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_classification.probes.readinessProbe.httpGet.path | string | `"/"` | Worker_classification container healthcheck endpoint (readinessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_classification.probes.readinessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_classification.probes.readinessProbe.initialDelaySeconds | int | `10` | Number of seconds after the container has started before probe is initiated. |
+| worker_classification.probes.readinessProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_classification.probes.readinessProbe.successThreshold | int | `2` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_classification.probes.readinessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_classification.probes.startupProbe.failureThreshold | int | `10` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_classification.probes.startupProbe.httpGet.path | string | `"/"` | Worker_classification container healthcheck endpoint (startupProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_classification.probes.startupProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_classification.probes.startupProbe.initialDelaySeconds | int | `0` | Number of seconds after the container has started before probe is initiated. |
+| worker_classification.probes.startupProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_classification.probes.startupProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_classification.probes.startupProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+
+#### Resources
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.resources.limits.cpu | string | `"500m"` | CPU limit for the app. |
+| worker_classification.resources.limits.memory | string | `"2Gi"` | Memory limit for the app. |
+| worker_classification.resources.requests.cpu | string | `"100m"` | CPU request for the app. |
+| worker_classification.resources.requests.memory | string | `"256Mi"` | Memory request for the app. |
+
+#### Service
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.service.enabled | bool | `true` | Whether or not to create a Service for the app. Set to `false` for components that don't accept traffic (e.g. a queue consumer with no `containerPort`). |
+| worker_classification.service.extraPorts | list | `[]` | Extra service ports. |
+| worker_classification.service.nodePort | int | `null` (allocated by Kubernetes) | Port used when type is `NodePort` to expose the service on the given node port. Left empty, Kubernetes allocates one from the configured node-port range, which avoids two releases of this chart colliding on the same hardcoded port. |
+| worker_classification.service.port | int | `80` | Port used by the service. |
+| worker_classification.service.portName | string | `"http"` | Port name used by the service. |
+| worker_classification.service.protocol | string | `"TCP"` | Protocol used by the service. |
+| worker_classification.service.type | string | `"ClusterIP"` | Type of service to create for the app. |
+
+#### ServiceAccount
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.serviceAccount.annotations | object | `{}` | Annotations applied to created service account. |
+| worker_classification.serviceAccount.automountServiceAccountToken | bool | `false` | Should the service account access token be automount in the pod. |
+| worker_classification.serviceAccount.clusterRole.create | bool | `false` | Should the clusterRole be created. |
+| worker_classification.serviceAccount.clusterRole.rules | list | `[]` | ClusterRole rules associated with the service account. |
+| worker_classification.serviceAccount.create | bool | `false` | Create a service account. |
+| worker_classification.serviceAccount.enabled | bool | `false` | Enable the service account. |
+| worker_classification.serviceAccount.name | string | `""` | Service account name. |
+| worker_classification.serviceAccount.role.create | bool | `false` | Should the role be created. |
+| worker_classification.serviceAccount.role.rules | list | `[]` | Role rules associated with the service account. |
+
+#### Strategy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.strategy.rollingUpdate.maxSurge | int | `1` | The maximum number of pods that can be scheduled above the desired number of pods. |
+| worker_classification.strategy.rollingUpdate.maxUnavailable | int | `1` | The maximum number of pods that can be unavailable during the update process. |
+| worker_classification.strategy.type | string | `"RollingUpdate"` | Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`. Only applied when `deploymentType` is "Deployment". |
+
 ### WorkerDocument
 
 #### General
@@ -1207,6 +1429,228 @@ Kubernetes: `>=1.25.0-0`
 | worker_document.strategy.rollingUpdate.maxSurge | int | `1` | The maximum number of pods that can be scheduled above the desired number of pods. |
 | worker_document.strategy.rollingUpdate.maxUnavailable | int | `1` | The maximum number of pods that can be unavailable during the update process. |
 | worker_document.strategy.type | string | `"RollingUpdate"` | Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`. Only applied when `deploymentType` is "Deployment". |
+
+### WorkerExtraction
+
+#### General
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.affinity | object | `{}` | Affinity used for app pod. |
+| worker_extraction.args | list | `[]` | Worker_extraction container command args. |
+| worker_extraction.automountServiceAccountToken | bool | `false` | Mount the ServiceAccount token into the app pods. Defaults to false so a compromised container holds no API credentials; the API server does not need the token unless the app actually talks to the Kubernetes API. Applied at pod level so it holds even when `serviceAccount.name` points at an SA that automounts. |
+| worker_extraction.command | list | `[]` | Worker_extraction container command. |
+| worker_extraction.containerPort | int | `8080` | Worker_extraction container port number. Set to `null`/`0` (and disable `service`/probes) for components that don't listen on any port (e.g. a queue consumer). |
+| worker_extraction.containerPortName | string | `"http"` | Worker_extraction container port name. |
+| worker_extraction.deploymentType | string | `"Deployment"` | Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet" (validated at render time - an unknown value fails instead of producing a release with no workload). Use the top-level `jobs` / `cronjobs` maps for one-off or scheduled workloads. Some values only apply to certain kinds: `replicaCount`/`autoscaling` and `strategy` are Deployment-only (`autoscaling` also works on a StatefulSet), `volumeClaims`/`extraVolumeClaims` are StatefulSet-only, and `updateStrategy` covers StatefulSet and DaemonSet. |
+| worker_extraction.dnsConfig | object | `{}` | Pod DNS configuration, merged with `dnsPolicy` by the kubelet. |
+| worker_extraction.dnsPolicy | string | `""` (`ClusterFirstWithHostNet` when `hostNetwork` is true) | Pod DNS policy. Left empty, it defaults to `ClusterFirstWithHostNet` when `hostNetwork` is true (otherwise a hostNetwork pod silently stops resolving cluster DNS) and to the Kubernetes default `ClusterFirst` when it isn't. |
+| worker_extraction.enableServiceLinks | bool | `false` | Inject the legacy `{SVC}_SERVICE_HOST`/`_PORT` environment variables for every Service in the namespace. Defaults to false: the variables are rarely used, leak the namespace's topology into every container, and can collide with the app's own configuration. Set to true only for an app that genuinely reads them. |
+| worker_extraction.env | object | `{}` | Map or array of environment variables to inject into the app container (`valueFrom` supported). |
+| worker_extraction.envCm | object | `{}` | Map of environment variables to inject into a configmap loaded by the app container (`valueFrom` not supported). |
+| worker_extraction.envFrom | list | `[]` | Worker_extraction container env variables loaded from configmap or secret reference. List or map (merged with `global.envFrom` above, global entries first); see `global.envFrom` for both forms. |
+| worker_extraction.envSecret | object | `{}` | Map of environment variables to inject into a secret loaded by the app container (`valueFrom` not supported). Values placed here are stored in plain text in the values file AND in the Helm release secret, so use it for non-sensitive-but-secret-shaped config only. For real credentials prefer referencing a Secret you manage elsewhere via `envFrom`, or have an operator materialise it (see the `VaultStaticSecret` example under `extraObjects`). |
+| worker_extraction.extraContainers | list | `[]` | Extra containers to add to the app pod as sidecars. |
+| worker_extraction.extraPorts | list | `[]` | Worker_extraction extra container ports. |
+| worker_extraction.extraVolumeClaims | list | `[]` | Additional volumeClaims to add, concatenated with `volumeClaims` above at render time. |
+| worker_extraction.extraVolumeMounts | list | `[]` | Additional volumeMounts to add, concatenated with `volumeMounts` above at render time. |
+| worker_extraction.extraVolumes | list | `[]` | Additional volumes to add, concatenated with `volumes` above at render time (e.g. to mount a cert or config from a values override without repeating the chart's own volumes). |
+| worker_extraction.hostAliases | list | `[]` | Host aliases that will be injected at pod-level into /etc/hosts. |
+| worker_extraction.hostNetwork | bool | `false` | Share the host network namespace. Container ports then bind directly on the node, so they must not collide with anything else running there. |
+| worker_extraction.hostPID | bool | `false` | Share the host PID namespace (lets the container see and signal host processes). |
+| worker_extraction.imagePullSecrets | list | `[]` | Image credentials configuration. |
+| worker_extraction.initContainers | list | `[]` | Init containers to add to the app pod. |
+| worker_extraction.nodeSelector | object | `{}` | Default node selector for app. |
+| worker_extraction.podAnnotations | object | `{}` | Annotations for the app deployed pods. |
+| worker_extraction.podLabels | object | `{}` | Labels for the app deployed pods. |
+| worker_extraction.podSecurityContext | object | `{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard. Rendered via `toYaml`, so any `PodSecurityContext` field is accepted. Adjust the UID/GID to whatever your image actually ships with - `runAsNonRoot` makes the kubelet refuse to start a container that would run as root, which is the intended failure mode rather than something to switch off. Set to `null` to omit the block entirely. |
+| worker_extraction.priorityClassName | string | `""` | PriorityClass to schedule the pods with (e.g. `system-node-critical` for a node agent that must not be evicted under pressure). |
+| worker_extraction.replicaCount | int | `1` | The number of application controller pods to run. Ignored when `deploymentType` is "DaemonSet" (one pod per node) or when `autoscaling.enabled` is true. |
+| worker_extraction.revisionHistoryLimit | int | `10` | Revision history limit for the app. |
+| worker_extraction.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000}` | Container-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard: no privilege escalation, no capabilities, immutable root filesystem. Rendered via `toYaml`, so any `SecurityContext` field is accepted. Note `readOnlyRootFilesystem` requires the app to write only to mounted volumes - the default `volumes`/`volumeMounts` below provide an `emptyDir` on /tmp for that reason. Set to `null` to omit the block entirely. |
+| worker_extraction.terminationGracePeriodSeconds | int | `null` (Kubernetes default of 30) | Grace period, in seconds, given to the pod to shut down cleanly before it is killed. |
+| worker_extraction.tolerations | list | `[]` | Default tolerations for app. |
+| worker_extraction.topologySpreadConstraints | list | `[]` | Topology spread constraints used to spread the pods across failure domains. |
+| worker_extraction.updateStrategy | object | `{}` | Update strategy applied when `deploymentType` is "StatefulSet" or "DaemonSet" (ignored for a Deployment, which uses `strategy` above). Rendered verbatim via `toYaml`, so it takes the native `StatefulSetUpdateStrategy`/`DaemonSetUpdateStrategy` shape of the selected kind; left empty, Kubernetes applies its own default (`RollingUpdate` for both). |
+| worker_extraction.volumeClaims | list | `[]` | List of volumeClaims to add, rendered as the StatefulSet's `volumeClaimTemplates`. Requires `deploymentType: "StatefulSet"` - setting it on a Deployment or DaemonSet fails at render time rather than being silently dropped (use `volumes`/`extraVolumes` there instead). |
+| worker_extraction.volumeMounts | list | `[{"mountPath":"/tmp","name":"tmp"}]` | List of mounts to add (normally used with `volumes` or `volumeClaims`). Prefer this for mounts the chart itself always needs; use `extraVolumeMounts` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to the `/tmp` mount backing the hardened `readOnlyRootFilesystem` default (see `volumes` above). |
+| worker_extraction.volumes | list | `[{"emptyDir":{},"name":"tmp"}]` | List of volumes to add. Prefer this for volumes the chart itself always needs (e.g. security-hardening `emptyDir`s); use `extraVolumes` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to a `/tmp` `emptyDir`, which is what makes the default `securityContext.readOnlyRootFilesystem: true` usable - drop it only if you also relax that. Helm replaces lists wholesale rather than merging them, so overriding this key means restating the entries you want to keep. |
+
+#### Autoscaling
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.autoscaling.enabled | bool | `false` | Enable Horizontal Pod Autoscaler for the app. |
+| worker_extraction.autoscaling.maxReplicas | int | `3` | Maximum number of replicas for the app. |
+| worker_extraction.autoscaling.minReplicas | int | `1` | Minimum number of replicas for the app. |
+| worker_extraction.autoscaling.targetCPUUtilizationPercentage | int | `80` | Average CPU utilization percentage for the app. |
+| worker_extraction.autoscaling.targetMemoryUtilizationPercentage | int | `80` | Average memory utilization percentage for the app. |
+
+#### GrpcRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.grpcRoute.annotations | object | `{}` | Additional GRPCRoute annotations. |
+| worker_extraction.grpcRoute.enabled | bool | `false` | Enable a GRPCRoute resource for this service. |
+| worker_extraction.grpcRoute.hostnames | list | `[]` | Hostnames for the GRPCRoute to match. |
+| worker_extraction.grpcRoute.labels | object | `{}` | Additional GRPCRoute labels. |
+| worker_extraction.grpcRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the GRPCRoute to. |
+| worker_extraction.grpcRoute.rules | list | `[]` | Routing rules for the GRPCRoute. |
+
+#### HttpRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.httpRoute.annotations | object | `{}` | Additional HTTPRoute annotations. |
+| worker_extraction.httpRoute.enabled | bool | `false` | Enable an HTTPRoute resource for this service. |
+| worker_extraction.httpRoute.hostnames | list | `[]` | Hostnames for the HTTPRoute to match. |
+| worker_extraction.httpRoute.labels | object | `{}` | Additional HTTPRoute labels. |
+| worker_extraction.httpRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the HTTPRoute to. |
+| worker_extraction.httpRoute.rules | list | `[]` | Routing rules for the HTTPRoute. |
+
+#### Image
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.image.digest | string | `""` | Image digest (`sha256:...`). When set it takes precedence over `tag`, pinning the exact image content so the same release can never resolve to a different build - preferred over a mutable tag for anything you deploy to production. |
+| worker_extraction.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the app. |
+| worker_extraction.image.registry | string | `"ghcr.io"` | Registry to use for the app. |
+| worker_extraction.image.repository | string | `"ia-generative/mille-feuille/worker-extraction"` | Repository to use for the app. |
+| worker_extraction.image.tag | string | `""` | Tag to use for the app. Overrides the image tag whose default is the chart appVersion. |
+
+#### Ingress
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.ingress.annotations | object | `{}` | Additional ingress annotations. |
+| worker_extraction.ingress.className | string | `""` | Defines which ingress controller will implement the resource. |
+| worker_extraction.ingress.enabled | bool | `false` | Whether or not ingress should be enabled. |
+| worker_extraction.ingress.hosts[0].name | string | `"domain.local"` | Name of the host record. |
+| worker_extraction.ingress.hosts[0].paths | list | `[{"backend":{"portNumber":null,"serviceName":""},"path":"/","pathType":"Prefix"}]` | Paths of the host record to manage routing (avoids repeating the same host for multiple paths/backends). |
+| worker_extraction.ingress.hosts[0].paths[0].backend.portNumber | string | `nil` | Port used by the backend service linked to the path (leave null to use the app service port). |
+| worker_extraction.ingress.hosts[0].paths[0].backend.serviceName | string | `""` | Name of the backend service linked to the path (leave empty to use the app service). |
+| worker_extraction.ingress.hosts[0].paths[0].path | string | `"/"` | Path of the host record to manage routing. |
+| worker_extraction.ingress.hosts[0].paths[0].pathType | string | `"Prefix"` | Path type of the host record. |
+| worker_extraction.ingress.labels | object | `{}` | Additional ingress labels. |
+| worker_extraction.ingress.tls | list | `[]` | Enable TLS configuration. |
+
+#### Metrics
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.metrics.enabled | bool | `false` | Deploy metrics service. |
+| worker_extraction.metrics.service.annotations | object | `{}` | Metrics service annotations. |
+| worker_extraction.metrics.service.labels | object | `{}` | Metrics service labels. |
+| worker_extraction.metrics.service.port | int | `9000` | Metrics service port. |
+| worker_extraction.metrics.service.portName | string | `"metrics"` | Metrics service port name. |
+| worker_extraction.metrics.service.targetPort | int | `9000` | Metrics service target port. |
+| worker_extraction.metrics.service.type | string | `"ClusterIP"` | Type of metrics service to create. |
+| worker_extraction.metrics.serviceMonitor.annotations | object | `{}` | Prometheus ServiceMonitor annotations. |
+| worker_extraction.metrics.serviceMonitor.enabled | bool | `false` | Enable a prometheus ServiceMonitor. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].basicAuth.password | string | `""` | The secret in the service monitor namespace that contains the password for authentication. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].basicAuth.username | string | `""` | The secret in the service monitor namespace that contains the username for authentication. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.key | string | `""` | Secret key to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.name | string | `""` | Secret name to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].honorLabels | bool | `false` | When true, honorLabels preserves the metric’s labels when they collide with the target’s labels. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].interval | string | `"30s"` | Prometheus ServiceMonitor interval. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].metricRelabelings | list | `[]` | Prometheus MetricRelabelConfigs to apply to samples before ingestion. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].path | string | `"/metrics"` | Path used by the Prometheus ServiceMonitor to scrape metrics. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].relabelings | list | `[]` | Prometheus RelabelConfigs to apply to samples before scraping. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].scheme | string | `""` | Prometheus ServiceMonitor scheme. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].scrapeTimeout | string | `"10s"` | Prometheus ServiceMonitor scrapeTimeout. If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].selector | object | `{}` | Prometheus ServiceMonitor selector. |
+| worker_extraction.metrics.serviceMonitor.endpoints[0].tlsConfig | object | `{}` | Prometheus ServiceMonitor tlsConfig. |
+| worker_extraction.metrics.serviceMonitor.labels | object | `{}` | Prometheus ServiceMonitor labels. |
+
+#### NetworkPolicy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.networkPolicy.annotations | object | `{}` | Annotations to be added to the app NetworkPolicy. |
+| worker_extraction.networkPolicy.create | bool | `false` | Create NetworkPolicy object for the app. The policy always selects this component's pods only (via its selector labels), never the whole namespace. |
+| worker_extraction.networkPolicy.egress | list | `[]` | Egress rules for the NetworkPolicy object. |
+| worker_extraction.networkPolicy.ingress | list | `[]` | Ingress rules for the NetworkPolicy object. |
+| worker_extraction.networkPolicy.labels | object | `{}` | Labels to be added to the app NetworkPolicy. |
+| worker_extraction.networkPolicy.policyTypes | list | `["Ingress"]` | Policy types used in the NetworkPolicy object. |
+
+#### Pdb
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.pdb.annotations | object | `{}` | Annotations to be added to app pdb. |
+| worker_extraction.pdb.enabled | bool | `false` | Deploy a PodDisruptionBudget for the app |
+| worker_extraction.pdb.labels | object | `{}` | Labels to be added to app pdb. |
+| worker_extraction.pdb.maxUnavailable | string | `""` | Number of pods that are unavailable after eviction as number or percentage (eg.: 50%). Has higher precedence over `worker_extraction.pdb.minAvailable`. |
+| worker_extraction.pdb.minAvailable | string | `""` | Number of pods that are available after eviction as number or percentage (eg.: 50%). One of `minAvailable` / `maxUnavailable` must be set when `pdb.enabled` is true - a budget of 0 is the same as having no budget at all, so leaving both empty fails at render time. |
+
+#### Probes
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.probes.livenessProbe.failureThreshold | int | `3` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_extraction.probes.livenessProbe.httpGet.path | string | `"/"` | Worker_extraction container healthcheck endpoint (livenessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_extraction.probes.livenessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_extraction.probes.livenessProbe.initialDelaySeconds | int | `30` | Number of seconds after the container has started before probe is initiated. |
+| worker_extraction.probes.livenessProbe.periodSeconds | int | `30` | How often (in seconds) to perform the probe. |
+| worker_extraction.probes.livenessProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_extraction.probes.livenessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_extraction.probes.readinessProbe.failureThreshold | int | `2` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_extraction.probes.readinessProbe.httpGet.path | string | `"/"` | Worker_extraction container healthcheck endpoint (readinessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_extraction.probes.readinessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_extraction.probes.readinessProbe.initialDelaySeconds | int | `10` | Number of seconds after the container has started before probe is initiated. |
+| worker_extraction.probes.readinessProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_extraction.probes.readinessProbe.successThreshold | int | `2` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_extraction.probes.readinessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_extraction.probes.startupProbe.failureThreshold | int | `10` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_extraction.probes.startupProbe.httpGet.path | string | `"/"` | Worker_extraction container healthcheck endpoint (startupProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_extraction.probes.startupProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_extraction.probes.startupProbe.initialDelaySeconds | int | `0` | Number of seconds after the container has started before probe is initiated. |
+| worker_extraction.probes.startupProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_extraction.probes.startupProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_extraction.probes.startupProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+
+#### Resources
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.resources.limits.cpu | string | `"500m"` | CPU limit for the app. |
+| worker_extraction.resources.limits.memory | string | `"2Gi"` | Memory limit for the app. |
+| worker_extraction.resources.requests.cpu | string | `"100m"` | CPU request for the app. |
+| worker_extraction.resources.requests.memory | string | `"256Mi"` | Memory request for the app. |
+
+#### Service
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.service.enabled | bool | `true` | Whether or not to create a Service for the app. Set to `false` for components that don't accept traffic (e.g. a queue consumer with no `containerPort`). |
+| worker_extraction.service.extraPorts | list | `[]` | Extra service ports. |
+| worker_extraction.service.nodePort | int | `null` (allocated by Kubernetes) | Port used when type is `NodePort` to expose the service on the given node port. Left empty, Kubernetes allocates one from the configured node-port range, which avoids two releases of this chart colliding on the same hardcoded port. |
+| worker_extraction.service.port | int | `80` | Port used by the service. |
+| worker_extraction.service.portName | string | `"http"` | Port name used by the service. |
+| worker_extraction.service.protocol | string | `"TCP"` | Protocol used by the service. |
+| worker_extraction.service.type | string | `"ClusterIP"` | Type of service to create for the app. |
+
+#### ServiceAccount
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.serviceAccount.annotations | object | `{}` | Annotations applied to created service account. |
+| worker_extraction.serviceAccount.automountServiceAccountToken | bool | `false` | Should the service account access token be automount in the pod. |
+| worker_extraction.serviceAccount.clusterRole.create | bool | `false` | Should the clusterRole be created. |
+| worker_extraction.serviceAccount.clusterRole.rules | list | `[]` | ClusterRole rules associated with the service account. |
+| worker_extraction.serviceAccount.create | bool | `false` | Create a service account. |
+| worker_extraction.serviceAccount.enabled | bool | `false` | Enable the service account. |
+| worker_extraction.serviceAccount.name | string | `""` | Service account name. |
+| worker_extraction.serviceAccount.role.create | bool | `false` | Should the role be created. |
+| worker_extraction.serviceAccount.role.rules | list | `[]` | Role rules associated with the service account. |
+
+#### Strategy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.strategy.rollingUpdate.maxSurge | int | `1` | The maximum number of pods that can be scheduled above the desired number of pods. |
+| worker_extraction.strategy.rollingUpdate.maxUnavailable | int | `1` | The maximum number of pods that can be unavailable during the update process. |
+| worker_extraction.strategy.type | string | `"RollingUpdate"` | Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`. Only applied when `deploymentType` is "Deployment". |
 
 ### WorkerRender
 

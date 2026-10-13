@@ -1,0 +1,25 @@
+{{- if .Values.enabled }}
+{{- if eq .Values.worker_classification.deploymentType "StatefulSet" }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_classification") }}
+  labels: {{- include "helper.labels" (dict "root" . "componentName" "worker_classification") | nindent 4 }}
+spec:
+  {{- if not .Values.worker_classification.autoscaling.enabled }}
+  replicas: {{ .Values.worker_classification.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.worker_classification.revisionHistoryLimit | default 10 }}
+  selector:
+    matchLabels: {{- include "helper.selectorLabels" (dict "root" . "componentName" "worker_classification") | nindent 6 }}
+  serviceName: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_classification") }}
+  {{- with .Values.worker_classification.updateStrategy }}
+  updateStrategy: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    {{- include "helper.component.podTemplate" (dict "root" . "name" "worker_classification" "component" .Values.worker_classification) | nindent 4 }}
+  {{- if or .Values.worker_classification.volumeClaims .Values.worker_classification.extraVolumeClaims }}
+  volumeClaimTemplates: {{- toYaml (concat (default (list) .Values.worker_classification.volumeClaims) (default (list) .Values.worker_classification.extraVolumeClaims)) | nindent 2 }}
+  {{- end }}
+{{- end }}
+{{- end }}
