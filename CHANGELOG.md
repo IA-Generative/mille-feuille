@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.0-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.18.0...v0.19.0-rc) (2026-10-13)
+
+
+### Features
+
+* **ephemeral:** clé d'API d'environnement (EPHEMERAL_API_KEY), toujours non persistante ([043ece7](https://github.com/IA-Generative/mille-feuille/commit/043ece73672fa22e782767016cb77116b0851353))
+
 ## [0.18.0](https://github.com/IA-Generative/mille-feuille/compare/v0.17.1...v0.18.0) (2026-10-13)
 
 
