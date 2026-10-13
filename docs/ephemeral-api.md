@@ -105,6 +105,17 @@ Une `Dossier` **sans** ligne dans `dossier_ephemere` = dossier classique, compor
   Body : `analyse_id` + fichiers + `persist`.
   Équivalent à l'étape 2 du flux A sans repasser par l'étape 1. `analyse_id` peut être **soit** une analyse créée via `/api/ephemeral/analyses` (éphémère ou non), **soit** l'id d'une `Analyse` classique déjà existante sur la plateforme (jamais passée par ce flux) — cas d'usage confirmé : relancer une analyse déjà configurée sur des documents jetables, sans créer/modifier l'analyse elle-même. Dans ce second cas, `dossier_ephemere.analyse_ephemere_id` reste `NULL`.
 
+### Flux C — classification ou extraction d'un document en un seul appel
+
+Pour n'obtenir que les labels ou les entités d'**un** document, sans définir d'analyse : l'analyse éphémère (une seule étape, sans agent) et le run sont créés ensemble, même cycle de vie et même TTL que le flux B.
+
+- `POST /api/ephemeral/classifications?ttl_hours=48` — multipart : `file`, `labels` (JSON `[{"name", "definition"}]`, au moins un), `multi_label` (défaut `false` : un seul label par page ; `true` : un ou plusieurs), `classification_prompt` (optionnel), `persist`. Renvoie `{ "run_id": ... }`.
+- `GET /api/ephemeral/classifications/{run_id}` — `status`, `error` et, par document puis par page, les `labels` (`name`, `confidence`, triés par confiance décroissante).
+- `POST /api/ephemeral/extractions?ttl_hours=48` — multipart : `file`, `entities` (JSON `[{"name", "definition", "type"}]`, au moins une), `extraction_prompt` (optionnel), `persist`. Renvoie `{ "run_id": ... }`.
+- `GET /api/ephemeral/extractions/{run_id}` — `status`, `error` et, par document puis par page, les `entities` (`name`, `value`, `confidence`, `pages` = toutes les pages de l'entité).
+
+Les deux `GET` sont des vues de `GET /api/ephemeral/runs/{id}` (même scope strict, même conservation du résultat) ; `stop` et `DELETE` passent par `/api/ephemeral/runs/{run_id}`. `multi_label` est une colonne de `analyses`, posée à la création : elle n'est pas encore modifiable via l'API standard des analyses (donc sans historique de versions).
+
 ### Lecture / arrêt / suppression
 
 - `GET /api/ephemeral/analyses/{id}` — définition complète (agents/classification/entités)

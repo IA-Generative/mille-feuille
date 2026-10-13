@@ -3,6 +3,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
+from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,13 +23,17 @@ from app.models.dossier_ephemere import DossierEphemere
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.dossier_repository import DossierRepository
 from app.repositories.ephemeral_repository import EphemeralRepository
+from app.schemas.analyse import EntityDefinitionIn, LabelDefinitionIn
 from app.schemas.ephemeral import (
     EphemeralAnalyseCreate,
     EphemeralAnalyseCreated,
     EphemeralAnalyseOut,
+    EphemeralClassificationOut,
+    EphemeralExtractionOut,
     EphemeralRunCreated,
     EphemeralRunOut,
 )
+from app.services.ephemeral_results import to_classification_out, to_extraction_out
 from app.services.ephemeral_run_service import finalize_run, to_run_schema
 
 router = APIRouter(prefix="/ephemeral", tags=["Ephemeral"], dependencies=[Depends(get_ephemeral_identity)])
@@ -69,7 +74,9 @@ async def create_ephemeral_analyse(
     identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
 ) -> EphemeralAnalyseCreated:
     analyse_repository = AnalyseRepository(db)
-    analyse = await analyse_repository.create(name=body.name, description=body.description)
+    analyse = await analyse_repository.create(
+        name=body.name, description=body.description, multi_label=body.multi_label
+    )
     # create() ne recharge pas les relations (labels/entities/agents) après
     # commit : sans ce re-fetch (via _base_query, eager load), les accéder
     # dans les update_* ci-dessous ferait un lazy-load hors contexte async.
@@ -420,3 +427,172 @@ async def delete_ephemeral_run(
     # toujours lancé immédiatement à la création (_create_run), en_attente
     # ne devrait jamais se produire en pratique - pas de branche dédiée.
     await dossier_repository.delete_dossier(dossier)
+
+
+def _parse_definitions[T](adapter: TypeAdapter[list[T]], raw: str, field: str) -> list[T]:
+    """Les définitions arrivent en JSON dans un champ de formulaire multipart (un fichier et une liste d'objets
+    ne tiennent pas dans un même corps JSON) : 422 si le JSON est invalide ou la liste vide."""
+    try:
+        definitions = adapter.validate_json(raw)
+    except ValidationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"`{field}` : JSON invalide ({error.errors()[0]['msg']})",
+        ) from error
+    if not definitions:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"`{field}` ne peut pas être vide"
+        )
+    return definitions
+
+
+async def _create_single_file_run(
+    *,
+    db: AsyncSession,
+    identity: EphemeralIdentity,
+    file: UploadFile,
+    name: str,
+    persist: bool,
+    ttl_hours: int | None,
+    multi_label: bool = False,
+    classification_prompt: str = "",
+    labels: list[LabelDefinitionIn] | None = None,
+    extraction_prompt: str = "",
+    entities: list[EntityDefinitionIn] | None = None,
+) -> EphemeralRunCreated:
+    """Analyse éphémère à une seule étape (classification OU extraction) + run sur un fichier, en un appel.
+    Même cycle de vie que le flux B : `persist=false` purge dossier, fichier et analyse à la fin du run."""
+    ttl = _validate_ttl_hours(ttl_hours)
+    analyse_repository = AnalyseRepository(db)
+    analyse = await analyse_repository.create(name=name, description="", multi_label=multi_label)
+    analyse = await analyse_repository.get(analyse.id)
+    if labels:
+        if classification_prompt:
+            await analyse_repository.update_classification_prompt(analyse, classification_prompt)
+        await analyse_repository.update_classification_labels(
+            analyse, [LabelDefinition(name=lbl.name, definition=lbl.definition) for lbl in labels]
+        )
+    if entities:
+        if extraction_prompt:
+            await analyse_repository.update_extraction_prompt(analyse, extraction_prompt)
+        await analyse_repository.update_extraction_entities(
+            analyse,
+            [EntityDefinition(name=ent.name, definition=ent.definition, type=ent.type) for ent in entities],
+        )
+    await EphemeralRepository(db).create_analyse_ephemere(
+        analyse_id=analyse.id, persist=persist, created_by=identity.id
+    )
+    dossier = await _create_run(
+        db=db,
+        identity=identity,
+        analyse=analyse,
+        files=await _read_upload_files([file]),
+        persist=persist,
+        ttl_hours=ttl,
+    )
+    return EphemeralRunCreated(run_id=dossier.id)
+
+
+@router.post(
+    "/classifications",
+    response_model=EphemeralRunCreated,
+    status_code=status.HTTP_201_CREATED,
+    summary="Classe les pages d'un document en un seul appel",
+    description='Multipart : `file` (un document), `labels` (JSON : `[{"name": "CNI", "definition": "..."}]`, '
+    "au moins un), `multi_label` (défaut false : un seul label par page ; true : un ou plusieurs), "
+    "`classification_prompt` (optionnel), `persist` (défaut false). Crée l'analyse et lance le run "
+    "immédiatement (seule la classification est exécutée) ; lisez le résultat avec "
+    "GET /api/ephemeral/classifications/{run_id}. TTL et purge : voir docs/ephemeral-api.md.",
+    responses={
+        400: {"description": "ttl_hours hors bornes (doit être entre 1 et 17520)."},
+        422: {"description": "`labels` n'est pas un JSON valide ou est vide."},
+    },
+)
+async def create_ephemeral_classification(
+    file: UploadFile,
+    labels: Annotated[str, Form(description='JSON : [{"name": "...", "definition": "..."}]')],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+    multi_label: Annotated[bool, Form()] = False,
+    classification_prompt: Annotated[str, Form()] = "",
+    persist: Annotated[bool, Form()] = False,
+    ttl_hours: Annotated[int | None, Query()] = None,
+) -> EphemeralRunCreated:
+    return await _create_single_file_run(
+        db=db,
+        identity=identity,
+        file=file,
+        name=f"Classification éphémère {uuid.uuid4()}",
+        persist=persist,
+        ttl_hours=ttl_hours,
+        multi_label=multi_label,
+        classification_prompt=classification_prompt,
+        labels=_parse_definitions(TypeAdapter(list[LabelDefinitionIn]), labels, "labels"),
+    )
+
+
+@router.get(
+    "/classifications/{run_id}",
+    response_model=EphemeralClassificationOut,
+    summary="Résultat d'une classification : le ou les labels de chaque page",
+    description="`status` indique l'avancement (en_attente/en_cours/terminé/échec) ; les `labels` des pages "
+    "se remplissent au fil du run. Même scope strict que GET /api/ephemeral/runs/{id}.",
+    responses={404: {"description": "Run introuvable, pas éphémère, ou appartenant à un autre créateur."}},
+)
+async def get_ephemeral_classification(
+    run_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+) -> EphemeralClassificationOut:
+    return to_classification_out(await _get_run_out_or_404(db, run_id, identity))
+
+
+@router.post(
+    "/extractions",
+    response_model=EphemeralRunCreated,
+    status_code=status.HTTP_201_CREATED,
+    summary="Extrait les entités d'un document en un seul appel",
+    description='Multipart : `file` (un document), `entities` (JSON : `[{"name": "nom", "definition": '
+    '"...", "type": "texte"}]`, au moins une), `extraction_prompt` (optionnel), `persist` (défaut false). '
+    "Même fonctionnement que POST /api/ephemeral/classifications ; résultat via "
+    "GET /api/ephemeral/extractions/{run_id}.",
+    responses={
+        400: {"description": "ttl_hours hors bornes (doit être entre 1 et 17520)."},
+        422: {"description": "`entities` n'est pas un JSON valide ou est vide."},
+    },
+)
+async def create_ephemeral_extraction(
+    file: UploadFile,
+    entities: Annotated[str, Form(description='JSON : [{"name": "...", "definition": "...", "type": "texte"}]')],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+    extraction_prompt: Annotated[str, Form()] = "",
+    persist: Annotated[bool, Form()] = False,
+    ttl_hours: Annotated[int | None, Query()] = None,
+) -> EphemeralRunCreated:
+    return await _create_single_file_run(
+        db=db,
+        identity=identity,
+        file=file,
+        name=f"Extraction éphémère {uuid.uuid4()}",
+        persist=persist,
+        ttl_hours=ttl_hours,
+        extraction_prompt=extraction_prompt,
+        entities=_parse_definitions(TypeAdapter(list[EntityDefinitionIn]), entities, "entities"),
+    )
+
+
+@router.get(
+    "/extractions/{run_id}",
+    response_model=EphemeralExtractionOut,
+    summary="Résultat d'une extraction : les entités de chaque page",
+    description="Chaque page liste les entités qui la couvrent (une entité sur plusieurs pages apparaît sur "
+    "chacune, avec `pages` = toutes ses pages). Même scope strict que GET /api/ephemeral/runs/{id}.",
+    responses={404: {"description": "Run introuvable, pas éphémère, ou appartenant à un autre créateur."}},
+)
+async def get_ephemeral_extraction(
+    run_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+) -> EphemeralExtractionOut:
+    return to_extraction_out(await _get_run_out_or_404(db, run_id, identity))

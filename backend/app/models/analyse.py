@@ -72,6 +72,9 @@ class Analyse(UUIDMixin, TimestampMixin, Base):
     custom_fields: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
 
     classification_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # Classification multi-label : plusieurs labels possibles par page (sinon un seul). Fixé à la création
+    # (API éphémère) ; pas encore éditable via l'API standard, donc pas d'historique de versions.
+    multi_label: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     extraction_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
     labels: Mapped[list["LabelDefinition"]] = relationship(

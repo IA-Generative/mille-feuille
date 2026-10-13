@@ -8,8 +8,9 @@ Pour chaque page de chaque document du dossier :
    labels définis dans l'analyse.
 5. Déposer la prédiction (kind=LABEL) via l'API interne.
 
-La classification est mono-label par page : une seule prédiction LABEL par
-page, pointant vers le label_definition_id correspondant.
+Par défaut la classification est mono-label : une seule prédiction LABEL par
+page. Si l'analyse est multi-label, une prédiction LABEL par label retenu.
+Chacune pointe vers le label_definition_id correspondant.
 """
 
 import logging
@@ -58,6 +59,7 @@ def _classify_page(
     label_by_name: dict,
     classification_prompt: str,
     unit_id: str | None = None,
+    multi_label: bool = False,
 ) -> bool:
     """Classifie une page et dépose la prédiction. Renvoie True si la
     classification a réussi."""
@@ -69,28 +71,34 @@ def _classify_page(
         image_description=image_description,
         label_definitions=label_defs,
         classification_prompt=classification_prompt,
+        multi_label=multi_label,
     )
 
-    prediction = result.prediction
-    label_def = label_by_name.get(prediction.label_name)
-    label_definition_id = label_def["id"] if label_def else None
+    predictions = result.predictions if multi_label else [result.prediction]
+    seen: set[str] = set()
+    for prediction in predictions:
+        if prediction.label_name in seen:
+            continue
+        seen.add(prediction.label_name)
+        label_def = label_by_name.get(prediction.label_name)
+        label_definition_id = label_def["id"] if label_def else None
 
-    api_client.add_prediction(
-        client,
-        page["id"],
-        kind="label",
-        name=prediction.label_name,
-        value=prediction.label_name,
-        confidence=prediction.confidence,
-        label_definition_id=label_definition_id,
-        unit_id=unit_id,
-    )
-    logger.info(
-        "Page %s classified as '%s' (confidence=%.2f)",
-        page["id"],
-        prediction.label_name,
-        prediction.confidence,
-    )
+        api_client.add_prediction(
+            client,
+            page["id"],
+            kind="label",
+            name=prediction.label_name,
+            value=prediction.label_name,
+            confidence=prediction.confidence,
+            label_definition_id=label_definition_id,
+            unit_id=unit_id,
+        )
+        logger.info(
+            "Page %s classified as '%s' (confidence=%.2f)",
+            page["id"],
+            prediction.label_name,
+            prediction.confidence,
+        )
     return True
 
 
@@ -108,6 +116,7 @@ def classify_dossier(self, dossier_id: str) -> None:
             definitions = api_client.get_analyse_definitions(client, analyse_id)
             label_defs = definitions["classification"]["labels"]
             classification_prompt = definitions["classification"]["prompt"]
+            multi_label = definitions["classification"].get("multi_label", False)
 
             if not label_defs:
                 logger.warning(
@@ -137,7 +146,7 @@ def classify_dossier(self, dossier_id: str) -> None:
                         dossier_id,
                         "classification",
                         {"document_id": document["id"], "page_id": page["id"], "page_number": page["page_number"]},
-                        fingerprint=classification_fingerprint(page, label_defs, classification_prompt),
+                        fingerprint=classification_fingerprint(page, label_defs, classification_prompt, multi_label),
                     )
                     if unit is not None and unit.reused:
                         # Relance incrémentale (#119) : entrées inchangées, résultat
@@ -147,7 +156,9 @@ def classify_dossier(self, dossier_id: str) -> None:
                         continue
                     unit_id = unit.id if unit else None
                     try:
-                        if _classify_page(client, page, label_defs, label_by_name, classification_prompt, unit_id):
+                        if _classify_page(
+                            client, page, label_defs, label_by_name, classification_prompt, unit_id, multi_label
+                        ):
                             classified_pages += 1
                     except Exception:
                         api_client.complete_unit(client, unit_id, _STATUS_ECHEC)

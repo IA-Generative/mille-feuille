@@ -598,6 +598,7 @@ async def get_internal_analyse(analyse_id: uuid.UUID, db: Annotated[AsyncSession
         id=analyse.id,
         classification=InternalClassificationOut(
             prompt=analyse.classification_prompt,
+            multi_label=analyse.multi_label,
             labels=[InternalLabelDefinitionOut.model_validate(label) for label in analyse.labels],
         ),
         extraction=InternalExtractionOut(
