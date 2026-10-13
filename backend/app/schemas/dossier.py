@@ -81,7 +81,7 @@ class DocumentPredictionSummaryOut(BaseModel):
     name: str
     value: str
     confidence: float | None
-    # Textuelle (texte de la page) ou visuelle (CLIP) ; toujours textuelle pour une entité.
+    # Méthode : textuelle (LLM) ou visuelle (CLIP) pour une classification ; textuelle (LLM) ou gliner pour une entité.
     source: PredictionSource
     # Présent seulement si la définition existe encore (voir le commentaire
     # sur DocumentPrediction.label_definition_id/entity_definition_id).
