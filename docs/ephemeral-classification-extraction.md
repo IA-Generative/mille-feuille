@@ -126,15 +126,15 @@ attend la fin est donné en fin de document.
         {
           "page_number": 1,
           "labels": [
-            { "name": "CNI", "confidence": 0.96, "source": "textual" },
-            { "name": "CNI", "confidence": 0.99, "source": "visual" }
+            { "prediction_id": "7c1e…", "name": "CNI", "confidence": 0.96, "source": "textual" },
+            { "prediction_id": "a94b…", "name": "CNI", "confidence": 0.99, "source": "visual" }
           ]
         },
         {
           "page_number": 2,
           "labels": [
-            { "name": "RIB", "confidence": 0.91, "source": "textual" },
-            { "name": "Facture", "confidence": 0.62, "source": "visual" }
+            { "prediction_id": "03d2…", "name": "RIB", "confidence": 0.91, "source": "textual" },
+            { "prediction_id": "e5f0…", "name": "Facture", "confidence": 0.62, "source": "visual" }
           ]
         }
       ]
@@ -216,16 +216,16 @@ curl -sS "$BASE/api/ephemeral/extractions/$RUN" -H "X-App-Token: $KEY" | jq
         {
           "page_number": 1,
           "entities": [
-            { "name": "nom", "value": "Dupont", "confidence": 0.9, "source": "textual", "pages": [1, 2] },
-            { "name": "nom", "value": "Dupont", "confidence": 0.97, "source": "gliner", "pages": [1, 2] },
-            { "name": "date_naissance", "value": "12 mars 1985", "confidence": 0.99, "source": "gliner", "pages": [1] }
+            { "prediction_id": "11aa…", "name": "nom", "value": "Dupont", "confidence": 0.9, "source": "textual", "pages": [1, 2] },
+            { "prediction_id": "22bb…", "name": "nom", "value": "Dupont", "confidence": 0.97, "source": "gliner", "pages": [1, 2] },
+            { "prediction_id": "33cc…", "name": "date_naissance", "value": "12 mars 1985", "confidence": 0.99, "source": "gliner", "pages": [1] }
           ]
         },
         {
           "page_number": 2,
           "entities": [
-            { "name": "nom", "value": "Dupont", "confidence": 0.9, "source": "textual", "pages": [1, 2] },
-            { "name": "nom", "value": "Dupont", "confidence": 0.97, "source": "gliner", "pages": [1, 2] }
+            { "prediction_id": "11aa…", "name": "nom", "value": "Dupont", "confidence": 0.9, "source": "textual", "pages": [1, 2] },
+            { "prediction_id": "22bb…", "name": "nom", "value": "Dupont", "confidence": 0.97, "source": "gliner", "pages": [1, 2] }
           ]
         }
       ]
@@ -252,7 +252,94 @@ curl -sS "$BASE/api/ephemeral/extractions/$RUN" -H "X-App-Token: $KEY" \
   | jq '[.documents[].pages[].entities[] | {name, value, source}] | unique'
 ```
 
-## 4. Nettoyage, arrêt, erreurs
+## 4. Dire si c'est bon ou mauvais, et obtenir des métriques
+
+Chaque label et chaque entité porte un `prediction_id`. Vous pouvez dire, prédiction par prédiction, si elle est **bonne**
+(`correct`) ou **mauvaise** (`incorrect`) ; l'API en tire des métriques par méthode (`source`), par label ou entité, et par
+run.
+
+### Donner des verdicts
+
+```bash
+curl -sS -X POST "$BASE/api/ephemeral/runs/$RUN/feedback" \
+  -H "X-App-Token: $KEY" -H "Content-Type: application/json" \
+  -d '{
+    "items": [
+      {"prediction_id": "7c1e…", "verdict": "correct"},
+      {"prediction_id": "e5f0…", "verdict": "incorrect", "expected_name": "RIB"},
+      {"prediction_id": "22bb…", "verdict": "incorrect"}
+    ]
+  }'
+```
+
+- `verdict` : `correct` ou `incorrect`. Un nouveau verdict sur la même prédiction **remplace** le précédent.
+- `expected_name` (facultatif, labels seulement, avec `incorrect`) : le label qui était attendu. Il alimente la matrice de
+  confusion.
+- Jusqu'à 500 verdicts par appel. `422` si un `prediction_id` n'appartient pas au run, ou si `expected_name` vise une entité.
+- Relire vos verdicts : `GET /api/ephemeral/runs/$RUN/feedback`.
+
+### Lire les métriques
+
+```bash
+# D'un run
+curl -sS "$BASE/api/ephemeral/runs/$RUN/metrics" -H "X-App-Token: $KEY" | jq
+
+# De tous vos runs (filtres : kind=label|entity, source=textual|visual|gliner, since=date ISO)
+curl -sS "$BASE/api/ephemeral/metrics?source=visual" -H "X-App-Token: $KEY" | jq
+```
+
+Métriques d'un run (extrait) :
+
+```json
+{
+  "run_id": "…",
+  "status": "terminé",
+  "document_count": 1,
+  "page_count": 2,
+  "duration_seconds": 41.2,
+  "steps": [ { "kind": "classification", "status": "terminé", "duration_seconds": 12.4 } ],
+  "volume": [
+    { "kind": "label", "source": "textual", "predictions": 2, "pages": 2, "avg_confidence": 0.935, "min_confidence": 0.91, "max_confidence": 0.96 },
+    { "kind": "label", "source": "visual",  "predictions": 2, "pages": 2, "avg_confidence": 0.805, "min_confidence": 0.62, "max_confidence": 0.99 }
+  ],
+  "by_name": [ { "kind": "label", "source": "textual", "name": "CNI", "predictions": 1, "avg_confidence": 0.96 } ],
+  "classification_agreement": { "pages_compared": 2, "pages_agreeing": 1, "agreement_rate": 0.5 },
+  "quality": [
+    { "kind": "label", "source": "textual", "evaluated": 2, "correct": 2, "incorrect": 0, "precision": 1.0,
+      "avg_confidence_correct": 0.935, "avg_confidence_incorrect": null },
+    { "kind": "label", "source": "visual", "evaluated": 2, "correct": 1, "incorrect": 1, "precision": 0.5,
+      "avg_confidence_correct": 0.99, "avg_confidence_incorrect": 0.62 }
+  ],
+  "confusion": [ { "source": "visual", "predicted": "Facture", "expected": "RIB", "count": 1 } ]
+}
+```
+
+- **`volume`, `by_name`, `steps`, `classification_agreement`** existent **sans aucun verdict** : volumes, confiances,
+  durées, et accord entre la classification textuelle et la visuelle page par page (deux méthodes indépendantes qui
+  s'accordent sont plus fiables).
+- **`quality`** n'apparaît qu'avec des verdicts. `precision` = part des prédictions jugées bonnes parmi celles qui ont reçu
+  un verdict. `avg_confidence_correct` et `avg_confidence_incorrect` montrent si la confiance est bien calibrée (la
+  première doit être nettement plus haute que la seconde).
+- **`confusion`** : combien de fois « prédit » a été pris pour « attendu » (`expected_name`).
+- `GET /api/ephemeral/metrics` agrège tous vos runs et ajoute `by_name` (précision par label ou entité et par méthode).
+- Vos métriques ne concernent que vos runs : une clé ne voit jamais celles d'une autre (`404` pour un run d'autrui).
+
+### Ce qui est conservé (et ce qui ne l'est pas)
+
+Un run éphémère est supprimé pour ne pas garder le contenu des documents. Les métriques reposent donc sur un
+**condensé non sensible**, conservé à part, qui contient seulement : les **noms** des labels et entités (ceux de votre
+analyse), la **méthode** (`source`), la **confiance**, le **numéro de page** et le **rang du document**, le statut et les
+durées. Il ne contient **jamais** le contenu des pages, les **valeurs extraites** (le `value` d'une entité), ni les noms
+de fichiers.
+
+- Ce condensé et vos verdicts **survivent à la purge du résultat** : vous pouvez encore lire les métriques d'un run, et
+  même lui donner des verdicts, après `expires_at`. En revanche les valeurs ne sont plus lisibles à ce moment-là : si
+  vous devez les relire pour juger, jugez avant l'expiration.
+- Durée de conservation : `EPHEMERAL_METRICS_RETENTION_DAYS` (365 jours par défaut ; `0` = jamais supprimé).
+- Tout supprimer pour un run : `DELETE /api/ephemeral/runs/$RUN/metrics` (supprime son condensé et vos verdicts).
+  Supprimer le run lui-même (`DELETE /api/ephemeral/runs/$RUN`) ne les efface pas.
+
+## 5. Nettoyage, arrêt, erreurs
 
 ```bash
 # Arrêter un run en cours
@@ -269,10 +356,10 @@ le résultat reste lisible jusqu'à `expires_at`.
 |---|---|
 | `400` | `ttl_hours` hors bornes (1 à 17520). |
 | `401` | Clé absente ou invalide. |
-| `404` | Run inconnu, expiré, ou créé par une autre clé. |
+| `404` | Run inconnu, expiré (sauf pour les métriques et verdicts, conservés plus longtemps), ou créé par une autre clé. |
 | `422` | `labels` / `entities` : JSON invalide, liste vide, champ manquant ou `type` inconnu ; ou `file` manquant. |
 
-## 5. Exemple complet (script)
+## 6. Exemple complet (script)
 
 ```bash
 #!/usr/bin/env bash

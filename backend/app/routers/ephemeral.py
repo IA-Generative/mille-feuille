@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, status
@@ -18,8 +19,10 @@ from app.core.security.ephemeral import EphemeralIdentity, get_ephemeral_identit
 from app.db import get_db
 from app.models.analyse import AgentTool, Analyse, EntityDefinition, LabelDefinition
 from app.models.analyse_ephemere import AnalyseEphemere
+from app.models.document_page import PredictionKind, PredictionSource
 from app.models.dossier import Dossier, DossierStatus
 from app.models.dossier_ephemere import DossierEphemere
+from app.models.ephemeral_run_metrics import EphemeralRunMetrics
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.dossier_repository import DossierRepository
 from app.repositories.ephemeral_repository import EphemeralRepository
@@ -34,6 +37,8 @@ from app.schemas.ephemeral import (
     EphemeralRunOut,
     EphemeralRunSummary,
 )
+from app.schemas.ephemeral_metrics import FeedbackIn, FeedbackOut, GlobalMetricsOut, RunMetricsOut
+from app.services import ephemeral_metrics
 from app.services.ephemeral_results import to_classification_out, to_extraction_out, to_run_summary
 from app.services.ephemeral_run_service import finalize_run, to_run_schema
 
@@ -645,3 +650,160 @@ async def get_ephemeral_extraction(
     identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
 ) -> EphemeralExtractionOut:
     return to_extraction_out(await _get_run_out_or_404(db, run_id, identity))
+
+
+# --- Verdicts et métriques ---
+
+
+async def _run_metrics_or_404(db: AsyncSession, run_id: uuid.UUID, identity: EphemeralIdentity) -> EphemeralRunMetrics:
+    """Le condensé non sensible du run (voir EphemeralRunMetrics), à jour. Un run encore en base (en cours, ou
+    persist=true) est condensé à la demande ; un run terminé persist=false a son condensé depuis sa finalisation, et
+    il reste lisible après la purge de son résultat. 404 si le run n'existe pas ou n'est pas à l'appelant."""
+    repository = EphemeralRepository(db)
+    if await repository.get_dossier_ephemere(run_id) is not None:
+        dossier, record = await _get_owned_run_or_404(db, run_id, identity)
+        digest = ephemeral_metrics.build_digest(to_run_schema(dossier, record))
+        return await repository.save_run_metrics(run_id=run_id, created_by=identity.id, digest=digest)
+    stored = await repository.get_run_metrics(run_id)
+    if stored is not None and stored.created_by == identity.id:
+        return stored
+    result = await repository.get_result(run_id)
+    if result is not None and result.created_by == identity.id:
+        # Résultat conservé avant l'existence des condensés : on le condense maintenant, tant qu'il est lisible.
+        digest = ephemeral_metrics.build_digest(EphemeralRunOut.model_validate(result.payload))
+        return await repository.save_run_metrics(run_id=run_id, created_by=identity.id, digest=digest)
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run éphémère introuvable")
+
+
+def _feedback_out(row) -> FeedbackOut:
+    return FeedbackOut(
+        prediction_id=row.prediction_id,
+        kind=row.kind,
+        name=row.name,
+        source=row.source,
+        page_number=row.page_number,
+        confidence=row.confidence,
+        verdict=row.verdict,
+        expected_name=row.expected_name,
+    )
+
+
+@router.post(
+    "/runs/{run_id}/feedback",
+    response_model=list[FeedbackOut],
+    summary="Dit si des prédictions du run sont bonnes ou mauvaises",
+    description="Un verdict par prédiction : `correct` ou `incorrect` (avec, pour un label, le `expected_name` "
+    "attendu). Les `prediction_id` se lisent dans GET .../classifications/{run_id}, GET .../extractions/{run_id} ou "
+    "`predictions[].id` de GET .../runs/{run_id}. Un nouveau verdict sur la même prédiction remplace le précédent. "
+    "Seuls la méthode, le nom, la confiance et la page sont gardés pour les métriques : jamais la valeur extraite. "
+    "Possible tant que le run existe, y compris après la purge de son résultat (le condensé est conservé "
+    "EPHEMERAL_METRICS_RETENTION_DAYS jours).",
+    responses={
+        404: {"description": "Run introuvable ou appartenant à un autre appelant."},
+        422: {"description": "`prediction_id` inconnu pour ce run, ou `expected_name` sur autre chose qu'un label."},
+    },
+)
+async def post_ephemeral_feedback(
+    run_id: uuid.UUID,
+    body: FeedbackIn,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+) -> list[FeedbackOut]:
+    digest = await _run_metrics_or_404(db, run_id, identity)
+    known = {p["id"]: p for p in digest.predictions}
+    unknown = sorted({str(item.prediction_id) for item in body.items if str(item.prediction_id) not in known})
+    if unknown:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"prediction_id inconnus pour ce run : {unknown}"
+        )
+    for item in body.items:
+        if item.expected_name is not None and known[str(item.prediction_id)]["kind"] != PredictionKind.LABEL.value:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail="`expected_name` ne s'applique qu'à un label (pas à une entité)",
+            )
+    repository = EphemeralRepository(db)
+    rows = [
+        await repository.upsert_feedback(
+            run_id=run_id,
+            created_by=identity.id,
+            prediction=known[str(item.prediction_id)],
+            verdict=item.verdict,
+            expected_name=item.expected_name,
+        )
+        for item in body.items
+    ]
+    await db.commit()
+    return [_feedback_out(row) for row in rows]
+
+
+@router.get(
+    "/runs/{run_id}/feedback",
+    response_model=list[FeedbackOut],
+    summary="Les verdicts déjà donnés sur ce run",
+    responses={404: {"description": "Run introuvable ou appartenant à un autre appelant."}},
+)
+async def list_ephemeral_feedback(
+    run_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+) -> list[FeedbackOut]:
+    await _run_metrics_or_404(db, run_id, identity)
+    rows = await EphemeralRepository(db).list_feedback(identity.id, run_id=run_id)
+    return [_feedback_out(row) for row in rows]
+
+
+@router.get(
+    "/runs/{run_id}/metrics",
+    response_model=RunMetricsOut,
+    summary="Métriques d'un run : volumes, confiances, accord entre méthodes, qualité jugée",
+    description="Calculées sur le condensé non sensible du run (jamais sur son contenu) : durée, nombre de pages, "
+    "prédictions et confiance par méthode (`source`) et par nom, accord textuel/visuel de la classification, et, si "
+    "des verdicts ont été donnés, la précision par méthode et la matrice de confusion. Lisible même après la purge "
+    "du résultat du run.",
+    responses={404: {"description": "Run introuvable ou appartenant à un autre appelant."}},
+)
+async def get_ephemeral_run_metrics(
+    run_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+) -> RunMetricsOut:
+    digest = await _run_metrics_or_404(db, run_id, identity)
+    feedback = await EphemeralRepository(db).list_feedback(identity.id, run_id=run_id)
+    return ephemeral_metrics.run_metrics(digest, feedback)
+
+
+@router.delete(
+    "/runs/{run_id}/metrics",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Supprime le condensé et les verdicts d'un run",
+    description="Sans effet sur le run lui-même. Les métriques de ce run disparaissent de GET /metrics.",
+    responses={404: {"description": "Rien à supprimer pour ce run (ou il appartient à un autre appelant)."}},
+)
+async def delete_ephemeral_run_metrics(
+    run_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+) -> None:
+    if not await EphemeralRepository(db).delete_run_metrics_and_feedback(run_id, identity.id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucune métrique pour ce run")
+
+
+@router.get(
+    "/metrics",
+    response_model=GlobalMetricsOut,
+    summary="Métriques de tous vos runs : précision par méthode et par label/entité, confusions, accord",
+    description="Agrège les verdicts et les condensés de l'appelant (une clé d'API ou un compte ne voit que les "
+    "siens). Filtres : `kind` (label/entity), `source` (textual/visual/gliner), `since` (date ISO).",
+)
+async def get_ephemeral_metrics(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+    kind: Annotated[PredictionKind | None, Query()] = None,
+    source: Annotated[PredictionSource | None, Query()] = None,
+    since: Annotated[datetime | None, Query()] = None,
+) -> GlobalMetricsOut:
+    repository = EphemeralRepository(db)
+    feedback = await repository.list_feedback(identity.id, kind=kind, source=source, since=since)
+    digests = await repository.list_run_metrics(identity.id, since=since)
+    return ephemeral_metrics.global_metrics(digests, feedback)

@@ -7,9 +7,12 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.analyse_ephemere import AnalyseEphemere
+from app.models.document_page import PredictionKind, PredictionSource
 from app.models.dossier import Dossier
 from app.models.dossier_ephemere import DossierEphemere
+from app.models.ephemeral_feedback import EphemeralFeedback, EphemeralVerdict
 from app.models.ephemeral_result import EphemeralResult
+from app.models.ephemeral_run_metrics import EphemeralRunMetrics
 
 
 class EphemeralRepository:
@@ -155,3 +158,114 @@ class EphemeralRepository:
         result = await self.db.execute(delete(EphemeralResult).where(EphemeralResult.expires_at < datetime.now(UTC)))
         await self.db.commit()
         return result.rowcount or 0
+
+    # --- Condensé non sensible d'un run et verdicts des appelants (métriques) ---
+
+    async def save_run_metrics(
+        self, *, run_id: uuid.UUID, created_by: str, digest: dict[str, Any]
+    ) -> EphemeralRunMetrics:
+        """Idempotent : réécrit le condensé si une ligne existe déjà (un run en cours est condensé à la demande, puis
+        une dernière fois à sa fin)."""
+        record = await self.db.get(EphemeralRunMetrics, run_id)
+        if record is None:
+            record = EphemeralRunMetrics(run_id=run_id, created_by=created_by, **digest)
+            self.db.add(record)
+        else:
+            for field, value in digest.items():
+                setattr(record, field, value)
+        await self.db.commit()
+        await self.db.refresh(record)
+        return record
+
+    async def get_run_metrics(self, run_id: uuid.UUID) -> EphemeralRunMetrics | None:
+        return await self.db.get(EphemeralRunMetrics, run_id)
+
+    async def list_run_metrics(
+        self, created_by: str, *, since: datetime | None = None
+    ) -> Sequence[EphemeralRunMetrics]:
+        query = select(EphemeralRunMetrics).where(EphemeralRunMetrics.created_by == created_by)
+        if since is not None:
+            query = query.where(EphemeralRunMetrics.created_at >= since)
+        return (await self.db.execute(query.order_by(EphemeralRunMetrics.created_at))).scalars().all()
+
+    async def upsert_feedback(
+        self,
+        *,
+        run_id: uuid.UUID,
+        created_by: str,
+        prediction: dict[str, Any],
+        verdict: EphemeralVerdict,
+        expected_name: str | None,
+    ) -> EphemeralFeedback:
+        """Un verdict par (run, prédiction, appelant), le dernier l'emporte. `prediction` : entrée du condensé."""
+        prediction_id = uuid.UUID(prediction["id"])
+        existing = (
+            await self.db.execute(
+                select(EphemeralFeedback).where(
+                    EphemeralFeedback.run_id == run_id,
+                    EphemeralFeedback.prediction_id == prediction_id,
+                    EphemeralFeedback.created_by == created_by,
+                )
+            )
+        ).scalar_one_or_none()
+        if existing is None:
+            existing = EphemeralFeedback(
+                run_id=run_id,
+                prediction_id=prediction_id,
+                created_by=created_by,
+                kind=PredictionKind(prediction["kind"]),
+                name=prediction["name"],
+                source=PredictionSource(prediction["source"]),
+                confidence=prediction["confidence"],
+                page_number=prediction["page_number"],
+                verdict=verdict,
+                expected_name=expected_name,
+            )
+            self.db.add(existing)
+        else:
+            existing.verdict = verdict
+            existing.expected_name = expected_name
+        await self.db.flush()
+        return existing
+
+    async def list_feedback(
+        self,
+        created_by: str,
+        *,
+        run_id: uuid.UUID | None = None,
+        kind: PredictionKind | None = None,
+        source: PredictionSource | None = None,
+        since: datetime | None = None,
+    ) -> Sequence[EphemeralFeedback]:
+        query = select(EphemeralFeedback).where(EphemeralFeedback.created_by == created_by)
+        if run_id is not None:
+            query = query.where(EphemeralFeedback.run_id == run_id)
+        if kind is not None:
+            query = query.where(EphemeralFeedback.kind == kind)
+        if source is not None:
+            query = query.where(EphemeralFeedback.source == source)
+        if since is not None:
+            query = query.where(EphemeralFeedback.created_at >= since)
+        return (await self.db.execute(query.order_by(EphemeralFeedback.created_at))).scalars().all()
+
+    async def delete_run_metrics_and_feedback(self, run_id: uuid.UUID, created_by: str) -> bool:
+        """Supprime le condensé et les verdicts d'un run. Renvoie False s'il n'y avait ni l'un ni l'autre."""
+        digest = await self.db.execute(
+            delete(EphemeralRunMetrics).where(
+                EphemeralRunMetrics.run_id == run_id, EphemeralRunMetrics.created_by == created_by
+            )
+        )
+        feedback = await self.db.execute(
+            delete(EphemeralFeedback).where(
+                EphemeralFeedback.run_id == run_id, EphemeralFeedback.created_by == created_by
+            )
+        )
+        await self.db.commit()
+        return bool(digest.rowcount or feedback.rowcount)
+
+    async def delete_metrics_older_than(self, cutoff: datetime) -> int:
+        """Purge de rétention : condensés et verdicts créés avant `cutoff`. Renvoie le nombre de lignes supprimées."""
+        feedback = await self.db.execute(delete(EphemeralFeedback).where(EphemeralFeedback.created_at < cutoff))
+        digests = await self.db.execute(delete(EphemeralRunMetrics).where(EphemeralRunMetrics.created_at < cutoff))
+        await self.db.commit()
+        return (feedback.rowcount or 0) + (digests.rowcount or 0)

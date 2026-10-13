@@ -40,7 +40,9 @@ def to_classification_out(run: EphemeralRunOut) -> EphemeralClassificationOut:
                     EphemeralClassifiedPage(
                         page_number=page.page_number,
                         labels=[
-                            EphemeralLabelResult(name=p.name, confidence=p.confidence, source=p.source)
+                            EphemeralLabelResult(
+                                prediction_id=p.id, name=p.name, confidence=p.confidence, source=p.source
+                            )
                             for p in sorted(
                                 page.predictions,
                                 key=lambda p: (p.source != PredictionSource.TEXTUAL, -(p.confidence or 0)),
@@ -73,6 +75,7 @@ def to_extraction_out(run: EphemeralRunOut) -> EphemeralExtractionOut:
                         page_number=page.page_number,
                         entities=[
                             EphemeralEntityResult(
+                                prediction_id=p.id,
                                 name=p.name,
                                 value=p.value,
                                 confidence=p.confidence,

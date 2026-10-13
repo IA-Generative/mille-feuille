@@ -1,7 +1,9 @@
 import asyncio
 import logging
+from datetime import UTC, datetime, timedelta
 
 from app.celery_client import celery_client
+from app.config import EphemeralSettings
 from app.db import async_session_factory
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.dossier_repository import DossierRepository
@@ -47,11 +49,18 @@ async def run_purge() -> dict[str, int]:
                 purged_analyses += 1
 
         purged_results = await ephemeral_repository.delete_expired_results()
+        purged_metrics = 0
+        retention_days = EphemeralSettings().EPHEMERAL_METRICS_RETENTION_DAYS
+        if retention_days > 0:
+            purged_metrics = await ephemeral_repository.delete_metrics_older_than(
+                datetime.now(UTC) - timedelta(days=retention_days)
+            )
 
         summary = {
             "purged_dossiers": purged_dossiers,
             "purged_analyses": purged_analyses,
             "purged_results": purged_results,
+            "purged_metrics": purged_metrics,
         }
         logger.info("Purge éphémère : %s", summary)
         return summary

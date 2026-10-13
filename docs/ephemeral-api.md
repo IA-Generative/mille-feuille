@@ -118,6 +118,10 @@ Pour n'obtenir que les labels ou les entités d'**un** document, sans définir d
 
 Les deux `GET` sont des vues de `GET /api/ephemeral/runs/{id}` (même scope strict, même conservation du résultat) ; `stop` et `DELETE` passent par `/api/ephemeral/runs/{run_id}`. `multi_label` est une colonne de `analyses`, posée à la création : elle n'est pas encore modifiable via l'API standard des analyses (donc sans historique de versions).
 
+### Verdicts et métriques
+
+L'appelant peut dire si chaque prédiction est bonne ou mauvaise et lire des métriques : `POST /api/ephemeral/runs/{id}/feedback`, `GET /api/ephemeral/runs/{id}/feedback`, `GET /api/ephemeral/runs/{id}/metrics`, `GET /api/ephemeral/metrics`, `DELETE /api/ephemeral/runs/{id}/metrics`. Elles reposent sur un **condensé non sensible** du run (`ephemeral_run_metrics` : noms, méthode, confiance, page, durées ; jamais de contenu ni de valeur extraite), écrit à la finalisation du run, qui survit à la purge de `ephemeral_results` et est supprimé après `EPHEMERAL_METRICS_RETENTION_DAYS` jours (365 par défaut, `0` = jamais). Les verdicts sont dans `ephemeral_feedback`, sans FK vers le run (son dossier disparaît). Détails et exemples : [ephemeral-classification-extraction.md](ephemeral-classification-extraction.md), section 4.
+
 ### Lecture / arrêt / suppression
 
 - `GET /api/ephemeral/runs` — liste les runs de l'appelant (en cours, `persist=true`, et résultats conservés des runs `persist=false` terminés), du plus récent au plus ancien, 100 au plus : `id`, `kind` (`classification` / `extraction` pour le flux C, `analyse` sinon ; déduit du nom du dossier), `status`, `documents`, `persist`, dates. Sert la vue « Mes tâches » de `ephemeral-frontend/`.
