@@ -1,3 +1,4 @@
+import hmac
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -6,6 +7,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import EphemeralSettings
 from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
 from app.repositories.app_token_repository import AppTokenRepository
@@ -19,6 +21,20 @@ class EphemeralIdentity:
 
     id: str
     is_app_token: bool
+    # Authentifié par la clé d'API de l'environnement (EPHEMERAL_API_KEY) : toujours non persistant, et limité aux
+    # analyses éphémères qu'il a lui-même créées.
+    is_env_key: bool = False
+
+
+# Identité unique de la clé d'environnement : tout porteur de la clé voit les mêmes ressources.
+ENV_KEY_IDENTITY_ID = "env-api-key"
+
+_settings = EphemeralSettings()
+
+
+def _matches_env_key(candidate: str | None) -> bool:
+    key = _settings.EPHEMERAL_API_KEY
+    return bool(key and candidate) and hmac.compare_digest(candidate.encode(), key.encode())
 
 
 async def get_ephemeral_identity(request: Request, db: Annotated[AsyncSession, Depends(get_db)]) -> EphemeralIdentity:
@@ -28,6 +44,12 @@ async def get_ephemeral_identity(request: Request, db: Annotated[AsyncSession, D
     INTERNAL_WORKER_TOKEN : ce jeton fixe n'identifie personne en particulier,
     inadapté pour `created_by`."""
     x_app_token = request.headers.get("X-App-Token")
+    authorization = request.headers.get("Authorization", "")
+    bearer = authorization.removeprefix("Bearer ") if authorization.startswith("Bearer ") else None
+    # Clé d'API de l'environnement, en X-App-Token ou en Bearer : comparaison à temps constant, avant toute
+    # requête en base.
+    if _matches_env_key(x_app_token) or _matches_env_key(bearer):
+        return EphemeralIdentity(id=ENV_KEY_IDENTITY_ID, is_app_token=False, is_env_key=True)
     if x_app_token:
         app_token = await AppTokenRepository(db).verify(x_app_token)
         if app_token is None:
@@ -35,9 +57,8 @@ async def get_ephemeral_identity(request: Request, db: Annotated[AsyncSession, D
         return EphemeralIdentity(id=str(app_token.id), is_app_token=True)
     # La clé d'API est aussi acceptée en `Authorization: Bearer <clé>`. Un jeton Bearer qui n'est pas une clé
     # d'API (un access token Keycloak) n'est pas rejeté ici : il passe à la vérification Keycloak ci-dessous.
-    bearer = request.headers.get("Authorization", "")
-    if bearer.startswith("Bearer "):
-        app_token = await AppTokenRepository(db).verify(bearer.removeprefix("Bearer "))
+    if bearer:
+        app_token = await AppTokenRepository(db).verify(bearer)
         if app_token is not None:
             return EphemeralIdentity(id=str(app_token.id), is_app_token=True)
     # get_current_user n'est pas déclaré comme Depends() sur cette fonction

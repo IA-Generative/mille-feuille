@@ -142,6 +142,7 @@ Tâche Celery périodique, planifiée via **Celery beat** (réutilise l'infra Ce
 ## Authentification
 
 Les endpoints `/api/ephemeral/*` acceptent **les deux** mécanismes d'auth existants :
+- Clé d'API de l'environnement (variable `EPHEMERAL_API_KEY` du backend, vide = désactivée) : identité unique, toujours non persistante (`persist=true` → `403`), limitée aux analyses éphémères qu'elle a créées.
 - Token API (`app_tokens.py`) pour un usage programmatique / compte de service, en-tête `X-App-Token: <clé>` ou `Authorization: Bearer <clé>`.
 - Un access token Keycloak en `Authorization: Bearer` fonctionne aussi (rattaché au compte).
 - Session Keycloak standard (cookie), pour un développeur qui teste depuis son compte.

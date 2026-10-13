@@ -55,6 +55,8 @@ services:
       AWS_S3_BUCKET_NAME: mille-feuille
       SHARE_SECRET_KEY: ${SHARE_SECRET_KEY:-dev-only-share-secret-not-for-prod}
       INTERNAL_WORKER_TOKEN: ${INTERNAL_WORKER_TOKEN:-dev-only-worker-token-not-for-prod}
+      # Clé d'API donnant accès à /api/ephemeral/* (toujours non persistant) - vide par défaut : désactivée.
+      EPHEMERAL_API_KEY: ${EPHEMERAL_API_KEY:-}
       # Hub LLM (compatible API OpenAI) pour GET /api/models et le choix de
       # modèle d'une conversation/agent - vide par défaut (503 tant que non
       # configuré, voir app/config/llm.py).

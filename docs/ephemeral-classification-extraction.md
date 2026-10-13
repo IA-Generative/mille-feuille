@@ -58,6 +58,17 @@ suivants, `X-App-Token` peut toujours être remplacé par l'une de ces formes.
 
 Sans clé valide : `401`. Une clé ne voit que les runs qu'elle a créés (un run d'une autre clé répond `404`).
 
+### Variante : clé d'API de l'environnement (sans compte)
+
+Si l'exploitant a défini la variable d'environnement `EPHEMERAL_API_KEY` du backend, cette valeur sert directement de
+clé : pas de compte Keycloak ni de `POST /api/app-tokens`. Elle s'envoie comme les autres clés (`X-App-Token` ou
+`Authorization: Bearer`). Contraintes :
+
+- **toujours non persistant** : `persist=true` répond `403`, sur toutes les routes de création ;
+- **limitée à ses propres analyses** : elle ne peut lancer un run que sur une analyse éphémère qu'elle a créée, jamais
+  sur une analyse classique de la plateforme ni sur celle d'un autre (`404`) ;
+- tous ses porteurs partagent les mêmes ressources (une seule identité).
+
 ## 2. Classification : labels, définitions, mono ou multi-label
 
 ### Lancer
