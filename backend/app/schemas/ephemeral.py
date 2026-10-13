@@ -73,6 +73,7 @@ class EphemeralRunOut(DossierOut):
 
 
 class EphemeralLabelResult(BaseModel):
+    prediction_id: uuid.UUID = Field(description="À réutiliser dans POST /ephemeral/runs/{run_id}/feedback.")
     name: str
     confidence: float | None
     source: PredictionSource = Field(
@@ -103,6 +104,7 @@ class EphemeralClassificationOut(BaseModel):
 
 
 class EphemeralEntityResult(BaseModel):
+    prediction_id: uuid.UUID = Field(description="À réutiliser dans POST /ephemeral/runs/{run_id}/feedback.")
     name: str
     value: str
     confidence: float | None

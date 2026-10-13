@@ -11,6 +11,10 @@ class EphemeralSettings(BaseSettings):
     # lancer que les analyses éphémères qu'elle a elle-même créées.
     EPHEMERAL_API_KEY: str = ""
 
+    # Durée de conservation (en jours) du condensé non sensible d'un run et des verdicts des appelants, qui servent
+    # aux métriques et survivent à la purge du résultat. 0 : jamais supprimés automatiquement.
+    EPHEMERAL_METRICS_RETENTION_DAYS: int = 365
+
     model_config = SettingsConfigDict(case_sensitive=True, env_file=(".env", ".env.local"), extra="ignore")
 
     @field_validator("EPHEMERAL_API_KEY")

@@ -23,6 +23,7 @@ from app.repositories.dossier_repository import DossierRepository
 from app.repositories.ephemeral_repository import EphemeralRepository
 from app.schemas.dossier import DossierOut
 from app.schemas.ephemeral import EphemeralRunOut
+from app.services.ephemeral_metrics import build_digest
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +68,10 @@ async def finalize_run(db: AsyncSession, dossier_id: uuid.UUID) -> bool:
     # Sauvegardé AVANT toute suppression : si la suite échoue, le résultat n'est pas perdu.
     await ephemeral_repository.save_result(
         run_id=dossier_id, created_by=created_by, payload=payload, expires_at=expires_at
+    )
+    # Le condensé non sensible survit à la purge du résultat (métriques et verdicts, voir EphemeralRunMetrics).
+    await ephemeral_repository.save_run_metrics(
+        run_id=dossier_id, created_by=created_by, digest=build_digest(to_run_schema(dossier, record))
     )
     # La ligne dossier_ephemere part avec le dossier (ondelete=CASCADE).
     await dossier_repository.delete_dossier(dossier)

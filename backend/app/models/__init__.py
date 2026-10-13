@@ -71,7 +71,9 @@ from .dossier_analysis import (
 from .dossier_ephemere import DossierEphemere
 from .dossier_event import DossierEvent, DossierEventType
 from .dossier_note import DossierNote, DossierNoteVersion
+from .ephemeral_feedback import EphemeralFeedback, EphemeralVerdict
 from .ephemeral_result import EphemeralResult
+from .ephemeral_run_metrics import EphemeralRunMetrics
 from .execution_log import ExecutionLog, ExecutionLogLevel
 from .feedback import Feedback, FeedbackReason, FeedbackReasonCode, FeedbackValue
 from .generated_document import VISIBILITY_INTERNAL, GeneratedDocument
@@ -144,7 +146,10 @@ __all__ = [
     "Dossier",
     "DossierDocument",
     "DossierEphemere",
+    "EphemeralFeedback",
     "EphemeralResult",
+    "EphemeralRunMetrics",
+    "EphemeralVerdict",
     "DossierStatus",
     "DossierSummary",
     "EntityDefinition",
