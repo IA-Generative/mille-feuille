@@ -5,7 +5,7 @@ import json
 import httpx
 
 from app import api_client
-from app.llm import ClassificationResult, EntityValue, ExtractionResult, LabelPrediction
+from app.llm import ClassificationResult, EntityValue, ExtractionResult, LabelPrediction, MultiLabelClassificationResult
 from app.storage import storage as storage_instance
 from app.tasks import classification as classification_mod
 from app.tasks import extraction as extraction_mod
@@ -164,6 +164,52 @@ def test_classify_dossier_deposits_label_predictions(monkeypatch) -> None:
     assert prediction_bodies[0]["confidence"] == 0.95
     # Step completed
     assert any(path.endswith("/complete") for _, path in calls)
+
+
+def test_classify_dossier_multi_label_deposits_one_prediction_per_label(monkeypatch) -> None:
+    prediction_bodies: list[dict] = []
+    llm_kwargs: list[dict] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/dossiers/dossier-1"):
+            return httpx.Response(200, json=_make_dossier_response())
+        if request.url.path.endswith("/analyses/analyse-1"):
+            resp = _make_analyse_response()
+            resp["classification"]["multi_label"] = True
+            return httpx.Response(200, json=resp)
+        if request.url.path.endswith("/logs"):
+            return httpx.Response(200, json=_log_response())
+        if request.url.path.endswith("/complete"):
+            return httpx.Response(200, json=_step_complete_response("step-classif", "classification"))
+        if request.url.path.endswith("/predictions"):
+            prediction_bodies.append(json.loads(request.content))
+            return httpx.Response(201, json={"id": "pred-1", **prediction_bodies[-1]})
+        return httpx.Response(404)
+
+    def classify(**kwargs):
+        llm_kwargs.append(kwargs)
+        return MultiLabelClassificationResult(
+            predictions=[
+                LabelPrediction(label_name="CNI", confidence=0.9),
+                LabelPrediction(label_name="Passeport", confidence=0.7),
+                LabelPrediction(label_name="CNI", confidence=0.5),  # doublon ignoré
+            ]
+        )
+
+    monkeypatch.setattr(
+        api_client,
+        "get_client",
+        lambda: httpx.Client(base_url="http://backend/api/internal", transport=httpx.MockTransport(handler)),
+    )
+    monkeypatch.setattr(storage_instance, "get_object", lambda key: b"fake-png-bytes")
+    monkeypatch.setattr(classification_mod.llm, "describe_page_image", lambda image_bytes: "desc")
+    monkeypatch.setattr(classification_mod.llm, "classify_page", classify)
+
+    classify_dossier.run("dossier-1")
+
+    assert all(kwargs["multi_label"] is True for kwargs in llm_kwargs)
+    # Deux pages x deux labels distincts.
+    assert [b["name"] for b in prediction_bodies] == ["CNI", "Passeport"] * 2
 
 
 def test_classify_dossier_handles_no_labels(monkeypatch) -> None:

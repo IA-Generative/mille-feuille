@@ -39,21 +39,25 @@ def _definitions(definitions: list[dict]) -> list[dict]:
     ]
 
 
-def classification_fingerprint(page: dict, label_definitions: list[dict], prompt: str) -> str:
+def classification_fingerprint(
+    page: dict, label_definitions: list[dict], prompt: str, multi_label: bool = False
+) -> str:
     """Une page classée : son texte, sa capture (clé S3), les labels, le prompt
     et les modèles (VLM pour la description d'image, LLM pour le choix)."""
-    return _digest(
-        {
-            "unit": "classification",
-            "pipeline": PIPELINE_VERSION,
-            "text": text_hash(page.get("content")),
-            "screenshot": page.get("screenshot_key"),
-            "labels": _definitions(label_definitions),
-            "prompt": prompt,
-            "llm": settings.LLM_MODEL,
-            "vlm": settings.VLM_MODEL,
-        }
-    )
+    payload = {
+        "unit": "classification",
+        "pipeline": PIPELINE_VERSION,
+        "text": text_hash(page.get("content")),
+        "screenshot": page.get("screenshot_key"),
+        "labels": _definitions(label_definitions),
+        "prompt": prompt,
+        "llm": settings.LLM_MODEL,
+        "vlm": settings.VLM_MODEL,
+    }
+    if multi_label:
+        # Seulement si vrai : l'empreinte des analyses mono-label existantes ne change pas.
+        payload["multi_label"] = True
+    return _digest(payload)
 
 
 def extraction_fingerprint(pages: list[dict], entity_definitions: list[dict], prompt: str) -> str:

@@ -3,6 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.models.dossier import DossierStatus
 from app.schemas.analyse import AgentCreate, AnalyseOut, EntityDefinitionIn, LabelDefinitionIn
 from app.schemas.dossier import DossierOut
 
@@ -18,6 +19,7 @@ class EphemeralAnalyseCreate(BaseModel):
         "l'API éphémère. True : conservée indéfiniment, comme une Analyse classique de la plateforme.",
     )
     classification_prompt: str = ""
+    multi_label: bool = Field(default=False, description="True : plusieurs labels possibles par page (sinon un seul).")
     labels: list[LabelDefinitionIn] = []
     extraction_prompt: str = ""
     entities: list[EntityDefinitionIn] = []
@@ -66,3 +68,54 @@ class EphemeralRunOut(DossierOut):
         description="NULL tant que le run est en_attente/en_cours (le TTL démarre à la fin de l'analyse, pas à "
         "la création), ou si persist=True. Sinon : ended_at + ttl_hours, figé une fois calculé."
     )
+
+
+class EphemeralLabelResult(BaseModel):
+    name: str
+    confidence: float | None
+
+
+class EphemeralClassifiedPage(BaseModel):
+    page_number: int
+    labels: list[EphemeralLabelResult] = Field(
+        description="Un seul label en mono-label ; un ou plusieurs en multi-label ; vide si la page n'a pas (encore) "
+        "été classée."
+    )
+
+
+class EphemeralClassifiedDocument(BaseModel):
+    name: str
+    pages: list[EphemeralClassifiedPage]
+
+
+class EphemeralClassificationOut(BaseModel):
+    run_id: uuid.UUID
+    status: DossierStatus
+    error: str | None = Field(description="Message de l'étape en échec, si le run a échoué.")
+    expires_at: datetime | None
+    documents: list[EphemeralClassifiedDocument]
+
+
+class EphemeralEntityResult(BaseModel):
+    name: str
+    value: str
+    confidence: float | None
+    pages: list[int] = Field(description="Toutes les pages sur lesquelles l'entité a été trouvée.")
+
+
+class EphemeralExtractedPage(BaseModel):
+    page_number: int
+    entities: list[EphemeralEntityResult]
+
+
+class EphemeralExtractedDocument(BaseModel):
+    name: str
+    pages: list[EphemeralExtractedPage]
+
+
+class EphemeralExtractionOut(BaseModel):
+    run_id: uuid.UUID
+    status: DossierStatus
+    error: str | None = Field(description="Message de l'étape en échec, si le run a échoué.")
+    expires_at: datetime | None
+    documents: list[EphemeralExtractedDocument]
