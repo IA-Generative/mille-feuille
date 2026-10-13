@@ -3,6 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.models.document_page import PredictionSource
 from app.models.dossier import DossierStatus
 from app.schemas.analyse import AgentCreate, AnalyseOut, EntityDefinitionIn, LabelDefinitionIn
 from app.schemas.dossier import DossierOut
@@ -73,6 +74,10 @@ class EphemeralRunOut(DossierOut):
 class EphemeralLabelResult(BaseModel):
     name: str
     confidence: float | None
+    source: PredictionSource = Field(
+        description="`textual` : texte de la page (OCR, VLM, LLM). `visual` : apparence de la page (CLIP). Chaque "
+        "page reçoit les deux : une page peut avoir un label de chaque source."
+    )
 
 
 class EphemeralClassifiedPage(BaseModel):

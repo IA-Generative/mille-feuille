@@ -25,6 +25,7 @@ from app.models.document_page import (
     DocumentPage,
     DocumentPrediction,
     PredictionKind,
+    PredictionSource,
     PredictionValidationStatus,
     prediction_bounding_boxes,
     prediction_pages,
@@ -902,6 +903,7 @@ class DossierRepository:
         name: str,
         value: str,
         confidence: float | None,
+        source: PredictionSource = PredictionSource.TEXTUAL,
         label_definition_id: uuid.UUID | None = None,
         entity_definition_id: uuid.UUID | None = None,
         page_ids: list[uuid.UUID] | None = None,
@@ -918,6 +920,7 @@ class DossierRepository:
             name=name,
             value=value,
             confidence=confidence,
+            source=source,
             label_definition_id=label_definition_id,
             entity_definition_id=entity_definition_id,
         )
