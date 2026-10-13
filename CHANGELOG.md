@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.18.0](https://github.com/IA-Generative/mille-feuille/compare/v0.17.1...v0.18.0) (2026-10-13)
+
+
+### Features
+
+* **backend:** source gliner pour les entités extraites avec GLiNER2.5 ([d6220e7](https://github.com/IA-Generative/mille-feuille/commit/d6220e7ce0bf82a8586bab35774e567ebb175748))
+* **backend:** source textuelle ou visuelle sur les prédictions de classification ([8cbaaf9](https://github.com/IA-Generative/mille-feuille/commit/8cbaaf933b0237389c49f2b4ba077ec00a832d49))
+* **chart:** ajoute les workers classification et extraction au chart Helm ([e9feeb2](https://github.com/IA-Generative/mille-feuille/commit/e9feeb290427fcd221c5f7870922ab42805ce853))
+* **classification:** classification visuelle avec CLIP (CPU) en plus de la textuelle ([648208f](https://github.com/IA-Generative/mille-feuille/commit/648208f812c9d9ed307bf5ed72e2585a732eb0bd))
+* **ephemeral:** accepte la clé d'API en Authorization: Bearer en plus de X-App-Token ([bb03d68](https://github.com/IA-Generative/mille-feuille/commit/bb03d68dd8ac3b924a27d6563706fc6903177843))
+* **ephemeral:** classification et extraction d'un document en un seul appel ([edfebc7](https://github.com/IA-Generative/mille-feuille/commit/edfebc78c5f405faed8ad63b93ef8a658e6d140a))
+* **extraction:** extraction d'entités avec GLiNER2.5 (CPU) en plus du LLM ([d8707bf](https://github.com/IA-Generative/mille-feuille/commit/d8707bf9959df9cb5847e2a8d58dc9433e79f281))
+* **worker:** add calendar and duration arithmetic tools ([37b1ac9](https://github.com/IA-Generative/mille-feuille/commit/37b1ac99a36afed64d1e426785de72cf029b73d8))
+* **worker:** add catalog framework (clock, errors, bounds) ([56a8636](https://github.com/IA-Generative/mille-feuille/commit/56a8636cc6b7a9a071b8e720081883626f9688a3))
+* **worker:** add date parsing helpers in dates_basic ([eaf7c23](https://github.com/IA-Generative/mille-feuille/commit/eaf7c2300b0e64fcb8c563aca68ad6c5a95b8aea))
+* **worker:** add the 7 basic date tools in dates_basic ([4ffccd6](https://github.com/IA-Generative/mille-feuille/commit/4ffccd665dcf84fc2bdf30582b6d779389313a18))
+
+
+### Code Refactoring
+
+* **workers:** sépare la classification et l'extraction d'entités en workers dédiés ([ca3aa2c](https://github.com/IA-Generative/mille-feuille/commit/ca3aa2c3c5e8a6bec38ac0c056a9ccb00fc8931a))
+
 ## [0.18.0-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.17.1...v0.18.0-rc) (2026-10-13)
 
 
