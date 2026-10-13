@@ -62,11 +62,12 @@ Variables attendues dans Vault :
 | `FRONTEND_URL`            | URL publique du frontend (redirect post-login/logout)    | `https://app.example.com`           |
 | `SHARE_SECRET_KEY`        | Clé HMAC pour les liens de partage d'analyse (magic link) | (aléatoire, 32+ caractères)        |
 | `INTERNAL_WORKER_TOKEN`   | Token partagé pour l'authentification des workers sur `/api/internal/*` | (aléatoire, 32+ caractères) |
+| `EPHEMERAL_API_KEY`       | *(optionnel)* Clé d'API donnant accès à `/api/ephemeral/*`, toujours non persistant. Absente ou vide : désactivée | (aléatoire, 32+ caractères ; 16 minimum) |
 
 > **Variables en clair** (dans `common-values.yaml`, pas dans le secret) :
 > `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `SESSION_COOKIE_SECURE`.
 
-**Consommateurs** : backend (`KeycloakSettings`, `SharingSettings`).
+**Consommateurs** : backend (`KeycloakSettings`, `SharingSettings`, `EphemeralSettings`).
 
 ---
 

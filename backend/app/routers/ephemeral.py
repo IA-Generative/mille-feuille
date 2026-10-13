@@ -43,6 +43,28 @@ TTL_DEFAULT_HOURS = 24
 TTL_MAX_HOURS = 17520  # 2 ans
 
 
+def _reject_persist_for_env_key(identity: EphemeralIdentity, persist: bool) -> None:
+    """Une requête authentifiée par la clé d'API de l'environnement ne peut rien conserver : 403 si `persist=true`."""
+    if persist and identity.is_env_key:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Cette clé d'API ne permet pas persist=true (non persistant)"
+        )
+
+
+async def _get_runnable_analyse_or_404(db: AsyncSession, analyse_id: uuid.UUID, identity: EphemeralIdentity) -> Analyse:
+    """L'analyse sur laquelle lancer un run. Un jeton ou un compte peut aussi viser une analyse classique de la
+    plateforme ; la clé d'API de l'environnement, non : elle n'atteint que les analyses éphémères qu'elle a créées
+    (404 sinon, comme partout dans ce routeur)."""
+    analyse = await AnalyseRepository(db).get(analyse_id)
+    if analyse is not None and identity.is_env_key:
+        record = await EphemeralRepository(db).get_analyse_ephemere(analyse_id)
+        if record is None or record.created_by != identity.id:
+            analyse = None
+    if analyse is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analyse introuvable")
+    return analyse
+
+
 async def _get_analyse_ephemere_or_404(
     repository: EphemeralRepository, analyse_id: uuid.UUID, identity: EphemeralIdentity
 ) -> AnalyseEphemere:
@@ -73,6 +95,7 @@ async def create_ephemeral_analyse(
     db: Annotated[AsyncSession, Depends(get_db)],
     identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
 ) -> EphemeralAnalyseCreated:
+    _reject_persist_for_env_key(identity, body.persist)
     analyse_repository = AnalyseRepository(db)
     analyse = await analyse_repository.create(
         name=body.name, description=body.description, multi_label=body.multi_label
@@ -269,9 +292,8 @@ async def create_ephemeral_run_for_analyse(
     persist: Annotated[bool, Form()] = False,
     ttl_hours: Annotated[int | None, Query()] = None,
 ) -> EphemeralRunCreated:
-    analyse = await AnalyseRepository(db).get(analyse_id)
-    if analyse is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analyse introuvable")
+    _reject_persist_for_env_key(identity, persist)
+    analyse = await _get_runnable_analyse_or_404(db, analyse_id, identity)
     dossier = await _create_run(
         db=db,
         identity=identity,
@@ -304,9 +326,8 @@ async def create_ephemeral_run(
     persist: Annotated[bool, Form()] = False,
     ttl_hours: Annotated[int | None, Query()] = None,
 ) -> EphemeralRunCreated:
-    analyse = await AnalyseRepository(db).get(analyse_id)
-    if analyse is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analyse introuvable")
+    _reject_persist_for_env_key(identity, persist)
+    analyse = await _get_runnable_analyse_or_404(db, analyse_id, identity)
     dossier = await _create_run(
         db=db,
         identity=identity,
@@ -462,6 +483,7 @@ async def _create_single_file_run(
 ) -> EphemeralRunCreated:
     """Analyse éphémère à une seule étape (classification OU extraction) + run sur un fichier, en un appel.
     Même cycle de vie que le flux B : `persist=false` purge dossier, fichier et analyse à la fin du run."""
+    _reject_persist_for_env_key(identity, persist)
     ttl = _validate_ttl_hours(ttl_hours)
     analyse_repository = AnalyseRepository(db)
     analyse = await analyse_repository.create(name=name, description="", multi_label=multi_label)
