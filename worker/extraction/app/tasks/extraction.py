@@ -20,11 +20,11 @@ entités multi-pages.
 import logging
 from functools import partial
 
-from app import api_client, llm
+from app import api_client, gliner, llm
 from app.celery_app import celery_app
 from app.config import settings
 from app.extraction_planner import group_definitions, new_entities, normalize_value, plan_lots, text_budget
-from app.fingerprint import extraction_fingerprint
+from app.fingerprint import extraction_fingerprint, gliner_extraction_fingerprint
 
 logger = logging.getLogger(__name__)
 
@@ -260,6 +260,80 @@ def _extract_by_document(
     return total
 
 
+def _gliner_entities(pages: list[dict], entity_defs: list[dict]) -> dict[tuple[str, str], dict]:
+    """Passe chaque page dans GLiNER et fusionne les doublons du document : une même valeur trouvée sur plusieurs
+    pages est une seule entité, qui couvre ces pages (comme une entité multi-pages du LLM). Clé : (définition, valeur
+    normalisée) ; valeur : valeur lue, meilleure confiance et numéros de page."""
+    merged: dict[tuple[str, str], dict] = {}
+    for page in pages:
+        for name, value, confidence in gliner.extract(page["content"], entity_defs):
+            entity = merged.setdefault(
+                (name, normalize_value(value)), {"name": name, "value": value, "confidence": confidence, "pages": []}
+            )
+            entity["confidence"] = max(entity["confidence"], confidence)
+            if page["page_number"] not in entity["pages"]:
+                entity["pages"].append(page["page_number"])
+    return merged
+
+
+def _process_gliner_document(
+    client, pages: list[dict], page_id_by_number: dict, entity_defs: list[dict], unit_id: str | None
+) -> int:
+    """Extrait les entités d'un document avec GLiNER et les dépose (source=gliner), chacune sur la première page où
+    elle apparaît et en référençant toutes ses pages. Renvoie le nombre d'entités déposées."""
+    by_name = {entity["name"]: entity for entity in entity_defs}
+    count = 0
+    for entity in _gliner_entities(pages, entity_defs).values():
+        numbers = sorted(entity["pages"])
+        api_client.add_prediction(
+            client,
+            page_id_by_number[numbers[0]],
+            kind="entity",
+            name=entity["name"],
+            value=entity["value"],
+            confidence=entity["confidence"],
+            source="gliner",
+            entity_definition_id=by_name[entity["name"]]["id"],
+            page_ids=[page_id_by_number[n] for n in numbers],
+            unit_id=unit_id,
+        )
+        logger.info(
+            "GLiNER entity '%s' = '%s' (confidence=%.2f, pages=%s)",
+            entity["name"],
+            entity["value"],
+            entity["confidence"],
+            numbers,
+        )
+        count += 1
+    return count
+
+
+def _extract_with_gliner(client, dossier_id: str, dossier: dict, entity_defs: list[dict]) -> tuple[int, int]:
+    """Extraction GLiNER de chaque document, une unité de calcul par document (avec son empreinte). C'est un
+    complément du LLM : un échec sur un document est journalisé et ne fait pas échouer l'étape. Renvoie
+    (entités déposées, documents en échec)."""
+    defs = gliner.supported(entity_defs)
+    if not defs:
+        return 0, 0
+    total = failed = 0
+    for document in dossier["documents"]:
+        pages, page_id_by_number = _page_dicts(document)
+        if not pages:
+            continue
+        try:
+            total += _run_unit(
+                client,
+                dossier_id,
+                {"document_id": document["id"], "page_ids": [p["id"] for p in pages], "source": "gliner"},
+                gliner_extraction_fingerprint(pages, defs),
+                partial(_process_gliner_document, client, pages, page_id_by_number, defs),
+            )
+        except Exception:
+            logger.warning("GLiNER extraction failed for document %s", document["id"], exc_info=True)
+            failed += 1
+    return total, failed
+
+
 @celery_app.task(name="app.tasks.extract_dossier_entities", bind=True)
 def extract_dossier_entities(self, dossier_id: str) -> None:
     with api_client.get_client() as client:
@@ -309,6 +383,11 @@ def extract_dossier_entities(self, dossier_id: str) -> None:
                 total_entities = _extract_by_document(client, dossier_id, dossier, entity_defs, extraction_prompt)
 
             output = f"{total_entities} entité(s) extraite(s) sur {len(all_pages)} page(s)"
+            if settings.GLINER_ENABLED:
+                gliner_entities, gliner_failed = _extract_with_gliner(client, dossier_id, dossier, entity_defs)
+                output += f", {gliner_entities} par GLiNER"
+                if gliner_failed:
+                    output += f" ({gliner_failed} document(s) en échec)"
             if step_id:
                 api_client.complete_execution_step(client, step_id, status=_STATUS_TERMINE, output=output)
             logger.info("Extraction complete for dossier %s: %s", dossier_id, output)

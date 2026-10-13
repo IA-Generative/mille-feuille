@@ -249,6 +249,14 @@ worker_extraction:
     startupProbe: null
     readinessProbe: null
     livenessProbe: null
+  # GLiNER (entity extraction, CPU) is loaded in memory by each Celery process: torch + the model weigh ~1.5 Gi.
+  resources:
+    requests:
+      memory: "1536Mi"
+      cpu: "500m"
+    limits:
+      memory: "3Gi"
+      cpu: "2"
   envFrom:
   - secretRef:
       name: "millefeuille-openai"
