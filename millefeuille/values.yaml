@@ -2983,6 +2983,840 @@ worker_agent:
           # -- Prometheus ServiceMonitor tlsConfig.
           # @section -- Worker_agent
           tlsConfig: {}
+worker_classification:
+  # -- Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet"
+  # (validated at render time - an unknown value fails instead of producing a release with no
+  # workload). Use the top-level `jobs` / `cronjobs` maps for one-off or scheduled workloads.
+  # Some values only apply to certain kinds: `replicaCount`/`autoscaling` and `strategy` are
+  # Deployment-only (`autoscaling` also works on a StatefulSet), `volumeClaims`/`extraVolumeClaims`
+  # are StatefulSet-only, and `updateStrategy` covers StatefulSet and DaemonSet.
+  # @section -- Worker_classification
+  deploymentType: "Deployment"
+  # -- The number of application controller pods to run. Ignored when `deploymentType` is
+  # "DaemonSet" (one pod per node) or when `autoscaling.enabled` is true.
+  # @section -- Worker_classification
+  replicaCount: 1
+  image:
+    # -- Registry to use for the app.
+    # @section -- Worker_classification
+    registry: "ghcr.io"
+    # -- Repository to use for the app.
+    # @section -- Worker_classification
+    repository: "ia-generative/mille-feuille/worker-classification"
+    # -- Image pull policy for the app.
+    # @section -- Worker_classification
+    pullPolicy: "IfNotPresent"
+    # -- Tag to use for the app.
+    # @section -- Worker_classification
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+    # -- Image digest (`sha256:...`). When set it takes precedence over `tag`, pinning the exact
+    # image content so the same release can never resolve to a different build - preferred over a
+    # mutable tag for anything you deploy to production.
+    # @section -- Worker_classification
+    digest: ""
+  ingress:
+    # -- Whether or not ingress should be enabled.
+    # @section -- Worker_classification
+    enabled: false
+    # -- Defines which ingress controller will implement the resource.
+    # @section -- Worker_classification
+    className: ""
+    # -- Additional ingress annotations.
+    # @section -- Worker_classification
+    annotations: {}
+    # -- Additional ingress labels.
+    # @section -- Worker_classification
+    labels: {}
+    hosts:
+      - # -- Name of the host record.
+        # @section -- Worker_classification
+        name: "domain.local"
+        # -- Paths of the host record to manage routing (avoids repeating the same host for
+        # multiple paths/backends).
+        # @section -- Worker_classification
+        paths:
+          - # -- Path of the host record to manage routing.
+            # @section -- Worker_classification
+            path: "/"
+            # -- Path type of the host record.
+            # @section -- Worker_classification
+            pathType: "Prefix"
+            backend:
+              # -- Name of the backend service linked to the path (leave empty to use the app service).
+              # @section -- Worker_classification
+              serviceName: ""
+              # -- Port used by the backend service linked to the path (leave null to use the app service port).
+              # @section -- Worker_classification
+              portNumber: null
+    # -- Enable TLS configuration.
+    # @section -- Worker_classification
+    tls: []
+    # - secretName: domain.local-tls
+    #   hosts:
+    #   - domain.local
+  ## Gateway API HTTPRoute configuration (alternative to Ingress)
+  ## Ref: https://gateway-api.sigs.k8s.io/api-types/httproute/
+  httpRoute:
+    # -- Enable an HTTPRoute resource for this service.
+    # @section -- Worker_classification
+    enabled: false
+    # -- Additional HTTPRoute annotations.
+    # @section -- Worker_classification
+    annotations: {}
+    # -- Additional HTTPRoute labels.
+    # @section -- Worker_classification
+    labels: {}
+    # -- Parent references (Gateways) to attach the HTTPRoute to.
+    # @section -- Worker_classification
+    parentRefs: []
+    # - name: my-gateway
+    #   namespace: gateway-namespace  # optional
+    #   sectionName: https            # optional, specific listener name
+    # -- Hostnames for the HTTPRoute to match.
+    # @section -- Worker_classification
+    hostnames: []
+    # - "example.com"
+    # - "api.example.com"
+    # -- Routing rules for the HTTPRoute.
+    # @section -- Worker_classification
+    rules: []
+    # - matches:
+    #   - path:
+    #       type: PathPrefix     # PathPrefix, Exact, or RegularExpression
+    #       value: "/"
+    #     headers:
+    #     - type: Exact
+    #       name: "x-version"
+    #       value: "v1"
+    #     method: GET
+    #   filters:
+    #   - type: RequestHeaderModifier
+    #     requestHeaderModifier:
+    #       add:
+    #       - name: "x-custom-header"
+    #         value: "my-value"
+    #   backendRefs:
+    #   - name: my-service       # defaults to chart service if not set
+    #     port: 80               # defaults to service port if not set
+    #     weight: 100            # for traffic splitting
+  ## Gateway API GRPCRoute configuration (for gRPC services)
+  ## Ref: https://gateway-api.sigs.k8s.io/api-types/grpcroute/
+  grpcRoute:
+    # -- Enable a GRPCRoute resource for this service.
+    # @section -- Worker_classification
+    enabled: false
+    # -- Additional GRPCRoute annotations.
+    # @section -- Worker_classification
+    annotations: {}
+    # -- Additional GRPCRoute labels.
+    # @section -- Worker_classification
+    labels: {}
+    # -- Parent references (Gateways) to attach the GRPCRoute to.
+    # @section -- Worker_classification
+    parentRefs: []
+    # - name: my-gateway
+    #   namespace: gateway-namespace
+    #   sectionName: grpc
+    # -- Hostnames for the GRPCRoute to match.
+    # @section -- Worker_classification
+    hostnames: []
+    # - "grpc.example.com"
+    # -- Routing rules for the GRPCRoute.
+    # @section -- Worker_classification
+    rules: []
+    # - matches:
+    #   - method:
+    #       type: Exact          # Exact or RegularExpression
+    #       service: "mypackage.MyService"
+    #       method: "MyMethod"
+    #     headers:
+    #     - type: Exact
+    #       name: "x-version"
+    #       value: "v1"
+    #   backendRefs:
+    #   - name: my-grpc-service
+    #     port: 50051
+    #     weight: 100
+  # -- Mount the ServiceAccount token into the app pods. Defaults to false so a compromised
+  # container holds no API credentials; the API server does not need the token unless the app
+  # actually talks to the Kubernetes API. Applied at pod level so it holds even when
+  # `serviceAccount.name` points at an SA that automounts.
+  # @section -- Worker_classification
+  automountServiceAccountToken: false
+  # -- Inject the legacy `{SVC}_SERVICE_HOST`/`_PORT` environment variables for every Service in the
+  # namespace. Defaults to false: the variables are rarely used, leak the namespace's topology into
+  # every container, and can collide with the app's own configuration. Set to true only for an app
+  # that genuinely reads them.
+  # @section -- Worker_classification
+  enableServiceLinks: false
+  # -- Annotations for the app deployed pods.
+  # @section -- Worker_classification
+  podAnnotations: {}
+  # -- Labels for the app deployed pods.
+  # @section -- Worker_classification
+  podLabels: {}
+  # -- Pod-level security context. Defaults to a hardened baseline that satisfies the `restricted`
+  # Pod Security Standard. Rendered via `toYaml`, so any `PodSecurityContext` field is accepted.
+  # Adjust the UID/GID to whatever your image actually ships with - `runAsNonRoot` makes the
+  # kubelet refuse to start a container that would run as root, which is the intended failure mode
+  # rather than something to switch off. Set to `null` to omit the block entirely.
+  # @section -- Worker_classification
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    # Owns mounted volumes so a non-root container can still write to them.
+    fsGroup: 1000
+    # Only chown volume contents when the top-level dir doesn't already match, which avoids
+    # re-chowning large volumes on every start.
+    fsGroupChangePolicy: "OnRootMismatch"
+    seccompProfile:
+      type: "RuntimeDefault"
+  # -- Init containers to add to the app pod.
+  # @section -- Worker_classification
+  initContainers: []
+  # - name: wait-for-keycloak
+  #   image: docker.io/curlimages/curl:latest
+  #   command:
+  #   - "/bin/sh"
+  #   - "-c"
+  #   args:
+  #   - "while [ $(curl -sw '%{http_code}' http://webapp.svc.cluster.local -o /dev/null) -ne 200 ]; do sleep 5; echo 'Waiting for the webapp...'; done"
+  #   volumeMounts:
+  #   - mountPath: /custom-volume
+  #     name: custom-volume
+  # -- Extra containers to add to the app pod as sidecars.
+  # @section -- Worker_classification
+  extraContainers: []
+  # - name: fluentd
+  #   image: "fluentd"
+  #   volumeMounts:
+  #     - mountPath: /my-volume/config
+  #       name: config
+  # -- Worker_classification container port number. Set to `null`/`0` (and disable `service`/probes) for
+  # components that don't listen on any port (e.g. a queue consumer).
+  # @section -- Worker_classification
+  containerPort: &worker_classificationContainerPort 8080
+  # -- Worker_classification container port name.
+  # @section -- Worker_classification
+  containerPortName: "http"
+  # -- Worker_classification extra container ports.
+  # @section -- Worker_classification
+  extraPorts: []
+  # - containerPort: 9090
+  #   protocol: "TCP"
+  # -- Worker_classification container command.
+  # @section -- Worker_classification
+  command: []
+  # -- Worker_classification container command args.
+  # @section -- Worker_classification
+  args: []
+  # -- Container-level security context. Defaults to a hardened baseline that satisfies the
+  # `restricted` Pod Security Standard: no privilege escalation, no capabilities, immutable root
+  # filesystem. Rendered via `toYaml`, so any `SecurityContext` field is accepted. Note
+  # `readOnlyRootFilesystem` requires the app to write only to mounted volumes - the default
+  # `volumes`/`volumeMounts` below provide an `emptyDir` on /tmp for that reason. Set to `null` to
+  # omit the block entirely.
+  # @section -- Worker_classification
+  securityContext:
+    allowPrivilegeEscalation: false
+    privileged: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    capabilities:
+      drop:
+        - "ALL"
+  # -- Worker_classification container env variables loaded from configmap or secret reference. List or map
+  # (merged with `global.envFrom` above, global entries first); see `global.envFrom` for both forms.
+  # @section -- Worker_classification
+  envFrom: []
+  # - configMapRef:
+  #     name: my-config
+  # - secretRef:
+  #     name: my-secret
+  # -- Map or array of environment variables to inject into the app container (`valueFrom` supported).
+  # @section -- Worker_classification
+  env: {}
+  # A: "A"
+  # B:
+  #   valueFrom:
+  #     configMapKeyRef:
+  #       name: "my-config"
+  #       key: "B"
+  # C:
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: "my-secret"
+  #       key: "C"
+  #
+  # - name: "A"
+  #   value: "A"
+  # - name: "B"
+  #   valueFrom:
+  #     configMapKeyRef:
+  #       name: "my-config"
+  #       key: "B"
+  # - name: "C"
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: "my-secret"
+  #       key: "C"
+  # -- Map of environment variables to inject into a configmap loaded by the app container (`valueFrom` not supported).
+  # @section -- Worker_classification
+  envCm: {}
+  # D: "D"
+  # -- Map of environment variables to inject into a secret loaded by the app container (`valueFrom`
+  # not supported). Values placed here are stored in plain text in the values file AND in the Helm
+  # release secret, so use it for non-sensitive-but-secret-shaped config only. For real credentials
+  # prefer referencing a Secret you manage elsewhere via `envFrom`, or have an operator materialise
+  # it (see the `VaultStaticSecret` example under `extraObjects`).
+  # @section -- Worker_classification
+  envSecret: {}
+  # E: "E"
+  ## Each probe is rendered verbatim via `toYaml`, so any `Probe` field (`exec`, `tcpSocket`,
+  ## `grpc`...) is accepted, not just the `httpGet` shown here. To DISABLE a probe, set it to
+  ## `null` - `{}` does not work, because Helm deep-merges values files and would merge these
+  ## defaults straight back in.
+  probes:
+    startupProbe:
+      httpGet:
+        # -- Worker_classification container healthcheck endpoint (startupProbe is defined using `toYaml` so it is possible to override it completely).
+        # @section -- Worker_classification
+        path: "/"
+        # -- Port to use for healthcheck (defaults to container port).
+        # @section -- Worker_classification
+        port: *worker_classificationContainerPort
+      # -- Number of seconds after the container has started before probe is initiated.
+      # @section -- Worker_classification
+      initialDelaySeconds: 0
+      # -- Minimum consecutive successes for the probe to be considered successful after having failed.
+      # @section -- Worker_classification
+      successThreshold: 1
+      # -- Minimum consecutive failures for the probe to be considered failed after having succeeded.
+      # @section -- Worker_classification
+      failureThreshold: 10
+      # -- How often (in seconds) to perform the probe.
+      # @section -- Worker_classification
+      periodSeconds: 10
+      # -- Number of seconds after which the probe times out.
+      # @section -- Worker_classification
+      timeoutSeconds: 5
+    readinessProbe:
+      httpGet:
+        # -- Worker_classification container healthcheck endpoint (readinessProbe is defined using `toYaml` so it is possible to override it completely).
+        # @section -- Worker_classification
+        path: "/"
+        # -- Port to use for healthcheck (defaults to container port).
+        # @section -- Worker_classification
+        port: *worker_classificationContainerPort
+      # -- Number of seconds after the container has started before probe is initiated.
+      # @section -- Worker_classification
+      initialDelaySeconds: 10
+      # -- Minimum consecutive successes for the probe to be considered successful after having failed.
+      # @section -- Worker_classification
+      successThreshold: 2
+      # -- Minimum consecutive failures for the probe to be considered failed after having succeeded.
+      # @section -- Worker_classification
+      failureThreshold: 2
+      # -- How often (in seconds) to perform the probe.
+      # @section -- Worker_classification
+      periodSeconds: 10
+      # -- Number of seconds after which the probe times out.
+      # @section -- Worker_classification
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        # -- Worker_classification container healthcheck endpoint (livenessProbe is defined using `toYaml` so it is possible to override it completely).
+        # @section -- Worker_classification
+        path: "/"
+        # -- Port to use for healthcheck (defaults to container port).
+        # @section -- Worker_classification
+        port: *worker_classificationContainerPort
+      # -- Number of seconds after the container has started before probe is initiated.
+      # @section -- Worker_classification
+      initialDelaySeconds: 30
+      # -- Minimum consecutive successes for the probe to be considered successful after having failed.
+      # @section -- Worker_classification
+      successThreshold: 1
+      # -- Minimum consecutive failures for the probe to be considered failed after having succeeded.
+      # @section -- Worker_classification
+      failureThreshold: 3
+      # -- How often (in seconds) to perform the probe.
+      # @section -- Worker_classification
+      periodSeconds: 30
+      # -- Number of seconds after which the probe times out.
+      # @section -- Worker_classification
+      timeoutSeconds: 5
+  ## Deployment-only. StatefulSet and DaemonSet use `updateStrategy` below - their update
+  ## strategies are a different API shape (no `Recreate`, and different `rollingUpdate` fields),
+  ## so they are kept as separate values rather than one block that means three different things.
+  strategy:
+    # -- Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`.
+    # Only applied when `deploymentType` is "Deployment".
+    # @section -- Worker_classification
+    type: "RollingUpdate"
+    rollingUpdate:
+      # -- The maximum number of pods that can be unavailable during the update process.
+      # @section -- Worker_classification
+      maxUnavailable: 1
+      # -- The maximum number of pods that can be scheduled above the desired number of pods.
+      # @section -- Worker_classification
+      maxSurge: 1
+  # -- Update strategy applied when `deploymentType` is "StatefulSet" or "DaemonSet" (ignored for
+  # a Deployment, which uses `strategy` above). Rendered verbatim via `toYaml`, so it takes the
+  # native `StatefulSetUpdateStrategy`/`DaemonSetUpdateStrategy` shape of the selected kind; left
+  # empty, Kubernetes applies its own default (`RollingUpdate` for both).
+  # @section -- Worker_classification
+  updateStrategy: {}
+  # StatefulSet:
+  #   type: "RollingUpdate"        # RollingUpdate or OnDelete
+  #   rollingUpdate:
+  #     partition: 0
+  #     maxUnavailable: 1
+  # DaemonSet:
+  #   type: "RollingUpdate"        # RollingUpdate or OnDelete
+  #   rollingUpdate:
+  #     maxUnavailable: 1
+  #     maxSurge: 0
+  # -- Image credentials configuration.
+  # @section -- Worker_classification
+  imagePullSecrets: []
+  # - name: "pullsecret-name-1"
+  #   create: false
+  # - name: "pullsecret-name-2"
+  #   create: true
+  #   registry: ""
+  #   username: ""
+  #   password: ""
+  #   email: ""
+  ## Node-level pod settings. Mostly relevant when `deploymentType` is "DaemonSet" (node agents,
+  ## log/metric collectors), but valid for every kind.
+  # -- Share the host network namespace. Container ports then bind directly on the node, so they
+  # must not collide with anything else running there.
+  # @section -- Worker_classification
+  hostNetwork: false
+  # -- Share the host PID namespace (lets the container see and signal host processes).
+  # @section -- Worker_classification
+  hostPID: false
+  # -- Pod DNS policy. Left empty, it defaults to `ClusterFirstWithHostNet` when `hostNetwork` is
+  # true (otherwise a hostNetwork pod silently stops resolving cluster DNS) and to the Kubernetes
+  # default `ClusterFirst` when it isn't.
+  # @section -- Worker_classification
+  # @default -- `""` (`ClusterFirstWithHostNet` when `hostNetwork` is true)
+  dnsPolicy: ""
+  # -- Pod DNS configuration, merged with `dnsPolicy` by the kubelet.
+  # @section -- Worker_classification
+  dnsConfig: {}
+  # nameservers:
+  # - "1.1.1.1"
+  # options:
+  # - name: "ndots"
+  #   value: "2"
+  # searches:
+  # - "my.dns.search.suffix"
+  # -- PriorityClass to schedule the pods with (e.g. `system-node-critical` for a node agent that
+  # must not be evicted under pressure).
+  # @section -- Worker_classification
+  priorityClassName: ""
+  # -- (int) Grace period, in seconds, given to the pod to shut down cleanly before it is killed.
+  # @section -- Worker_classification
+  # @default -- `null` (Kubernetes default of 30)
+  terminationGracePeriodSeconds: null
+  # -- Topology spread constraints used to spread the pods across failure domains.
+  # @section -- Worker_classification
+  topologySpreadConstraints: []
+  # - maxSkew: 1
+  #   topologyKey: "topology.kubernetes.io/zone"
+  #   whenUnsatisfiable: "ScheduleAnyway"
+  #   labelSelector:
+  #     matchLabels:
+  #       app.kubernetes.io/name: "millefeuille-worker_classification"
+  # -- Host aliases that will be injected at pod-level into /etc/hosts.
+  # @section -- Worker_classification
+  hostAliases: []
+  # - ip: "127.0.0.1"
+  #   hostnames:
+  #   - "foo.local"
+  #   - "bar.local"
+  # - ip: "10.1.2.3"
+  #   hostnames:
+  #   - "foo.remote"
+  #   - "bar.remote"
+  # -- List of volumes to add. Prefer this for volumes the chart itself always needs (e.g.
+  # security-hardening `emptyDir`s); use `extraVolumes` below for anything you add on top, so
+  # overriding one doesn't require repeating the other. Defaults to a `/tmp` `emptyDir`, which is
+  # what makes the default `securityContext.readOnlyRootFilesystem: true` usable - drop it only if
+  # you also relax that. Helm replaces lists wholesale rather than merging them, so overriding this
+  # key means restating the entries you want to keep.
+  # @section -- Worker_classification
+  volumes:
+    - name: "tmp"
+      emptyDir: {}
+  # - name: config-volume
+  #   configMap:
+  #     name: log-config
+  #     items:
+  #       - key: log_level
+  #         path: log_level.conf
+  # - name: cache-volume
+  #   emptyDir:
+  #     sizeLimit: 500Mi
+  # - name: image-volume
+  #   image:
+  #     reference: quay.io/crio/artifact:v2
+  #     pullPolicy: IfNotPresent
+  # -- Additional volumes to add, concatenated with `volumes` above at render time (e.g. to
+  # mount a cert or config from a values override without repeating the chart's own volumes).
+  # @section -- Worker_classification
+  extraVolumes: []
+  # - name: certs
+  #   secret:
+  #     secretName: my-tls-cert
+  # -- List of volumeClaims to add, rendered as the StatefulSet's `volumeClaimTemplates`. Requires
+  # `deploymentType: "StatefulSet"` - setting it on a Deployment or DaemonSet fails at render time
+  # rather than being silently dropped (use `volumes`/`extraVolumes` there instead).
+  # @section -- Worker_classification
+  volumeClaims: []
+  # - metadata:
+  #     name: app-volume
+  #   spec:
+  #     accessModes: [ "ReadWriteOnce" ]
+  #     storageClassName: "my-storage-class"
+  #     resources:
+  #       requests:
+  #         storage: 1Gi
+  # -- Additional volumeClaims to add, concatenated with `volumeClaims` above at render time.
+  # @section -- Worker_classification
+  extraVolumeClaims: []
+  # -- List of mounts to add (normally used with `volumes` or `volumeClaims`). Prefer this for
+  # mounts the chart itself always needs; use `extraVolumeMounts` below for anything you add
+  # on top, so overriding one doesn't require repeating the other. Defaults to the `/tmp` mount
+  # backing the hardened `readOnlyRootFilesystem` default (see `volumes` above).
+  # @section -- Worker_classification
+  volumeMounts:
+    - name: "tmp"
+      mountPath: "/tmp"
+  # - name: config-volume
+  #   mountPath: /app/config
+  #   subPath: config
+  #   readOnly: true
+  #   mountPropagation: None
+  #   recursiveReadOnly: Enabled
+  # - name: cache-volume
+  #   mountPath: /app/cache
+  # - name: image-volume
+  #   mountPath: /app/content
+  # - name: storage-volume
+  #   mountPath: /app/storage
+  # -- Additional volumeMounts to add, concatenated with `volumeMounts` above at render time.
+  # @section -- Worker_classification
+  extraVolumeMounts: []
+  # - name: certs
+  #   mountPath: /etc/certs
+  #   readOnly: true
+  service:
+    # -- Whether or not to create a Service for the app. Set to `false` for components that
+    # don't accept traffic (e.g. a queue consumer with no `containerPort`).
+    # @section -- Worker_classification
+    enabled: true
+    # -- Type of service to create for the app.
+    # @section -- Worker_classification
+    type: "ClusterIP"
+    # -- Port used by the service.
+    # @section -- Worker_classification
+    port: 80
+    # -- (int) Port used when type is `NodePort` to expose the service on the given node port. Left
+    # empty, Kubernetes allocates one from the configured node-port range, which avoids two
+    # releases of this chart colliding on the same hardcoded port.
+    # @section -- Worker_classification
+    # @default -- `null` (allocated by Kubernetes)
+    nodePort: null
+    # -- Port name used by the service.
+    # @section -- Worker_classification
+    portName: "http"
+    # -- Protocol used by the service.
+    # @section -- Worker_classification
+    protocol: "TCP"
+    # -- Extra service ports.
+    # @section -- Worker_classification
+    extraPorts: []
+    # - port: 9090
+    #   targetPort: 9090
+    #   protocol: "TCP"
+    #   name: "metrics"
+  resources:
+    requests:
+      # -- Memory request for the app.
+      # @section -- Worker_classification
+      memory: "256Mi"
+      # -- CPU request for the app.
+      # @section -- Worker_classification
+      cpu: "100m"
+      # Other stuff like GPU, etc could be added here.
+      # nvidia.com/gpu: "1"
+      # ephemeral-storage: "100Mi"
+    limits:
+      # -- Memory limit for the app.
+      # @section -- Worker_classification
+      memory: "2Gi"
+      # -- CPU limit for the app.
+      # @section -- Worker_classification
+      cpu: "500m"
+      # Other stuff like GPU, etc could be added here.
+      # nvidia.com/gpu: "1"
+      # ephemeral-storage: "500Mi"
+  autoscaling:
+    # -- Enable Horizontal Pod Autoscaler for the app.
+    # @section -- Worker_classification
+    enabled: false
+    # -- Minimum number of replicas for the app.
+    # @section -- Worker_classification
+    minReplicas: 1
+    # -- Maximum number of replicas for the app.
+    # @section -- Worker_classification
+    maxReplicas: 3
+    # -- Average CPU utilization percentage for the app.
+    # @section -- Worker_classification
+    targetCPUUtilizationPercentage: 80
+    # -- Average memory utilization percentage for the app.
+    # @section -- Worker_classification
+    targetMemoryUtilizationPercentage: 80
+  # -- Revision history limit for the app.
+  # @section -- Worker_classification
+  revisionHistoryLimit: 10
+  # -- Default node selector for app.
+  # @section -- Worker_classification
+  nodeSelector: {}
+  # kubernetes.io/os: "linux"
+  # kubernetes.io/arch: "amd64"
+  # kubernetes.io/hostname: "node1"
+  # -- Default tolerations for app.
+  # @section -- Worker_classification
+  tolerations: []
+  # - key: "key1"
+  #   operator: "Equal"
+  #   value: "value1"
+  #   effect: "NoSchedule"
+  #   tolerationSeconds: 3600
+  # - key: "key2"
+  #   operator: "Equal"
+  #   value: "value2"
+  #   effect: "NoExecute"
+  #   tolerationSeconds: 3600
+  # - key: "key3"
+  #   operator: "Exists"
+  #   effect: "PreferNoSchedule"
+  #   tolerationSeconds: 3600
+  # -- Affinity used for app pod.
+  # @section -- Worker_classification
+  affinity: {}
+  # podAntiAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #   - labelSelector:
+  #       matchExpressions:
+  #       - key: "app.kubernetes.io/name"
+  #         operator: "In"
+  #         values:
+  #         - "millefeuille-worker_classification"
+  #     topologyKey: "kubernetes.io/hostname"
+  serviceAccount:
+    # -- Enable the service account.
+    # @section -- Worker_classification
+    enabled: false
+    # -- Create a service account.
+    # @section -- Worker_classification
+    create: false
+    # -- Annotations applied to created service account.
+    # @section -- Worker_classification
+    annotations: {}
+    # -- Service account name.
+    # @section -- Worker_classification
+    name: ""
+    # -- Should the service account access token be automount in the pod.
+    # @section -- Worker_classification
+    automountServiceAccountToken: false
+    role:
+      # -- Should the role be created.
+      # @section -- Worker_classification
+      create: false
+      # -- Role rules associated with the service account.
+      # @section -- Worker_classification
+      rules: []
+      # - apiGroups:
+      #   - argoproj.io
+      #   resources:
+      #   - applications
+      #   - applicationsets
+      #   - appprojects
+      #   verbs:
+      #   - create
+      #   - get
+      #   - list
+      #   - watch
+      #   - update
+      #   - delete
+      #   - patch
+    clusterRole:
+      # -- Should the clusterRole be created.
+      # @section -- Worker_classification
+      create: false
+      # -- ClusterRole rules associated with the service account.
+      # @section -- Worker_classification
+      rules: []
+      # - apiGroups:
+      #   - argoproj.io
+      #   resources:
+      #   - applications
+      #   - applicationsets
+      #   - appprojects
+      #   verbs:
+      #   - create
+      #   - get
+      #   - list
+      #   - watch
+      #   - update
+      #   - delete
+      #   - patch
+  ## Ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  pdb:
+    # -- Deploy a PodDisruptionBudget for the app
+    # @section -- Worker_classification
+    enabled: false
+    # -- Labels to be added to app pdb.
+    # @section -- Worker_classification
+    labels: {}
+    # -- Annotations to be added to app pdb.
+    # @section -- Worker_classification
+    annotations: {}
+    # -- Number of pods that are available after eviction as number or percentage (eg.: 50%). One
+    # of `minAvailable` / `maxUnavailable` must be set when `pdb.enabled` is true - a budget of 0
+    # is the same as having no budget at all, so leaving both empty fails at render time.
+    # @section -- Worker_classification
+    minAvailable: ""
+    # -- Number of pods that are unavailable after eviction as number or percentage (eg.: 50%). Has higher precedence over `worker_classification.pdb.minAvailable`.
+    # @section -- Worker_classification
+    maxUnavailable: ""
+  networkPolicy:
+    # -- Create NetworkPolicy object for the app. The policy always selects this component's pods
+    # only (via its selector labels), never the whole namespace.
+    # @section -- Worker_classification
+    create: false
+    # -- Labels to be added to the app NetworkPolicy.
+    # @section -- Worker_classification
+    labels: {}
+    # -- Annotations to be added to the app NetworkPolicy.
+    # @section -- Worker_classification
+    annotations: {}
+    # -- Policy types used in the NetworkPolicy object.
+    # @section -- Worker_classification
+    policyTypes:
+      - Ingress
+    # -- Ingress rules for the NetworkPolicy object.
+    # @section -- Worker_classification
+    ingress: []
+    # - from:
+    #   - ipBlock:
+    #       cidr: 172.17.0.0/16
+    #       except:
+    #       - 172.17.1.0/24
+    #   - namespaceSelector:
+    #       matchLabels:
+    #         project: myproject
+    #   - podSelector:
+    #       matchLabels:
+    #         role: frontend
+    #   ports:
+    #   - protocol: TCP
+    #     port: 6379
+    # -- Egress rules for the NetworkPolicy object.
+    # @section -- Worker_classification
+    egress: []
+    # - to:
+    #   - ipBlock:
+    #       cidr: 10.0.0.0/24
+    #   ports:
+    #   - protocol: TCP
+    #     port: 32000
+    #     endPort: 32768
+  metrics:
+    # -- Deploy metrics service.
+    # @section -- Worker_classification
+    enabled: false
+    service:
+      # -- Type of metrics service to create.
+      # @section -- Worker_classification
+      type: "ClusterIP"
+      # -- Metrics service annotations.
+      # @section -- Worker_classification
+      annotations: {}
+      # -- Metrics service labels.
+      # @section -- Worker_classification
+      labels: {}
+      # -- Metrics service port name.
+      # @section -- Worker_classification
+      portName: "metrics"
+      # -- Metrics service port.
+      # @section -- Worker_classification
+      port: 9000
+      # -- Metrics service target port.
+      # @section -- Worker_classification
+      targetPort: 9000
+    serviceMonitor:
+      # -- Enable a prometheus ServiceMonitor.
+      # @section -- Worker_classification
+      enabled: false
+      # -- Prometheus ServiceMonitor labels.
+      # @section -- Worker_classification
+      labels: {}
+      # -- Prometheus ServiceMonitor annotations.
+      # @section -- Worker_classification
+      annotations: {}
+      endpoints:
+        - basicAuth:
+            # -- The secret in the service monitor namespace that contains the username for authentication.
+            # @section -- Worker_classification
+            username: ""
+            # -- The secret in the service monitor namespace that contains the password for authentication.
+            # @section -- Worker_classification
+            password: ""
+          bearerTokenSecret:
+            # -- Secret name to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator.
+            # @section -- Worker_classification
+            name: ""
+            # -- Secret key to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator.
+            # @section -- Worker_classification
+            key: ""
+          # -- Prometheus ServiceMonitor interval.
+          # @section -- Worker_classification
+          interval: "30s"
+          # -- Prometheus ServiceMonitor scrapeTimeout. If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used.
+          # @section -- Worker_classification
+          scrapeTimeout: "10s"
+          # -- Path used by the Prometheus ServiceMonitor to scrape metrics.
+          # @section -- Worker_classification
+          path: "/metrics"
+          # -- When true, honorLabels preserves the metric’s labels when they collide with the target’s labels.
+          # @section -- Worker_classification
+          honorLabels: false
+          # -- Prometheus RelabelConfigs to apply to samples before scraping.
+          # @section -- Worker_classification
+          relabelings: []
+          # -- Prometheus MetricRelabelConfigs to apply to samples before ingestion.
+          # @section -- Worker_classification
+          metricRelabelings: []
+          # -- Prometheus ServiceMonitor selector.
+          # @section -- Worker_classification
+          selector: {}
+          # prometheus: kube-prometheus
+          # -- Prometheus ServiceMonitor scheme.
+          # @section -- Worker_classification
+          scheme: ""
+          # -- Prometheus ServiceMonitor tlsConfig.
+          # @section -- Worker_classification
+          tlsConfig: {}
 worker_document:
   # -- Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet"
   # (validated at render time - an unknown value fails instead of producing a release with no
@@ -3819,6 +4653,840 @@ worker_document:
           tlsConfig: {}
 
 # Celery worker - fills ODT document templates and converts them to PDF with LibreOffice (worker/document_render).
+worker_extraction:
+  # -- Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet"
+  # (validated at render time - an unknown value fails instead of producing a release with no
+  # workload). Use the top-level `jobs` / `cronjobs` maps for one-off or scheduled workloads.
+  # Some values only apply to certain kinds: `replicaCount`/`autoscaling` and `strategy` are
+  # Deployment-only (`autoscaling` also works on a StatefulSet), `volumeClaims`/`extraVolumeClaims`
+  # are StatefulSet-only, and `updateStrategy` covers StatefulSet and DaemonSet.
+  # @section -- Worker_extraction
+  deploymentType: "Deployment"
+  # -- The number of application controller pods to run. Ignored when `deploymentType` is
+  # "DaemonSet" (one pod per node) or when `autoscaling.enabled` is true.
+  # @section -- Worker_extraction
+  replicaCount: 1
+  image:
+    # -- Registry to use for the app.
+    # @section -- Worker_extraction
+    registry: "ghcr.io"
+    # -- Repository to use for the app.
+    # @section -- Worker_extraction
+    repository: "ia-generative/mille-feuille/worker-extraction"
+    # -- Image pull policy for the app.
+    # @section -- Worker_extraction
+    pullPolicy: "IfNotPresent"
+    # -- Tag to use for the app.
+    # @section -- Worker_extraction
+    # Overrides the image tag whose default is the chart appVersion.
+    tag: ""
+    # -- Image digest (`sha256:...`). When set it takes precedence over `tag`, pinning the exact
+    # image content so the same release can never resolve to a different build - preferred over a
+    # mutable tag for anything you deploy to production.
+    # @section -- Worker_extraction
+    digest: ""
+  ingress:
+    # -- Whether or not ingress should be enabled.
+    # @section -- Worker_extraction
+    enabled: false
+    # -- Defines which ingress controller will implement the resource.
+    # @section -- Worker_extraction
+    className: ""
+    # -- Additional ingress annotations.
+    # @section -- Worker_extraction
+    annotations: {}
+    # -- Additional ingress labels.
+    # @section -- Worker_extraction
+    labels: {}
+    hosts:
+      - # -- Name of the host record.
+        # @section -- Worker_extraction
+        name: "domain.local"
+        # -- Paths of the host record to manage routing (avoids repeating the same host for
+        # multiple paths/backends).
+        # @section -- Worker_extraction
+        paths:
+          - # -- Path of the host record to manage routing.
+            # @section -- Worker_extraction
+            path: "/"
+            # -- Path type of the host record.
+            # @section -- Worker_extraction
+            pathType: "Prefix"
+            backend:
+              # -- Name of the backend service linked to the path (leave empty to use the app service).
+              # @section -- Worker_extraction
+              serviceName: ""
+              # -- Port used by the backend service linked to the path (leave null to use the app service port).
+              # @section -- Worker_extraction
+              portNumber: null
+    # -- Enable TLS configuration.
+    # @section -- Worker_extraction
+    tls: []
+    # - secretName: domain.local-tls
+    #   hosts:
+    #   - domain.local
+  ## Gateway API HTTPRoute configuration (alternative to Ingress)
+  ## Ref: https://gateway-api.sigs.k8s.io/api-types/httproute/
+  httpRoute:
+    # -- Enable an HTTPRoute resource for this service.
+    # @section -- Worker_extraction
+    enabled: false
+    # -- Additional HTTPRoute annotations.
+    # @section -- Worker_extraction
+    annotations: {}
+    # -- Additional HTTPRoute labels.
+    # @section -- Worker_extraction
+    labels: {}
+    # -- Parent references (Gateways) to attach the HTTPRoute to.
+    # @section -- Worker_extraction
+    parentRefs: []
+    # - name: my-gateway
+    #   namespace: gateway-namespace  # optional
+    #   sectionName: https            # optional, specific listener name
+    # -- Hostnames for the HTTPRoute to match.
+    # @section -- Worker_extraction
+    hostnames: []
+    # - "example.com"
+    # - "api.example.com"
+    # -- Routing rules for the HTTPRoute.
+    # @section -- Worker_extraction
+    rules: []
+    # - matches:
+    #   - path:
+    #       type: PathPrefix     # PathPrefix, Exact, or RegularExpression
+    #       value: "/"
+    #     headers:
+    #     - type: Exact
+    #       name: "x-version"
+    #       value: "v1"
+    #     method: GET
+    #   filters:
+    #   - type: RequestHeaderModifier
+    #     requestHeaderModifier:
+    #       add:
+    #       - name: "x-custom-header"
+    #         value: "my-value"
+    #   backendRefs:
+    #   - name: my-service       # defaults to chart service if not set
+    #     port: 80               # defaults to service port if not set
+    #     weight: 100            # for traffic splitting
+  ## Gateway API GRPCRoute configuration (for gRPC services)
+  ## Ref: https://gateway-api.sigs.k8s.io/api-types/grpcroute/
+  grpcRoute:
+    # -- Enable a GRPCRoute resource for this service.
+    # @section -- Worker_extraction
+    enabled: false
+    # -- Additional GRPCRoute annotations.
+    # @section -- Worker_extraction
+    annotations: {}
+    # -- Additional GRPCRoute labels.
+    # @section -- Worker_extraction
+    labels: {}
+    # -- Parent references (Gateways) to attach the GRPCRoute to.
+    # @section -- Worker_extraction
+    parentRefs: []
+    # - name: my-gateway
+    #   namespace: gateway-namespace
+    #   sectionName: grpc
+    # -- Hostnames for the GRPCRoute to match.
+    # @section -- Worker_extraction
+    hostnames: []
+    # - "grpc.example.com"
+    # -- Routing rules for the GRPCRoute.
+    # @section -- Worker_extraction
+    rules: []
+    # - matches:
+    #   - method:
+    #       type: Exact          # Exact or RegularExpression
+    #       service: "mypackage.MyService"
+    #       method: "MyMethod"
+    #     headers:
+    #     - type: Exact
+    #       name: "x-version"
+    #       value: "v1"
+    #   backendRefs:
+    #   - name: my-grpc-service
+    #     port: 50051
+    #     weight: 100
+  # -- Mount the ServiceAccount token into the app pods. Defaults to false so a compromised
+  # container holds no API credentials; the API server does not need the token unless the app
+  # actually talks to the Kubernetes API. Applied at pod level so it holds even when
+  # `serviceAccount.name` points at an SA that automounts.
+  # @section -- Worker_extraction
+  automountServiceAccountToken: false
+  # -- Inject the legacy `{SVC}_SERVICE_HOST`/`_PORT` environment variables for every Service in the
+  # namespace. Defaults to false: the variables are rarely used, leak the namespace's topology into
+  # every container, and can collide with the app's own configuration. Set to true only for an app
+  # that genuinely reads them.
+  # @section -- Worker_extraction
+  enableServiceLinks: false
+  # -- Annotations for the app deployed pods.
+  # @section -- Worker_extraction
+  podAnnotations: {}
+  # -- Labels for the app deployed pods.
+  # @section -- Worker_extraction
+  podLabels: {}
+  # -- Pod-level security context. Defaults to a hardened baseline that satisfies the `restricted`
+  # Pod Security Standard. Rendered via `toYaml`, so any `PodSecurityContext` field is accepted.
+  # Adjust the UID/GID to whatever your image actually ships with - `runAsNonRoot` makes the
+  # kubelet refuse to start a container that would run as root, which is the intended failure mode
+  # rather than something to switch off. Set to `null` to omit the block entirely.
+  # @section -- Worker_extraction
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    # Owns mounted volumes so a non-root container can still write to them.
+    fsGroup: 1000
+    # Only chown volume contents when the top-level dir doesn't already match, which avoids
+    # re-chowning large volumes on every start.
+    fsGroupChangePolicy: "OnRootMismatch"
+    seccompProfile:
+      type: "RuntimeDefault"
+  # -- Init containers to add to the app pod.
+  # @section -- Worker_extraction
+  initContainers: []
+  # - name: wait-for-keycloak
+  #   image: docker.io/curlimages/curl:latest
+  #   command:
+  #   - "/bin/sh"
+  #   - "-c"
+  #   args:
+  #   - "while [ $(curl -sw '%{http_code}' http://webapp.svc.cluster.local -o /dev/null) -ne 200 ]; do sleep 5; echo 'Waiting for the webapp...'; done"
+  #   volumeMounts:
+  #   - mountPath: /custom-volume
+  #     name: custom-volume
+  # -- Extra containers to add to the app pod as sidecars.
+  # @section -- Worker_extraction
+  extraContainers: []
+  # - name: fluentd
+  #   image: "fluentd"
+  #   volumeMounts:
+  #     - mountPath: /my-volume/config
+  #       name: config
+  # -- Worker_extraction container port number. Set to `null`/`0` (and disable `service`/probes) for
+  # components that don't listen on any port (e.g. a queue consumer).
+  # @section -- Worker_extraction
+  containerPort: &worker_extractionContainerPort 8080
+  # -- Worker_extraction container port name.
+  # @section -- Worker_extraction
+  containerPortName: "http"
+  # -- Worker_extraction extra container ports.
+  # @section -- Worker_extraction
+  extraPorts: []
+  # - containerPort: 9090
+  #   protocol: "TCP"
+  # -- Worker_extraction container command.
+  # @section -- Worker_extraction
+  command: []
+  # -- Worker_extraction container command args.
+  # @section -- Worker_extraction
+  args: []
+  # -- Container-level security context. Defaults to a hardened baseline that satisfies the
+  # `restricted` Pod Security Standard: no privilege escalation, no capabilities, immutable root
+  # filesystem. Rendered via `toYaml`, so any `SecurityContext` field is accepted. Note
+  # `readOnlyRootFilesystem` requires the app to write only to mounted volumes - the default
+  # `volumes`/`volumeMounts` below provide an `emptyDir` on /tmp for that reason. Set to `null` to
+  # omit the block entirely.
+  # @section -- Worker_extraction
+  securityContext:
+    allowPrivilegeEscalation: false
+    privileged: false
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    capabilities:
+      drop:
+        - "ALL"
+  # -- Worker_extraction container env variables loaded from configmap or secret reference. List or map
+  # (merged with `global.envFrom` above, global entries first); see `global.envFrom` for both forms.
+  # @section -- Worker_extraction
+  envFrom: []
+  # - configMapRef:
+  #     name: my-config
+  # - secretRef:
+  #     name: my-secret
+  # -- Map or array of environment variables to inject into the app container (`valueFrom` supported).
+  # @section -- Worker_extraction
+  env: {}
+  # A: "A"
+  # B:
+  #   valueFrom:
+  #     configMapKeyRef:
+  #       name: "my-config"
+  #       key: "B"
+  # C:
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: "my-secret"
+  #       key: "C"
+  #
+  # - name: "A"
+  #   value: "A"
+  # - name: "B"
+  #   valueFrom:
+  #     configMapKeyRef:
+  #       name: "my-config"
+  #       key: "B"
+  # - name: "C"
+  #   valueFrom:
+  #     secretKeyRef:
+  #       name: "my-secret"
+  #       key: "C"
+  # -- Map of environment variables to inject into a configmap loaded by the app container (`valueFrom` not supported).
+  # @section -- Worker_extraction
+  envCm: {}
+  # D: "D"
+  # -- Map of environment variables to inject into a secret loaded by the app container (`valueFrom`
+  # not supported). Values placed here are stored in plain text in the values file AND in the Helm
+  # release secret, so use it for non-sensitive-but-secret-shaped config only. For real credentials
+  # prefer referencing a Secret you manage elsewhere via `envFrom`, or have an operator materialise
+  # it (see the `VaultStaticSecret` example under `extraObjects`).
+  # @section -- Worker_extraction
+  envSecret: {}
+  # E: "E"
+  ## Each probe is rendered verbatim via `toYaml`, so any `Probe` field (`exec`, `tcpSocket`,
+  ## `grpc`...) is accepted, not just the `httpGet` shown here. To DISABLE a probe, set it to
+  ## `null` - `{}` does not work, because Helm deep-merges values files and would merge these
+  ## defaults straight back in.
+  probes:
+    startupProbe:
+      httpGet:
+        # -- Worker_extraction container healthcheck endpoint (startupProbe is defined using `toYaml` so it is possible to override it completely).
+        # @section -- Worker_extraction
+        path: "/"
+        # -- Port to use for healthcheck (defaults to container port).
+        # @section -- Worker_extraction
+        port: *worker_extractionContainerPort
+      # -- Number of seconds after the container has started before probe is initiated.
+      # @section -- Worker_extraction
+      initialDelaySeconds: 0
+      # -- Minimum consecutive successes for the probe to be considered successful after having failed.
+      # @section -- Worker_extraction
+      successThreshold: 1
+      # -- Minimum consecutive failures for the probe to be considered failed after having succeeded.
+      # @section -- Worker_extraction
+      failureThreshold: 10
+      # -- How often (in seconds) to perform the probe.
+      # @section -- Worker_extraction
+      periodSeconds: 10
+      # -- Number of seconds after which the probe times out.
+      # @section -- Worker_extraction
+      timeoutSeconds: 5
+    readinessProbe:
+      httpGet:
+        # -- Worker_extraction container healthcheck endpoint (readinessProbe is defined using `toYaml` so it is possible to override it completely).
+        # @section -- Worker_extraction
+        path: "/"
+        # -- Port to use for healthcheck (defaults to container port).
+        # @section -- Worker_extraction
+        port: *worker_extractionContainerPort
+      # -- Number of seconds after the container has started before probe is initiated.
+      # @section -- Worker_extraction
+      initialDelaySeconds: 10
+      # -- Minimum consecutive successes for the probe to be considered successful after having failed.
+      # @section -- Worker_extraction
+      successThreshold: 2
+      # -- Minimum consecutive failures for the probe to be considered failed after having succeeded.
+      # @section -- Worker_extraction
+      failureThreshold: 2
+      # -- How often (in seconds) to perform the probe.
+      # @section -- Worker_extraction
+      periodSeconds: 10
+      # -- Number of seconds after which the probe times out.
+      # @section -- Worker_extraction
+      timeoutSeconds: 5
+    livenessProbe:
+      httpGet:
+        # -- Worker_extraction container healthcheck endpoint (livenessProbe is defined using `toYaml` so it is possible to override it completely).
+        # @section -- Worker_extraction
+        path: "/"
+        # -- Port to use for healthcheck (defaults to container port).
+        # @section -- Worker_extraction
+        port: *worker_extractionContainerPort
+      # -- Number of seconds after the container has started before probe is initiated.
+      # @section -- Worker_extraction
+      initialDelaySeconds: 30
+      # -- Minimum consecutive successes for the probe to be considered successful after having failed.
+      # @section -- Worker_extraction
+      successThreshold: 1
+      # -- Minimum consecutive failures for the probe to be considered failed after having succeeded.
+      # @section -- Worker_extraction
+      failureThreshold: 3
+      # -- How often (in seconds) to perform the probe.
+      # @section -- Worker_extraction
+      periodSeconds: 30
+      # -- Number of seconds after which the probe times out.
+      # @section -- Worker_extraction
+      timeoutSeconds: 5
+  ## Deployment-only. StatefulSet and DaemonSet use `updateStrategy` below - their update
+  ## strategies are a different API shape (no `Recreate`, and different `rollingUpdate` fields),
+  ## so they are kept as separate values rather than one block that means three different things.
+  strategy:
+    # -- Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`.
+    # Only applied when `deploymentType` is "Deployment".
+    # @section -- Worker_extraction
+    type: "RollingUpdate"
+    rollingUpdate:
+      # -- The maximum number of pods that can be unavailable during the update process.
+      # @section -- Worker_extraction
+      maxUnavailable: 1
+      # -- The maximum number of pods that can be scheduled above the desired number of pods.
+      # @section -- Worker_extraction
+      maxSurge: 1
+  # -- Update strategy applied when `deploymentType` is "StatefulSet" or "DaemonSet" (ignored for
+  # a Deployment, which uses `strategy` above). Rendered verbatim via `toYaml`, so it takes the
+  # native `StatefulSetUpdateStrategy`/`DaemonSetUpdateStrategy` shape of the selected kind; left
+  # empty, Kubernetes applies its own default (`RollingUpdate` for both).
+  # @section -- Worker_extraction
+  updateStrategy: {}
+  # StatefulSet:
+  #   type: "RollingUpdate"        # RollingUpdate or OnDelete
+  #   rollingUpdate:
+  #     partition: 0
+  #     maxUnavailable: 1
+  # DaemonSet:
+  #   type: "RollingUpdate"        # RollingUpdate or OnDelete
+  #   rollingUpdate:
+  #     maxUnavailable: 1
+  #     maxSurge: 0
+  # -- Image credentials configuration.
+  # @section -- Worker_extraction
+  imagePullSecrets: []
+  # - name: "pullsecret-name-1"
+  #   create: false
+  # - name: "pullsecret-name-2"
+  #   create: true
+  #   registry: ""
+  #   username: ""
+  #   password: ""
+  #   email: ""
+  ## Node-level pod settings. Mostly relevant when `deploymentType` is "DaemonSet" (node agents,
+  ## log/metric collectors), but valid for every kind.
+  # -- Share the host network namespace. Container ports then bind directly on the node, so they
+  # must not collide with anything else running there.
+  # @section -- Worker_extraction
+  hostNetwork: false
+  # -- Share the host PID namespace (lets the container see and signal host processes).
+  # @section -- Worker_extraction
+  hostPID: false
+  # -- Pod DNS policy. Left empty, it defaults to `ClusterFirstWithHostNet` when `hostNetwork` is
+  # true (otherwise a hostNetwork pod silently stops resolving cluster DNS) and to the Kubernetes
+  # default `ClusterFirst` when it isn't.
+  # @section -- Worker_extraction
+  # @default -- `""` (`ClusterFirstWithHostNet` when `hostNetwork` is true)
+  dnsPolicy: ""
+  # -- Pod DNS configuration, merged with `dnsPolicy` by the kubelet.
+  # @section -- Worker_extraction
+  dnsConfig: {}
+  # nameservers:
+  # - "1.1.1.1"
+  # options:
+  # - name: "ndots"
+  #   value: "2"
+  # searches:
+  # - "my.dns.search.suffix"
+  # -- PriorityClass to schedule the pods with (e.g. `system-node-critical` for a node agent that
+  # must not be evicted under pressure).
+  # @section -- Worker_extraction
+  priorityClassName: ""
+  # -- (int) Grace period, in seconds, given to the pod to shut down cleanly before it is killed.
+  # @section -- Worker_extraction
+  # @default -- `null` (Kubernetes default of 30)
+  terminationGracePeriodSeconds: null
+  # -- Topology spread constraints used to spread the pods across failure domains.
+  # @section -- Worker_extraction
+  topologySpreadConstraints: []
+  # - maxSkew: 1
+  #   topologyKey: "topology.kubernetes.io/zone"
+  #   whenUnsatisfiable: "ScheduleAnyway"
+  #   labelSelector:
+  #     matchLabels:
+  #       app.kubernetes.io/name: "millefeuille-worker_extraction"
+  # -- Host aliases that will be injected at pod-level into /etc/hosts.
+  # @section -- Worker_extraction
+  hostAliases: []
+  # - ip: "127.0.0.1"
+  #   hostnames:
+  #   - "foo.local"
+  #   - "bar.local"
+  # - ip: "10.1.2.3"
+  #   hostnames:
+  #   - "foo.remote"
+  #   - "bar.remote"
+  # -- List of volumes to add. Prefer this for volumes the chart itself always needs (e.g.
+  # security-hardening `emptyDir`s); use `extraVolumes` below for anything you add on top, so
+  # overriding one doesn't require repeating the other. Defaults to a `/tmp` `emptyDir`, which is
+  # what makes the default `securityContext.readOnlyRootFilesystem: true` usable - drop it only if
+  # you also relax that. Helm replaces lists wholesale rather than merging them, so overriding this
+  # key means restating the entries you want to keep.
+  # @section -- Worker_extraction
+  volumes:
+    - name: "tmp"
+      emptyDir: {}
+  # - name: config-volume
+  #   configMap:
+  #     name: log-config
+  #     items:
+  #       - key: log_level
+  #         path: log_level.conf
+  # - name: cache-volume
+  #   emptyDir:
+  #     sizeLimit: 500Mi
+  # - name: image-volume
+  #   image:
+  #     reference: quay.io/crio/artifact:v2
+  #     pullPolicy: IfNotPresent
+  # -- Additional volumes to add, concatenated with `volumes` above at render time (e.g. to
+  # mount a cert or config from a values override without repeating the chart's own volumes).
+  # @section -- Worker_extraction
+  extraVolumes: []
+  # - name: certs
+  #   secret:
+  #     secretName: my-tls-cert
+  # -- List of volumeClaims to add, rendered as the StatefulSet's `volumeClaimTemplates`. Requires
+  # `deploymentType: "StatefulSet"` - setting it on a Deployment or DaemonSet fails at render time
+  # rather than being silently dropped (use `volumes`/`extraVolumes` there instead).
+  # @section -- Worker_extraction
+  volumeClaims: []
+  # - metadata:
+  #     name: app-volume
+  #   spec:
+  #     accessModes: [ "ReadWriteOnce" ]
+  #     storageClassName: "my-storage-class"
+  #     resources:
+  #       requests:
+  #         storage: 1Gi
+  # -- Additional volumeClaims to add, concatenated with `volumeClaims` above at render time.
+  # @section -- Worker_extraction
+  extraVolumeClaims: []
+  # -- List of mounts to add (normally used with `volumes` or `volumeClaims`). Prefer this for
+  # mounts the chart itself always needs; use `extraVolumeMounts` below for anything you add
+  # on top, so overriding one doesn't require repeating the other. Defaults to the `/tmp` mount
+  # backing the hardened `readOnlyRootFilesystem` default (see `volumes` above).
+  # @section -- Worker_extraction
+  volumeMounts:
+    - name: "tmp"
+      mountPath: "/tmp"
+  # - name: config-volume
+  #   mountPath: /app/config
+  #   subPath: config
+  #   readOnly: true
+  #   mountPropagation: None
+  #   recursiveReadOnly: Enabled
+  # - name: cache-volume
+  #   mountPath: /app/cache
+  # - name: image-volume
+  #   mountPath: /app/content
+  # - name: storage-volume
+  #   mountPath: /app/storage
+  # -- Additional volumeMounts to add, concatenated with `volumeMounts` above at render time.
+  # @section -- Worker_extraction
+  extraVolumeMounts: []
+  # - name: certs
+  #   mountPath: /etc/certs
+  #   readOnly: true
+  service:
+    # -- Whether or not to create a Service for the app. Set to `false` for components that
+    # don't accept traffic (e.g. a queue consumer with no `containerPort`).
+    # @section -- Worker_extraction
+    enabled: true
+    # -- Type of service to create for the app.
+    # @section -- Worker_extraction
+    type: "ClusterIP"
+    # -- Port used by the service.
+    # @section -- Worker_extraction
+    port: 80
+    # -- (int) Port used when type is `NodePort` to expose the service on the given node port. Left
+    # empty, Kubernetes allocates one from the configured node-port range, which avoids two
+    # releases of this chart colliding on the same hardcoded port.
+    # @section -- Worker_extraction
+    # @default -- `null` (allocated by Kubernetes)
+    nodePort: null
+    # -- Port name used by the service.
+    # @section -- Worker_extraction
+    portName: "http"
+    # -- Protocol used by the service.
+    # @section -- Worker_extraction
+    protocol: "TCP"
+    # -- Extra service ports.
+    # @section -- Worker_extraction
+    extraPorts: []
+    # - port: 9090
+    #   targetPort: 9090
+    #   protocol: "TCP"
+    #   name: "metrics"
+  resources:
+    requests:
+      # -- Memory request for the app.
+      # @section -- Worker_extraction
+      memory: "256Mi"
+      # -- CPU request for the app.
+      # @section -- Worker_extraction
+      cpu: "100m"
+      # Other stuff like GPU, etc could be added here.
+      # nvidia.com/gpu: "1"
+      # ephemeral-storage: "100Mi"
+    limits:
+      # -- Memory limit for the app.
+      # @section -- Worker_extraction
+      memory: "2Gi"
+      # -- CPU limit for the app.
+      # @section -- Worker_extraction
+      cpu: "500m"
+      # Other stuff like GPU, etc could be added here.
+      # nvidia.com/gpu: "1"
+      # ephemeral-storage: "500Mi"
+  autoscaling:
+    # -- Enable Horizontal Pod Autoscaler for the app.
+    # @section -- Worker_extraction
+    enabled: false
+    # -- Minimum number of replicas for the app.
+    # @section -- Worker_extraction
+    minReplicas: 1
+    # -- Maximum number of replicas for the app.
+    # @section -- Worker_extraction
+    maxReplicas: 3
+    # -- Average CPU utilization percentage for the app.
+    # @section -- Worker_extraction
+    targetCPUUtilizationPercentage: 80
+    # -- Average memory utilization percentage for the app.
+    # @section -- Worker_extraction
+    targetMemoryUtilizationPercentage: 80
+  # -- Revision history limit for the app.
+  # @section -- Worker_extraction
+  revisionHistoryLimit: 10
+  # -- Default node selector for app.
+  # @section -- Worker_extraction
+  nodeSelector: {}
+  # kubernetes.io/os: "linux"
+  # kubernetes.io/arch: "amd64"
+  # kubernetes.io/hostname: "node1"
+  # -- Default tolerations for app.
+  # @section -- Worker_extraction
+  tolerations: []
+  # - key: "key1"
+  #   operator: "Equal"
+  #   value: "value1"
+  #   effect: "NoSchedule"
+  #   tolerationSeconds: 3600
+  # - key: "key2"
+  #   operator: "Equal"
+  #   value: "value2"
+  #   effect: "NoExecute"
+  #   tolerationSeconds: 3600
+  # - key: "key3"
+  #   operator: "Exists"
+  #   effect: "PreferNoSchedule"
+  #   tolerationSeconds: 3600
+  # -- Affinity used for app pod.
+  # @section -- Worker_extraction
+  affinity: {}
+  # podAntiAffinity:
+  #   requiredDuringSchedulingIgnoredDuringExecution:
+  #   - labelSelector:
+  #       matchExpressions:
+  #       - key: "app.kubernetes.io/name"
+  #         operator: "In"
+  #         values:
+  #         - "millefeuille-worker_extraction"
+  #     topologyKey: "kubernetes.io/hostname"
+  serviceAccount:
+    # -- Enable the service account.
+    # @section -- Worker_extraction
+    enabled: false
+    # -- Create a service account.
+    # @section -- Worker_extraction
+    create: false
+    # -- Annotations applied to created service account.
+    # @section -- Worker_extraction
+    annotations: {}
+    # -- Service account name.
+    # @section -- Worker_extraction
+    name: ""
+    # -- Should the service account access token be automount in the pod.
+    # @section -- Worker_extraction
+    automountServiceAccountToken: false
+    role:
+      # -- Should the role be created.
+      # @section -- Worker_extraction
+      create: false
+      # -- Role rules associated with the service account.
+      # @section -- Worker_extraction
+      rules: []
+      # - apiGroups:
+      #   - argoproj.io
+      #   resources:
+      #   - applications
+      #   - applicationsets
+      #   - appprojects
+      #   verbs:
+      #   - create
+      #   - get
+      #   - list
+      #   - watch
+      #   - update
+      #   - delete
+      #   - patch
+    clusterRole:
+      # -- Should the clusterRole be created.
+      # @section -- Worker_extraction
+      create: false
+      # -- ClusterRole rules associated with the service account.
+      # @section -- Worker_extraction
+      rules: []
+      # - apiGroups:
+      #   - argoproj.io
+      #   resources:
+      #   - applications
+      #   - applicationsets
+      #   - appprojects
+      #   verbs:
+      #   - create
+      #   - get
+      #   - list
+      #   - watch
+      #   - update
+      #   - delete
+      #   - patch
+  ## Ref: https://kubernetes.io/docs/tasks/run-application/configure-pdb/
+  pdb:
+    # -- Deploy a PodDisruptionBudget for the app
+    # @section -- Worker_extraction
+    enabled: false
+    # -- Labels to be added to app pdb.
+    # @section -- Worker_extraction
+    labels: {}
+    # -- Annotations to be added to app pdb.
+    # @section -- Worker_extraction
+    annotations: {}
+    # -- Number of pods that are available after eviction as number or percentage (eg.: 50%). One
+    # of `minAvailable` / `maxUnavailable` must be set when `pdb.enabled` is true - a budget of 0
+    # is the same as having no budget at all, so leaving both empty fails at render time.
+    # @section -- Worker_extraction
+    minAvailable: ""
+    # -- Number of pods that are unavailable after eviction as number or percentage (eg.: 50%). Has higher precedence over `worker_extraction.pdb.minAvailable`.
+    # @section -- Worker_extraction
+    maxUnavailable: ""
+  networkPolicy:
+    # -- Create NetworkPolicy object for the app. The policy always selects this component's pods
+    # only (via its selector labels), never the whole namespace.
+    # @section -- Worker_extraction
+    create: false
+    # -- Labels to be added to the app NetworkPolicy.
+    # @section -- Worker_extraction
+    labels: {}
+    # -- Annotations to be added to the app NetworkPolicy.
+    # @section -- Worker_extraction
+    annotations: {}
+    # -- Policy types used in the NetworkPolicy object.
+    # @section -- Worker_extraction
+    policyTypes:
+      - Ingress
+    # -- Ingress rules for the NetworkPolicy object.
+    # @section -- Worker_extraction
+    ingress: []
+    # - from:
+    #   - ipBlock:
+    #       cidr: 172.17.0.0/16
+    #       except:
+    #       - 172.17.1.0/24
+    #   - namespaceSelector:
+    #       matchLabels:
+    #         project: myproject
+    #   - podSelector:
+    #       matchLabels:
+    #         role: frontend
+    #   ports:
+    #   - protocol: TCP
+    #     port: 6379
+    # -- Egress rules for the NetworkPolicy object.
+    # @section -- Worker_extraction
+    egress: []
+    # - to:
+    #   - ipBlock:
+    #       cidr: 10.0.0.0/24
+    #   ports:
+    #   - protocol: TCP
+    #     port: 32000
+    #     endPort: 32768
+  metrics:
+    # -- Deploy metrics service.
+    # @section -- Worker_extraction
+    enabled: false
+    service:
+      # -- Type of metrics service to create.
+      # @section -- Worker_extraction
+      type: "ClusterIP"
+      # -- Metrics service annotations.
+      # @section -- Worker_extraction
+      annotations: {}
+      # -- Metrics service labels.
+      # @section -- Worker_extraction
+      labels: {}
+      # -- Metrics service port name.
+      # @section -- Worker_extraction
+      portName: "metrics"
+      # -- Metrics service port.
+      # @section -- Worker_extraction
+      port: 9000
+      # -- Metrics service target port.
+      # @section -- Worker_extraction
+      targetPort: 9000
+    serviceMonitor:
+      # -- Enable a prometheus ServiceMonitor.
+      # @section -- Worker_extraction
+      enabled: false
+      # -- Prometheus ServiceMonitor labels.
+      # @section -- Worker_extraction
+      labels: {}
+      # -- Prometheus ServiceMonitor annotations.
+      # @section -- Worker_extraction
+      annotations: {}
+      endpoints:
+        - basicAuth:
+            # -- The secret in the service monitor namespace that contains the username for authentication.
+            # @section -- Worker_extraction
+            username: ""
+            # -- The secret in the service monitor namespace that contains the password for authentication.
+            # @section -- Worker_extraction
+            password: ""
+          bearerTokenSecret:
+            # -- Secret name to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator.
+            # @section -- Worker_extraction
+            name: ""
+            # -- Secret key to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator.
+            # @section -- Worker_extraction
+            key: ""
+          # -- Prometheus ServiceMonitor interval.
+          # @section -- Worker_extraction
+          interval: "30s"
+          # -- Prometheus ServiceMonitor scrapeTimeout. If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used.
+          # @section -- Worker_extraction
+          scrapeTimeout: "10s"
+          # -- Path used by the Prometheus ServiceMonitor to scrape metrics.
+          # @section -- Worker_extraction
+          path: "/metrics"
+          # -- When true, honorLabels preserves the metric’s labels when they collide with the target’s labels.
+          # @section -- Worker_extraction
+          honorLabels: false
+          # -- Prometheus RelabelConfigs to apply to samples before scraping.
+          # @section -- Worker_extraction
+          relabelings: []
+          # -- Prometheus MetricRelabelConfigs to apply to samples before ingestion.
+          # @section -- Worker_extraction
+          metricRelabelings: []
+          # -- Prometheus ServiceMonitor selector.
+          # @section -- Worker_extraction
+          selector: {}
+          # prometheus: kube-prometheus
+          # -- Prometheus ServiceMonitor scheme.
+          # @section -- Worker_extraction
+          scheme: ""
+          # -- Prometheus ServiceMonitor tlsConfig.
+          # @section -- Worker_extraction
+          tlsConfig: {}
 worker_render:
   # -- Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet"
   # (validated at render time - an unknown value fails instead of producing a release with no

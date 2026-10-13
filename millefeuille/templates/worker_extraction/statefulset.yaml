@@ -1,0 +1,25 @@
+{{- if .Values.enabled }}
+{{- if eq .Values.worker_extraction.deploymentType "StatefulSet" }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_extraction") }}
+  labels: {{- include "helper.labels" (dict "root" . "componentName" "worker_extraction") | nindent 4 }}
+spec:
+  {{- if not .Values.worker_extraction.autoscaling.enabled }}
+  replicas: {{ .Values.worker_extraction.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.worker_extraction.revisionHistoryLimit | default 10 }}
+  selector:
+    matchLabels: {{- include "helper.selectorLabels" (dict "root" . "componentName" "worker_extraction") | nindent 6 }}
+  serviceName: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_extraction") }}
+  {{- with .Values.worker_extraction.updateStrategy }}
+  updateStrategy: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    {{- include "helper.component.podTemplate" (dict "root" . "name" "worker_extraction" "component" .Values.worker_extraction) | nindent 4 }}
+  {{- if or .Values.worker_extraction.volumeClaims .Values.worker_extraction.extraVolumeClaims }}
+  volumeClaimTemplates: {{- toYaml (concat (default (list) .Values.worker_extraction.volumeClaims) (default (list) .Values.worker_extraction.extraVolumeClaims)) | nindent 2 }}
+  {{- end }}
+{{- end }}
+{{- end }}

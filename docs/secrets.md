@@ -12,11 +12,11 @@ Chaque secret ci-dessous correspond à un **chemin Vault** (`mirai` mount, kv-v2
 
 | Secret K8s                | Chemin Vault (`exploration/`)       | Type K8s                    | Utilisé par                          |
 | ------------------------- | ------------------------------ | --------------------------- | ------------------------------------ |
-| `millefeuille-s3`            | `millefeuille-s3`                 | Opaque                      | backend, worker_document, worker_agent, worker_render |
+| `millefeuille-s3`            | `millefeuille-s3`                 | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_render |
 | `millefeuille-keycloak`      | `millefeuille-keycloak`           | Opaque                      | backend                               |
-| `millefeuille-openai`        | `millefeuille-openai`             | Opaque                      | backend, worker_agent                 |
-| `millefeuille-worker`        | `millefeuille-worker`             | Opaque                      | backend, worker_document, worker_agent |
-| `millefeuille-redis`         | `millefeuille-redis`              | Opaque                      | backend, worker_document, worker_agent, worker_render, redis sub-chart, KEDA |
+| `millefeuille-openai`        | `millefeuille-openai`             | Opaque                      | backend, worker_agent, worker_classification, worker_extraction |
+| `millefeuille-worker`        | `millefeuille-worker`             | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_extraction |
+| `millefeuille-redis`         | `millefeuille-redis`              | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_extraction, worker_render, redis sub-chart, KEDA |
 | `millefeuille-meilisearch`   | `millefeuille-meilisearch`        | Opaque                      | backend (envFrom)                     |
 | `millefeuille-db-superuser`  | `millefeuille-db-superuser`       | kubernetes.io/basic-auth    | CNPG (superuserSecret)                |
 | `millefeuille-db-appuser`    | `millefeuille-db-appuser`         | kubernetes.io/basic-auth    | CNPG (initdb.secret)                  |
@@ -43,7 +43,7 @@ Variables attendues dans Vault :
 > Seules les credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) et le bucket/région viennent du secret.
 
 **Consommateurs** : backend (`StorageSettings`), worker_document (`WorkerSettings`),
-worker_agent (`WorkerSettings`), worker_render (`WorkerSettings` : `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET_NAME`).
+worker_agent, worker_classification (`WorkerSettings`), worker_render (`WorkerSettings` : `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_S3_BUCKET_NAME`).
 Ce dernier lit le modèle ODT et **écrit** les documents générés et les aperçus dans le bucket. Il ajoute
 `https://` à un `AWS_ENDPOINT_URL` sans schéma (`s3.fr-par.scw.cloud`) : boto3 refuse un hôte nu.
 
@@ -82,7 +82,7 @@ Variables attendues dans Vault :
 > **Note** : `OPENAI_API_BASE_URL` est aussi défini en clair dans `common-values.yaml`
 > (commenté). Si la valeur est publique, elle peut rester en clair ; sinon la mettre dans le secret.
 
-**Consommateurs** : backend (`LlmSettings`), worker_agent.
+**Consommateurs** : backend (`LlmSettings`), worker_agent, worker_classification, worker_extraction.
 
 ---
 
@@ -95,13 +95,13 @@ Variables attendues dans Vault :
 | `INTERNAL_WORKER_TOKEN` | Token pour l'authentification des workers sur `/api/internal/*`     | (identique à `millefeuille-keycloak`)   |
 | `OPENAI_API_KEY`        | Clé API pour le hub LLM (VLM + LLM classification/extraction)     | `sk-xxxxxxxx`                        |
 | `OPENAI_API_BASE_URL`   | URL de base du hub LLM                                             | `https://llm-hub.example.com/v1`    |
-| `VLM_MODEL`             | Modèle vision pour la description des pages (worker_agent)         | `pixtral-12b-2409`                   |
-| `LLM_MODEL`             | Modèle texte pour classification/extraction (worker_agent)        | `llama-3.3-70b-instruct`             |
+| `VLM_MODEL`             | Modèle vision pour la description des pages (worker_classification) | `pixtral-12b-2409`                   |
+| `LLM_MODEL`             | Modèle texte (worker_agent, worker_classification, worker_extraction) | `llama-3.3-70b-instruct`             |
 
 > **Important** : `INTERNAL_WORKER_TOKEN` doit être **identique** à celui du secret
 > `millefeuille-keycloak` (le backend le vérifie, les workers l'envoient).
 
-**Consommateurs** : worker_document, worker_agent. **Pas** worker_render : il n'appelle ni le backend ni le LLM, il ne reçoit donc
+**Consommateurs** : worker_document, worker_agent, worker_classification, worker_extraction. **Pas** worker_render : il n'appelle ni le backend ni le LLM, il ne reçoit donc
 ni `INTERNAL_WORKER_TOKEN` ni la clé du LLM (principe du moindre privilège : ce secret n'est pas dans son `envFrom`).
 
 ---
@@ -122,7 +122,7 @@ Variables attendues dans Vault :
 
 **Consommateurs** :
 - backend (`RedisSettings` → `REDIS_URL`)
-- worker_document, worker_agent, worker_render (`REDIS_URL`, pris comme broker et backend de résultats Celery faute de `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND`)
+- worker_document, worker_agent, worker_classification, worker_extraction, worker_render (`REDIS_URL`, pris comme broker et backend de résultats Celery faute de `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND`)
 - redis sub-chart (`auth.existingSecret`)
 - KEDA `TriggerAuthentication` (pour le scaling sur la longueur de queue)
 

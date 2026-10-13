@@ -197,6 +197,61 @@ worker_agent:
     # a `searxng` Deployment, and ArgoCD tracks resources by name across apps.
     SEARXNG_URL: "http://millefeuille-searxng:8080"
 
+# Celery worker - page classification (worker/classification): page screenshot read from S3, described by a VLM, then classified by an LLM.
+worker_classification:
+  image:
+    registry: "harbor.sdid.cpin.numerique-interieur.com"
+    repository: "exploration/mille-feuille-worker-classification"
+    pullPolicy: "Always"
+  serviceAccount:
+    enabled: true
+    create: true
+  # KEDA ScaledObject on the Celery Redis queue (`classification`) - see document_process above.
+  # Probes disabled - see document_process above for rationale.
+  probes:
+    startupProbe: null
+    readinessProbe: null
+    livenessProbe: null
+  envFrom:
+  - secretRef:
+      name: "millefeuille-s3"
+  - secretRef:
+      name: "millefeuille-openai"
+  - secretRef:
+      name: "millefeuille-worker"
+  - secretRef:
+      name: "millefeuille-redis"
+  env:
+    CELERY_QUEUE_NAME: "classification"
+    BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
+    AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
+
+# Celery worker - entity extraction (worker/extraction): LLM structured output over the page text, no S3.
+worker_extraction:
+  image:
+    registry: "harbor.sdid.cpin.numerique-interieur.com"
+    repository: "exploration/mille-feuille-worker-extraction"
+    pullPolicy: "Always"
+  serviceAccount:
+    enabled: true
+    create: true
+  # KEDA ScaledObject on the Celery Redis queue (`entity_extraction`) - see document_process above.
+  # Probes disabled - see document_process above for rationale.
+  probes:
+    startupProbe: null
+    readinessProbe: null
+    livenessProbe: null
+  envFrom:
+  - secretRef:
+      name: "millefeuille-openai"
+  - secretRef:
+      name: "millefeuille-worker"
+  - secretRef:
+      name: "millefeuille-redis"
+  env:
+    CELERY_QUEUE_NAME: "entity_extraction"
+    BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
+
 # AsyncTaskAPI worker - RabbitMQ consumer, no Celery (worker/async_api). Lets mille-feuille be consumed
 # by the async-api platform (https://github.com/IA-Generative/async-api): it runs analyses through
 # the backend's ephemeral API (/api/ephemeral/*).
@@ -596,6 +651,54 @@ extraObjects:
         metadata:
           address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
           listName: "agent_execution"
+          listLength: "5"
+        authenticationRef:
+          name: millefeuille-keda-triggerauth
+
+  # ScaledObject for classification (queue: classification)
+  millefeuille-keda-classification:
+    apiVersion: keda.sh/v1alpha1
+    kind: ScaledObject
+    metadata:
+      name: millefeuille-worker-classification
+    spec:
+      scaleTargetRef:
+        name: millefeuille-worker-classification
+        kind: Deployment
+        apiVersion: apps/v1
+      minReplicaCount: 1
+      maxReplicaCount: 4
+      pollingInterval: 30
+      triggers:
+      - type: redis
+        metricType: AverageValue
+        metadata:
+          address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
+          listName: "classification"
+          listLength: "5"
+        authenticationRef:
+          name: millefeuille-keda-triggerauth
+
+  # ScaledObject for entity_extraction (queue: entity_extraction)
+  millefeuille-keda-extraction:
+    apiVersion: keda.sh/v1alpha1
+    kind: ScaledObject
+    metadata:
+      name: millefeuille-worker-extraction
+    spec:
+      scaleTargetRef:
+        name: millefeuille-worker-extraction
+        kind: Deployment
+        apiVersion: apps/v1
+      minReplicaCount: 1
+      maxReplicaCount: 4
+      pollingInterval: 30
+      triggers:
+      - type: redis
+        metricType: AverageValue
+        metadata:
+          address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
+          listName: "entity_extraction"
           listLength: "5"
         authenticationRef:
           name: millefeuille-keda-triggerauth

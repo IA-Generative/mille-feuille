@@ -1,0 +1,25 @@
+{{- if .Values.enabled }}
+{{- if eq .Values.worker_classification.deploymentType "Deployment" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_classification") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_classification")) | nindent 4 }}
+spec:
+  {{- if not .Values.worker_classification.autoscaling.enabled }}
+  replicas: {{ .Values.worker_classification.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.worker_classification.revisionHistoryLimit | default 10 }}
+  selector:
+    matchLabels: {{- include "helper.selectorLabels" (dict "root" . "componentName" "worker_classification") | nindent 6 }}
+  strategy:
+    type: {{ .Values.worker_classification.strategy.type }}
+    {{- if eq .Values.worker_classification.strategy.type "RollingUpdate" }}
+    rollingUpdate:
+      maxUnavailable: {{ .Values.worker_classification.strategy.rollingUpdate.maxUnavailable }}
+      maxSurge: {{ .Values.worker_classification.strategy.rollingUpdate.maxSurge }}
+    {{- end }}
+  template:
+    {{- include "helper.component.podTemplate" (dict "root" . "name" "worker_classification" "component" .Values.worker_classification) | nindent 4 }}
+{{- end }}
+{{- end }}
