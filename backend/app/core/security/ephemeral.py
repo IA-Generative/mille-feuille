@@ -23,7 +23,7 @@ class EphemeralIdentity:
 
 async def get_ephemeral_identity(request: Request, db: Annotated[AsyncSession, Depends(get_db)]) -> EphemeralIdentity:
     """Les endpoints éphémères acceptent un jeton API (compte de service,
-    header X-App-Token, même mécanisme que /api/internal/*) ou une session
+    header X-App-Token ou Authorization: Bearer, même mécanisme que /api/internal/*) ou une session
     Keycloak standard - contrairement à /api/internal/*, pas de bypass par
     INTERNAL_WORKER_TOKEN : ce jeton fixe n'identifie personne en particulier,
     inadapté pour `created_by`."""
@@ -33,6 +33,13 @@ async def get_ephemeral_identity(request: Request, db: Annotated[AsyncSession, D
         if app_token is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Jeton invalide")
         return EphemeralIdentity(id=str(app_token.id), is_app_token=True)
+    # La clé d'API est aussi acceptée en `Authorization: Bearer <clé>`. Un jeton Bearer qui n'est pas une clé
+    # d'API (un access token Keycloak) n'est pas rejeté ici : il passe à la vérification Keycloak ci-dessous.
+    bearer = request.headers.get("Authorization", "")
+    if bearer.startswith("Bearer "):
+        app_token = await AppTokenRepository(db).verify(bearer.removeprefix("Bearer "))
+        if app_token is not None:
+            return EphemeralIdentity(id=str(app_token.id), is_app_token=True)
     # get_current_user n'est pas déclaré comme Depends() sur cette fonction
     # (l'auth par jeton API doit marcher sans lui) : FastAPI ne le résout
     # donc jamais tout seul, et un appel direct get_current_user(request)

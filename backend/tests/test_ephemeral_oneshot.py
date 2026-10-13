@@ -166,3 +166,29 @@ def test_failed_run_exposes_the_failed_step_message() -> None:
     run.execution_steps = [SimpleNamespace(status="échec", output="LLM indisponible")]
     assert to_classification_out(run).error == "LLM indisponible"
     assert to_extraction_out(run).error == "LLM indisponible"
+
+
+def test_api_key_is_accepted_as_a_bearer_token_and_scopes_like_x_app_token(client: TestClient) -> None:
+    key_a = client.post("/api/app-tokens", json={"name": "bearer-a"}).json()["token"]
+    key_b = client.post("/api/app-tokens", json={"name": "bearer-b"}).json()["token"]
+
+    created = client.post(
+        "/api/ephemeral/classifications", files=FILE, data={"labels": LABELS}, headers={"X-App-Token": key_a}
+    )
+    assert created.status_code == 201
+    url = f"/api/ephemeral/classifications/{created.json()['run_id']}"
+
+    assert client.get(url, headers={"Authorization": f"Bearer {key_a}"}).status_code == 200
+    assert client.get(url, headers={"Authorization": f"Bearer {key_b}"}).status_code == 404
+    # Un Bearer qui n'est pas une clé d'API (access token Keycloak) passe à la vérification Keycloak.
+    assert client.get(url, headers={"Authorization": "Bearer un-access-token-keycloak"}).status_code == 404
+
+    started = client.post(
+        "/api/ephemeral/extractions",
+        files=FILE,
+        data={"entities": ENTITIES},
+        headers={"Authorization": f"Bearer {key_a}"},
+    )
+    assert started.status_code == 201
+    run_url = f"/api/ephemeral/extractions/{started.json()['run_id']}"
+    assert client.get(run_url, headers={"X-App-Token": key_a}).status_code == 200  # même identité qu'en Bearer

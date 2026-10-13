@@ -43,11 +43,18 @@ La réponse contient le champ `token`, la clé à conserver :
 { "id": "6b0f…", "name": "mon-integration", "created_by": "…", "created_at": "…", "token": "k3J9…" }
 ```
 
-Ensuite, **chaque appel** envoie la clé dans l'en-tête `X-App-Token` :
+Ensuite, **chaque appel** envoie la clé, au choix, dans l'en-tête `X-App-Token` ou en jeton Bearer. Les deux sont
+équivalents (même identité, mêmes droits) :
 
 ```bash
 -H "X-App-Token: $KEY"
+# ou
+-H "Authorization: Bearer $KEY"
 ```
+
+Ces routes acceptent aussi un **access token Keycloak** en Bearer (`Authorization: Bearer $ACCESS`, voir ci-dessus) :
+les runs sont alors rattachés à votre compte plutôt qu'à la clé, et seul ce compte les voit. Dans les exemples
+suivants, `X-App-Token` peut toujours être remplacé par l'une de ces formes.
 
 Sans clé valide : `401`. Une clé ne voit que les runs qu'elle a créés (un run d'une autre clé répond `404`).
 
