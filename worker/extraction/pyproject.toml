@@ -10,6 +10,9 @@ dependencies = [
     "openai>=3.19.0",
     "pydantic-settings>=2.15.0",
     "redis>=8.1.0",
+    # Déclaré en direct : la source « CPU » ci-dessous ne s'applique qu'aux dépendances directes. Sans cette ligne,
+    # gliner2 tire torch depuis PyPI avec CUDA (~4 Go de plus : librairies NVIDIA et Triton).
+    "torch>=2.5.0",
 ]
 
 [dependency-groups]
