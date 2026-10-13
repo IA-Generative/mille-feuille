@@ -57,6 +57,20 @@ repos:
         files: ^worker/agent_execution/
         pass_filenames: false
 
+      - id: worker-classification-tests
+        name: worker/classification - pytest
+        entry: bash -c 'cd worker/classification && uv run pytest -q'
+        language: system
+        files: ^worker/classification/
+        pass_filenames: false
+
+      - id: worker-extraction-tests
+        name: worker/extraction - pytest
+        entry: bash -c 'cd worker/extraction && uv run pytest -q'
+        language: system
+        files: ^worker/extraction/
+        pass_filenames: false
+
       - id: worker-document-render-tests
         name: worker/document_render - pytest
         entry: bash -c 'cd worker/document_render && uv run pytest -q'

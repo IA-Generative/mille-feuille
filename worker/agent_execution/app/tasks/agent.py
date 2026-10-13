@@ -19,10 +19,12 @@ import time
 from app import api_client
 from app.agent_graph import run_agent
 from app.celery_app import celery_app
-from app.tasks.classification import _STATUS_ECHEC, _STATUS_TERMINE
 from app.tools import AgentTools
 
 logger = logging.getLogger(__name__)
+
+_STATUS_TERMINE = "terminé"
+_STATUS_ECHEC = "échec"
 
 _POLL_INTERVAL = 5  # secondes entre chaque vérification
 _POLL_TIMEOUT = 600  # 10 minutes max à attendre classification + extraction

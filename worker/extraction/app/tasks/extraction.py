@@ -25,9 +25,18 @@ from app.celery_app import celery_app
 from app.config import settings
 from app.extraction_planner import group_definitions, new_entities, normalize_value, plan_lots, text_budget
 from app.fingerprint import extraction_fingerprint
-from app.tasks.classification import _STATUS_ECHEC, _STATUS_TERMINE, _find_step_id
 
 logger = logging.getLogger(__name__)
+
+_STATUS_TERMINE = "terminé"
+_STATUS_ECHEC = "échec"
+
+
+def _find_step_id(dossier: dict, kind: str) -> str | None:
+    for step in dossier.get("execution_steps", []):
+        if step["kind"] == kind:
+            return step["id"]
+    return None
 
 
 def _collect_pages(dossier: dict) -> tuple[list[dict], dict[int, str]]:

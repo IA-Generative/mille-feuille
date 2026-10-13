@@ -113,6 +113,12 @@ jobs:
           - name: worker-agent-execution
             context: worker/agent_execution
             dockerfile: worker/agent_execution/Dockerfile
+          - name: worker-classification
+            context: worker/classification
+            dockerfile: worker/classification/Dockerfile
+          - name: worker-extraction
+            context: worker/extraction
+            dockerfile: worker/extraction/Dockerfile
           - name: worker-document-render
             context: worker/document_render
             dockerfile: worker/document_render/Dockerfile

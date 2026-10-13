@@ -36,6 +36,8 @@ jobs:
       backend: ${{ steps.filter.outputs.backend }}
       worker_document_process: ${{ steps.filter.outputs.worker_document_process }}
       worker_agent_execution: ${{ steps.filter.outputs.worker_agent_execution }}
+      worker_classification: ${{ steps.filter.outputs.worker_classification }}
+      worker_extraction: ${{ steps.filter.outputs.worker_extraction }}
       worker_async_api: ${{ steps.filter.outputs.worker_async_api }}
       worker_document_render: ${{ steps.filter.outputs.worker_document_render }}
       ci: ${{ steps.filter.outputs.ci }}
@@ -58,6 +60,10 @@ jobs:
               - 'worker/document_process/**'
             worker_agent_execution:
               - 'worker/agent_execution/**'
+            worker_classification:
+              - 'worker/classification/**'
+            worker_extraction:
+              - 'worker/extraction/**'
             worker_document_render:
               - 'worker/document_render/**'
             worker_async_api:
@@ -76,6 +82,8 @@ jobs:
           BACKEND: ${{ steps.filter.outputs.backend }}
           WORKER_DOCUMENT_PROCESS: ${{ steps.filter.outputs.worker_document_process }}
           WORKER_AGENT_EXECUTION: ${{ steps.filter.outputs.worker_agent_execution }}
+          WORKER_CLASSIFICATION: ${{ steps.filter.outputs.worker_classification }}
+          WORKER_EXTRACTION: ${{ steps.filter.outputs.worker_extraction }}
           WORKER_DOCUMENT_RENDER: ${{ steps.filter.outputs.worker_document_render }}
           WORKER_ASYNC_API: ${{ steps.filter.outputs.worker_async_api }}
           # Sans ce jeton (lecture sur le dépôt privé async-api), l'image du worker async_api ne peut pas être construite.
@@ -98,6 +106,12 @@ jobs:
           fi
           if [ "$WORKER_AGENT_EXECUTION" = "true" ] || [ "$CI" = "true" ]; then
             add '{"name":"worker-agent-execution","context":"worker/agent_execution","dockerfile":"worker/agent_execution/Dockerfile","target":"runtime"}'
+          fi
+          if [ "$WORKER_CLASSIFICATION" = "true" ] || [ "$CI" = "true" ]; then
+            add '{"name":"worker-classification","context":"worker/classification","dockerfile":"worker/classification/Dockerfile","target":"runtime"}'
+          fi
+          if [ "$WORKER_EXTRACTION" = "true" ] || [ "$CI" = "true" ]; then
+            add '{"name":"worker-extraction","context":"worker/extraction","dockerfile":"worker/extraction/Dockerfile","target":"runtime"}'
           fi
           if [ "$WORKER_DOCUMENT_RENDER" = "true" ] || [ "$CI" = "true" ]; then
             add '{"name":"worker-document-render","context":"worker/document_render","dockerfile":"worker/document_render/Dockerfile","target":"runtime"}'

@@ -1,12 +1,8 @@
 """Empreinte d'entrées d'une unité de calcul (issue #126, parent #113).
 
-L'empreinte d'une unité (une page classée, un lot de pages × un groupe de
-définitions extrait...) est un hash de **tout ce qui détermine son résultat** :
-le texte des pages lues, les définitions, le prompt et les modèles. Deux
-unités aux entrées identiques ont la même empreinte : c'est ce qui permettra à
-la relance incrémentale (#119) de ne pas recalculer ce qui n'a pas changé.
-
-Elle ne dépend ni de la valeur du résultat, ni des identifiants d'exécution.
+Un hash de **tout ce qui détermine le résultat** d'une unité : texte lu, définitions, prompt et modèles. Deux
+unités aux entrées identiques ont la même empreinte, ce qui permet à la relance incrémentale (#119) de ne pas
+recalculer ce qui n'a pas changé. Elle ne dépend ni de la valeur du résultat, ni des identifiants d'exécution.
 """
 
 import hashlib
@@ -15,9 +11,8 @@ from typing import Any
 
 from app.config import settings
 
-# À incrémenter quand la logique d'une étape change de façon à modifier ses
-# résultats (nouveau découpage, nouvelle instruction système...) : toutes les
-# empreintes changent, rien n'est repris à tort d'une exécution précédente.
+# À incrémenter quand la logique d'une étape change de façon à modifier ses résultats : toutes les empreintes
+# changent, rien n'est repris à tort d'une exécution précédente.
 PIPELINE_VERSION = "pipeline-1"
 
 
@@ -58,18 +53,3 @@ def classification_fingerprint(
         # Seulement si vrai : l'empreinte des analyses mono-label existantes ne change pas.
         payload["multi_label"] = True
     return _digest(payload)
-
-
-def extraction_fingerprint(pages: list[dict], entity_definitions: list[dict], prompt: str) -> str:
-    """Un lot de pages × un groupe de définitions : le texte de chaque page
-    (dans l'ordre), les définitions du groupe, le prompt et le modèle."""
-    return _digest(
-        {
-            "unit": "extraction",
-            "pipeline": PIPELINE_VERSION,
-            "pages": [{"number": p["page_number"], "text": text_hash(p.get("content"))} for p in pages],
-            "entities": _definitions(entity_definitions),
-            "prompt": prompt,
-            "llm": settings.LLM_MODEL,
-        }
-    )

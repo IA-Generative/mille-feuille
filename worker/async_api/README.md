@@ -8,7 +8,7 @@ une file RabbitMQ, exécute la tâche et publie sa progression puis son résulta
 Il **ne réimplémente pas le pipeline** : chaque tâche passe par l'API éphémère de mille-feuille
 (`/api/ephemeral/*`, voir [docs/ephemeral-api.md](../../docs/ephemeral-api.md)) grâce au SDK
 [`millefeuille-ephemeral`](../../sdks/python/millefeuille-ephemeral/README.md). Les workers Celery
-(`document_process`, `agent_execution`) et le backend ne sont pas modifiés.
+(`document_process`, `agent_execution`, `classification`, `extraction`) et le backend ne sont pas modifiés.
 
 ## Déroulement d'une tâche
 
