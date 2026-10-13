@@ -6,7 +6,11 @@ Pour chaque page de chaque document du dossier :
 3. Combiner la description VLM + le texte OCR de la page.
 4. Demander au LLM de classifier la page (structured output) parmi les
    labels définis dans l'analyse.
-5. Déposer la prédiction (kind=LABEL) via l'API interne.
+5. Déposer la prédiction (kind=LABEL, source=textual) via l'API interne.
+
+En plus, si CLIP_ENABLED : classification visuelle de la même page par CLIP sur sa capture (voir app.clip), déposée
+avec source=visual dans sa propre unité de calcul. Une page a donc au plus un jeu de labels de chaque source. Un échec
+de la classification visuelle n'interrompt pas la classification textuelle.
 
 Par défaut la classification est mono-label : une seule prédiction LABEL par
 page. Si l'analyse est multi-label, une prédiction LABEL par label retenu.
@@ -15,9 +19,10 @@ Chacune pointe vers le label_definition_id correspondant.
 
 import logging
 
-from app import api_client, llm
+from app import api_client, clip, llm
 from app.celery_app import celery_app
-from app.fingerprint import classification_fingerprint
+from app.config import settings
+from app.fingerprint import classification_fingerprint, visual_classification_fingerprint
 from app.storage import storage
 
 logger = logging.getLogger(__name__)
@@ -102,6 +107,37 @@ def _classify_page(
     return True
 
 
+def _classify_page_visually(
+    client,
+    page: dict,
+    label_defs: list[dict],
+    label_by_name: dict,
+    unit_id: str | None,
+    multi_label: bool,
+) -> None:
+    """Classe la capture de la page avec CLIP et dépose les prédictions (source=visual)."""
+    image_bytes = storage.get_object(page["screenshot_key"])
+    for prediction in clip.classify_image(image_bytes, label_defs, multi_label=multi_label):
+        label_def = label_by_name.get(prediction.label_name)
+        api_client.add_prediction(
+            client,
+            page["id"],
+            kind="label",
+            name=prediction.label_name,
+            value=prediction.label_name,
+            confidence=prediction.confidence,
+            source="visual",
+            label_definition_id=label_def["id"] if label_def else None,
+            unit_id=unit_id,
+        )
+        logger.info(
+            "Page %s visually classified as '%s' (confidence=%.2f)",
+            page["id"],
+            prediction.label_name,
+            prediction.confidence,
+        )
+
+
 @celery_app.task(name="app.tasks.classify_dossier", bind=True)
 def classify_dossier(self, dossier_id: str) -> None:
     with api_client.get_client() as client:
@@ -136,6 +172,8 @@ def classify_dossier(self, dossier_id: str) -> None:
             total_pages = 0
             classified_pages = 0
             reused_pages = 0
+            visual_pages = 0
+            visual_failed = 0
 
             for document in dossier["documents"]:
                 for page in document["pages"]:
@@ -165,9 +203,42 @@ def classify_dossier(self, dossier_id: str) -> None:
                         raise
                     api_client.complete_unit(client, unit_id, _STATUS_TERMINE)
 
+                    if not (settings.CLIP_ENABLED and page.get("screenshot_key")):
+                        continue
+                    visual_unit = api_client.declare_unit(
+                        client,
+                        dossier_id,
+                        "classification",
+                        {
+                            "document_id": document["id"],
+                            "page_id": page["id"],
+                            "page_number": page["page_number"],
+                            "source": "visual",
+                        },
+                        fingerprint=visual_classification_fingerprint(page, label_defs, multi_label),
+                    )
+                    if visual_unit is not None and visual_unit.reused:
+                        visual_pages += 1
+                        continue
+                    visual_unit_id = visual_unit.id if visual_unit else None
+                    try:
+                        _classify_page_visually(client, page, label_defs, label_by_name, visual_unit_id, multi_label)
+                    except Exception:
+                        # La classification visuelle est un complément : la textuelle de la page est déjà déposée.
+                        logger.warning("Visual classification failed for page %s", page["id"], exc_info=True)
+                        api_client.complete_unit(client, visual_unit_id, _STATUS_ECHEC)
+                        visual_failed += 1
+                        continue
+                    api_client.complete_unit(client, visual_unit_id, _STATUS_TERMINE)
+                    visual_pages += 1
+
             output = f"{classified_pages}/{total_pages} page(s) classifiée(s)"
             if reused_pages:
                 output += f" (dont {reused_pages} reprise(s) de l'exécution précédente)"
+            if settings.CLIP_ENABLED:
+                output += f", {visual_pages} classée(s) visuellement"
+                if visual_failed:
+                    output += f" ({visual_failed} échec(s) visuel(s))"
             if step_id:
                 api_client.complete_execution_step(client, step_id, status=_STATUS_TERMINE, output=output)
             logger.info("Classification complete for dossier %s: %s", dossier_id, output)
