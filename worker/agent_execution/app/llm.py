@@ -51,6 +51,14 @@ class ClassificationResult(BaseModel):
     prediction: LabelPrediction
 
 
+class MultiLabelClassificationResult(BaseModel):
+    """Résultat de classification multi-label : un ou plusieurs labels pour la page."""
+
+    predictions: list[LabelPrediction] = Field(
+        description="Tous les labels qui s'appliquent à la page (au moins un), sans doublon"
+    )
+
+
 class EntityValue(BaseModel):
     """Une entité extraite d'une ou plusieurs pages."""
 
@@ -120,21 +128,26 @@ def classify_page(
     image_description: str,
     label_definitions: list[dict],
     classification_prompt: str,
-) -> ClassificationResult:
+    multi_label: bool = False,
+) -> ClassificationResult | MultiLabelClassificationResult:
     """Classifie une page en utilisant le texte OCR + la description VLM.
-    Renvoie un résultat structuré (ClassificationResult) garantissant que
-    le label choisi existe parmi les définitions fournies."""
+    Renvoie un résultat structuré garantissant que le ou les labels choisis
+    existent parmi les définitions fournies : ClassificationResult (un seul
+    label) ou, si `multi_label`, MultiLabelClassificationResult."""
     labels_desc = "\n".join(f"- {label['name']}: {label['definition']}" for label in label_definitions)
+    choice = (
+        "Choisis TOUS les labels qui s'appliquent à la page (au moins un)" if multi_label else "Choisis UN seul label"
+    )
     system = (
         f"{classification_prompt}\n\n"
         f"Tu es un assistant de classification documentaire. "
-        f"Choisis UN seul label parmi les suivants :\n{labels_desc}\n\n"
+        f"{choice} parmi les suivants :\n{labels_desc}\n\n"
         f"Réponds uniquement avec le JSON demandé."
     )
     user = (
         f"--- Texte extrait de la page (OCR) ---\n{page_text or '(vide)'}\n\n"
         f"--- Description visuelle de la page (VLM) ---\n{image_description or '(indisponible)'}\n\n"
-        f"Quel label correspond le mieux à cette page ?"
+        f"{'Quels labels correspondent' if multi_label else 'Quel label correspond le mieux'} à cette page ?"
     )
     response = _client().beta.chat.completions.parse(
         model=settings.LLM_MODEL,
@@ -142,7 +155,7 @@ def classify_page(
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        response_format=ClassificationResult,
+        response_format=MultiLabelClassificationResult if multi_label else ClassificationResult,
         temperature=0.1,
     )
     return response.choices[0].message.parsed

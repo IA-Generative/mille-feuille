@@ -618,6 +618,7 @@ class InternalEntityDefinitionOut(BaseModel):
 
 class InternalClassificationOut(BaseModel):
     prompt: str
+    multi_label: bool = False
     labels: list[InternalLabelDefinitionOut]
 
 

@@ -134,8 +134,8 @@ class AnalyseRepository:
         result = await self.db.execute(self._base_query().where(Analyse.id == analyse_id))
         return result.scalar_one_or_none()
 
-    async def create(self, *, name: str, description: str) -> Analyse:
-        analyse = Analyse(name=name, description=description)
+    async def create(self, *, name: str, description: str, multi_label: bool = False) -> Analyse:
+        analyse = Analyse(name=name, description=description, multi_label=multi_label)
         analyse.statuses = [
             StatusDefinition(name=status_name, color=color, position=position, is_initial=initial, is_final=final)
             for position, (status_name, color, initial, final) in enumerate(DEFAULT_STATUSES)

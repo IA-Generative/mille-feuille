@@ -201,6 +201,12 @@ PAGE = {"content": "Carte d'identité", "screenshot_key": "screens/p1.png"}
 LABELS = [{"id": "l1", "name": "CNI", "definition": "Carte nationale d'identité"}]
 
 
+def test_classification_fingerprint_multi_label_changes_only_multi_label_analyses() -> None:
+    mono = fingerprint.classification_fingerprint(PAGE, LABELS, "Classe.")
+    assert mono == fingerprint.classification_fingerprint(PAGE, LABELS, "Classe.", multi_label=False)
+    assert fingerprint.classification_fingerprint(PAGE, LABELS, "Classe.", multi_label=True) != mono
+
+
 def test_classification_fingerprint_depends_on_text_screenshot_labels_prompt_and_models(monkeypatch) -> None:
     base = fingerprint.classification_fingerprint(PAGE, LABELS, "Classe.")
     assert base == fingerprint.classification_fingerprint(dict(PAGE), [dict(LABELS[0])], "Classe.")
