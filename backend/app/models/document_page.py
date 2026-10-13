@@ -22,11 +22,13 @@ class PredictionKind(enum.StrEnum):
 
 
 class PredictionSource(enum.StrEnum):
-    """D'où vient une prédiction de classification : le texte de la page (OCR + description VLM + LLM) ou son
-    apparence (CLIP sur la capture). Les deux tournent sur chaque page ; les entités sont toujours textuelles."""
+    """Quelle méthode a produit la prédiction. Classification : `textual` (texte de la page : OCR + description VLM +
+    LLM) ou `visual` (apparence de la capture, CLIP). Entités : `textual` (LLM) ou `gliner` (GLiNER2.5 sur le texte
+    de la page, avec les définitions). Les méthodes tournent toutes sur chaque page."""
 
     TEXTUAL = "textual"
     VISUAL = "visual"
+    GLINER = "gliner"
 
 
 class PredictionValidationStatus(enum.StrEnum):

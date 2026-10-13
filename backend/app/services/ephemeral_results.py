@@ -75,9 +75,10 @@ def to_extraction_out(run: EphemeralRunOut) -> EphemeralExtractionOut:
                                 name=p.name,
                                 value=p.value,
                                 confidence=p.confidence,
+                                source=p.source,
                                 pages=sorted(pages_of[p.id]),
                             )
-                            for p in page.predictions
+                            for p in sorted(page.predictions, key=lambda p: p.source != PredictionSource.TEXTUAL)
                             if p.kind == PredictionKind.ENTITY
                         ],
                     )

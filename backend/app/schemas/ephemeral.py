@@ -105,6 +105,10 @@ class EphemeralEntityResult(BaseModel):
     name: str
     value: str
     confidence: float | None
+    source: PredictionSource = Field(
+        description="`textual` : extraite par le LLM. `gliner` : extraite par GLiNER2.5 (modèle d'extraction sur le "
+        "texte de la page). Chaque page reçoit les deux : une même entité peut apparaître avec chaque source."
+    )
     pages: list[int] = Field(description="Toutes les pages sur lesquelles l'entité a été trouvée.")
 
 

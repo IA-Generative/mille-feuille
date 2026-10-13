@@ -153,6 +153,14 @@ def test_extraction_view_lists_entities_per_page_with_all_their_pages() -> None:
     assert [(e.name, e.pages) for e in second.entities] == [("nom", [1, 2])]
 
 
+def test_extraction_view_exposes_the_source_with_textual_entities_first() -> None:
+    gliner = _prediction("entity", "nom", "Dupont", 0.95, source="gliner")
+    llm = _prediction("entity", "nom", "Dupont", 0.8)
+    pages = [SimpleNamespace(page_number=1, predictions=[gliner, llm])]
+    entities = to_extraction_out(_run(pages)).documents[0].pages[0].entities
+    assert [(e.name, e.source.value) for e in entities] == [("nom", "textual"), ("nom", "gliner")]
+
+
 def test_failed_run_exposes_the_failed_step_message() -> None:
     run = _run([], status=DossierStatus.ECHEC)
     run.execution_steps = [SimpleNamespace(status="échec", output="LLM indisponible")]
