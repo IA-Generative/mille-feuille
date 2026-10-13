@@ -9,6 +9,8 @@ Add one `include` line per component when you add components to this chart.
 {{- include "helper.component.validate" (dict "name" "frontend" "component" .Values.frontend) }}
 {{- include "helper.component.validate" (dict "name" "backend" "component" .Values.backend) }}
 {{- include "helper.component.validate" (dict "name" "worker_agent" "component" .Values.worker_agent) }}
+{{- include "helper.component.validate" (dict "name" "worker_classification" "component" .Values.worker_classification) }}
+{{- include "helper.component.validate" (dict "name" "worker_extraction" "component" .Values.worker_extraction) }}
 {{- include "helper.component.validate" (dict "name" "worker_document" "component" .Values.worker_document) }}
 {{- include "helper.component.validate" (dict "name" "worker_render" "component" .Values.worker_render) }}
 {{- /* Opt-in component: validated (and rendered) only once `worker_async_api.enabled` is true. */ -}}

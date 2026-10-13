@@ -1,0 +1,23 @@
+{{- if .Values.enabled }}
+{{- if .Values.worker_extraction.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_extraction-metrics") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_extraction-metrics")) | nindent 4 }}
+  {{- if .Values.worker_extraction.metrics.service.labels }}
+    {{- toYaml .Values.worker_extraction.metrics.service.labels | nindent 4 }}
+  {{- end }}
+  {{- if .Values.worker_extraction.metrics.service.annotations }}
+  annotations: {{- toYaml .Values.worker_extraction.metrics.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.worker_extraction.metrics.service.type | default "ClusterIP" }}
+  ports:
+  - port: {{ .Values.worker_extraction.metrics.service.port }}
+    targetPort: {{ .Values.worker_extraction.metrics.service.targetPort }}
+    protocol: TCP
+    name: {{ .Values.worker_extraction.metrics.service.portName | default "metrics" }}
+  selector: {{- include "helper.selectorLabels" (dict "root" . "componentName" "worker_extraction") | nindent 4 }}
+{{- end }}
+{{- end }}

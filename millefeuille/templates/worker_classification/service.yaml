@@ -1,0 +1,26 @@
+{{- if .Values.enabled }}
+{{- /* Not gated on `deploymentType`: every supported kind (Deployment/StatefulSet/DaemonSet) can
+sit behind a Service, and `service.enabled` is the switch for components that take no traffic.
+This matches metrics.yaml, which is gated the same way. */ -}}
+{{- if .Values.worker_classification.service.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_classification") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_classification")) | nindent 4 }}
+spec:
+  type: {{ .Values.worker_classification.service.type | default "ClusterIP" }}
+  ports:
+  - port: {{ .Values.worker_classification.service.port | default 80 }}
+    targetPort: {{ .Values.worker_classification.containerPortName | default .Values.worker_classification.containerPort | default 8080 }}
+    protocol: {{ .Values.worker_classification.service.protocol | default "TCP" }}
+    {{- if and (eq .Values.worker_classification.service.type "NodePort") .Values.worker_classification.service.nodePort }}
+    nodePort: {{ .Values.worker_classification.service.nodePort }}
+    {{- end }}
+    name: {{ .Values.worker_classification.service.portName | default "http" }}
+  {{- if .Values.worker_classification.service.extraPorts -}}
+  {{- toYaml .Values.worker_classification.service.extraPorts | nindent 2 -}}
+  {{- end }}
+  selector: {{- include "helper.selectorLabels" (dict "root" . "componentName" "worker_classification") | nindent 4 }}
+{{- end }}
+{{- end }}
