@@ -21,6 +21,14 @@ class PredictionKind(enum.StrEnum):
     ENTITY = "entity"
 
 
+class PredictionSource(enum.StrEnum):
+    """D'où vient une prédiction de classification : le texte de la page (OCR + description VLM + LLM) ou son
+    apparence (CLIP sur la capture). Les deux tournent sur chaque page ; les entités sont toujours textuelles."""
+
+    TEXTUAL = "textual"
+    VISUAL = "visual"
+
+
 class PredictionValidationStatus(enum.StrEnum):
     VALIDATED = "validé"
     CORRECTED = "corrigé"
@@ -129,6 +137,12 @@ class DocumentPrediction(UUIDMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     value: Mapped[str] = mapped_column(Text, nullable=False)
     confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    source: Mapped[PredictionSource] = mapped_column(
+        Enum(PredictionSource, name="prediction_source"),
+        nullable=False,
+        default=PredictionSource.TEXTUAL,
+        server_default=PredictionSource.TEXTUAL.name,
+    )
     # kind == LABEL :
     label_definition_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("label_definitions.id", ondelete="SET NULL"), nullable=True

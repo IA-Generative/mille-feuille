@@ -336,6 +336,7 @@ async def add_document_prediction(
         name=body.name,
         value=body.value,
         confidence=body.confidence,
+        source=body.source,
         label_definition_id=body.label_definition_id,
         entity_definition_id=body.entity_definition_id,
         page_ids=body.page_ids,

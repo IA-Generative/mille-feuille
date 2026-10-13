@@ -110,7 +110,7 @@ Une `Dossier` **sans** ligne dans `dossier_ephemere` = dossier classique, compor
 Pour n'obtenir que les labels ou les entités d'**un** document, sans définir d'analyse : l'analyse éphémère (une seule étape, sans agent) et le run sont créés ensemble, même cycle de vie et même TTL que le flux B.
 
 - `POST /api/ephemeral/classifications?ttl_hours=48` — multipart : `file`, `labels` (JSON `[{"name", "definition"}]`, au moins un), `multi_label` (défaut `false` : un seul label par page ; `true` : un ou plusieurs), `classification_prompt` (optionnel), `persist`. Renvoie `{ "run_id": ... }`.
-- `GET /api/ephemeral/classifications/{run_id}` — `status`, `error` et, par document puis par page, les `labels` (`name`, `confidence`, triés par confiance décroissante).
+- `GET /api/ephemeral/classifications/{run_id}` — `status`, `error` et, par document puis par page, les `labels` (`name`, `confidence`, `source`). Chaque page reçoit **deux classifications** : `source: "textual"` (texte de la page : OCR, description VLM, LLM) et `source: "visual"` (apparence de la capture, CLIP). Les labels textuels viennent d'abord, puis les visuels, chacun trié par confiance décroissante. `multi_label` s'applique aux deux sources.
 - `POST /api/ephemeral/extractions?ttl_hours=48` — multipart : `file`, `entities` (JSON `[{"name", "definition", "type"}]`, au moins une), `extraction_prompt` (optionnel), `persist`. Renvoie `{ "run_id": ... }`.
 - `GET /api/ephemeral/extractions/{run_id}` — `status`, `error` et, par document puis par page, les `entities` (`name`, `value`, `confidence`, `pages` = toutes les pages de l'entité).
 

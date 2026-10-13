@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.chat_event import ChatEventKind
 from app.models.conversation import MessageRole
-from app.models.document_page import PredictionKind, PredictionValidationStatus
+from app.models.document_page import PredictionKind, PredictionSource, PredictionValidationStatus
 from app.models.dossier import (
     DossierStatus,
     ExecutionStepKind,
@@ -81,6 +81,8 @@ class DocumentPredictionSummaryOut(BaseModel):
     name: str
     value: str
     confidence: float | None
+    # Textuelle (texte de la page) ou visuelle (CLIP) ; toujours textuelle pour une entité.
+    source: PredictionSource
     # Présent seulement si la définition existe encore (voir le commentaire
     # sur DocumentPrediction.label_definition_id/entity_definition_id).
     label_definition_id: uuid.UUID | None
@@ -139,6 +141,7 @@ class DocumentPredictionIn(BaseModel):
     name: str
     value: str
     confidence: float | None = None
+    source: PredictionSource = PredictionSource.TEXTUAL
     label_definition_id: uuid.UUID | None = None
     entity_definition_id: uuid.UUID | None = None
     # Pages/bbox additionnelles au-delà de la page de l'URL (POST

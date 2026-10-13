@@ -87,8 +87,8 @@ def test_unknown_result_is_404(client: TestClient) -> None:
     assert client.get(f"/api/ephemeral/extractions/{unknown}").status_code == 404
 
 
-def _prediction(kind: str, name: str, value: str, confidence: float) -> SimpleNamespace:
-    return SimpleNamespace(id=uuid.uuid4(), kind=kind, name=name, value=value, confidence=confidence)
+def _prediction(kind: str, name: str, value: str, confidence: float, source: str = "textual") -> SimpleNamespace:
+    return SimpleNamespace(id=uuid.uuid4(), kind=kind, name=name, value=value, confidence=confidence, source=source)
 
 
 def _run(pages: list[SimpleNamespace], status: DossierStatus = DossierStatus.TERMINE) -> SimpleNamespace:
@@ -120,6 +120,25 @@ def test_classification_view_lists_labels_per_page_sorted_by_confidence() -> Non
     ]
     assert [label.name for label in out.documents[0].pages[1].labels] == ["RIB"]  # l'entité est ignorée
     assert out.documents[0].pages[2].labels == []
+
+
+def test_classification_view_exposes_the_source_with_textual_labels_first() -> None:
+    pages = [
+        SimpleNamespace(
+            page_number=1,
+            predictions=[
+                _prediction("label", "RIB", "RIB", 0.99, source="visual"),
+                _prediction("label", "CNI", "CNI", 0.5),
+                _prediction("label", "CNI", "CNI", 0.7, source="visual"),
+            ],
+        )
+    ]
+    labels = to_classification_out(_run(pages)).documents[0].pages[0].labels
+    assert [(label.name, label.source.value) for label in labels] == [
+        ("CNI", "textual"),
+        ("RIB", "visual"),
+        ("CNI", "visual"),
+    ]
 
 
 def test_extraction_view_lists_entities_per_page_with_all_their_pages() -> None:
