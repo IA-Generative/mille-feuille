@@ -5,7 +5,7 @@ Dérivées de `EphemeralRunOut` (dossier vivant ou résultat conservé), pour le
 dossier complet (captures, étapes, résumés...).
 """
 
-from app.models.document_page import PredictionKind
+from app.models.document_page import PredictionKind, PredictionSource
 from app.models.dossier import DossierStatus
 from app.schemas.ephemeral import (
     EphemeralClassificationOut,
@@ -39,8 +39,11 @@ def to_classification_out(run: EphemeralRunOut) -> EphemeralClassificationOut:
                     EphemeralClassifiedPage(
                         page_number=page.page_number,
                         labels=[
-                            EphemeralLabelResult(name=p.name, confidence=p.confidence)
-                            for p in sorted(page.predictions, key=lambda p: -(p.confidence or 0))
+                            EphemeralLabelResult(name=p.name, confidence=p.confidence, source=p.source)
+                            for p in sorted(
+                                page.predictions,
+                                key=lambda p: (p.source != PredictionSource.TEXTUAL, -(p.confidence or 0)),
+                            )
                             if p.kind == PredictionKind.LABEL
                         ],
                     )
