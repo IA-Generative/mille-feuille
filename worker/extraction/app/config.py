@@ -18,6 +18,15 @@ class WorkerSettings(BaseSettings):
     OPENAI_API_BASE_URL: str = ""
     # Modèle texte pour l'extraction d'entités.
     LLM_MODEL: str = "llama-3.3-70b-instruct"
+
+    # Extraction GLiNER2.5 (CPU) : en plus du LLM, chaque document est passé dans GLiNER, qui reçoit les définitions des
+    # entités comme descriptions. `GLINER_MODEL` est un modèle Hugging Face embarqué dans l'image (voir Dockerfile) :
+    # le worker ne télécharge rien au démarrage. `multi` pour du texte français ; `base` est anglais seulement.
+    GLINER_ENABLED: bool = True
+    GLINER_MODEL: str = "fastino/gliner2.5-multi-v1"
+    GLINER_NUM_THREADS: int = 2
+    # Confiance minimale (0 à 1) d'une entité GLiNER pour être retenue.
+    GLINER_THRESHOLD: float = 0.5
     # Taille de batch pour l'extraction d'entités : nombre de pages
     # envoyées en un seul appel LLM (compromis contexte/coût).
     # (Mode « legacy » uniquement, voir EXTRACTION_MODE.)
