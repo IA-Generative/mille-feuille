@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+from importlib.metadata import PackageNotFoundError, version
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -81,6 +82,15 @@ helper_mcp_app = helper_mcp_server.streamable_http_app(
 )
 
 
+def _app_version() -> str:
+    """Version du paquet (`project.version` de pyproject.toml, tenue à jour par release-please), affichée par Swagger
+    et dans openapi.json. « inconnue » si le paquet n'est pas installé (exécution depuis les sources, sans uv sync)."""
+    try:
+        return version("mille-feuille-backend")
+    except PackageNotFoundError:
+        return "inconnue"
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with mcp_app.router.lifespan_context(mcp_app), helper_mcp_app.router.lifespan_context(helper_mcp_app):
@@ -89,6 +99,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="mille-feuille BFF",
+    version=_app_version(),
     docs_url="/api/docs",
     redoc_url="/api/redocs",
     openapi_url="/api/openapi.json",
