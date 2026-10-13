@@ -2,6 +2,9 @@
 
 FROM python:3.12-slim AS builder
 WORKDIR /app
+# Pas de cache uv dans l'image : ni les roues de torch (centaines de Mo) ni leur copie ne restent dans une couche, ce
+# qui allège aussi le stockage éphémère du build Kaniko en CI.
+ENV UV_NO_CACHE=1
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock* ./
 RUN uv sync --no-dev --no-install-project
