@@ -28,6 +28,15 @@ class WorkerSettings(BaseSettings):
     # Modèle texte pour la classification.
     LLM_MODEL: str = "llama-3.3-70b-instruct"
 
+    # Classification visuelle (CLIP, CPU) : en plus de la classification textuelle, chaque page est classée sur sa
+    # capture. `CLIP_MODEL` est le nom d'un modèle Hugging Face, embarqué dans l'image (voir Dockerfile) : le worker
+    # ne télécharge rien au démarrage.
+    CLIP_ENABLED: bool = True
+    CLIP_MODEL: str = "openai/clip-vit-base-patch32"
+    CLIP_NUM_THREADS: int = 2
+    # Multi-label : probabilité minimale (softmax sur les labels) pour retenir un label en plus du meilleur.
+    CLIP_MULTI_LABEL_THRESHOLD: float = 0.25
+
     model_config = SettingsConfigDict(case_sensitive=True, env_file=(".env", ".env.local"), extra="ignore")
 
     @property

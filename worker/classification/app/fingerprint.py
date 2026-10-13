@@ -34,6 +34,22 @@ def _definitions(definitions: list[dict]) -> list[dict]:
     ]
 
 
+def visual_classification_fingerprint(page: dict, label_definitions: list[dict], multi_label: bool = False) -> str:
+    """Une page classée visuellement : sa capture (clé S3), les labels et le modèle CLIP. Ni le texte de la page ni
+    le prompt n'y entrent : CLIP ne les voit pas."""
+    return _digest(
+        {
+            "unit": "classification_visual",
+            "pipeline": PIPELINE_VERSION,
+            "screenshot": page.get("screenshot_key"),
+            "labels": _definitions(label_definitions),
+            "multi_label": multi_label,
+            "clip": settings.CLIP_MODEL,
+            "threshold": settings.CLIP_MULTI_LABEL_THRESHOLD if multi_label else None,
+        }
+    )
+
+
 def classification_fingerprint(
     page: dict, label_definitions: list[dict], prompt: str, multi_label: bool = False
 ) -> str:
