@@ -14,8 +14,6 @@ celery_app = Celery(
     backend=settings.celery_result_backend,
     include=[
         "app.tasks.chat",
-        "app.tasks.classification",
-        "app.tasks.extraction",
         "app.tasks.agent",
         "app.tasks.helper_chat",
         "app.tasks.summary",

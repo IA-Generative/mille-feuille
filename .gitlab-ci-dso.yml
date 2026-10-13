@@ -59,6 +59,28 @@ lint-worker-agent-execution:
     - uv run ruff check .
     - uv run ruff format --check .
 
+lint-worker-classification:
+  stage: lint
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/classification
+    - uv sync
+    - uv run ruff check .
+    - uv run ruff format --check .
+
+lint-worker-extraction:
+  stage: lint
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/extraction
+    - uv sync
+    - uv run ruff check .
+    - uv run ruff format --check .
+
 lint-worker-document-render:
   stage: lint
   image: python:3.12-slim
@@ -133,6 +155,26 @@ unit-tests-worker-agent-execution:
     - pip install --no-cache-dir uv
   script:
     - cd worker/agent_execution
+    - uv sync
+    - uv run pytest -q
+
+unit-tests-worker-classification:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/classification
+    - uv sync
+    - uv run pytest -q
+
+unit-tests-worker-extraction:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/extraction
     - uv sync
     - uv run pytest -q
 
@@ -257,6 +299,52 @@ docker-build-worker-agent-execution:
       TAGS="$TAGS mille-feuille/worker-agent-execution:$APP_VERSION"
       if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
         TAGS="$TAGS mille-feuille/worker-agent-execution:latest"
+      fi
+      export IMAGE_NAMES="$TAGS"
+      echo "Building with tags: $IMAGE_NAMES"
+
+docker-build-worker-classification:
+  extends:
+    - .docker-build-common
+  variables:
+    DOCKERFILE: "worker/classification/Dockerfile"
+    WORKING_DIR: "worker/classification"
+  before_script:
+    - |
+      SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-7)
+      APP_VERSION=$(grep '^version' backend/pyproject.toml | head -1 | cut -d'"' -f2)
+      if [ -z "$APP_VERSION" ]; then
+        echo "Error: Could not extract version from backend/pyproject.toml"
+        exit 1
+      fi
+      TAGS="mille-feuille/worker-classification:$SHORT_SHA"
+      TAGS="$TAGS mille-feuille/worker-classification:$CI_COMMIT_REF_SLUG"
+      TAGS="$TAGS mille-feuille/worker-classification:$APP_VERSION"
+      if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        TAGS="$TAGS mille-feuille/worker-classification:latest"
+      fi
+      export IMAGE_NAMES="$TAGS"
+      echo "Building with tags: $IMAGE_NAMES"
+
+docker-build-worker-extraction:
+  extends:
+    - .docker-build-common
+  variables:
+    DOCKERFILE: "worker/extraction/Dockerfile"
+    WORKING_DIR: "worker/extraction"
+  before_script:
+    - |
+      SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-7)
+      APP_VERSION=$(grep '^version' backend/pyproject.toml | head -1 | cut -d'"' -f2)
+      if [ -z "$APP_VERSION" ]; then
+        echo "Error: Could not extract version from backend/pyproject.toml"
+        exit 1
+      fi
+      TAGS="mille-feuille/worker-extraction:$SHORT_SHA"
+      TAGS="$TAGS mille-feuille/worker-extraction:$CI_COMMIT_REF_SLUG"
+      TAGS="$TAGS mille-feuille/worker-extraction:$APP_VERSION"
+      if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        TAGS="$TAGS mille-feuille/worker-extraction:latest"
       fi
       export IMAGE_NAMES="$TAGS"
       echo "Building with tags: $IMAGE_NAMES"

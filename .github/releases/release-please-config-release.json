@@ -30,6 +30,16 @@
         },
         {
           "type": "toml",
+          "path": "worker/classification/pyproject.toml",
+          "jsonpath": "project.version"
+        },
+        {
+          "type": "toml",
+          "path": "worker/extraction/pyproject.toml",
+          "jsonpath": "project.version"
+        },
+        {
+          "type": "toml",
           "path": "worker/document_render/pyproject.toml",
           "jsonpath": "project.version"
         }

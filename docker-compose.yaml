@@ -97,9 +97,34 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Agents, chat, résumés, propositions de notes. La classification et l'extraction d'entités ont leur propre
+  # worker (code, image et file Celery séparés) : voir plus bas.
   worker-agent-execution:
     build:
       context: ./worker/agent_execution
+      dockerfile: Dockerfile
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      BACKEND_INTERNAL_URL: http://backend:8000
+      INTERNAL_WORKER_TOKEN: ${INTERNAL_WORKER_TOKEN:-dev-only-worker-token-not-for-prod}
+      # Hub LLM (compatible API OpenAI), modèle servi par le hub configuré (Scaleway AI par défaut).
+      # Surchargeable via .env / .env.local sans toucher au code.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-llama-3.3-70b-instruct}
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+  # Classification des pages (file `classification`) : lit les captures de pages sur S3, les décrit avec un VLM
+  # puis classe chaque page avec un LLM.
+  worker-classification:
+    build:
+      context: ./worker/classification
       dockerfile: Dockerfile
     environment:
       CELERY_BROKER_URL: redis://redis:6379/0
@@ -110,12 +135,8 @@ services:
       AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:-dev-only-rustfs-key-not-for-prod}
       AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:-dev-only-rustfs-key-not-for-prod}
       AWS_S3_BUCKET_NAME: mille-feuille
-      # Hub LLM (compatible API OpenAI) pour la classification (VLM + LLM)
-      # et l'extraction d'entités (LLM en structured output).
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-}
-      # Modèles servis par le hub configuré (Scaleway AI par défaut).
-      # Surchargeables via .env / .env.local sans toucher au code.
       LLM_MODEL: ${LLM_MODEL:-llama-3.3-70b-instruct}
       VLM_MODEL: ${VLM_MODEL:-pixtral-12b-2409}
     depends_on:
@@ -125,6 +146,26 @@ services:
         condition: service_started
       rustfs:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Extraction des entités (file `entity_extraction`) : LLM en structured output sur le texte des pages, sans S3.
+  worker-extraction:
+    build:
+      context: ./worker/extraction
+      dockerfile: Dockerfile
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      BACKEND_INTERNAL_URL: http://backend:8000
+      INTERNAL_WORKER_TOKEN: ${INTERNAL_WORKER_TOKEN:-dev-only-worker-token-not-for-prod}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-llama-3.3-70b-instruct}
+    depends_on:
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_started
     restart: unless-stopped
 
   # Remplit les modèles ODT et produit les PDF (LibreOffice sans interface). Voir worker/document_render/README.md.
