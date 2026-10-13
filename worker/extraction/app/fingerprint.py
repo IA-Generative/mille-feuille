@@ -34,6 +34,21 @@ def _definitions(definitions: list[dict]) -> list[dict]:
     ]
 
 
+def gliner_extraction_fingerprint(pages: list[dict], entity_definitions: list[dict]) -> str:
+    """Un document passé dans GLiNER : le texte de chaque page (dans l'ordre), les définitions et le modèle.
+    Ni prompt ni LLM : GLiNER ne les voit pas."""
+    return _digest(
+        {
+            "unit": "extraction_gliner",
+            "pipeline": PIPELINE_VERSION,
+            "pages": [{"number": p["page_number"], "text": text_hash(p.get("content"))} for p in pages],
+            "entities": _definitions(entity_definitions),
+            "gliner": settings.GLINER_MODEL,
+            "threshold": settings.GLINER_THRESHOLD,
+        }
+    )
+
+
 def extraction_fingerprint(pages: list[dict], entity_definitions: list[dict], prompt: str) -> str:
     """Un lot de pages × un groupe de définitions : le texte de chaque page
     (dans l'ordre), les définitions du groupe, le prompt et le modèle."""
