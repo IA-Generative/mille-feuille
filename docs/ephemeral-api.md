@@ -107,6 +107,8 @@ Une `Dossier` **sans** ligne dans `dossier_ephemere` = dossier classique, compor
 
 ### Flux C — classification ou extraction d'un document en un seul appel
 
+> Guide d'utilisation pas à pas, avec clé d'API, `curl` et exemples de réponses : [ephemeral-classification-extraction.md](ephemeral-classification-extraction.md).
+
 Pour n'obtenir que les labels ou les entités d'**un** document, sans définir d'analyse : l'analyse éphémère (une seule étape, sans agent) et le run sont créés ensemble, même cycle de vie et même TTL que le flux B.
 
 - `POST /api/ephemeral/classifications?ttl_hours=48` — multipart : `file`, `labels` (JSON `[{"name", "definition"}]`, au moins un), `multi_label` (défaut `false` : un seul label par page ; `true` : un ou plusieurs), `classification_prompt` (optionnel), `persist`. Renvoie `{ "run_id": ... }`.
