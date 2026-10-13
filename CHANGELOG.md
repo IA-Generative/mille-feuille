@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.19.1](https://github.com/IA-Generative/mille-feuille/compare/v0.19.0...v0.19.1) (2026-10-13)
+
+
+### Bug Fixes
+
+* **extraction:** torch CPU pour le worker d'extraction et pas de cache uv dans les images ([d2bfc47](https://github.com/IA-Generative/mille-feuille/commit/d2bfc47f8c1f1ce6b40feaec0043610ba78b182a))
+
 ## [0.19.0](https://github.com/IA-Generative/mille-feuille/compare/v0.18.0...v0.19.0) (2026-10-13)
 
 
