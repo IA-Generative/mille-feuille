@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.22.1](https://github.com/IA-Generative/mille-feuille/compare/v0.22.0...v0.22.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **ephemeral-frontend:** adresse de l'API et lien MilleFeuille lus au démarrage du conteneur ([7769862](https://github.com/IA-Generative/mille-feuille/commit/7769862055c05a13ac6c55370fe96b64623f83c1))
+
 ## [0.22.0](https://github.com/IA-Generative/mille-feuille/compare/v0.21.0...v0.22.0) (2026-10-14)
 
 
