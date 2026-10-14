@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.24.0](https://github.com/IA-Generative/mille-feuille/compare/v0.23.0...v0.24.0) (2026-10-14)
+
+
+### Features
+
+* **chart:** chemin Vault &lt;env&gt;/millefeuille/&lt;secret&gt; pour les secrets ([0cac717](https://github.com/IA-Generative/mille-feuille/commit/0cac717614031975ca7267a7671aeb80bb80c977))
+* **chart:** dev par défaut pour l'environnement des chemins Vault, et README des values ([80cccae](https://github.com/IA-Generative/mille-feuille/commit/80cccae2433c29894805d64209fabc95ef86cb22))
+
+
+### Bug Fixes
+
+* **chart:** global.projectName, écrit une seule fois pour les images et Vault ([d3386c4](https://github.com/IA-Generative/mille-feuille/commit/d3386c4852f86fc53c9a049260af0123e0224270))
+* **chart:** helper.vaultSecretPath lit global.env en table ou en liste ([33a3e8c](https://github.com/IA-Generative/mille-feuille/commit/33a3e8c1b26490d7cf5cbc8cfc3e85107cb151c3))
+
 ## [0.23.0](https://github.com/IA-Generative/mille-feuille/compare/v0.22.1...v0.23.0) (2026-10-14)
 
 
