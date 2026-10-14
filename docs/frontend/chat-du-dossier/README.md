@@ -24,7 +24,11 @@ Le **trombone** de la zone d'envoi ajoute des fichiers (PDF, JPG, PNG) au dossie
 
 Comme partout, l'ajout n'est refusé dans aucun état du dossier : si l'analyse a déjà tourné, la page propose de la relancer.
 
+## Écrans étroits
+
+La zone d'envoi collante s'applique **à partir de 1000 px de large**. En dessous, le chat garde son comportement d'avant : l'application n'a pas encore de mise en page pour petits écrans (la barre latérale garde ses 260 px), et rendre la page entière défilante la ferait déborder en largeur.
+
 ## Pour les développeurs
 
 - `ChatWindow` : la propriété `pageComposer` (chat intégré à une page qui défile) rend la zone d'envoi collante sur toute la page ; `showFileAttach` affiche le trombone, qui émet `attach-files`.
-- `App.vue` : le contenu principal est en `overflow: auto`, donc il serait le conteneur de défilement d'un élément `sticky` sans jamais défiler. Les routes qui en ont besoin portent `meta: { pageScroll: true }` : le contenu n'est alors plus un conteneur de défilement et c'est la page qui défile.
+- `App.vue` : le contenu principal est en `overflow: auto`, donc il serait le conteneur de défilement d'un élément `sticky` sans jamais défiler. Les routes qui en ont besoin portent `meta: { pageScroll: true }` : à partir de 1000 px, le contenu n'est alors plus un conteneur de défilement et c'est la page qui défile.

@@ -423,9 +423,13 @@ const navItems = [
 
 /* Pages qui ont un élément « sticky » au bas de l'écran (zone d'envoi du chat d'un dossier) : un contenu en
    `overflow: auto` serait son conteneur de défilement (sans jamais défiler, il suit la hauteur de son contenu) et
-   l'élément ne collerait jamais ; c'est la page qui défile. `min-width: 0` garde le contenu dans la colonne. */
-.app-shell__content--page-scroll {
-  overflow: visible;
-  min-width: 0;
+   l'élément ne collerait jamais ; c'est la page qui défile. Seulement quand la page tient en largeur (barre latérale
+   + contenu de 720 px au minimum) : en dessous, le contenu garde son défilement interne, sinon c'est tout le document
+   qui déborde horizontalement. `min-width: 0` garde le contenu dans la colonne. */
+@media (min-width: 62.5rem) {
+  .app-shell__content--page-scroll {
+    overflow: visible;
+    min-width: 0;
+  }
 }
 </style>
