@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.0](https://github.com/IA-Generative/mille-feuille/compare/v0.22.1...v0.23.0) (2026-10-14)
+
+
+### Features
+
+* **sdk:** aligne les modèles sur le contrat d'API actuel ([d3e391a](https://github.com/IA-Generative/mille-feuille/commit/d3e391a9bae33b65f5d0e5924d83f0bfc401c3b2))
+* **sdk:** classification, extraction, liste des runs et version du backend ([004f87e](https://github.com/IA-Generative/mille-feuille/commit/004f87e43f189dfae14a113e0af942175de267e8))
+
 ## [0.22.1](https://github.com/IA-Generative/mille-feuille/compare/v0.22.0...v0.22.1) (2026-10-14)
 
 
