@@ -47,6 +47,7 @@ def test_dossiers_flow(make_client, tmp_path: Path) -> None:
             )
         if request.url.path == "/api/dossiers" and request.method == "POST":
             body = json.loads(request.content)
+            # Visibilité et groupes ne sont envoyés que s'ils sont donnés.
             assert body == {"name": "D", "analyse_id": None}
         if request.method == "DELETE":
             return httpx.Response(204)
@@ -136,3 +137,16 @@ def test_tokens(make_client) -> None:
 def test_status_terminal_flags() -> None:
     assert DossierStatus.ECHEC.is_terminal and DossierStatus.ARRETE.is_terminal
     assert not DossierStatus.EN_COURS.is_terminal
+
+
+def test_create_dossier_with_access(make_client) -> None:
+    client, seen = make_client(lambda request: httpx.Response(201, json=dossier_json(str(uuid.uuid4()))))
+
+    client.dossiers.create("D", visibility="restricted", group_paths=["/equipe-a"])
+
+    assert json.loads(seen[0].content) == {
+        "name": "D",
+        "analyse_id": None,
+        "visibility": "restricted",
+        "group_paths": ["/equipe-a"],
+    }
