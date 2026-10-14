@@ -642,8 +642,9 @@ template:
 
 {{/*
 Vault path of a secret, inside the mount (`global.projectName`): `<env>/millefeuille/<secret>`, where <env> is
-`global.env.ENVIRONMENT` and <secret> the short name of the secret (e.g. `s3` for the `millefeuille-s3` Kubernetes
-secret). Used by the VaultStaticSecret objects of `extraObjects`, so the layout is written in one place.
+`global.env.ENVIRONMENT` (`dev` when it is not set) and <secret> the short name of the secret (e.g. `s3` for the
+`millefeuille-s3` Kubernetes secret). Used by the VaultStaticSecret objects of `extraObjects`, so the layout is written
+in one place.
 Parameters:
 - root: The root context.
 - secret: The short name of the secret.
@@ -666,6 +667,6 @@ Parameters:
 {{- end -}}
 {{- end -}}
 {{- end -}}
-{{- $env = $env | toString | required "global.env.ENVIRONMENT is required to build the Vault path of the secrets (<env>/millefeuille/<secret>)" -}}
+{{- $env = $env | toString | default "dev" -}}
 {{- printf "%s/millefeuille/%s" $env .secret -}}
 {{- end -}}

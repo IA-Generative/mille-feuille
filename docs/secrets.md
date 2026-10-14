@@ -9,7 +9,8 @@ Chaque secret ci-dessous correspond à un **chemin Vault** (kv-v2) et à un
 Le chemin suit toujours le même schéma : **`<mount>/<env>/millefeuille/<secret>`**, où
 
 - `<mount>` est `global.projectName` (`exploration` dans `common-values.yaml`) ;
-- `<env>` est `global.env.ENVIRONMENT` (`dev`, `prod`…) : le chart s'arrête avec un message clair s'il n'est pas défini ;
+- `<env>` est `global.env.ENVIRONMENT` (`dev`, `prod`…), **`dev` s'il n'est pas défini** : un environnement autre que `dev` doit donc
+  le renseigner, sinon il lirait les secrets de `dev` ;
 - `<secret>` est le **nom court** du secret (`s3`, `keycloak`…, voir le tableau). Le schéma n'est écrit qu'à un endroit,
   le helper `helper.vaultSecretPath`.
 
