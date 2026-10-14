@@ -20,6 +20,16 @@ repos:
     hooks:
       - id: gitleaks
 
+  # Messages de commit : mêmes règles que le job lint-commits de la CI (types, sujet non capitalisé,
+  # 100 caractères). Hook `commit-msg` : `pre-commit install --hook-type pre-commit --hook-type commit-msg`.
+  - repo: https://github.com/alessandrojcm/commitlint-pre-commit-hook
+    rev: v9.22.0
+    hooks:
+      - id: commitlint
+        stages: [commit-msg]
+        # Lit .git/COMMIT_EDITMSG (--edit sans chemin) avec la configuration alignée sur la CI.
+        entry: commitlint --config .github/commitlint.config.mjs --edit
+
   # Hooks locaux (pas de dépôt externe) : lancent les mêmes commandes que la
   # CI (.github/workflows/lint.yml, unit-tests.yml), mais avant même le push.
   - repo: local
