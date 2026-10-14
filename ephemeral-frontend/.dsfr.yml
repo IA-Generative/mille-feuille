@@ -1,0 +1,4 @@
+# Acceptation des modalités d'utilisation (CGU) du DSFR, requise par le
+# script preinstall de @gouvfr/dsfr. Généré par `pnpm create @gouvfr/dsfr@latest`
+# ou en acceptant les CGU disponibles dans node_modules/@gouvfr/dsfr/doc/legal/cgu.md.
+accept-license: '1.0.1'

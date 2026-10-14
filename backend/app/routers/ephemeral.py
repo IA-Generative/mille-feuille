@@ -32,8 +32,9 @@ from app.schemas.ephemeral import (
     EphemeralExtractionOut,
     EphemeralRunCreated,
     EphemeralRunOut,
+    EphemeralRunSummary,
 )
-from app.services.ephemeral_results import to_classification_out, to_extraction_out
+from app.services.ephemeral_results import to_classification_out, to_extraction_out, to_run_summary
 from app.services.ephemeral_run_service import finalize_run, to_run_schema
 
 router = APIRouter(prefix="/ephemeral", tags=["Ephemeral"], dependencies=[Depends(get_ephemeral_identity)])
@@ -222,6 +223,7 @@ async def _create_run(
     files: list[tuple[str, bytes, str]],
     persist: bool,
     ttl_hours: int,
+    name: str | None = None,
 ) -> Dossier:
     """Cœur commun aux flux A et B (et au serveur MCP, cf. app/mcp/server.py) :
     upload + lancement immédiat du pipeline complet (pas d'étape `launch`
@@ -233,7 +235,7 @@ async def _create_run(
     `UploadFile` FastAPI ici, pour rester appelable depuis un contexte qui
     n'en a pas (le serveur MCP décode du base64, pas un multipart HTTP)."""
     dossier_repository = DossierRepository(db)
-    dossier = await dossier_repository.create(name=f"Run éphémère {uuid.uuid4()}", analyse=analyse)
+    dossier = await dossier_repository.create(name=name or f"Run éphémère {uuid.uuid4()}", analyse=analyse)
 
     documents = []
     for name, data, mimetype in files:
@@ -366,6 +368,30 @@ async def _get_run_out_or_404(db: AsyncSession, run_id: uuid.UUID, identity: Eph
     if result is None or result.created_by != identity.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run éphémère introuvable")
     return EphemeralRunOut.model_validate(result.payload)
+
+
+@router.get(
+    "/runs",
+    response_model=list[EphemeralRunSummary],
+    summary="Liste les runs de l'appelant",
+    description="Runs en cours ou conservés (`persist=true`), puis résultats conservés des runs `persist=false` "
+    "terminés, du plus récent au plus ancien (100 au plus). Même scope strict que GET /runs/{id} : uniquement "
+    "ce que l'appelant a créé. Le détail d'un run se lit avec GET /runs/{id}.",
+)
+async def list_ephemeral_runs(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+) -> list[EphemeralRunSummary]:
+    repository = EphemeralRepository(db)
+    dossier_repository = DossierRepository(db)
+    runs: list[EphemeralRunOut] = []
+    for record in await repository.list_dossier_ephemeres(identity.id):
+        dossier = await dossier_repository.get(record.dossier_id)
+        if dossier is not None:
+            runs.append(to_run_schema(dossier, record))
+    runs.extend(EphemeralRunOut.model_validate(result.payload) for result in await repository.list_results(identity.id))
+    runs.sort(key=lambda run: run.created_at, reverse=True)
+    return [to_run_summary(run) for run in runs[:100]]
 
 
 @router.get(
@@ -511,6 +537,7 @@ async def _create_single_file_run(
         files=await _read_upload_files([file]),
         persist=persist,
         ttl_hours=ttl,
+        name=name,
     )
     return EphemeralRunCreated(run_id=dossier.id)
 

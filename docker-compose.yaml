@@ -12,6 +12,18 @@ services:
       - "8081:8080"
     restart: unless-stopped
 
+  # Frontend autonome de l'API éphémère : dépôt d'un fichier, classification / extraction à la volée.
+  ephemeral-frontend:
+    build:
+      context: ./ephemeral-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: http://localhost:8000
+        VITE_MILLEFEUILLE_URL: http://localhost:8081
+    ports:
+      - "8082:8080"
+    restart: unless-stopped
+
   # One-shot: runs Alembic migrations to head, then exits. The backend (and
   # every worker that talks to it) depends on this completing successfully,
   # so a fresh `docker compose down -v && up` never starts the app against an
@@ -46,6 +58,8 @@ services:
       KEYCLOAK_CLIENT_SECRET: dev-only-secret-not-for-prod
       BACKEND_PUBLIC_URL: http://localhost:8000
       FRONTEND_URL: http://localhost:8081
+      # Frontend autonome de l'API éphémère (CORS + redirect post-login).
+      EPHEMERAL_FRONTEND_URL: http://localhost:8082
       # HTTP en dev local : le cookie de session ne serait jamais posé par le
       # navigateur si Secure=True (il l'ignore sur les connexions non-HTTPS).
       SESSION_COOKIE_SECURE: "false"

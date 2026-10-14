@@ -17,6 +17,7 @@ from app.schemas.ephemeral import (
     EphemeralExtractionOut,
     EphemeralLabelResult,
     EphemeralRunOut,
+    EphemeralRunSummary,
 )
 
 
@@ -88,4 +89,26 @@ def to_extraction_out(run: EphemeralRunOut) -> EphemeralExtractionOut:
         )
     return EphemeralExtractionOut(
         run_id=run.id, status=run.status, error=_error(run), expires_at=run.expires_at, documents=documents
+    )
+
+
+def to_run_summary(run: EphemeralRunOut) -> EphemeralRunSummary:
+    # Un run à une seule étape (flux C) porte son type dans le nom de son dossier ; ses deux étapes existent
+    # toujours, elles ne permettent pas de le deviner.
+    kind = (
+        "classification"
+        if run.name.startswith("Classification")
+        else "extraction"
+        if run.name.startswith("Extraction")
+        else "analyse"
+    )
+    return EphemeralRunSummary(
+        id=run.id,
+        kind=kind,
+        status=run.status,
+        documents=[document.name for document in run.documents],
+        persist=run.persist,
+        created_at=run.created_at,
+        ended_at=run.ended_at,
+        expires_at=run.expires_at,
     )

@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -128,3 +129,18 @@ class EphemeralExtractionOut(BaseModel):
     error: str | None = Field(description="Message de l'étape en échec, si le run a échoué.")
     expires_at: datetime | None
     documents: list[EphemeralExtractedDocument]
+
+
+class EphemeralRunSummary(BaseModel):
+    """Une ligne de la liste des runs de l'appelant : de quoi les retrouver, pas leur contenu."""
+
+    id: uuid.UUID
+    kind: Literal["classification", "extraction", "analyse"] = Field(
+        description="`classification` / `extraction` : run à une seule étape (flux C) ; `analyse` : pipeline complet."
+    )
+    status: DossierStatus
+    documents: list[str] = Field(description="Noms des documents du run.")
+    persist: bool
+    created_at: datetime
+    ended_at: datetime | None
+    expires_at: datetime | None = Field(description="NULL si persist=True ou tant que le run n'est pas terminé.")
