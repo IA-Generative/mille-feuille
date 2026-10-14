@@ -417,8 +417,7 @@ async function onDeleteConversation() {
       <DsfrAlert
         v-if="addedSinceSuggestions > 0 && dossier.suggestionStatus !== 'en_cours'"
         type="warning"
-        :title="addedSinceSuggestions === 1 ? 'Un fichier a été ajouté' : `${addedSinceSuggestions} fichiers ont été ajoutés`"
-        description="Les suggestions ne tiennent pas compte des nouveaux fichiers : régénérez-les."
+        :description="`${addedSinceSuggestions === 1 ? 'Un fichier a été ajouté' : `${addedSinceSuggestions} fichiers ont été ajoutés`} : les suggestions n'en tiennent pas compte, régénérez-les.`"
         small
         class="fr-mb-2w"
       />
