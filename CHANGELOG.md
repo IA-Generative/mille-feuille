@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.20.0](https://github.com/IA-Generative/mille-feuille/compare/v0.19.1...v0.20.0) (2026-10-14)
+
+
+### Features
+
+* **chart:** ajoute le composant ephemeral_frontend (UneFeuille) au chart Helm ([895e714](https://github.com/IA-Generative/mille-feuille/commit/895e7147acfe0f7df9639e545868bea6b6d1c09f))
+* **ephemeral:** frontend autonome UneFeuille pour l'API éphémère ([1da9f23](https://github.com/IA-Generative/mille-feuille/commit/1da9f2301ead79e70afd3f6d171bfe76aa663322))
+* **ephemeral:** verdicts sur les prédictions et métriques par run, sans garder de données sensibles ([8c0043f](https://github.com/IA-Generative/mille-feuille/commit/8c0043fb94964dfed8a6d5c63d0d41b9032f6e1b))
+
+
+### Bug Fixes
+
+* **backend:** affiche la version du paquet dans Swagger au lieu de 0.1.0 ([8ab55fd](https://github.com/IA-Generative/mille-feuille/commit/8ab55fdc6629e5b02b84da671716dc56ad863fd4))
+
 ## [0.19.1](https://github.com/IA-Generative/mille-feuille/compare/v0.19.0...v0.19.1) (2026-10-13)
 
 
