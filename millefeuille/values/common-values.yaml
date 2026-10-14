@@ -790,6 +790,17 @@ cnpg:
     imageName: "ghcr.io/cloudnative-pg/postgresql:17.7"
     enableSuperuserAccess: true
     superuserSecret: "millefeuille-db-superuser"
+    # The namespace quota (`dso-quota`) rejects any pod whose containers lack requests/limits. CNPG
+    # copies these onto the instance pods and onto the initdb/join job pods (`bootstrap-controller`,
+    # `initdb`), without them the cluster never bootstraps. Same value for requests and limits gives
+    # a Guaranteed QoS, as the cluster chart advises.
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "500m"
+        memory: "1Gi"
     initdb:
       database: "millefeuille"
       owner: "millefeuille"
