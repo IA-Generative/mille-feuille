@@ -104,6 +104,9 @@ jobs:
           - name: frontend
             context: frontend
             dockerfile: frontend/Dockerfile
+          - name: ephemeral-frontend
+            context: ephemeral-frontend
+            dockerfile: ephemeral-frontend/Dockerfile
           - name: backend
             context: backend
             dockerfile: backend/Dockerfile

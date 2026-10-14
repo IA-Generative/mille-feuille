@@ -7,6 +7,7 @@ Add one `include` line per component when you add components to this chart.
 */ -}}
 {{- if .Values.enabled }}
 {{- include "helper.component.validate" (dict "name" "frontend" "component" .Values.frontend) }}
+{{- include "helper.component.validate" (dict "name" "ephemeral_frontend" "component" .Values.ephemeral_frontend) }}
 {{- include "helper.component.validate" (dict "name" "backend" "component" .Values.backend) }}
 {{- include "helper.component.validate" (dict "name" "worker_agent" "component" .Values.worker_agent) }}
 {{- include "helper.component.validate" (dict "name" "worker_classification" "component" .Values.worker_classification) }}

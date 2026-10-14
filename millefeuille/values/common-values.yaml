@@ -410,6 +410,21 @@ frontend:
   # backend on the same host, so the frontend uses relative URLs (empty API_BASE_URL).
   # The Dockerfile defaults VITE_API_BASE_URL to "" (relative), which is correct for prod.
 
+# UneFeuille - restricted standalone frontend of the ephemeral API (ephemeral-frontend). Like `frontend`, it uses relative
+# API URLs: expose it on its own host with /api/ routed to the backend, and set the backend's `EPHEMERAL_FRONTEND_URL`
+# to that host (CORS + post-login redirect). The "Accéder à MilleFeuille" link is baked at build time (VITE_MILLEFEUILLE_URL).
+ephemeral_frontend:
+  image:
+    registry: "harbor.sdid.cpin.numerique-interieur.com"
+    repository: "exploration/mille-feuille-ephemeral-frontend"
+    pullPolicy: "Always"
+  replicaCount: 1
+  service:
+    port: 8080
+  serviceAccount:
+    enabled: true
+    create: true
+
 redis:
   # RediSearch is required by the agent_execution worker's Redis-backed LangGraph checkpointer
   # (see worker/agent_execution - a HITL pause must survive being resumed by a different Celery

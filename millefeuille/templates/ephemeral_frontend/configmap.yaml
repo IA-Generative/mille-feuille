@@ -1,0 +1,16 @@
+{{- if .Values.enabled }}
+{{- if or .Values.ephemeral_frontend.envCm .Values.global.envCm -}}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "ephemeral_frontend") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "ephemeral_frontend")) | nindent 4 }}
+data:
+  {{- if .Values.global.envCm -}}
+  {{- include "helper.env" (dict "root" . "data" .Values.global.envCm) | indent 2 }}
+  {{- end -}}
+  {{- if .Values.ephemeral_frontend.envCm -}}
+  {{- include "helper.env" (dict "root" . "data" .Values.ephemeral_frontend.envCm) | indent 2 }}
+  {{- end -}}
+{{- end -}}
+{{- end }}
