@@ -120,6 +120,7 @@ Les deux `GET` sont des vues de `GET /api/ephemeral/runs/{id}` (même scope stri
 
 ### Lecture / arrêt / suppression
 
+- `GET /api/ephemeral/runs` — liste les runs de l'appelant (en cours, `persist=true`, et résultats conservés des runs `persist=false` terminés), du plus récent au plus ancien, 100 au plus : `id`, `kind` (`classification` / `extraction` pour le flux C, `analyse` sinon ; déduit du nom du dossier), `status`, `documents`, `persist`, dates. Sert la vue « Mes tâches » de `ephemeral-frontend/`.
 - `GET /api/ephemeral/analyses/{id}` — définition complète (agents/classification/entités)
 - `GET /api/ephemeral/runs/{id}` — statut, et résultats une fois `terminé`
 - `POST /api/ephemeral/runs/{id}/stop` — arrêt complet du run en cours (réutilise le `stop` existant de `dossiers.py:203`, coupe l'exécution Celery en cours), statut → `arrêté`. Un run `persist=false` arrêté est finalisé comme un run terminé (résultat conservé, dossier et analyse supprimés) ; no-op sur un run déjà finalisé.

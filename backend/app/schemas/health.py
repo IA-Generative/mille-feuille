@@ -17,3 +17,7 @@ class HealthReport(BaseModel):
     name: str
     status: Literal["healthy", "unhealthy"]
     dependencies: list[Health]
+
+
+class VersionOut(BaseModel):
+    version: str

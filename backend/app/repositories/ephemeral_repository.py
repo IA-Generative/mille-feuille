@@ -54,6 +54,24 @@ class EphemeralRepository:
         result = await self.db.execute(select(DossierEphemere).where(DossierEphemere.dossier_id == dossier_id))
         return result.scalar_one_or_none()
 
+    async def list_dossier_ephemeres(self, created_by: str) -> Sequence[DossierEphemere]:
+        """Runs encore vivants (en cours, ou persist=True) d'un créateur."""
+        result = await self.db.execute(
+            select(DossierEphemere)
+            .where(DossierEphemere.created_by == created_by)
+            .order_by(DossierEphemere.created_at.desc())
+        )
+        return result.scalars().all()
+
+    async def list_results(self, created_by: str) -> Sequence[EphemeralResult]:
+        """Résultats conservés (runs persist=false terminés) d'un créateur."""
+        result = await self.db.execute(
+            select(EphemeralResult)
+            .where(EphemeralResult.created_by == created_by)
+            .order_by(EphemeralResult.created_at.desc())
+        )
+        return result.scalars().all()
+
     async def mark_dossier_terminal(self, dossier: Dossier) -> None:
         """Pose dossier_ephemere.expires_at (et la propage à
         analyse_ephemere, si le run référence une analyse elle-même

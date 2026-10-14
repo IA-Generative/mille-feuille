@@ -34,6 +34,13 @@ def _is_safe_internal_path(path: str) -> bool:
     return path.startswith("/") and not path.startswith("//")
 
 
+def _is_allowed_redirect(target: str) -> bool:
+    """Chemin interne, ou URL absolue d'un des frontends déclarés (ex. le frontend éphémère)."""
+    if _is_safe_internal_path(target):
+        return True
+    return any(target == origin or target.startswith(f"{origin}/") for origin in _keycloak_settings.frontend_origins)
+
+
 def _build_pkce_pair() -> tuple[str, str]:
     code_verifier = secrets.token_urlsafe(64)
     digest = hashlib.sha256(code_verifier.encode("ascii")).digest()
@@ -62,7 +69,7 @@ async def login(request: Request, redirect: str = "/") -> RedirectResponse:
     if not _session_store.check_rate_limit(f"login:{client_ip}", LOGIN_RATE_LIMIT, LOGIN_RATE_WINDOW_SECONDS):
         raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail="Too many login attempts")
 
-    next_path = redirect if _is_safe_internal_path(redirect) else "/"
+    next_path = redirect if _is_allowed_redirect(redirect) else "/"
     code_verifier, code_challenge = _build_pkce_pair()
     state = secrets.token_urlsafe(32)
     _session_store.save_pending(state, PendingAuth(code_verifier=code_verifier, next_path=next_path))
@@ -114,8 +121,9 @@ async def callback(code: str, state: str) -> RedirectResponse:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not resolve identity")
 
     session_id = _session_store.create_session(identity, token_response)
+    is_absolute = not pending.next_path.startswith("/")
     response = RedirectResponse(
-        url=f"{_keycloak_settings.FRONTEND_URL}{pending.next_path}",
+        url=pending.next_path if is_absolute else f"{_keycloak_settings.FRONTEND_URL}{pending.next_path}",
         status_code=status.HTTP_307_TEMPORARY_REDIRECT,
     )
     _set_session_cookie(response, session_id)

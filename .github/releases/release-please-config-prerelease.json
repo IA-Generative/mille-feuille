@@ -14,6 +14,11 @@
           "jsonpath": "$.version"
         },
         {
+          "type": "json",
+          "path": "ephemeral-frontend/package.json",
+          "jsonpath": "$.version"
+        },
+        {
           "type": "toml",
           "path": "backend/pyproject.toml",
           "jsonpath": "project.version"

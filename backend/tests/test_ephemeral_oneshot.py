@@ -192,3 +192,18 @@ def test_api_key_is_accepted_as_a_bearer_token_and_scopes_like_x_app_token(clien
     assert started.status_code == 201
     run_url = f"/api/ephemeral/extractions/{started.json()['run_id']}"
     assert client.get(run_url, headers={"X-App-Token": key_a}).status_code == 200  # même identité qu'en Bearer
+
+
+def test_list_runs_shows_the_callers_runs_with_their_kind_and_persist(client: TestClient) -> None:
+    classification = client.post("/api/ephemeral/classifications", files=FILE, data={"labels": LABELS}).json()["run_id"]
+    extraction = client.post(
+        "/api/ephemeral/extractions", files=FILE, data={"entities": ENTITIES, "persist": "true"}
+    ).json()["run_id"]
+
+    runs = {run["id"]: run for run in client.get("/api/ephemeral/runs").json()}
+
+    assert runs[classification]["kind"] == "classification"
+    assert runs[classification]["persist"] is False
+    assert runs[extraction]["kind"] == "extraction"
+    assert runs[extraction]["persist"] is True
+    assert runs[extraction]["documents"] == ["cni.pdf"]

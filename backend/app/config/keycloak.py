@@ -16,6 +16,9 @@ class KeycloakSettings(BaseSettings):
     BACKEND_PUBLIC_URL: str = "http://localhost:8000"
     # Where the browser lands after login/logout.
     FRONTEND_URL: str = "http://localhost:5173"
+    # Frontend autonome de l'API éphémère (ephemeral-frontend/) : autorisé en CORS et comme cible de redirection
+    # post-login. Vide = le frontend principal est le seul.
+    EPHEMERAL_FRONTEND_URL: str | None = None
 
     SESSION_COOKIE_NAME: str = "millefeuille_session"
     SESSION_COOKIE_SECURE: bool = True
@@ -31,3 +34,7 @@ class KeycloakSettings(BaseSettings):
     @property
     def callback_url(self) -> str:
         return f"{self.BACKEND_PUBLIC_URL}/api/auth/callback"
+
+    @property
+    def frontend_origins(self) -> list[str]:
+        return [url.rstrip("/") for url in (self.FRONTEND_URL, self.EPHEMERAL_FRONTEND_URL) if url]

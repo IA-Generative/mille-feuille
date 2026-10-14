@@ -124,7 +124,7 @@ app = FastAPI(
 # rejected by browsers if allow_origins is a wildcard.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[_keycloak_settings.FRONTEND_URL],
+    allow_origins=_keycloak_settings.frontend_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
