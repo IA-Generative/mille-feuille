@@ -8,11 +8,12 @@ import ApiDocs from "@/components/ApiDocs.vue";
 import ChangelogView from "@/components/ChangelogView.vue";
 import TaskList from "@/components/TaskList.vue";
 import ResultView from "@/components/ResultView.vue";
+import { MILLEFEUILLE_URL } from "@/config";
 import { useAuth } from "@/composables/useAuth";
 import { useEphemeralRun } from "@/composables/useEphemeralRun";
 import { TERMINAL, type EntityDef, type LabelDef, type Mode } from "@/types";
 
-const millefeuilleUrl = import.meta.env.VITE_MILLEFEUILLE_URL as string | undefined;
+const millefeuilleUrl = MILLEFEUILLE_URL;
 const { email, checked, fetchProfile, login, logout } = useAuth();
 const run = useEphemeralRun();
 
