@@ -1,4 +1,5 @@
 import type { WorkflowStatus } from "@/types/analyse";
+import type { DocumentSource } from "@/types/documentSource";
 
 export type DossierStatus = "en_attente" | "en_cours" | "terminé" | "arrêté" | "échec";
 
@@ -91,6 +92,10 @@ export interface DossierDocument {
   textExtractionError?: string;
   /** Hash SHA-256 du fichier (calculé par le worker document_process). */
   fileHash?: string;
+  /** Date de dépôt : sert à repérer les fichiers ajoutés depuis le dernier lancement de l'analyse. */
+  createdAt?: string;
+  /** D'où vient le fichier ; absent s'il n'a pas de source (ou si sa source a été supprimée). */
+  source?: DocumentSource;
   /** Suivi de la génération du résumé (issue #52). */
   summaryStatus: SummaryStatus;
   summaryError?: string;
