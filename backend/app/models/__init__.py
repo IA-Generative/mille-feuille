@@ -43,6 +43,7 @@ from .document_page import (
     PredictionValidation,
     PredictionValidationStatus,
 )
+from .document_source import DocumentSource
 from .document_template import DocumentTemplate, DocumentTemplateVersion
 from .dossier import (
     Dossier,
@@ -144,6 +145,7 @@ __all__ = [
     "DocumentPrediction",
     "DocumentSummary",
     "Dossier",
+    "DocumentSource",
     "DossierDocument",
     "DossierEphemere",
     "EphemeralFeedback",

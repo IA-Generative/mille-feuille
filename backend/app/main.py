@@ -42,6 +42,7 @@ from app.routers.models import router as models_router
 from app.routers.notifications import router as notifications_router
 from app.routers.profile import router as profile_router
 from app.routers.reports import router as reports_router
+from app.routers.sources import router as sources_router
 from app.routers.tracking import router as tracking_router
 from app.routers.user_tasks import router as user_tasks_router
 from app.routers.users import router as users_router
@@ -147,6 +148,7 @@ app.include_router(analyses_public_router, prefix="/api")
 app.include_router(analyses_router, prefix="/api")
 app.include_router(agent_conversations_router, prefix="/api")
 app.include_router(dossiers_router, prefix="/api")
+app.include_router(sources_router, prefix="/api")
 app.include_router(dossier_analyses_router, prefix="/api")
 app.include_router(analysis_collaboration_router, prefix="/api")
 app.include_router(dossier_events_router, prefix="/api")
