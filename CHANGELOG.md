@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.21.0](https://github.com/IA-Generative/mille-feuille/compare/v0.20.0...v0.21.0) (2026-10-14)
+
+
+### Features
+
+* **dossiers:** interface d'ajout de fichiers après coup, avec leur source ([cc1f250](https://github.com/IA-Generative/mille-feuille/commit/cc1f25074a0d6651a39257263c13db0b0c71bdc2))
+* **dossiers:** sources des fichiers et ajout de fichiers à un dossier existant ([6a88142](https://github.com/IA-Generative/mille-feuille/commit/6a88142afc36e88b6cea755fe1789c82c1afccf1))
+* **workers:** donne la source du document en contexte à l'IA ([e6760ac](https://github.com/IA-Generative/mille-feuille/commit/e6760ac67385476b9065ad97163d4fb7e36f7b0d))
+
 ## [0.20.0](https://github.com/IA-Generative/mille-feuille/compare/v0.19.1...v0.20.0) (2026-10-14)
 
 
