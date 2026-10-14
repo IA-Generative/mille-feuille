@@ -638,3 +638,17 @@ ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
 template:
   {{- include "helper.job.podTemplate" (dict "root" $root "name" $name "job" $job) | nindent 2 }}
 {{- end -}}
+
+
+{{/*
+Vault path of a secret, inside the mount (`global.projectName`): `<env>/millefeuille/<secret>`, where <env> is
+`global.env.ENVIRONMENT` and <secret> the short name of the secret (e.g. `s3` for the `millefeuille-s3` Kubernetes
+secret). Used by the VaultStaticSecret objects of `extraObjects`, so the layout is written in one place.
+Parameters:
+- root: The root context.
+- secret: The short name of the secret.
+*/}}
+{{- define "helper.vaultSecretPath" -}}
+{{- $env := .root.Values.global.env.ENVIRONMENT | required "global.env.ENVIRONMENT is required to build the Vault path of the secrets (<env>/millefeuille/<secret>)" -}}
+{{- printf "%s/millefeuille/%s" $env .secret -}}
+{{- end -}}
