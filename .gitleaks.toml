@@ -10,3 +10,8 @@ useDefault = true
 description = "Helm chart test fixtures (chart was named digdigdoc before the rename, history still carries that path): fake Secret manifests used by `ct lint`/`helm template`, never real credentials."
 targetRules = ["kubernetes-secret-yaml"]
 paths = ['''(digdigdoc|millefeuille)/test-values\.yaml''']
+
+[[allowlists]]
+description = "Clé d'API factice des tests de l'API éphémère (backend/tests/test_ephemeral_env_key.py) : constante de test, jamais un identifiant réel."
+targetRules = ["generic-api-key"]
+paths = ['''backend/tests/test_ephemeral_env_key\.py''']
