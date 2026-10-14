@@ -337,7 +337,9 @@ class _RecordingLLM:
     def __call__(self, **kwargs) -> ExtractionResult:
         pages = kwargs["pages"]
         names = [d["name"] for d in kwargs["entity_definitions"]]
-        self.calls.append({"pages": [p["page_number"] for p in pages], "definitions": names})
+        self.calls.append(
+            {"pages": [p["page_number"] for p in pages], "definitions": names, "source": kwargs.get("source")}
+        )
         return ExtractionResult(
             entities=[
                 EntityValue(
@@ -388,6 +390,17 @@ def test_extraction_never_mixes_two_documents_in_a_lot(monkeypatch) -> None:
         ["doc1-page-1", "doc1-page-2"],
         ["doc2-page-1", "doc2-page-2"],
     ]
+
+
+def test_the_source_of_each_document_reaches_the_llm_and_only_its_own(monkeypatch) -> None:
+    dossier = _two_documents_dossier()
+    dossier["documents"][0]["source"] = {"name": "Guichet", "description": "En main propre"}
+    backend = _UnitBackend(dossier=dossier)
+    llm = _setup_extraction(monkeypatch, backend, _entity_defs(1), EXTRACTION_DEFINITIONS_PER_GROUP=8)
+
+    extract_dossier_entities.run("dossier-1")
+
+    assert [c["source"] for c in llm.calls] == [{"name": "Guichet", "description": "En main propre"}, None]
 
 
 def test_entities_are_attached_to_the_page_of_their_own_document(monkeypatch) -> None:

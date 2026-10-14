@@ -44,3 +44,13 @@ def test_summarize_text_truncates_long_content() -> None:
 
     call_kwargs = mock_client.return_value.chat.completions.create.call_args
     assert call_kwargs.kwargs["max_tokens"] == 200
+
+
+def test_source_header_gives_the_source_of_the_document_in_context() -> None:
+    from app.tasks.summary import _source_header
+
+    assert _source_header({"name": "a.pdf"}) == ""
+    assert _source_header({"source": {"name": "Guichet", "description": "En main propre"}}) == (
+        "Source du document : Guichet — En main propre\n\n"
+    )
+    assert _source_header({"source": {"name": "Guichet", "description": ""}}) == "Source du document : Guichet\n\n"

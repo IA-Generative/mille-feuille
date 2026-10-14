@@ -120,12 +120,19 @@ def _make_excerpt(content: str, query_tokens: list[str], window: int = 200) -> s
     return content[:window]
 
 
+def document_label(document: dict) -> str:
+    """Nom du document, suivi de sa source s'il en a une (« passeport.pdf — source : Guichet »)."""
+    name = document.get("name", "")
+    source = (document.get("source") or {}).get("name")
+    return f"{name} — source : {source}" if source else name
+
+
 def build_index_from_dossier(dossier: dict) -> BM25Index:
     """Construit un index BM25 à partir des pages d'un dossier récupéré
     via l'API interne (get_dossier)."""
     index = BM25Index()
     for document in dossier.get("documents", []):
-        doc_name = document.get("name", "")
+        doc_name = document_label(document)
         for page in document.get("pages", []):
             index.add_page(
                 page_id=page["id"],

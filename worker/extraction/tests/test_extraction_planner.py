@@ -195,3 +195,14 @@ def test_fingerprint_changes_with_the_model_and_the_pipeline_version(monkeypatch
     monkeypatch.undo()
     monkeypatch.setattr(fingerprint, "PIPELINE_VERSION", "pipeline-2")
     assert fingerprint.extraction_fingerprint(LOT, DEFS, "Extrais.") != base
+
+
+def test_extraction_fingerprint_depends_on_the_source_only_when_the_document_has_one() -> None:
+    base = fingerprint.extraction_fingerprint(LOT, DEFS, "Extrais.")
+    assert fingerprint.extraction_fingerprint(LOT, DEFS, "Extrais.", source=None) == base
+    guichet = {"name": "Guichet", "description": "En main propre"}
+    with_source = fingerprint.extraction_fingerprint(LOT, DEFS, "Extrais.", source=guichet)
+    assert with_source != base
+    assert with_source != fingerprint.extraction_fingerprint(
+        LOT, DEFS, "Extrais.", source={**guichet, "name": "Courrier"}
+    )

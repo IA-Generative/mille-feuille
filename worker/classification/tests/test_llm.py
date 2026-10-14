@@ -25,3 +25,14 @@ def test_multi_label_classification_result_model() -> None:
         ]
     )
     assert [p.label_name for p in result.predictions] == ["CNI", "RIB"]
+
+
+def test_source_section_gives_the_name_and_description_in_context() -> None:
+    from app.llm import source_section
+
+    assert source_section(None) == ""
+    assert source_section({"name": "", "description": "x"}) == ""
+    assert source_section({"name": "Guichet", "description": "En main propre"}) == (
+        "--- Source du document ---\nGuichet : En main propre\n\n"
+    )
+    assert source_section({"name": "Guichet", "description": "  "}) == "--- Source du document ---\nGuichet\n\n"

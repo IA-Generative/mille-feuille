@@ -21,7 +21,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from app.bm25 import BM25Index, build_index_from_dossier
+from app.bm25 import BM25Index, build_index_from_dossier, document_label
 
 if TYPE_CHECKING:
     from app.analysis_tools import AnalysisProposer
@@ -63,7 +63,8 @@ class AgentTools:
         for document in dossier.get("documents", []):
             self._documents_by_id[document["id"]] = document
             for page in document.get("pages", []):
-                page["_document_name"] = document.get("name", "")
+                page["_document_name"] = document_label(document)
+                page["_document_source"] = document.get("source")
                 page["_document_id"] = document.get("id")
                 self._pages_by_id[page["id"]] = page
                 self._pages_by_number[page["page_number"]] = page
@@ -180,7 +181,14 @@ class AgentTools:
         # (les 200 premiers caractères) pour le contexte.
         excerpt = (content[:200] + "...") if len(content) > 200 else content
         self._record_source(page_id=page["id"], excerpt=excerpt)
-        return f"📄 Page {page_number} ({doc_name})\n\n{content}"
+        header = f"📄 Page {page_number} ({doc_name})"
+        source = page.get("_document_source") or {}
+        if not source.get("name"):
+            return f"{header}\n\n{content}"
+        # La description de la source aide à interpréter la pièce (d'où elle vient, comment elle est arrivée).
+        description = (source.get("description") or "").strip()
+        source_note = f"Source du document : {source['name']}" + (f" — {description}" if description else "")
+        return f"{header}\n{source_note}\n\n{content}"
 
     def view_classifications(self) -> str:
         """Liste toutes les classifications de pages (labels prédits)."""

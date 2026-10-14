@@ -78,6 +78,15 @@ def describe_page_image(image_bytes: bytes) -> str:
     return response.choices[0].message.content or ""
 
 
+def source_section(source: dict | None) -> str:
+    """D'où vient le document (nom + description de sa source), en contexte pour le LLM ; vide sans source."""
+    if not source or not source.get("name"):
+        return ""
+    description = (source.get("description") or "").strip()
+    detail = f" : {description}" if description else ""
+    return f"--- Source du document ---\n{source['name']}{detail}\n\n"
+
+
 def classify_page(
     *,
     page_text: str,
@@ -85,6 +94,7 @@ def classify_page(
     label_definitions: list[dict],
     classification_prompt: str,
     multi_label: bool = False,
+    source: dict | None = None,
 ) -> ClassificationResult | MultiLabelClassificationResult:
     """Classifie une page en utilisant le texte OCR + la description VLM.
     Renvoie un résultat structuré garantissant que le ou les labels choisis
@@ -101,6 +111,7 @@ def classify_page(
         f"Réponds uniquement avec le JSON demandé."
     )
     user = (
+        f"{source_section(source)}"
         f"--- Texte extrait de la page (OCR) ---\n{page_text or '(vide)'}\n\n"
         f"--- Description visuelle de la page (VLM) ---\n{image_description or '(indisponible)'}\n\n"
         f"{'Quels labels correspondent' if multi_label else 'Quel label correspond le mieux'} à cette page ?"

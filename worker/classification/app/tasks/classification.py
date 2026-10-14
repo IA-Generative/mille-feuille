@@ -65,9 +65,10 @@ def _classify_page(
     classification_prompt: str,
     unit_id: str | None = None,
     multi_label: bool = False,
+    source: dict | None = None,
 ) -> bool:
-    """Classifie une page et dépose la prédiction. Renvoie True si la
-    classification a réussi."""
+    """Classifie une page et dépose la prédiction. `source` : d'où vient le document, donnée en contexte au LLM.
+    Renvoie True si la classification a réussi."""
     page_text = page.get("content") or ""
     image_description = _describe_page_image(page)
 
@@ -77,6 +78,7 @@ def _classify_page(
         label_definitions=label_defs,
         classification_prompt=classification_prompt,
         multi_label=multi_label,
+        source=source,
     )
 
     predictions = result.predictions if multi_label else [result.prediction]
@@ -184,7 +186,9 @@ def classify_dossier(self, dossier_id: str) -> None:
                         dossier_id,
                         "classification",
                         {"document_id": document["id"], "page_id": page["id"], "page_number": page["page_number"]},
-                        fingerprint=classification_fingerprint(page, label_defs, classification_prompt, multi_label),
+                        fingerprint=classification_fingerprint(
+                            page, label_defs, classification_prompt, multi_label, document.get("source")
+                        ),
                     )
                     if unit is not None and unit.reused:
                         # Relance incrémentale (#119) : entrées inchangées, résultat
@@ -195,7 +199,14 @@ def classify_dossier(self, dossier_id: str) -> None:
                     unit_id = unit.id if unit else None
                     try:
                         if _classify_page(
-                            client, page, label_defs, label_by_name, classification_prompt, unit_id, multi_label
+                            client,
+                            page,
+                            label_defs,
+                            label_by_name,
+                            classification_prompt,
+                            unit_id,
+                            multi_label,
+                            document.get("source"),
                         ):
                             classified_pages += 1
                     except Exception:

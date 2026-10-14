@@ -110,8 +110,9 @@ def _process_batch(
     page_id_by_number: dict,
     unit_id: str | None = None,
     seen: set[tuple[str, str]] | None = None,
+    source: dict | None = None,
 ) -> int:
-    """Traite un batch de pages : extraction LLM + dépôt des entités.
+    """Traite un batch de pages : extraction LLM + dépôt des entités. ``source`` : d'où vient le document.
     Renvoie le nombre d'entités déposées. ``seen`` (mode par document) écarte
     les entités déjà extraites par un lot précédent du même document et du
     même groupe de définitions (recouvrement entre lots)."""
@@ -121,6 +122,7 @@ def _process_batch(
         pages=[{"page_number": p["page_number"], "content": p["content"]} for p in batch],
         entity_definitions=entity_defs,
         extraction_prompt=extraction_prompt,
+        source=source,
     )
 
     entities = [e for e in result.entities if e.entity_name in entity_def_by_name]
@@ -224,12 +226,13 @@ def _extract_by_document(
         pages, page_id_by_number = _page_dicts(document)
         if not pages:
             continue
+        source = document.get("source")
         for group_index, group in enumerate(groups):
             group_by_name = {entity["name"]: entity for entity in group}
             budget = text_budget(
                 max_tokens=settings.EXTRACTION_MAX_TOKENS,
                 reserved_output_tokens=settings.EXTRACTION_RESERVED_OUTPUT_TOKENS,
-                prompt=extraction_prompt,
+                prompt=extraction_prompt + llm.source_section(source),
                 definitions=group,
             )
             seen: set[tuple[str, str]] = set()
@@ -244,7 +247,7 @@ def _extract_by_document(
                         "group": group_index,
                         "definition_ids": [entity["id"] for entity in group],
                     },
-                    extraction_fingerprint(lot, group, extraction_prompt),
+                    extraction_fingerprint(lot, group, extraction_prompt, source),
                     partial(
                         _process_batch,
                         client,
@@ -254,6 +257,7 @@ def _extract_by_document(
                         extraction_prompt,
                         page_id_by_number,
                         seen=seen,
+                        source=source,
                     ),
                     on_reused=partial(_seed_seen, seen),
                 )
