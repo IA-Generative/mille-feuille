@@ -477,6 +477,7 @@ extraObjects:
     spec:
       vaultAuthRef: vault-auth
       mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "s3") }}'
       type: kv-v2
       destination:
         name: millefeuille-s3
@@ -489,6 +490,7 @@ extraObjects:
     spec:
       vaultAuthRef: vault-auth
       mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "openai") }}'
       type: kv-v2
       destination:
         name: millefeuille-openai
@@ -501,6 +503,7 @@ extraObjects:
     spec:
       vaultAuthRef: vault-auth
       mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "keycloak") }}'
       type: kv-v2
       destination:
         name: millefeuille-keycloak
@@ -513,6 +516,7 @@ extraObjects:
     spec:
       vaultAuthRef: vault-auth
       mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "worker") }}'
       type: kv-v2
       destination:
         name: millefeuille-worker
@@ -528,6 +532,7 @@ extraObjects:
     spec:
       vaultAuthRef: vault-auth
       mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "async-api-worker") }}'
       type: kv-v2
       destination:
         name: millefeuille-async-api-worker
@@ -540,6 +545,7 @@ extraObjects:
     spec:
       vaultAuthRef: vault-auth
       mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "redis") }}'
       type: kv-v2
       destination:
         name: millefeuille-redis
@@ -559,6 +565,7 @@ extraObjects:
     spec:
       vaultAuthRef: vault-auth
       mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "db-superuser") }}'
       type: kv-v2
       destination:
         name: millefeuille-db-superuser
@@ -575,6 +582,7 @@ extraObjects:
     spec:
       vaultAuthRef: vault-auth
       mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "db-appuser") }}'
       type: kv-v2
       destination:
         name: millefeuille-db-appuser
@@ -591,6 +599,7 @@ extraObjects:
     spec:
       vaultAuthRef: vault-auth
       mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "db-appuser") }}'
       type: kv-v2
       destination:
         name: millefeuille-db-infos
@@ -613,6 +622,7 @@ extraObjects:
     spec:
       vaultAuthRef: vault-auth
       mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "db-backups") }}'
       type: kv-v2
       destination:
         name: millefeuille-db-backups

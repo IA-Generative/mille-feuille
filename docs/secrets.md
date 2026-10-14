@@ -3,8 +3,19 @@
 Les secrets sont gérés via **HashiCorp Vault** (Vault Static Secrets via VSO) et référencés
 dans `millefeuille/values/common-values.yaml` sous `extraObjects`.
 
-Chaque secret ci-dessous correspond à un **chemin Vault** (`mirai` mount, kv-v2) et à un
+Chaque secret ci-dessous correspond à un **chemin Vault** (kv-v2) et à un
 **Secret Kubernetes** créé automatiquement par le Vault Secrets Operator.
+
+Le chemin suit toujours le même schéma : **`<mount>/<env>/millefeuille/<secret>`**, où
+
+- `<mount>` est `global.projectName` (`exploration` dans `common-values.yaml`) ;
+- `<env>` est `global.env.ENVIRONMENT` (`dev`, `prod`…) : le chart s'arrête avec un message clair s'il n'est pas défini ;
+- `<secret>` est le **nom court** du secret (`s3`, `keycloak`…, voir le tableau). Le schéma n'est écrit qu'à un endroit,
+  le helper `helper.vaultSecretPath`.
+
+> **Migration** : les secrets étaient auparavant à la racine du mount (`millefeuille-s3`…). Avant de déployer ce schéma,
+> **copier chaque secret vers son nouveau chemin** (`vault kv get -format=json … | vault kv put …`) ; sinon le Vault Secrets
+> Operator ne trouve rien et les Secrets Kubernetes ne sont plus mis à jour. Les anciens chemins peuvent être supprimés ensuite.
 
 ---
 
@@ -14,19 +25,19 @@ Chaque secret ci-dessous correspond à un **chemin Vault** (`mirai` mount, kv-v2
 > montage Vault (`mount` des `VaultStaticSecret`) et de préfixe aux dépôts d'images (`repository: "mille-feuille-backend"` devient
 > `harbor…/exploration/mille-feuille-backend`). Un `repository` déjà préfixé par ce nom n'est pas préfixé deux fois.
 
-| Secret K8s                | Chemin Vault (`<global.projectName>/`) | Type K8s                    | Utilisé par                          |
+| Secret K8s                | Chemin Vault (`<mount>/<env>/millefeuille/…`) | Type K8s                    | Utilisé par                          |
 | ------------------------- | ------------------------------ | --------------------------- | ------------------------------------ |
-| `millefeuille-s3`            | `millefeuille-s3`                 | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_render |
-| `millefeuille-keycloak`      | `millefeuille-keycloak`           | Opaque                      | backend                               |
-| `millefeuille-openai`        | `millefeuille-openai`             | Opaque                      | backend, worker_agent, worker_classification, worker_extraction |
-| `millefeuille-worker`        | `millefeuille-worker`             | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_extraction |
-| `millefeuille-redis`         | `millefeuille-redis`              | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_extraction, worker_render, redis sub-chart, KEDA |
-| `millefeuille-meilisearch`   | `millefeuille-meilisearch`        | Opaque                      | backend (envFrom)                     |
-| `millefeuille-db-superuser`  | `millefeuille-db-superuser`       | kubernetes.io/basic-auth    | CNPG (superuserSecret)                |
-| `millefeuille-db-appuser`    | `millefeuille-db-appuser`         | kubernetes.io/basic-auth    | CNPG (initdb.secret)                  |
-| `millefeuille-db-infos`      | `millefeuille-db-appuser`         | Opaque (transformé)         | backend, job de migration             |
-| `millefeuille-db-backups`    | `millefeuille-db-backups`         | Opaque                      | CNPG (barmanObjectStore)              |
-| `millefeuille-async-api-worker` | `millefeuille-async-api-worker` | Opaque                   | worker_async_api                      |
+| `millefeuille-s3`            | `s3`                 | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_render |
+| `millefeuille-keycloak`      | `keycloak`           | Opaque                      | backend                               |
+| `millefeuille-openai`        | `openai`             | Opaque                      | backend, worker_agent, worker_classification, worker_extraction |
+| `millefeuille-worker`        | `worker`             | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_extraction |
+| `millefeuille-redis`         | `redis`              | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_extraction, worker_render, redis sub-chart, KEDA |
+| `millefeuille-meilisearch`   | `meilisearch`        | Opaque                      | backend (envFrom)                     |
+| `millefeuille-db-superuser`  | `db-superuser`       | kubernetes.io/basic-auth    | CNPG (superuserSecret)                |
+| `millefeuille-db-appuser`    | `db-appuser`         | kubernetes.io/basic-auth    | CNPG (initdb.secret)                  |
+| `millefeuille-db-infos`      | `db-appuser`         | Opaque (transformé)         | backend, job de migration             |
+| `millefeuille-db-backups`    | `db-backups`         | Opaque                      | CNPG (barmanObjectStore)              |
+| `millefeuille-async-api-worker` | `async-api-worker` | Opaque                   | worker_async_api                      |
 | `registry-pull-secret`    | — (manuel ou ArgoCD)           | kubernetes.io/dockerconfigjson | Tous les pods (imagePullSecrets)    |
 
 ---
@@ -212,7 +223,7 @@ Variables attendues dans Vault :
 
 ## 9. `millefeuille-db-infos` — URL de connexion base de données (calculée)
 
-Ce secret est **généré par transformation VSO** à partir du chemin Vault `millefeuille-db-appuser`.
+Ce secret est **généré par transformation VSO** à partir du chemin Vault `<env>/millefeuille/db-appuser`.
 
 Variables dans le secret K8s généré :
 
@@ -308,20 +319,20 @@ pour le créateur seul : les analyses et runs créés par le worker ne sont visi
 ### Lister les chemins Vault existants
 
 ```bash
-vault kv list mirai/
+vault kv list <mount>/<env>/millefeuille/
 ```
 
 ### Lire un secret Vault
 
 ```bash
-vault kv get mirai/millefeuille-s3
+vault kv get <mount>/<env>/millefeuille/s3
 ```
 
 ### Créer / mettre à jour un secret Vault
 
 ```bash
-# Exemple : millefeuille-s3
-vault kv put mirai/millefeuille-s3 \
+# Exemple : le secret s3 (Secret Kubernetes millefeuille-s3), ici pour <mount>=exploration et <env>=dev
+vault kv put <mount>/<env>/millefeuille/s3 \
   AWS_ACCESS_KEY_ID="AKIA..." \
   AWS_SECRET_ACCESS_KEY="xxxxxxxxxxxx" \
   AWS_S3_BUCKET_NAME="millefeuille-prod" \
@@ -329,7 +340,7 @@ vault kv put mirai/millefeuille-s3 \
   AWS_ENDPOINT_URL="s3.fr-par.scw.cloud"
 
 # Exemple : millefeuille-keycloak
-vault kv put mirai/millefeuille-keycloak \
+vault kv put <mount>/<env>/millefeuille/keycloak \
   KEYCLOAK_URL="http://keycloak:8080" \
   KEYCLOAK_PUBLIC_URL="https://sso.example.com" \
   KEYCLOAK_CLIENT_SECRET="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxx" \
@@ -339,12 +350,12 @@ vault kv put mirai/millefeuille-keycloak \
   INTERNAL_WORKER_TOKEN="$(openssl rand -hex 32)"
 
 # Exemple : millefeuille-openai
-vault kv put mirai/millefeuille-openai \
+vault kv put <mount>/<env>/millefeuille/openai \
   OPENAI_API_KEY="sk-xxxxxxxx" \
   OPENAI_API_BASE_URL="https://llm-hub.example.com/v1"
 
 # Exemple : millefeuille-worker
-vault kv put mirai/millefeuille-worker \
+vault kv put <mount>/<env>/millefeuille/worker \
   INTERNAL_WORKER_TOKEN="<identique à millefeuille-keycloak>" \
   OPENAI_API_KEY="sk-xxxxxxxx" \
   OPENAI_API_BASE_URL="https://llm-hub.example.com/v1" \
@@ -352,33 +363,33 @@ vault kv put mirai/millefeuille-worker \
   LLM_MODEL="llama-3.3-70b-instruct"
 
 # Exemple : millefeuille-async-api-worker (worker AsyncTaskAPI, optionnel)
-vault kv put mirai/millefeuille-async-api-worker \
+vault kv put <mount>/<env>/millefeuille/async-api-worker \
   BROKER_URL="amqps://user:password@rabbitmq.example.com:5672" \
   AWS_ACCESS_KEY_ID="SCW..." \
   AWS_SECRET_ACCESS_KEY="xxxxxxxx" \
   MILLEFEUILLE_API_TOKEN="ddd_..."
 
 # Exemple : millefeuille-redis
-vault kv put mirai/millefeuille-redis \
+vault kv put <mount>/<env>/millefeuille/redis \
   REDIS_PASSWORD="$(openssl rand -base64 24)"
 
 # Exemple : millefeuille-meilisearch
-vault kv put mirai/millefeuille-meilisearch \
+vault kv put <mount>/<env>/millefeuille/meilisearch \
   MEILISEARCH_URL="http://millefeuille-meilisearch:7700" \
   MEILISEARCH_API_KEY="$(openssl rand -hex 32)"
 
 # Exemple : millefeuille-db-superuser (type: kubernetes.io/basic-auth)
-vault kv put mirai/millefeuille-db-superuser \
+vault kv put <mount>/<env>/millefeuille/db-superuser \
   username="postgres" \
   password="$(openssl rand -base64 24)"
 
 # Exemple : millefeuille-db-appuser (type: kubernetes.io/basic-auth)
-vault kv put mirai/millefeuille-db-appuser \
+vault kv put <mount>/<env>/millefeuille/db-appuser \
   username="millefeuille" \
   password="$(openssl rand -base64 24)"
 
 # Exemple : millefeuille-db-backups
-vault kv put mirai/millefeuille-db-backups \
+vault kv put <mount>/<env>/millefeuille/db-backups \
   AWS_ACCESS_KEY_ID="AKIA..." \
   AWS_SECRET_ACCESS_KEY="xxxxxxxxxxxx" \
   AWS_REGION="fr-par"
@@ -408,7 +419,7 @@ kubectl get vaultstaticsecret -n <namespace>
    en header `Authorization`.
 
 2. **`millefeuille-db-infos`** n'a pas de chemin Vault propre — il est généré par transformation
-   VSO à partir de `millefeuille-db-appuser` (même chemin Vault, `DATABASE_URL` calculée).
+   VSO à partir de `db-appuser` (même chemin Vault, `DATABASE_URL` calculée).
 
 3. **`millefeuille-db-superuser` et `millefeuille-db-appuser`** doivent être de type
    `kubernetes.io/basic-auth` (pas Opaque) — CNPG l'exige pour `superuserSecret` et
