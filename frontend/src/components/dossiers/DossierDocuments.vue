@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 
 import MarkdownText from "@/components/MarkdownText.vue";
+import type { DocumentSource } from "@/types/documentSource";
 import {
   SUMMARY_STATUS_LABELS,
   TEXT_EXTRACTION_STATUS_LABELS,
@@ -14,11 +15,25 @@ const props = defineProps<{
   documents: DossierDocument[];
   /** Affiche les contrôles de régénération des résumés (page détail uniquement). */
   showSummaryActions?: boolean;
+  /** Sources proposées pour le dossier : active le changement de source d'un document. */
+  sources?: DocumentSource[];
+  /** Affiche le bouton « Ajouter des documents ». */
+  canAdd?: boolean;
 }>();
 
 const emit = defineEmits<{
   regenerateSummary: [documentId: string];
+  add: [];
+  changeSource: [documentId: string, sourceId: string | null];
 }>();
+
+// Un seul document en cours de changement de source à la fois.
+const editingSourceId = ref<string | undefined>(undefined);
+
+function onSourcePicked(documentId: string, value: string) {
+  editingSourceId.value = undefined;
+  emit("changeSource", documentId, value || null);
+}
 
 const statusBadgeType: Record<TextExtractionStatus, "new" | "info" | "success" | "error"> = {
   en_attente: "new",
@@ -72,6 +87,15 @@ function toggleSummary(docId: string) {
       <span v-if="hasActiveExtraction" class="dossier-documents__hint fr-text--xs">
         Extraction de texte en cours…
       </span>
+      <DsfrButton
+        v-if="canAdd"
+        label="Ajouter des documents"
+        icon="ri-add-line"
+        size="sm"
+        secondary
+        class="dossier-documents__add"
+        @click="emit('add')"
+      />
     </div>
 
     <ul class="dossier-documents__list">
@@ -91,6 +115,38 @@ function toggleSummary(docId: string) {
               small
               class="dossier-documents__label"
             />
+            <!-- Un seul bloc sur une ligne ; le bouton reste dans le DOM (v-show) : s'il disparaissait au clic, la
+                 modale le prendrait pour un clic à l'extérieur et se fermerait. -->
+            <span class="dossier-documents__source-row">
+              <span
+                v-if="document.source && editingSourceId !== document.id"
+                class="fr-text--xs dossier-documents__source"
+                :title="document.source.description || undefined"
+              >
+                <VIcon name="ri-inbox-archive-line" />
+                {{ document.source.name }}
+              </span>
+              <template v-if="sources">
+                <select
+                  v-if="editingSourceId === document.id"
+                  class="fr-select dossier-documents__source-select"
+                  aria-label="Source du fichier"
+                  :value="document.source?.id ?? ''"
+                  @change="onSourcePicked(document.id, ($event.target as HTMLSelectElement).value)"
+                >
+                  <option value="">Sans source</option>
+                  <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.name }}</option>
+                </select>
+                <button
+                  v-show="editingSourceId !== document.id"
+                  type="button"
+                  class="fr-link fr-text--xs dossier-documents__source-edit"
+                  @click="editingSourceId = document.id"
+                >
+                  {{ document.source ? "Changer la source" : "Ajouter une source" }}
+                </button>
+              </template>
+            </span>
           </div>
 
           <div class="dossier-documents__status">
@@ -167,6 +223,37 @@ function toggleSummary(docId: string) {
 
 .dossier-documents__header h2 {
   margin: 0;
+}
+
+.dossier-documents__add {
+  margin-left: auto;
+}
+
+.dossier-documents__source-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+}
+
+.dossier-documents__source {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: var(--text-mention-grey);
+}
+
+.dossier-documents__source-select {
+  width: auto;
+  max-width: 14rem;
+  padding-block: 0.25rem;
+}
+
+.dossier-documents__source-edit {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
 }
 
 .dossier-documents__hint {

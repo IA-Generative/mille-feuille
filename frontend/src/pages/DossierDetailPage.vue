@@ -9,6 +9,7 @@ import ModelPicker from "@/components/ModelPicker.vue";
 import ChatWindow, { type ChatWindowSource } from "@/components/ChatWindow.vue";
 import SourceViewerModal from "@/components/SourceViewerModal.vue";
 import DueDatePicker from "@/components/dossiers/DueDatePicker.vue";
+import AddDocumentsModal from "@/components/dossiers/AddDocumentsModal.vue";
 import DossierDocuments from "@/components/dossiers/DossierDocuments.vue";
 import DossierResults from "@/components/dossiers/DossierResults.vue";
 import RelaunchBanner from "@/components/dossiers/RelaunchBanner.vue";
@@ -17,6 +18,7 @@ import { useAnalyses } from "@/composables/useAnalyses";
 import { useChatStream } from "@/composables/useChatStream";
 import ChatProposals from "@/components/analysis/ChatProposals.vue";
 import { parseAssistantSuggestion, parseMessageMarkers } from "@/utils/assistantSuggestion";
+import { setDocumentSource, useDossierSources } from "@/composables/useDocumentSources";
 import { useConversations } from "@/composables/useConversations";
 import { useDossiers } from "@/composables/useDossiers";
 import { useHelperAgent } from "@/composables/useHelperAgent";
@@ -83,6 +85,27 @@ const { isRunning: isChatRunning, start: startChatStream, stop: stopChatStream }
 const isDetailsModalOpened = ref(false);
 const isAccessOpened = ref(false);
 
+// Ajout de fichiers après coup, avec leur source. Jamais refusé : on prévient simplement qu'il faut relancer.
+const isAddDocumentsOpened = ref(false);
+const { sources: documentSources, load: loadDocumentSources } = useDossierSources(dossierId);
+// Fichiers ajoutés à un dossier « à ranger » depuis les dernières suggestions : à regénérer.
+const addedSinceSuggestions = ref(0);
+
+async function onDocumentsAdded(count: number) {
+  addedSinceSuggestions.value += count;
+  await Promise.all([fetchDossier(dossierId), loadDocumentSources()]);
+}
+
+async function onChangeDocumentSource(documentId: string, sourceId: string | null) {
+  await setDocumentSource(dossierId, documentId, sourceId);
+  await fetchDossier(dossierId);
+}
+
+async function onSuggestAnalyse() {
+  addedSinceSuggestions.value = 0;
+  await suggestAnalyse(dossierId);
+}
+
 // Source citée par l'assistant, ouverte dans une modale (page + passage surligné).
 const viewedSource = ref<ChatWindowSource | null>(null);
 const isSourceOpened = ref(false);
@@ -142,6 +165,7 @@ onMounted(async () => {
   // DossiersPage (pagination côté serveur) : on le charge directement.
   const loaded = await fetchDossier(dossierId);
   if (loaded.analyseId) await fetchAnalyse(loaded.analyseId);
+  await loadDocumentSources();
   closeStream = streamDossier(dossierId, () => {});
 });
 
@@ -181,6 +205,14 @@ const relaunchError = ref<string | undefined>(undefined);
 const canRelaunch = computed(
   () => !isUnassigned.value && !!dossier.value && ["terminé", "arrêté", "échec"].includes(dossier.value.status),
 );
+
+// Fichiers déposés après le dernier lancement : l'analyse ne les a pas vus.
+const newDocumentsCount = computed(() => {
+  const started = dossier.value?.startedAt;
+  if (!started || isUnassigned.value) return 0;
+  return dossier.value!.documents.filter((d) => d.createdAt && d.createdAt > started).length;
+});
+const isRunning = computed(() => dossier.value?.status === "en_cours");
 
 async function onRelaunch() {
   relaunchBusy.value = true;
@@ -308,6 +340,15 @@ async function onDeleteConversation() {
         <button
           type="button"
           class="dossier-detail__icon-button"
+          aria-label="Ajouter des documents au dossier"
+          title="Ajouter des documents au dossier"
+          @click="isAddDocumentsOpened = true"
+        >
+          <VIcon name="ri-attachment-2" />
+        </button>
+        <button
+          type="button"
+          class="dossier-detail__icon-button"
           aria-label="Accès au dossier"
           title="Accès : qui peut voir ce dossier"
           @click="isAccessOpened = true"
@@ -369,9 +410,18 @@ async function onDeleteConversation() {
           icon="ri-lightbulb-flash-line"
           secondary
           :disabled="dossier.suggestionStatus === 'en_cours'"
-          @click="suggestAnalyse(dossierId)"
+          @click="onSuggestAnalyse"
         />
       </div>
+
+      <DsfrAlert
+        v-if="addedSinceSuggestions > 0 && dossier.suggestionStatus !== 'en_cours'"
+        type="warning"
+        :title="addedSinceSuggestions === 1 ? 'Un fichier a été ajouté' : `${addedSinceSuggestions} fichiers ont été ajoutés`"
+        description="Les suggestions ne tiennent pas compte des nouveaux fichiers : régénérez-les."
+        small
+        class="fr-mb-2w"
+      />
 
       <DsfrAlert
         v-if="dossier.suggestionStatus === 'en_cours'"
@@ -419,7 +469,9 @@ async function onDeleteConversation() {
     </div>
 
     <RelaunchBanner
-      v-if="canRelaunch"
+      v-if="!isUnassigned && (canRelaunch || newDocumentsCount > 0)"
+      :new-documents="newDocumentsCount"
+      :running="isRunning"
       :failed="dossier.status === 'échec'"
       :launched-version="dossier.analyseVersion"
       :current-version="analyse?.version"
@@ -502,6 +554,8 @@ async function onDeleteConversation() {
       </template>
     </ChatWindow>
 
+    <AddDocumentsModal v-model:opened="isAddDocumentsOpened" :dossier-id="dossierId" @added="onDocumentsAdded" />
+
     <AccessModal v-if="isAccessOpened" :dossier-id="dossier.id" :dossier-name="dossier.name" @close="isAccessOpened = false" />
 
     <SourceViewerModal
@@ -555,10 +609,18 @@ async function onDeleteConversation() {
         </div>
       </dl>
 
-      <p v-if="dossier.documents.length === 0" class="fr-text--sm dossier-details-modal__no-files">
-        Aucun fichier pour l'instant.
-      </p>
-      <DossierDocuments v-else :documents="dossier.documents" />
+      <div v-if="dossier.documents.length === 0">
+        <p class="fr-text--sm dossier-details-modal__no-files">Aucun fichier pour l'instant.</p>
+        <DsfrButton label="Ajouter des documents" icon="ri-add-line" size="sm" secondary @click="isAddDocumentsOpened = true" />
+      </div>
+      <DossierDocuments
+        v-else
+        :documents="dossier.documents"
+        :sources="documentSources"
+        can-add
+        @add="isAddDocumentsOpened = true"
+        @change-source="onChangeDocumentSource"
+      />
     </DsfrModal>
 
     <FeedbackReasonsModal v-model:opened="feedbackReasonsModalOpened" @submit="submitDownFeedback" />

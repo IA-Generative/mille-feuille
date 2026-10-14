@@ -2,9 +2,13 @@
 import { computed, ref, watch } from "vue";
 
 import GroupPicker from "@/components/access/GroupPicker.vue";
+import DocumentFileList from "@/components/dossiers/DocumentFileList.vue";
+import SourcePicker from "@/components/dossiers/SourcePicker.vue";
+import { fetchAnalyseSources, resolveSourceChoice } from "@/composables/useDocumentSources";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { useDossierAccess } from "@/composables/useDossierAccess";
 import { useDossiers } from "@/composables/useDossiers";
+import { NO_SOURCE, type DocumentSource, type SourceChoice } from "@/types/documentSource";
 
 const opened = defineModel<boolean>("opened", { default: false });
 const emit = defineEmits<{ created: [] }>();
@@ -25,11 +29,15 @@ const name = ref("");
 const analyseId = ref<string | undefined>(undefined);
 const aRanger = ref(false);
 const files = ref<File[]>([]);
+// Source des fichiers : celles de l'analyse choisie ; un dossier « à ranger » n'en a pas encore (on peut en créer une).
+const sources = ref<DocumentSource[]>([]);
+const sourceChoice = ref<SourceChoice>(NO_SOURCE);
 
 watch(opened, async (isOpened) => {
   if (isOpened) {
     name.value = "";
     files.value = [];
+    sourceChoice.value = NO_SOURCE;
     aRanger.value = false;
     restricted.value = true;
     accessGroups.value = myGroups.value.length === 1 ? [...myGroups.value] : [];
@@ -42,16 +50,13 @@ watch(opened, async (isOpened) => {
   }
 });
 
+watch([analyseId, aRanger], async () => {
+  sourceChoice.value = NO_SOURCE;
+  sources.value = !aRanger.value && analyseId.value ? await fetchAnalyseSources(analyseId.value).catch(() => []) : [];
+});
+
 function onFilesSelected(fileList: FileList) {
   files.value.push(...Array.from(fileList));
-}
-
-function removeFile(index: number) {
-  files.value.splice(index, 1);
-}
-
-function formatSize(bytes: number) {
-  return bytes < 1_000_000 ? `${Math.round(bytes / 1000)} Ko` : `${(bytes / 1_000_000).toFixed(1)} Mo`;
 }
 
 async function submit() {
@@ -62,7 +67,10 @@ async function submit() {
     restricted: restricted.value,
     groups: accessGroups.value,
   });
-  if (files.value.length > 0) await addDocuments(dossier.id, files.value);
+  if (files.value.length > 0) {
+    const sourceId = await resolveSourceChoice(dossier.id, sourceChoice.value);
+    await addDocuments(dossier.id, files.value, sourceId);
+  }
   opened.value = false;
   emit("created");
 }
@@ -122,43 +130,15 @@ async function submit() {
       label="Documents et images du dossier"
       hint="PDF, JPG ou PNG."
       accept=".pdf,image/*"
+      multiple
       class="fr-mt-2w"
       @change="onFilesSelected"
     />
 
-    <ul v-if="files.length > 0" class="create-dossier-modal__files">
-      <li v-for="(file, index) in files" :key="`${file.name}-${index}`" class="create-dossier-modal__file">
-        <span>{{ file.name }} ({{ formatSize(file.size) }})</span>
-        <DsfrButton
-          label="Retirer le fichier"
-          icon-only
-          tertiary
-          icon="ri-close-line"
-          size="sm"
-          @click="removeFile(index)"
-        />
-      </li>
-    </ul>
+    <DocumentFileList :files="files" @remove="files.splice($event, 1)" />
+
+    <div v-if="files.length > 0" class="fr-mt-3w">
+      <SourcePicker v-model="sourceChoice" :sources="sources" id="create-dossier-source" />
+    </div>
   </DsfrModal>
 </template>
-
-<style scoped>
-.create-dossier-modal__files {
-  list-style: none;
-  margin: 1rem 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.create-dossier-modal__file {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-default-grey);
-  border-radius: 0.25rem;
-}
-</style>

@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from "vue";
 
 import { API_BASE_URL, apiFetch } from "@/utils/api";
+import type { DocumentSource } from "@/types/documentSource";
 import type {
   AnalyseSuggestion,
   Dossier,
@@ -19,6 +20,16 @@ function mapSummary(api: any): Summary | undefined {
   };
 }
 
+export function mapSource(api: any): DocumentSource {
+  return {
+    id: api.id,
+    name: api.name,
+    description: api.description ?? "",
+    analyseId: api.analyse_id ?? undefined,
+    dossierId: api.dossier_id ?? undefined,
+  };
+}
+
 function mapDocument(api: any): DossierDocument {
   return {
     id: api.id,
@@ -30,6 +41,8 @@ function mapDocument(api: any): DossierDocument {
     textExtractionStatus: api.text_extraction_status,
     textExtractionError: api.text_extraction_error ?? undefined,
     fileHash: api.file_hash ?? undefined,
+    createdAt: api.created_at ?? undefined,
+    source: api.source ? mapSource(api.source) : undefined,
     summaryStatus: api.summary_status,
     summaryError: api.summary_error ?? undefined,
     summary: mapSummary(api.summary),
@@ -188,9 +201,11 @@ export function useDossiers() {
     return dossier;
   };
 
-  const addDocuments = async (dossierId: string, files: FileList | File[]) => {
+  // `sourceId` s'applique à tous les fichiers du dépôt.
+  const addDocuments = async (dossierId: string, files: FileList | File[], sourceId?: string) => {
     const formData = new FormData();
     for (const file of Array.from(files)) formData.append("files", file);
+    if (sourceId) formData.append("source_id", sourceId);
     const data = await apiFetch<any>(`/api/dossiers/${dossierId}/documents`, {
       method: "POST",
       body: formData,
