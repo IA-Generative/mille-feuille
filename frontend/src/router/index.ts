@@ -76,7 +76,14 @@ export const router = createRouter({
       ],
     },
     { path: "/dossiers", name: "dossiers", component: DossiersPage },
-    { path: "/dossiers/:id", name: "dossier-detail", component: DossierDetailPage },
+    {
+      path: "/dossiers/:id",
+      name: "dossier-detail",
+      component: DossierDetailPage,
+      // La zone d'envoi du chat colle au bas de l'écran (sticky) : le contenu ne doit pas être son propre conteneur de
+      // défilement, voir App.vue.
+      meta: { pageScroll: true },
+    },
     { path: "/dossiers/:id/analyse", name: "dossier-analysis", component: DossierAnalysisPage },
     { path: "/dossiers/:id/documents", name: "dossier-documents", component: DossierDocumentsPage },
     { path: "/dossiers/:id/historique", name: "dossier-history", component: DossierHistoryPage },

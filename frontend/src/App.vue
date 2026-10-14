@@ -166,7 +166,7 @@ const navItems = [
       <UserMenu :collapsed="isSidebarCollapsed" />
     </aside>
 
-    <main class="app-shell__content">
+    <main class="app-shell__content" :class="{ 'app-shell__content--page-scroll': route.meta.pageScroll }">
       <RouterView />
     </main>
   </div>
@@ -419,5 +419,13 @@ const navItems = [
   flex: 1;
   padding: 2rem;
   overflow-y: auto;
+}
+
+/* Pages qui ont un élément « sticky » au bas de l'écran (zone d'envoi du chat d'un dossier) : un contenu en
+   `overflow: auto` serait son conteneur de défilement (sans jamais défiler, il suit la hauteur de son contenu) et
+   l'élément ne collerait jamais ; c'est la page qui défile. `min-width: 0` garde le contenu dans la colonne. */
+.app-shell__content--page-scroll {
+  overflow: visible;
+  min-width: 0;
 }
 </style>
