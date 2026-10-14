@@ -2,16 +2,25 @@ from __future__ import annotations
 
 import contextlib
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from types import TracebackType
 
 import httpx
 from millefeuille._files import FileInput
 from millefeuille._http import DEFAULT_TIMEOUT, HTTPClient
 from millefeuille.exceptions import NotFoundError
+from millefeuille.models import EntityDefinitionIn, LabelDefinitionIn
 
 from millefeuille_ephemeral.analyses import EphemeralAnalysesResource
-from millefeuille_ephemeral.models import TTL_DEFAULT_HOURS, EphemeralAnalysisConfig, EphemeralRun
+from millefeuille_ephemeral.classifications import EphemeralClassificationsResource
+from millefeuille_ephemeral.extractions import EphemeralExtractionsResource
+from millefeuille_ephemeral.models import (
+    TTL_DEFAULT_HOURS,
+    EphemeralAnalysisConfig,
+    EphemeralClassification,
+    EphemeralExtraction,
+    EphemeralRun,
+)
 from millefeuille_ephemeral.runs import EphemeralRunsResource
 
 
@@ -48,6 +57,12 @@ class EphemeralClient:
         )
         self.analyses = EphemeralAnalysesResource(self._http)
         self.runs = EphemeralRunsResource(self._http)
+        self.classifications = EphemeralClassificationsResource(self._http)
+        self.extractions = EphemeralExtractionsResource(self._http)
+
+    def version(self) -> str:
+        """Version du backend (`GET /api/version`)."""
+        return str(self._http.get_json("/version")["version"])
 
     def analyze(
         self,
@@ -91,6 +106,50 @@ class EphemeralClient:
                 # Une analyse persist=false est déjà supprimée par le serveur à la fin du run.
                 with contextlib.suppress(NotFoundError):
                     self.analyses.delete(created_analyse_id)
+        return result
+
+    def classify(
+        self,
+        file: FileInput,
+        labels: Sequence[LabelDefinitionIn | dict[str, str]],
+        *,
+        multi_label: bool = False,
+        prompt: str = "",
+        persist: bool = False,
+        ttl_hours: int | None = TTL_DEFAULT_HOURS,
+        timeout: float | None = 300,
+        poll_interval: float = 2,
+        cleanup: bool = False,
+    ) -> EphemeralClassification:
+        """One-liner : classe les pages d'un document et attend le résultat.
+
+        `cleanup=True` supprime le run (et le résultat conservé côté serveur) une fois celui-ci récupéré.
+        `WaitTimeoutError` est levée si `timeout` est dépassé (le run continue côté serveur)."""
+        run = self.classifications.create(
+            file, labels, multi_label=multi_label, prompt=prompt, persist=persist, ttl_hours=ttl_hours
+        )
+        result = self.classifications.wait(run.run_id, timeout=timeout, poll_interval=poll_interval)
+        if cleanup:
+            self.runs.delete(result.run_id)
+        return result
+
+    def extract(
+        self,
+        file: FileInput,
+        entities: Sequence[EntityDefinitionIn | dict[str, str]],
+        *,
+        prompt: str = "",
+        persist: bool = False,
+        ttl_hours: int | None = TTL_DEFAULT_HOURS,
+        timeout: float | None = 300,
+        poll_interval: float = 2,
+        cleanup: bool = False,
+    ) -> EphemeralExtraction:
+        """One-liner : extrait les entités d'un document et attend le résultat (voir `classify` pour les options)."""
+        run = self.extractions.create(file, entities, prompt=prompt, persist=persist, ttl_hours=ttl_hours)
+        result = self.extractions.wait(run.run_id, timeout=timeout, poll_interval=poll_interval)
+        if cleanup:
+            self.runs.delete(result.run_id)
         return result
 
     def _quiet_delete_analyse(self, analyse_id: uuid.UUID) -> None:

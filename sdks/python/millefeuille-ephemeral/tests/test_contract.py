@@ -14,6 +14,15 @@ CASES: list[tuple[type[BaseModel], str]] = [
     (m.EphemeralRunCreated, "EphemeralRunCreated"),
     (m.EphemeralAnalyse, "EphemeralAnalyseOut"),
     (m.EphemeralRun, "EphemeralRunOut"),
+    (m.EphemeralRunSummary, "EphemeralRunSummary"),
+    (m.EphemeralClassification, "EphemeralClassificationOut"),
+    (m.EphemeralClassifiedDocument, "EphemeralClassifiedDocument"),
+    (m.EphemeralClassifiedPage, "EphemeralClassifiedPage"),
+    (m.EphemeralLabelResult, "EphemeralLabelResult"),
+    (m.EphemeralExtraction, "EphemeralExtractionOut"),
+    (m.EphemeralExtractedDocument, "EphemeralExtractedDocument"),
+    (m.EphemeralExtractedPage, "EphemeralExtractedPage"),
+    (m.EphemeralEntityResult, "EphemeralEntityResult"),
 ]
 
 

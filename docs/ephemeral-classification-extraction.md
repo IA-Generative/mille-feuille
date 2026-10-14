@@ -10,6 +10,8 @@ Ce guide montre comment classer les pages d'un document et en extraire les entit
 
 Le principe général de l'API éphémère (TTL, purge, `persist`) est décrit dans [ephemeral-api.md](ephemeral-api.md).
 
+> En Python, le SDK [`millefeuille-ephemeral`](../sdks/python/millefeuille-ephemeral/README.md) fait tout cela en un appel : `client.classify(...)` et `client.extract(...)` créent le run, attendent le résultat et le renvoient typé.
+
 Dans les exemples, la clé est dans `$KEY` et l'adresse du serveur dans `$BASE` (à remplacer) :
 
 ```bash

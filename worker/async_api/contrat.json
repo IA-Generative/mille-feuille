@@ -51,6 +51,12 @@
           "description": { "type": "string", "x-titre": "Description" },
           "persist": { "type": "boolean", "default": false, "description": "true : l'analyse est conservée après le run" },
           "classification_prompt": { "type": "string", "x-titre": "Consigne de classification" },
+          "multi_label": {
+            "type": "boolean",
+            "default": false,
+            "description": "true : une page peut recevoir plusieurs labels (sinon un seul par page)",
+            "x-titre": "Plusieurs catégories par page"
+          },
           "labels": {
             "type": "array",
             "items": {

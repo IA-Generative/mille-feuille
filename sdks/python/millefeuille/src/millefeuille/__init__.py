@@ -13,7 +13,7 @@ from millefeuille.exceptions import (
 )
 from millefeuille.models import Analyse, Dossier, DossierStatus
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 __all__ = [
     "Analyse",

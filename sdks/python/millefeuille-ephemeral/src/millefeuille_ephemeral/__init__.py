@@ -16,10 +16,13 @@ from millefeuille_ephemeral.models import (
     AgentDefinition,
     EphemeralAnalyse,
     EphemeralAnalysisConfig,
+    EphemeralClassification,
+    EphemeralExtraction,
     EphemeralRun,
+    EphemeralRunSummary,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "AgentDefinition",
@@ -29,8 +32,11 @@ __all__ = [
     "MilleFeuilleError",
     "EphemeralAnalysisConfig",
     "EphemeralAnalyse",
+    "EphemeralClassification",
     "EphemeralClient",
+    "EphemeralExtraction",
     "EphemeralRun",
+    "EphemeralRunSummary",
     "NotFoundError",
     "ServerError",
     "TTLValidationError",

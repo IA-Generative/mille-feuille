@@ -42,3 +42,21 @@ def make_client() -> Callable[..., tuple[EphemeralClient, list[httpx.Request]]]:
         return EphemeralClient("https://api.test", transport=httpx.MockTransport(recording), **kwargs), seen
 
     return factory
+
+
+def classification_json(run_id: str | None = None, status: str = "terminé") -> dict[str, Any]:
+    """Réponse `EphemeralClassificationOut` générée depuis l'OpenAPI du backend."""
+    return example(
+        "EphemeralClassificationOut",
+        **({"run_id": run_id} if run_id else {}),
+        status=status,
+        error=None,
+        expires_at=None,
+    )
+
+
+def extraction_json(run_id: str | None = None, status: str = "terminé") -> dict[str, Any]:
+    """Réponse `EphemeralExtractionOut` générée depuis l'OpenAPI du backend."""
+    return example(
+        "EphemeralExtractionOut", **({"run_id": run_id} if run_id else {}), status=status, error=None, expires_at=None
+    )
