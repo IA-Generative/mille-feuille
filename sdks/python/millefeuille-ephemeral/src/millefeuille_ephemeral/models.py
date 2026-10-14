@@ -38,6 +38,8 @@ class EphemeralAnalysisConfig(_In):
     # False : purgée automatiquement au TTL de son dernier run. True : conservée indéfiniment.
     persist: bool = False
     classification_prompt: str = ""
+    # False (défaut) : un seul label par page ; True : un ou plusieurs.
+    multi_label: bool = False
     labels: list[LabelDefinitionIn] = []
     extraction_prompt: str = ""
     entities: list[EntityDefinitionIn] = []

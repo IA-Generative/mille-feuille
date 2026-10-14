@@ -11,9 +11,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -93,6 +93,15 @@ class PredictionKind(StrEnum):
     ENTITY = "entity"
 
 
+class PredictionSource(StrEnum):
+    """Méthode qui a produit la prédiction. Classification : `textual` (texte de la page : OCR, VLM, LLM) ou `visual`
+    (apparence de la capture, CLIP). Entités : `textual` (LLM) ou `gliner` (GLiNER2.5)."""
+
+    TEXTUAL = "textual"
+    VISUAL = "visual"
+    GLINER = "gliner"
+
+
 class PredictionValidationStatus(StrEnum):
     VALIDE = "validé"
     CORRIGE = "corrigé"
@@ -163,6 +172,10 @@ class AnalyseCreate(_In):
 class DossierCreate(_In):
     name: str
     analyse_id: uuid.UUID | None = None
+    # Accès : absent = « restricted » aux groupes de la personne qui crée ; « analyse » ouvre le dossier à tous ceux
+    # qui ont accès à l'analyse. `group_paths` : au moins un groupe, parmi les siens, pour un dossier restreint.
+    visibility: Literal["restricted", "analyse"] | None = None
+    group_paths: list[str] | None = None
 
 
 class AppTokenCreate(_In):
@@ -226,12 +239,79 @@ class Agent(_Out):
     model_versions: list[Version[str | None]]
 
 
+class StatusDefinition(_Out):
+    """Un statut que peuvent prendre les dossiers d'une analyse (workflow)."""
+
+    id: uuid.UUID
+    name: str
+    color: str
+    position: int
+    is_initial: bool
+    is_final: bool
+
+
+class CustomField(_Out):
+    """Une colonne personnalisée du suivi d'une analyse."""
+
+    id: str
+    name: str
+    definition: str = ""
+    type: Literal["text", "number", "amount", "date", "boolean", "choice"]
+    required: bool = False
+    choices: list[str] | None = None
+    currency: Literal["EUR", "USD", "GBP"] = "EUR"
+    default_value: Any = None
+
+
+class DueStep(_Out):
+    """Un seuil d'échéance : « N jours restants ou moins » prend cette couleur."""
+
+    days: int
+    color: str
+
+
+class DueThresholds(_Out):
+    far_color: str = "#18753c"
+    steps: list[DueStep] = []
+    overdue_color: str = "#8a0000"
+
+
+class DueSettings(_Out):
+    default_due_days: int | None = None
+    thresholds: DueThresholds
+
+
+class Person(_Out):
+    id: str
+    name: str
+
+
+class DueInfo(_Out):
+    """Situation d'un dossier par rapport à son échéance, calculée par le serveur."""
+
+    level: str
+    days_left: int
+    color: str | None
+
+
+class DocumentSource(_Out):
+    """D'où vient un fichier (courrier, guichet…). Rattachée à une analyse (catalogue), ou « tampon » : propre à un
+    dossier « à ranger »."""
+
+    id: uuid.UUID
+    name: str
+    description: str
+    analyse_id: uuid.UUID | None
+    dossier_id: uuid.UUID | None
+
+
 class AnalyseListItem(_Out):
     id: uuid.UUID
     name: str
     description: str
     created_at: datetime
     agent_count: int
+    statuses: list[StatusDefinition] = []
 
 
 class Analyse(_Out):
@@ -239,9 +319,17 @@ class Analyse(_Out):
     name: str
     description: str
     created_at: datetime
+    # Révision de l'analyse (« v3 ») : change à chaque modification d'un de ses éléments.
+    version: str
     classification: Classification
     extraction: Extraction
     agents: list[Agent]
+    statuses: list[StatusDefinition] = []
+    statuses_versions: list[Version[list[StatusDefinition]]] = []
+    custom_fields: list[CustomField] = []
+    custom_fields_versions: list[Version[list[CustomField]]] = []
+    due_settings: DueSettings | None = None
+    due_settings_versions: list[Version[DueSettings]] = []
 
 
 class ExecutionLog(_Out):
@@ -264,6 +352,7 @@ class ExecutionStep(_Out):
 
 class BoundingBox(_Out):
     id: uuid.UUID
+    document_page_id: uuid.UUID
     x_min: float
     y_min: float
     x_max: float
@@ -287,6 +376,7 @@ class Prediction(_Out):
     confidence: float | None
     label_definition_id: uuid.UUID | None
     entity_definition_id: uuid.UUID | None
+    source: PredictionSource
     bounding_boxes: list[BoundingBox]
     validations: list[PredictionValidation]
 
@@ -314,6 +404,8 @@ class Summary(_Out):
 class Document(_Out):
     id: uuid.UUID
     dossier_id: uuid.UUID
+    # Date de dépôt : permet de repérer les fichiers ajoutés depuis le dernier lancement de l'analyse.
+    created_at: datetime
     name: str
     size: int
     s3_key: str
@@ -325,6 +417,8 @@ class Document(_Out):
     summary_status: SummaryStatus
     summary_error: str | None
     summary: Summary | None = None
+    # D'où vient le fichier ; None s'il n'a pas de source (ou si elle a été supprimée).
+    source: DocumentSource | None = None
     pages: list[DocumentPage]
 
 
@@ -344,6 +438,19 @@ class Dossier(_Out):
     suggestion_status: SuggestionStatus
     execution_steps: list[ExecutionStep]
     documents: list[Document]
+    # Qui voit le dossier : « restricted » (groupes associés) ou « analyse » (tous ceux qui ont accès à l'analyse).
+    visibility: Literal["restricted", "analyse"] = "analyse"
+    # Statut de workflow défini par l'analyse ; None pour un dossier « à ranger ».
+    workflow_status: StatusDefinition | None = None
+    closed_at: datetime | None = None
+    due_at: date | None = None
+    due: DueInfo | None = None
+    # Clos au plus tard le jour de l'échéance ; None si la question ne se pose pas.
+    closed_before_due: bool | None = None
+    # Valeurs des colonnes personnalisées : {identifiant du champ: valeur}.
+    custom_values: dict[str, Any] = {}
+    assignee: Person | None = None
+    assigned_at: datetime | None = None
 
 
 class AppToken(_Out):

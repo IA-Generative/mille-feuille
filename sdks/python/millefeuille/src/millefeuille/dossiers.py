@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable
-from typing import TYPE_CHECKING
+from collections.abc import Iterable, Sequence
+from typing import TYPE_CHECKING, Literal
 
 from millefeuille._files import FileInput, prepare_files
 from millefeuille._polling import poll_until
@@ -22,10 +22,29 @@ class DossiersResource:
         data = self._http.get_json("/dossiers", params={"page": page, "page_size": page_size})
         return Page[Dossier].model_validate(data)
 
-    def create(self, name: str, analyse_id: uuid.UUID | str | None = None) -> Dossier:
-        """Crée un dossier, lié ou non à une analyse."""
-        body = DossierCreate(name=name, analyse_id=analyse_id)
-        return Dossier.model_validate(self._http.request("POST", "/dossiers", json=body.model_dump(mode="json")).json())
+    def create(
+        self,
+        name: str,
+        analyse_id: uuid.UUID | str | None = None,
+        *,
+        visibility: Literal["restricted", "analyse"] | None = None,
+        group_paths: Sequence[str] | None = None,
+    ) -> Dossier:
+        """Crée un dossier, lié ou non à une analyse (sans analyse : dossier « à ranger »).
+
+        `visibility` et `group_paths` ne sont envoyés que s'ils sont donnés ; absents, le serveur applique ses
+        défauts (dossier restreint aux groupes de la personne qui crée)."""
+        body = DossierCreate(
+            name=name,
+            analyse_id=analyse_id,
+            visibility=visibility,
+            group_paths=None if group_paths is None else [*group_paths],
+        )
+        payload = body.model_dump(mode="json")
+        for key in ("visibility", "group_paths"):
+            if payload[key] is None:
+                del payload[key]
+        return Dossier.model_validate(self._http.request("POST", "/dossiers", json=payload).json())
 
     def get(self, dossier_id: uuid.UUID | str) -> Dossier:
         """Détail complet : documents, statut, étapes d'exécution, résultats."""

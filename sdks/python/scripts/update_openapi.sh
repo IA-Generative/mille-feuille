@@ -7,5 +7,7 @@ cd "$root/backend"
 VERIFY_TOKEN_MODEL=full-access uv run --group test python -c "
 import json
 from app.main import app
-json.dump(app.openapi(), open('$root/sdks/python/openapi.json', 'w'), indent=1, ensure_ascii=False, sort_keys=True)
+with open('$root/sdks/python/openapi.json', 'w') as f:
+    json.dump(app.openapi(), f, indent=1, ensure_ascii=False, sort_keys=True)
+    f.write('\\n')
 "
