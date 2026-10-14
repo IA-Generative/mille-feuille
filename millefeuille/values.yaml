@@ -69,6 +69,13 @@ global:
   # -- Global Docker image registry
   # @section -- Global
   imageRegistry: ""
+
+  # -- Project (e.g. a Harbor project) prepended to the `repository` of every image: set it once here and write
+  # `repository: "mille-feuille-backend"` instead of `"<project>/mille-feuille-backend"` in each component. Empty
+  # (default): repositories are used as written. A repository that already starts with `<projectName>/` is not
+  # prefixed twice.
+  # @section -- Global
+  projectName: ""
   # -- Image credentials applied to every component in addition to any component-specific `imagePullSecrets`.
   # @section -- Global
   imagePullSecrets: []

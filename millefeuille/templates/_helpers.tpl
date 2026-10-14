@@ -56,6 +56,8 @@ Build a container image reference from a component's or job's `image` map. Share
 templates so every container in the chart resolves its image the same way:
 - `global.imageRegistry` overrides the per-image `registry`, and an empty registry is omitted
   entirely rather than rendering a leading "/" (which would be an invalid reference);
+- `global.projectName` (e.g. a Harbor project) is prepended to every `repository`, so it is written once instead of
+  in each image. A repository that already starts with it is left as is, so it is never doubled;
 - `digest` wins over `tag`, pinning the exact image content - a tag can be repointed at a different
   build, a digest cannot, so this is the form to prefer for production releases;
 - `tag` falls back to the chart's appVersion, matching the usual Helm convention.
@@ -69,6 +71,10 @@ Parameters:
 {{- $image := .image | default dict -}}
 {{- $registry := $root.Values.global.imageRegistry | default $image.registry -}}
 {{- $repository := $image.repository | required (printf "%s is missing image.repository" .context) -}}
+{{- $project := $root.Values.global.projectName | default "" | trimAll "/" -}}
+{{- if and $project (not (hasPrefix (printf "%s/" $project) $repository)) -}}
+{{- $repository = printf "%s/%s" $project $repository -}}
+{{- end -}}
 {{- $ref := ternary (printf "%s/%s" $registry $repository) $repository (not (empty $registry)) -}}
 {{- if $image.digest -}}
 {{- printf "%s@%s" $ref $image.digest -}}
@@ -632,4 +638,3 @@ ttlSecondsAfterFinished: {{ $job.ttlSecondsAfterFinished }}
 template:
   {{- include "helper.job.podTemplate" (dict "root" $root "name" $name "job" $job) | nindent 2 }}
 {{- end -}}
-
