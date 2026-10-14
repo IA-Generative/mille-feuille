@@ -1,0 +1,36 @@
+{{- if .Values.enabled }}
+{{- /* DaemonSet is excluded on purpose: it has no scale subresource, so an HPA targeting one is
+rejected by the API server. `helper.component.validate` already fails on that combination - this
+guard just keeps the template honest if the validation is ever relaxed. */ -}}
+{{- if and .Values.ephemeral_frontend.autoscaling.enabled (ne .Values.ephemeral_frontend.deploymentType "DaemonSet") }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "ephemeral_frontend") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "ephemeral_frontend")) | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: {{ .Values.ephemeral_frontend.deploymentType }}
+    name: {{ include "helper.componentFullname" (dict "root" . "componentName" "ephemeral_frontend") }}
+  minReplicas: {{ .Values.ephemeral_frontend.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.ephemeral_frontend.autoscaling.maxReplicas }}
+  metrics:
+  {{- if .Values.ephemeral_frontend.autoscaling.targetCPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.ephemeral_frontend.autoscaling.targetCPUUtilizationPercentage }}
+  {{- end }}
+  {{- if .Values.ephemeral_frontend.autoscaling.targetMemoryUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.ephemeral_frontend.autoscaling.targetMemoryUtilizationPercentage }}
+  {{- end }}
+{{- end }}
+{{- end }}

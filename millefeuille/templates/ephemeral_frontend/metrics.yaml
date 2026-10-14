@@ -1,0 +1,23 @@
+{{- if .Values.enabled }}
+{{- if .Values.ephemeral_frontend.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "ephemeral_frontend-metrics") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "ephemeral_frontend-metrics")) | nindent 4 }}
+  {{- if .Values.ephemeral_frontend.metrics.service.labels }}
+    {{- toYaml .Values.ephemeral_frontend.metrics.service.labels | nindent 4 }}
+  {{- end }}
+  {{- if .Values.ephemeral_frontend.metrics.service.annotations }}
+  annotations: {{- toYaml .Values.ephemeral_frontend.metrics.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.ephemeral_frontend.metrics.service.type | default "ClusterIP" }}
+  ports:
+  - port: {{ .Values.ephemeral_frontend.metrics.service.port }}
+    targetPort: {{ .Values.ephemeral_frontend.metrics.service.targetPort }}
+    protocol: TCP
+    name: {{ .Values.ephemeral_frontend.metrics.service.portName | default "metrics" }}
+  selector: {{- include "helper.selectorLabels" (dict "root" . "componentName" "ephemeral_frontend") | nindent 4 }}
+{{- end }}
+{{- end }}
