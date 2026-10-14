@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.24.1](https://github.com/IA-Generative/mille-feuille/compare/v0.24.0...v0.24.1) (2026-10-14)
+
+
+### Bug Fixes
+
+* **chart:** resources du cluster CNPG pour respecter le quota du namespace ([b23f512](https://github.com/IA-Generative/mille-feuille/commit/b23f5124083871b91d842ff236b32a074477a3aa))
+
 ## [0.24.0](https://github.com/IA-Generative/mille-feuille/compare/v0.23.0...v0.24.0) (2026-10-14)
 
 
