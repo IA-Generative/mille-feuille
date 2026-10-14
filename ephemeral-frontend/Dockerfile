@@ -6,14 +6,8 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml* .dsfr.yml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
-# VITE_API_BASE_URL is baked in at build time. Empty (default) means relative
-# URLs, which works when frontend and backend share the same host (K8s ingress).
-# For split-host setups (docker-compose dev), pass --build-arg VITE_API_BASE_URL=http://localhost:8000.
-ARG VITE_API_BASE_URL=""
-ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-# URL du frontend MilleFeuille complet, pour le lien de renvoi (vide = pas de lien).
-ARG VITE_MILLEFEUILLE_URL=""
-ENV VITE_MILLEFEUILLE_URL=$VITE_MILLEFEUILLE_URL
+# Pas de variable VITE_* au build : l'adresse de l'API et le lien vers MilleFeuille se règlent au DÉMARRAGE du
+# conteneur (API_BASE_URL, MILLEFEUILLE_URL, voir docker/40-runtime-config.sh), pour une seule image par version.
 RUN pnpm build
 
 # nginxinc/nginx-unprivileged already runs as the unprivileged `nginx` user
@@ -23,6 +17,8 @@ RUN pnpm build
 # text, not the base image's own config, and flags a missing USER line.
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 COPY --chown=nginx:nginx docker/nginx.conf /etc/nginx/conf.d/default.conf
+# Lancé par l'entrypoint de l'image avant nginx : écrit /tmp/config.js (seul dossier inscriptible du conteneur).
+COPY --chown=nginx:nginx --chmod=755 docker/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
 COPY --chown=nginx:nginx --from=build /app/dist /usr/share/nginx/html
 USER nginx
 EXPOSE 8080

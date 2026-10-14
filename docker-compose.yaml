@@ -17,9 +17,10 @@ services:
     build:
       context: ./ephemeral-frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: http://localhost:8000
-        VITE_MILLEFEUILLE_URL: http://localhost:8081
+    environment:
+      # Configuration d'exécution (voir ephemeral-frontend/docker/40-runtime-config.sh).
+      API_BASE_URL: http://localhost:8000
+      MILLEFEUILLE_URL: http://localhost:8081
     ports:
       - "8082:8080"
     restart: unless-stopped

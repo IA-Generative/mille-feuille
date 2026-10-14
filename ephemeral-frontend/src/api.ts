@@ -1,5 +1,7 @@
+import { API_BASE_URL } from "@/config";
+
 // Même contrat que le frontend principal : cookie de session du BFF (HttpOnly) posé par le backend.
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+export { API_BASE_URL };
 
 export class ApiError extends Error {
   constructor(

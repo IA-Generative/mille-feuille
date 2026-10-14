@@ -410,9 +410,15 @@ frontend:
   # backend on the same host, so the frontend uses relative URLs (empty API_BASE_URL).
   # The Dockerfile defaults VITE_API_BASE_URL to "" (relative), which is correct for prod.
 
-# UneFeuille - restricted standalone frontend of the ephemeral API (ephemeral-frontend). Like `frontend`, it uses relative
-# API URLs: expose it on its own host with /api/ routed to the backend, and set the backend's `EPHEMERAL_FRONTEND_URL`
-# to that host (CORS + post-login redirect). The "Accéder à MilleFeuille" link is baked at build time (VITE_MILLEFEUILLE_URL).
+# UneFeuille - restricted standalone frontend of the ephemeral API (ephemeral-frontend), served on its own host.
+# One image for every environment: its settings are read when the container starts, from `env` (set them in the
+# environment's own values, they depend on its hosts):
+#   API_BASE_URL     address of the backend API. MUST be the MilleFeuille host (e.g. https://millefeuille-dev...) when
+#                    this frontend has another host: the session cookie is set where the backend receives the login
+#                    (BACKEND_PUBLIC_URL), so that is where the API has to be called from. Empty = same host.
+#   MILLEFEUILLE_URL address of the MilleFeuille frontend, for the "Accéder à MilleFeuille" link (empty = no link).
+# The backend must also list this frontend's public URL in `EPHEMERAL_FRONTEND_URL` (CORS + post-login redirect).
+# The container root filesystem is read-only: the settings are written to /tmp (the default emptyDir below).
 ephemeral_frontend:
   image:
     registry: "harbor.sdid.cpin.numerique-interieur.com"

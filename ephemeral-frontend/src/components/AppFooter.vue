@@ -2,11 +2,12 @@
 import { onMounted, ref } from "vue";
 
 import { apiFetch } from "@/api";
+import { MILLEFEUILLE_URL } from "@/config";
 
 defineEmits<{ changelog: []; docs: [] }>();
 
 const frontendVersion = __APP_VERSION__;
-const millefeuilleUrl = import.meta.env.VITE_MILLEFEUILLE_URL as string | undefined;
+const millefeuilleUrl = MILLEFEUILLE_URL;
 const backendVersion = ref("…");
 
 onMounted(async () => {
