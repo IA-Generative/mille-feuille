@@ -10,7 +10,11 @@ Chaque secret ci-dessous correspond à un **chemin Vault** (`mirai` mount, kv-v2
 
 ## Tableau récapitulatif
 
-| Secret K8s                | Chemin Vault (`exploration/`)       | Type K8s                    | Utilisé par                          |
+> Le nom du projet (`exploration` dans `common-values.yaml`) est écrit **une seule fois**, dans `global.projectName` : il sert de point de
+> montage Vault (`mount` des `VaultStaticSecret`) et de préfixe aux dépôts d'images (`repository: "mille-feuille-backend"` devient
+> `harbor…/exploration/mille-feuille-backend`). Un `repository` déjà préfixé par ce nom n'est pas préfixé deux fois.
+
+| Secret K8s                | Chemin Vault (`<global.projectName>/`) | Type K8s                    | Utilisé par                          |
 | ------------------------- | ------------------------------ | --------------------------- | ------------------------------------ |
 | `millefeuille-s3`            | `millefeuille-s3`                 | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_render |
 | `millefeuille-keycloak`      | `millefeuille-keycloak`           | Opaque                      | backend                               |
@@ -433,4 +437,3 @@ L'organisation peut exiger l'approbation du jeton par un propriétaire. Choisir 
 Un compte de service ou une GitHub App limitée à ce dépôt vaut mieux qu'un jeton personnel. Ne jamais utiliser un jeton classic.
 
 En local, `docker compose --profile async-api build` lit le même jeton dans `GH_TOKEN` (`export GH_TOKEN=$(gh auth token)`).
-

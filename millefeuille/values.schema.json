@@ -328,6 +328,7 @@
       "additionalProperties": true,
       "properties": {
         "imageRegistry": { "type": "string" },
+        "projectName": { "type": "string" },
         "imagePullSecrets": { "$ref": "#/definitions/imagePullSecrets" },
         "env": { "$ref": "#/definitions/envMapOrList" },
         "envFrom": { "$ref": "#/definitions/envFromMapOrList" },

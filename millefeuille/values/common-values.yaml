@@ -1,6 +1,8 @@
 fullnameOverride: millefeuille
 
 global:
+  # Harbor project holding every image of the chart: prepended to each `repository` below (see `helper.image`).
+  projectName: "exploration"
   ingress:
     enabled: true
     annotations:
@@ -13,7 +15,7 @@ global:
 backend:
   image:
     registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "exploration/mille-feuille-backend"
+    repository: "mille-feuille-backend"
     pullPolicy: "Always"
   replicaCount: 2
   # FastAPI/uvicorn listens on 8000, not the chart default 8080. Without this override the
@@ -92,7 +94,7 @@ backend:
 worker_document:
   image:
     registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "exploration/mille-feuille-worker-document-process"
+    repository: "mille-feuille-worker-document-process"
     pullPolicy: "Always"
   serviceAccount:
     enabled: true
@@ -129,7 +131,7 @@ worker_document:
 worker_render:
   image:
     registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "exploration/mille-feuille-worker-document-render"
+    repository: "mille-feuille-worker-document-render"
     pullPolicy: "Always"
   serviceAccount:
     enabled: true
@@ -167,7 +169,7 @@ worker_render:
 worker_agent:
   image:
     registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "exploration/mille-feuille-worker-agent-execution"
+    repository: "mille-feuille-worker-agent-execution"
     pullPolicy: "Always"
   serviceAccount:
     enabled: true
@@ -201,7 +203,7 @@ worker_agent:
 worker_classification:
   image:
     registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "exploration/mille-feuille-worker-classification"
+    repository: "mille-feuille-worker-classification"
     pullPolicy: "Always"
   serviceAccount:
     enabled: true
@@ -238,7 +240,7 @@ worker_classification:
 worker_extraction:
   image:
     registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "exploration/mille-feuille-worker-extraction"
+    repository: "mille-feuille-worker-extraction"
     pullPolicy: "Always"
   serviceAccount:
     enabled: true
@@ -278,7 +280,7 @@ worker_async_api:
   enabled: false
   image:
     registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "exploration/mille-feuille-worker-async-api"
+    repository: "mille-feuille-worker-async-api"
     pullPolicy: "Always"
   serviceAccount:
     enabled: true
@@ -340,7 +342,7 @@ jobs:
       deletePolicy: "before-hook-creation,hook-succeeded"
     image:
       registry: "harbor.sdid.cpin.numerique-interieur.com"
-      repository: "exploration/mille-feuille-backend"
+      repository: "mille-feuille-backend"
       # The tag defaults to the chart's appVersion (a fixed release), so the image does not need
       # to be pulled again on every run.
       pullPolicy: "IfNotPresent"
@@ -361,7 +363,7 @@ jobs:
       # Same image as the migration itself (Harbor, already pulled): no dependency on ghcr.io, which
       # is unreachable from restricted environments and left the pod stuck in `PodInitializing`.
       # Polls the TCP port every second; alembic then fails fast if PostgreSQL is not really ready.
-      image: "harbor.sdid.cpin.numerique-interieur.com/exploration/mille-feuille-backend:{{ .Chart.AppVersion }}"
+      image: "harbor.sdid.cpin.numerique-interieur.com/{{ .Values.global.projectName }}/mille-feuille-backend:{{ .Chart.AppVersion }}"
       imagePullPolicy: "IfNotPresent"
       command:
       - "python"
@@ -398,7 +400,7 @@ jobs:
 frontend:
   image:
     registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "exploration/mille-feuille-frontend"
+    repository: "mille-feuille-frontend"
     pullPolicy: "Always"
   replicaCount: 2
   service:
@@ -422,7 +424,7 @@ frontend:
 ephemeral_frontend:
   image:
     registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "exploration/mille-feuille-ephemeral-frontend"
+    repository: "mille-feuille-ephemeral-frontend"
     pullPolicy: "Always"
   replicaCount: 1
   service:
@@ -474,7 +476,7 @@ extraObjects:
       name: millefeuille-s3
     spec:
       vaultAuthRef: vault-auth
-      mount: exploration
+      mount: "{{ .Values.global.projectName }}"
       type: kv-v2
       destination:
         name: millefeuille-s3
@@ -486,7 +488,7 @@ extraObjects:
       name: millefeuille-openai
     spec:
       vaultAuthRef: vault-auth
-      mount: exploration
+      mount: "{{ .Values.global.projectName }}"
       type: kv-v2
       destination:
         name: millefeuille-openai
@@ -498,7 +500,7 @@ extraObjects:
       name: millefeuille-keycloak
     spec:
       vaultAuthRef: vault-auth
-      mount: exploration
+      mount: "{{ .Values.global.projectName }}"
       type: kv-v2
       destination:
         name: millefeuille-keycloak
@@ -510,7 +512,7 @@ extraObjects:
       name: millefeuille-worker
     spec:
       vaultAuthRef: vault-auth
-      mount: exploration
+      mount: "{{ .Values.global.projectName }}"
       type: kv-v2
       destination:
         name: millefeuille-worker
@@ -525,7 +527,7 @@ extraObjects:
       name: millefeuille-async-api-worker
     spec:
       vaultAuthRef: vault-auth
-      mount: exploration
+      mount: "{{ .Values.global.projectName }}"
       type: kv-v2
       destination:
         name: millefeuille-async-api-worker
@@ -537,7 +539,7 @@ extraObjects:
       name: millefeuille-redis
     spec:
       vaultAuthRef: vault-auth
-      mount: exploration
+      mount: "{{ .Values.global.projectName }}"
       type: kv-v2
       destination:
         name: millefeuille-redis
@@ -556,7 +558,7 @@ extraObjects:
       name: millefeuille-db-superuser
     spec:
       vaultAuthRef: vault-auth
-      mount: exploration
+      mount: "{{ .Values.global.projectName }}"
       type: kv-v2
       destination:
         name: millefeuille-db-superuser
@@ -572,7 +574,7 @@ extraObjects:
       name: millefeuille-db-appuser
     spec:
       vaultAuthRef: vault-auth
-      mount: exploration
+      mount: "{{ .Values.global.projectName }}"
       type: kv-v2
       destination:
         name: millefeuille-db-appuser
@@ -588,7 +590,7 @@ extraObjects:
       name: millefeuille-db-infos
     spec:
       vaultAuthRef: vault-auth
-      mount: exploration
+      mount: "{{ .Values.global.projectName }}"
       type: kv-v2
       destination:
         name: millefeuille-db-infos
@@ -610,7 +612,7 @@ extraObjects:
       name: millefeuille-db-backups
     spec:
       vaultAuthRef: vault-auth
-      mount: exploration
+      mount: "{{ .Values.global.projectName }}"
       type: kv-v2
       destination:
         name: millefeuille-db-backups

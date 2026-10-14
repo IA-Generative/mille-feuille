@@ -49,6 +49,7 @@ Kubernetes: `>=1.25.0-0`
 | global.ingress.hosts | list | `[]` | Hosts and paths served by the chart-level ingress. Each path's `backend.serviceName` is required (see above); `backend.portNumber` defaults to 80. |
 | global.ingress.labels | object | `{}` | Additional ingress labels. |
 | global.ingress.tls | list | `[]` | TLS configuration for the chart-level ingress. |
+| global.projectName | string | `""` | Project (e.g. a Harbor project) prepended to the `repository` of every image: set it once here and write `repository: "mille-feuille-backend"` instead of `"<project>/mille-feuille-backend"` in each component. Empty (default): repositories are used as written. A repository that already starts with `<projectName>/` is not prefixed twice. |
 
 ### Backend
 
