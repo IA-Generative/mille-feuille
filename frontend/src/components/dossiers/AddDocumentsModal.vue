@@ -11,7 +11,11 @@ import { fetchDossierSources, resolveSourceChoice } from "@/composables/useDocum
 import { useDossiers } from "@/composables/useDossiers";
 import { NO_SOURCE, type DocumentSource, type SourceChoice } from "@/types/documentSource";
 
-const props = defineProps<{ dossierId: string }>();
+const props = defineProps<{
+  dossierId: string;
+  /** Fichiers déjà choisis (ex : joints depuis le chat) : la modale s'ouvre avec eux. */
+  initialFiles?: File[];
+}>();
 const opened = defineModel<boolean>("opened", { default: false });
 const emit = defineEmits<{ added: [count: number] }>();
 
@@ -25,7 +29,7 @@ const error = ref("");
 
 watch(opened, async (isOpened) => {
   if (!isOpened) return;
-  files.value = [];
+  files.value = [...(props.initialFiles ?? [])];
   choice.value = NO_SOURCE;
   error.value = "";
   sources.value = await fetchDossierSources(props.dossierId).catch(() => []);

@@ -87,6 +87,13 @@ const isAccessOpened = ref(false);
 
 // Ajout de fichiers après coup, avec leur source. Jamais refusé : on prévient simplement qu'il faut relancer.
 const isAddDocumentsOpened = ref(false);
+// Fichiers joints depuis le chat : la modale d'ajout s'ouvre avec eux, pour choisir leur source avant l'envoi.
+const attachedFiles = ref<File[]>([]);
+
+function openAddDocuments(files: File[] = []) {
+  attachedFiles.value = files;
+  isAddDocumentsOpened.value = true;
+}
 const { sources: documentSources, load: loadDocumentSources } = useDossierSources(dossierId);
 // Fichiers ajoutés à un dossier « à ranger » depuis les dernières suggestions : à regénérer.
 const addedSinceSuggestions = ref(0);
@@ -342,7 +349,7 @@ async function onDeleteConversation() {
           class="dossier-detail__icon-button"
           aria-label="Ajouter des documents au dossier"
           title="Ajouter des documents au dossier"
-          @click="isAddDocumentsOpened = true"
+          @click="openAddDocuments()"
         >
           <VIcon name="ri-attachment-2" />
         </button>
@@ -488,9 +495,12 @@ async function onDeleteConversation() {
       @load-more="loadOlderMessages"
       :stream-events="chatEvents"
       :is-running="isChatRunning"
+      page-composer
+      show-file-attach
       intro-title="Alimenter l'analyse"
       intro-text="Posez une question ou ajoutez une note pour compléter ce dossier. Les résultats de l'analyse s'affichent ci-dessus."
       placeholder="Alimentez l'analyse avec un message..."
+      @attach-files="openAddDocuments"
       @submit="onChatSubmit"
     >
       <template #source="{ source }">
@@ -553,7 +563,12 @@ async function onDeleteConversation() {
       </template>
     </ChatWindow>
 
-    <AddDocumentsModal v-model:opened="isAddDocumentsOpened" :dossier-id="dossierId" @added="onDocumentsAdded" />
+    <AddDocumentsModal
+      v-model:opened="isAddDocumentsOpened"
+      :dossier-id="dossierId"
+      :initial-files="attachedFiles"
+      @added="onDocumentsAdded"
+    />
 
     <AccessModal v-if="isAccessOpened" :dossier-id="dossier.id" :dossier-name="dossier.name" @close="isAccessOpened = false" />
 
@@ -610,14 +625,14 @@ async function onDeleteConversation() {
 
       <div v-if="dossier.documents.length === 0">
         <p class="fr-text--sm dossier-details-modal__no-files">Aucun fichier pour l'instant.</p>
-        <DsfrButton label="Ajouter des documents" icon="ri-add-line" size="sm" secondary @click="isAddDocumentsOpened = true" />
+        <DsfrButton label="Ajouter des documents" icon="ri-add-line" size="sm" secondary @click="openAddDocuments()" />
       </div>
       <DossierDocuments
         v-else
         :documents="dossier.documents"
         :sources="documentSources"
         can-add
-        @add="isAddDocumentsOpened = true"
+        @add="openAddDocuments()"
         @change-source="onChangeDocumentSource"
       />
     </DsfrModal>

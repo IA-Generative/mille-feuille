@@ -68,6 +68,11 @@ const props = withDefaults(
     introText?: string;
     placeholder?: string;
     showFileAttach?: boolean;
+    /**
+     * Chat intégré à une page qui défile (page d'un dossier) : la zone d'envoi reste collée au bas de l'écran sur
+     * toute la hauteur de la page, pas seulement dans la section du chat (qui sort de l'écran quand on remonte).
+     */
+    pageComposer?: boolean;
     /** Des messages plus anciens existent côté serveur (pagination par curseur). */
     hasMore?: boolean;
     /** Une page de messages plus anciens est en cours de chargement. */
@@ -82,6 +87,7 @@ const props = withDefaults(
     introText: "",
     placeholder: "Écrivez votre message...",
     showFileAttach: false,
+    pageComposer: false,
     hasMore: false,
     loadingMore: false,
     prefill: "",
@@ -112,6 +118,28 @@ const fileInputRef = ref<HTMLInputElement | null>(null);
 const messagesEndRef = ref<HTMLElement | null>(null);
 
 const topSentinelRef = ref<HTMLElement | null>(null);
+
+// Le bas de la discussion est-il visible ? Sinon, un bouton ramène au dernier message.
+const atBottom = ref(true);
+let bottomObserver: IntersectionObserver | undefined;
+
+watch(
+  messagesEndRef,
+  (end) => {
+    bottomObserver?.disconnect();
+    bottomObserver = undefined;
+    if (!end || typeof IntersectionObserver === "undefined") return;
+    bottomObserver = new IntersectionObserver((entries) => {
+      atBottom.value = entries.some((entry) => entry.isIntersecting);
+    });
+    bottomObserver.observe(end);
+  },
+  { flush: "post" },
+);
+
+function scrollToLastMessage() {
+  messagesEndRef.value?.scrollIntoView({ behavior: "smooth", block: "end" });
+}
 
 // Conteneur qui défile réellement (la zone de messages ou, selon la mise en
 // page, un ancêtre / la page) : nécessaire pour garder la position de lecture
@@ -176,7 +204,10 @@ watch(
   { flush: "post" },
 );
 
-onBeforeUnmount(() => observer?.disconnect());
+onBeforeUnmount(() => {
+  observer?.disconnect();
+  bottomObserver?.disconnect();
+});
 
 watch(
   () => props.streamEvents,
@@ -222,7 +253,7 @@ defineExpose({ resizeTextarea });
 </script>
 
 <template>
-  <section class="chat-window">
+  <section class="chat-window" :class="{ 'chat-window--page': pageComposer }">
     <header v-if="$slots.header" class="chat-window__header">
       <div class="chat-window__inner">
         <slot name="header" />
@@ -309,6 +340,17 @@ defineExpose({ resizeTextarea });
     </div>
 
     <form class="chat-window__form" @submit.prevent="submit">
+      <button
+        v-if="messages.length > 0 && !atBottom"
+        type="button"
+        class="chat-window__to-last"
+        aria-label="Aller au dernier message"
+        title="Aller au dernier message"
+        @click="scrollToLastMessage"
+      >
+        <VIcon name="ri-arrow-down-line" />
+        <span>Dernier message</span>
+      </button>
       <div class="chat-window__inner">
         <slot name="composer-extra" />
 
@@ -368,6 +410,17 @@ defineExpose({ resizeTextarea });
   min-height: 16rem;
   display: flex;
   flex-direction: column;
+}
+
+/* Intégré à la page : la section disparaît de la mise en page, la zone d'envoi (sticky) a donc toute la page pour
+   containing block et reste collée au bas de l'écran. */
+.chat-window--page {
+  display: contents;
+}
+
+.chat-window--page .chat-window__intro,
+.chat-window--page .chat-window__messages {
+  min-height: 12rem;
 }
 
 .chat-window__inner {
@@ -594,6 +647,29 @@ defineExpose({ resizeTextarea });
 }
 
 /* Composer collé en bas de l'écran pendant que la discussion défile. */
+.chat-window__to-last {
+  position: absolute;
+  bottom: calc(100% + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  border: 1px solid var(--border-default-grey);
+  border-radius: 999px;
+  background: var(--background-default-grey);
+  color: var(--text-action-high-blue-france);
+  font: inherit;
+  font-size: 0.875rem;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+  cursor: pointer;
+}
+
+.chat-window__to-last:hover {
+  background: var(--background-alt-blue-france);
+}
+
 .chat-window__form {
   position: sticky;
   bottom: 0;
