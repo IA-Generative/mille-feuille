@@ -649,6 +649,23 @@ Parameters:
 - secret: The short name of the secret.
 */}}
 {{- define "helper.vaultSecretPath" -}}
-{{- $env := .root.Values.global.env.ENVIRONMENT | required "global.env.ENVIRONMENT is required to build the Vault path of the secrets (<env>/millefeuille/<secret>)" -}}
+{{- /* `global.env` is accepted as a map (NAME: value, or NAME: {value: ...}) or as a native list of env entries. */ -}}
+{{- $genv := .root.Values.global.env | default dict -}}
+{{- $env := "" -}}
+{{- if kindIs "map" $genv -}}
+{{- $entry := get $genv "ENVIRONMENT" -}}
+{{- if kindIs "map" $entry -}}
+{{- $env = $entry.value | default "" -}}
+{{- else -}}
+{{- $env = $entry | default "" -}}
+{{- end -}}
+{{- else if kindIs "slice" $genv -}}
+{{- range $genv -}}
+{{- if eq (.name | toString) "ENVIRONMENT" -}}
+{{- $env = .value | default "" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+{{- $env = $env | toString | required "global.env.ENVIRONMENT is required to build the Vault path of the secrets (<env>/millefeuille/<secret>)" -}}
 {{- printf "%s/millefeuille/%s" $env .secret -}}
 {{- end -}}
