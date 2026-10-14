@@ -120,6 +120,23 @@ def test_tools_read_page() -> None:
     assert "Carte nationale" in result
 
 
+def test_tools_give_the_source_of_a_document_in_context() -> None:
+    dossier = _make_dossier()
+    dossier["documents"][0]["source"] = {"name": "Guichet", "description": "Remis en main propre"}
+    tools = AgentTools(dossier)
+
+    page = tools.read_page(1)
+    assert "source : Guichet" in page
+    assert "Source du document : Guichet — Remis en main propre" in page
+    assert "source : Guichet" in tools.search_documents("Dupont")
+
+
+def test_tools_without_source_keep_the_same_output() -> None:
+    page = AgentTools(_make_dossier()).read_page(1)
+    assert "Source du document" not in page
+    assert "source :" not in page
+
+
 def test_tools_read_page_not_found() -> None:
     tools = AgentTools(_make_dossier())
     result = tools.read_page(999)

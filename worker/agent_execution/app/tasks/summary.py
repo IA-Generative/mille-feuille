@@ -11,6 +11,7 @@ l'API interne (append-only : chaque génération crée une nouvelle ligne).
 import logging
 
 from app import api_client
+from app.bm25 import document_label
 from app.celery_app import celery_app
 from app.config import settings
 from app.llm import summarize_text
@@ -20,6 +21,15 @@ logger = logging.getLogger(__name__)
 # Limite de caractères pour le contenu envoyé au LLM (évite de dépasser le
 # contexte pour les documents très longs).
 _MAX_CONTENT_CHARS = 30_000
+
+
+def _source_header(document: dict) -> str:
+    """D'où vient le document (nom + description de sa source), en tête du texte à résumer ; vide sans source."""
+    source = document.get("source") or {}
+    if not source.get("name"):
+        return ""
+    description = (source.get("description") or "").strip()
+    return f"Source du document : {source['name']}" + (f" — {description}" if description else "") + "\n\n"
 
 
 def _truncate(text: str, limit: int = _MAX_CONTENT_CHARS) -> str:
@@ -57,7 +67,7 @@ def run_document_summary(self, dossier_id: str, document_id: str) -> None:
             content = "\n\n".join(
                 f"--- Page {page['page_number']} ---\n{page.get('content') or '(vide)'}" for page in pages
             )
-            content = _truncate(content)
+            content = _source_header(document) + _truncate(content)
 
             logger.info(
                 "Summarizing document %s (%d pages, %d chars)",
@@ -91,7 +101,7 @@ def run_dossier_summary(self, dossier_id: str) -> None:
             for document in dossier["documents"]:
                 doc_summary = (document.get("summary") or {}).get("content")
                 if doc_summary:
-                    parts.append(f"### Document : {document['name']}\n{doc_summary}")
+                    parts.append(f"### Document : {document_label(document)}\n{doc_summary}")
                 else:
                     # Si pas de résumé, on prend le contenu des pages
                     pages = document.get("pages", [])
@@ -99,7 +109,7 @@ def run_dossier_summary(self, dossier_id: str) -> None:
                         page_content = "\n".join(
                             f"Page {p['page_number']}: {p.get('content') or '(vide)'}" for p in pages
                         )
-                        parts.append(f"### Document : {document['name']}\n{page_content}")
+                        parts.append(f"### Document : {document_label(document)}\n{page_content}")
 
             # Synthèses des agents (ExecutionStep.output)
             for step in dossier.get("execution_steps", []):

@@ -37,14 +37,24 @@ class ExtractionResult(BaseModel):
     entities: list[EntityValue] = Field(default_factory=list, description="Entités extraites du batch")
 
 
+def source_section(source: dict | None) -> str:
+    """D'où vient le document (nom + description de sa source), en contexte pour le LLM ; vide sans source."""
+    if not source or not source.get("name"):
+        return ""
+    description = (source.get("description") or "").strip()
+    detail = f" : {description}" if description else ""
+    return f"--- Source du document ---\n{source['name']}{detail}\n\n"
+
+
 def extract_entities_batch(
     *,
     pages: list[dict],
     entity_definitions: list[dict],
     extraction_prompt: str,
+    source: dict | None = None,
 ) -> ExtractionResult:
     """Extrait les entités d'un batch de pages. Chaque page est un dict avec
-    `page_number` et `content`. Renvoie un résultat structuré
+    `page_number` et `content`. `source` : d'où vient le document, donnée en contexte. Renvoie un résultat structuré
     (ExtractionResult) garantissant que chaque entité extraite correspond à
     une définition fournie."""
     entities_desc = "\n".join(
@@ -63,7 +73,7 @@ def extract_entities_batch(
         model=settings.LLM_MODEL,
         messages=[
             {"role": "system", "content": system},
-            {"role": "user", "content": pages_text},
+            {"role": "user", "content": f"{source_section(source)}{pages_text}"},
         ],
         response_format=ExtractionResult,
         temperature=0.1,

@@ -24,3 +24,15 @@ def test_classification_fingerprint_depends_on_text_screenshot_labels_prompt_and
     assert base not in variants and len(variants) == 4
     monkeypatch.setattr(fingerprint.settings, "VLM_MODEL", "un-autre-vlm")
     assert fingerprint.classification_fingerprint(PAGE, LABELS, "Classe.") != base
+
+
+def test_classification_fingerprint_depends_on_the_source_only_when_the_document_has_one() -> None:
+    base = fingerprint.classification_fingerprint(PAGE, LABELS, "Classe.")
+    assert fingerprint.classification_fingerprint(PAGE, LABELS, "Classe.", source=None) == base
+    guichet = {"name": "Guichet", "description": "En main propre"}
+    with_source = fingerprint.classification_fingerprint(PAGE, LABELS, "Classe.", source=guichet)
+    assert with_source != base
+    assert with_source == fingerprint.classification_fingerprint(PAGE, LABELS, "Classe.", source=dict(guichet))
+    assert with_source != fingerprint.classification_fingerprint(
+        PAGE, LABELS, "Classe.", source={**guichet, "description": "Par courrier"}
+    )

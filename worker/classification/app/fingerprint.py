@@ -51,10 +51,10 @@ def visual_classification_fingerprint(page: dict, label_definitions: list[dict],
 
 
 def classification_fingerprint(
-    page: dict, label_definitions: list[dict], prompt: str, multi_label: bool = False
+    page: dict, label_definitions: list[dict], prompt: str, multi_label: bool = False, source: dict | None = None
 ) -> str:
-    """Une page classée : son texte, sa capture (clé S3), les labels, le prompt
-    et les modèles (VLM pour la description d'image, LLM pour le choix)."""
+    """Une page classée : son texte, sa capture (clé S3), les labels, le prompt, la source du document (si elle en a
+    une : le LLM la reçoit en contexte) et les modèles (VLM pour la description d'image, LLM pour le choix)."""
     payload = {
         "unit": "classification",
         "pipeline": PIPELINE_VERSION,
@@ -68,4 +68,7 @@ def classification_fingerprint(
     if multi_label:
         # Seulement si vrai : l'empreinte des analyses mono-label existantes ne change pas.
         payload["multi_label"] = True
+    if source:
+        # Seulement si le document a une source : l'empreinte des documents sans source ne change pas.
+        payload["source"] = {"name": source.get("name"), "description": source.get("description")}
     return _digest(payload)

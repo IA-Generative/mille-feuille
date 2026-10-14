@@ -49,16 +49,20 @@ def gliner_extraction_fingerprint(pages: list[dict], entity_definitions: list[di
     )
 
 
-def extraction_fingerprint(pages: list[dict], entity_definitions: list[dict], prompt: str) -> str:
-    """Un lot de pages × un groupe de définitions : le texte de chaque page
-    (dans l'ordre), les définitions du groupe, le prompt et le modèle."""
-    return _digest(
-        {
-            "unit": "extraction",
-            "pipeline": PIPELINE_VERSION,
-            "pages": [{"number": p["page_number"], "text": text_hash(p.get("content"))} for p in pages],
-            "entities": _definitions(entity_definitions),
-            "prompt": prompt,
-            "llm": settings.LLM_MODEL,
-        }
-    )
+def extraction_fingerprint(
+    pages: list[dict], entity_definitions: list[dict], prompt: str, source: dict | None = None
+) -> str:
+    """Un lot de pages × un groupe de définitions : le texte de chaque page (dans l'ordre), les définitions du
+    groupe, le prompt, la source du document (si elle en a une : le LLM la reçoit en contexte) et le modèle."""
+    payload = {
+        "unit": "extraction",
+        "pipeline": PIPELINE_VERSION,
+        "pages": [{"number": p["page_number"], "text": text_hash(p.get("content"))} for p in pages],
+        "entities": _definitions(entity_definitions),
+        "prompt": prompt,
+        "llm": settings.LLM_MODEL,
+    }
+    if source:
+        # Seulement si le document a une source : l'empreinte des documents sans source ne change pas.
+        payload["source"] = {"name": source.get("name"), "description": source.get("description")}
+    return _digest(payload)
