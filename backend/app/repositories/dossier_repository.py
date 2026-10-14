@@ -57,6 +57,7 @@ from app.models.summary import (
     SummaryStatus,
 )
 from app.repositories.analyse_repository import AnalyseRepository
+from app.repositories.document_source_repository import DocumentSourceRepository
 from app.repositories.dossier_analysis_repository import DossierAnalysisRepository
 from app.repositories.dossier_event_repository import DossierEventRepository
 from app.services.custom_fields import default_values
@@ -353,6 +354,7 @@ class DossierRepository:
                 size=document["size"],
                 s3_key=document["s3_key"],
                 mimetype=document["mimetype"],
+                source_id=document.get("source_id"),
             )
             for document in documents
         ]
@@ -1212,6 +1214,8 @@ class DossierRepository:
         Met à jour analyse_id et analyse_version."""
         dossier.analyse_id = analyse.id
         dossier.analyse_version = self._analyse_repository.get_version_label(analyse)
+        # Les sources créées depuis le dossier « à ranger » rejoignent le catalogue de l'analyse qui l'accueille.
+        await DocumentSourceRepository(self.db).promote_dossier_sources(dossier.id, analyse.id)
         # Le dossier reçoit le statut initial de l'analyse qui l'accueille (issue #168).
         dossier.workflow_status_id = self._initial_status_id(analyse)
         dossier.closed_at = None

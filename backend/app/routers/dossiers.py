@@ -7,6 +7,7 @@ from typing import Annotated, Literal
 from fastapi import (
     APIRouter,
     Depends,
+    Form,
     HTTPException,
     Query,
     Request,
@@ -41,10 +42,12 @@ from app.models.dossier_access import Visibility
 from app.models.dossier_event import DossierEventType
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.analysis_collaboration_repository import ElementLockedError
+from app.repositories.document_source_repository import DocumentSourceRepository, SourceNameTakenError
 from app.repositories.dossier_access_repository import DossierAccessRepository
 from app.repositories.dossier_event_repository import EventActor
 from app.repositories.dossier_repository import DossierRepository
 from app.repositories.user_directory_repository import UserDirectoryRepository
+from app.schemas.document_source import DocumentSourceAssignIn, DocumentSourceIn, DocumentSourceOut
 from app.schemas.dossier import (
     AssigneeUpdate,
     BulkAccessResult,
@@ -487,9 +490,17 @@ async def add_documents(
     files: list[UploadFile],
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[RequestContext, Depends(get_current_user)],
+    source_id: Annotated[
+        uuid.UUID | None,
+        Form(description="Source de ces fichiers : une source de l'analyse du dossier, ou un tampon du dossier."),
+    ] = None,
 ) -> Dossier:
+    """Ajoute des fichiers à un dossier, **quel que soit son état** : aucun refus. Les fichiers ne sont pas pris en
+    compte par une analyse déjà lancée (l'interface propose de la relancer)."""
     repository = DossierRepository(db)
     dossier = await _get_or_404(repository, dossier_id)
+    if source_id is not None and not await DocumentSourceRepository(db).is_available_for(dossier, source_id):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Source inconnue pour ce dossier")
     documents = []
     for f in files:
         data = await f.read()
@@ -504,6 +515,7 @@ async def add_documents(
                 "size": len(data),
                 "s3_key": s3_key,
                 "mimetype": mimetype,
+                "source_id": source_id,
             }
         )
     created = await repository.add_documents(dossier, documents)
@@ -514,7 +526,12 @@ async def add_documents(
             dossier_id,
             DossierEventType.DOCUMENT_ADDED,
             user,
-            {"document_id": str(document.id), "mimetype": document.mimetype, "size": document.size},
+            {
+                "document_id": str(document.id),
+                "mimetype": document.mimetype,
+                "size": document.size,
+                **({"source_id": str(source_id)} if source_id else {}),
+            },
         )
     await db.commit()
     # Pas `return dossier` : refresh(dossier) (dans add_documents) réexpire
@@ -522,6 +539,62 @@ async def add_documents(
     # (MissingGreenlet à la sérialisation) - une requête fraîche via
     # _get_or_404 a le eager loading complet de _base_query.
     return await _get_or_404(repository, dossier_id)
+
+
+@router.get("/{dossier_id}/sources", response_model=list[DocumentSourceOut])
+async def list_dossier_sources(
+    dossier_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+):
+    """Les sources proposées pour déposer un fichier dans ce dossier : celles de son analyse, ou ses sources tampon
+    s'il est « à ranger »."""
+    dossier = await _get_or_404(DossierRepository(db), dossier_id, user)
+    return await DocumentSourceRepository(db).list_for_dossier(dossier)
+
+
+@router.post("/{dossier_id}/sources", response_model=DocumentSourceOut, status_code=status.HTTP_201_CREATED)
+async def create_dossier_source(
+    dossier_id: uuid.UUID,
+    body: DocumentSourceIn,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+):
+    """Crée une source depuis un dossier. Avec une analyse, elle entre dans le catalogue de l'analyse (proposée pour
+    tous ses dossiers) ; sans analyse (« à ranger »), c'est une source tampon, visible dans ce seul dossier jusqu'à
+    son rattachement à une analyse."""
+    dossier = await _get_or_404(DossierRepository(db), dossier_id, user)
+    try:
+        return await DocumentSourceRepository(db).create(
+            name=body.name,
+            description=body.description,
+            analyse_id=dossier.analyse_id,
+            dossier_id=None if dossier.analyse_id else dossier.id,
+        )
+    except SourceNameTakenError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Une source porte déjà ce nom") from error
+
+
+@router.put("/{dossier_id}/documents/{document_id}/source", response_model=DossierDocumentOut)
+async def set_document_source(
+    dossier_id: uuid.UUID,
+    document_id: uuid.UUID,
+    body: DocumentSourceAssignIn,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+):
+    """Change la source d'un document déjà déposé, ou la retire (`source_id: null`)."""
+    repository = DossierRepository(db)
+    dossier = await _get_or_404(repository, dossier_id, user)
+    document = await repository.get_document(dossier_id, document_id)
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document introuvable")
+    if body.source_id is not None and not await DocumentSourceRepository(db).is_available_for(dossier, body.source_id):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Source inconnue pour ce dossier")
+    document.source_id = body.source_id
+    await db.commit()
+    # Relecture plutôt que refresh : le document sérialisé a besoin de ses pages, chargées par get_document.
+    return await repository.get_document(dossier_id, document_id)
 
 
 @router.put("/{dossier_id}/documents/{document_id}/label", response_model=DossierDocumentOut)

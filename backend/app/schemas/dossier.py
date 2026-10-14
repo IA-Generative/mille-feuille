@@ -18,6 +18,7 @@ from app.models.execution_log import ExecutionLogLevel
 from app.models.feedback import FeedbackReasonCode, FeedbackValue
 from app.models.summary import SummaryStatus
 from app.schemas.analyse import StatusDefinitionOut
+from app.schemas.document_source import DocumentSourceOut
 
 
 class BoundingBoxIn(BaseModel):
@@ -284,6 +285,8 @@ class DossierDocumentOut(BaseModel):
 
     id: uuid.UUID
     dossier_id: uuid.UUID
+    # Date de dépôt : permet de repérer les fichiers ajoutés depuis le dernier lancement de l'analyse.
+    created_at: datetime
     name: str
     size: int
     s3_key: str
@@ -297,6 +300,8 @@ class DossierDocumentOut(BaseModel):
     # Dernier résumé généré (le plus récent par created_at), ou None si
     # aucun résumé n'a encore été produit avec succès.
     summary: "DocumentSummaryOut | None" = None
+    # D'où vient le fichier ; None s'il n'a pas de source (ou si elle a été supprimée).
+    source: DocumentSourceOut | None = None
     pages: list[DocumentPageOut]
 
 
@@ -528,6 +533,16 @@ class InternalDocumentPageOut(BaseModel):
     predictions: list[DocumentPredictionSummaryOut] = []
 
 
+class InternalDocumentSourceOut(BaseModel):
+    """D'où vient le fichier : le worker en donne la description en contexte à la classification, à l'extraction
+    et aux agents."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    name: str
+    description: str
+
+
 class InternalDossierDocumentOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -539,6 +554,7 @@ class InternalDossierDocumentOut(BaseModel):
     file_hash: str | None = None
     summary_status: SummaryStatus = SummaryStatus.EN_ATTENTE
     summary: DocumentSummaryOut | None = None
+    source: InternalDocumentSourceOut | None = None
     pages: list[InternalDocumentPageOut]
 
 

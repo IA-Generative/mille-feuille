@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from app.models.app_user import AppUser
     from app.models.conversation import Conversation
     from app.models.document_page import DocumentPage
+    from app.models.document_source import DocumentSource
     from app.models.execution_log import ExecutionLog
     from app.models.summary import DocumentSummary, DossierSummary
 
@@ -225,8 +226,14 @@ class DossierDocument(UUIDMixin, TimestampMixin, Base):
         default=SummaryStatus.EN_ATTENTE,
     )
     summary_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # D'où vient le fichier (courrier, guichet…) ; NULL s'il n'a pas de source, ou si elle a été supprimée.
+    source_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("document_sources.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     dossier: Mapped["Dossier"] = relationship(back_populates="documents")
+    # selectin : la source est sérialisée avec chaque document, quel que soit le chemin qui le charge.
+    source: Mapped["DocumentSource | None"] = relationship(lazy="selectin")
     pages: Mapped[list["DocumentPage"]] = relationship(
         back_populates="document", cascade="all, delete-orphan", order_by="DocumentPage.page_number"
     )

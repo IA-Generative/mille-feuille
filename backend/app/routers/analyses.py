@@ -16,6 +16,7 @@ from app.models.analyse import (
 )
 from app.models.analyse_share import AnalyseShareKind
 from app.repositories.analyse_repository import AnalyseRepository, StatusInUseError, StatusValidationError
+from app.repositories.document_source_repository import DocumentSourceRepository, SourceNameTakenError
 from app.schemas.analyse import (
     AgentCreate,
     AgentOut,
@@ -38,6 +39,7 @@ from app.schemas.analyse import (
     StatusesUpdate,
     ToolsUpdate,
 )
+from app.schemas.document_source import DocumentSourceIn, DocumentSourceOut
 from app.schemas.pagination import Page
 
 router = APIRouter(prefix="/analyses", tags=["Analyses"], dependencies=[Depends(get_current_user)])
@@ -111,6 +113,27 @@ async def get_analyse(analyse_id: uuid.UUID, db: Annotated[AsyncSession, Depends
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
     return repository.to_schema(analyse)
+
+
+@router.get("/{analyse_id}/sources", response_model=list[DocumentSourceOut])
+async def list_analyse_sources(analyse_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
+    """Le catalogue de sources de fichiers de l'analyse : proposées au dépôt d'un fichier dans ses dossiers."""
+    await _get_or_404(AnalyseRepository(db), analyse_id)
+    return await DocumentSourceRepository(db).list_for_analyse(analyse_id)
+
+
+@router.post("/{analyse_id}/sources", response_model=DocumentSourceOut, status_code=status.HTTP_201_CREATED)
+async def create_analyse_source(
+    analyse_id: uuid.UUID, body: DocumentSourceIn, db: Annotated[AsyncSession, Depends(get_db)]
+):
+    """Ajoute une source au catalogue de l'analyse. Pas de versionnage : modifier ou supprimer est définitif."""
+    await _get_or_404(AnalyseRepository(db), analyse_id)
+    try:
+        return await DocumentSourceRepository(db).create(
+            name=body.name, description=body.description, analyse_id=analyse_id
+        )
+    except SourceNameTakenError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Une source porte déjà ce nom") from error
 
 
 @router.put("/{analyse_id}/classification/prompt", response_model=AnalyseOut)
