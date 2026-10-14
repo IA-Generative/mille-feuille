@@ -32,6 +32,7 @@ Entrée (`data.body`), `analysis` **ou** `analyse_id` :
   "analysis": {
     "name": "Vérification CNI",
     "classification_prompt": "Classe le document",
+    "multi_label": false,
     "labels": [{ "name": "CNI", "definition": "Carte nationale d'identité" }],
     "extraction_prompt": "Extrait nom et prénom",
     "entities": [{ "name": "nom", "type": "texte" }],

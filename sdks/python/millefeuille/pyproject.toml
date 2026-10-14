@@ -1,6 +1,6 @@
 [project]
 name = "millefeuille"
-version = "0.1.0"
+version = "0.1.1"
 description = "SDK Python pour l'API REST de la plateforme mille-feuille"
 readme = "README.md"
 requires-python = ">=3.12"

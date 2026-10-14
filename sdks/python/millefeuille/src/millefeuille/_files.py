@@ -48,3 +48,9 @@ def prepare_files(files: Iterable[FileInput]) -> list[FileTuple]:
     if not prepared:
         raise ValueError("Au moins un fichier est requis.")
     return prepared
+
+
+def prepare_file(file: FileInput) -> FileTuple:
+    """Lit un seul fichier en mémoire sous le champ multipart `file` (routes qui n'acceptent qu'un document)."""
+    _, part = _one(file, 0)
+    return ("file", part)

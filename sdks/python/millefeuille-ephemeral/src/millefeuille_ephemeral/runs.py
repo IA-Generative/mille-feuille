@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING
 
 from millefeuille._files import FileInput, prepare_files
 from millefeuille._polling import poll_until
 
 from millefeuille_ephemeral._ttl import translate_ttl_errors, validate_ttl_hours
-from millefeuille_ephemeral.models import EphemeralRun, EphemeralRunCreated
+from millefeuille_ephemeral.models import EphemeralRun, EphemeralRunCreated, EphemeralRunSummary
 
 if TYPE_CHECKING:
     from millefeuille._http import HTTPClient
@@ -57,6 +57,12 @@ class EphemeralRunsResource:
                 files=prepare_files(files),
             )
         return self.get(EphemeralRunCreated.model_validate(response.json()).run_id)
+
+    def list(self) -> Sequence[EphemeralRunSummary]:
+        """Les runs de l'appelant (en cours, conservés, ou résultats conservés), du plus récent au plus ancien, 100
+        au plus. Le détail d'un run se lit avec `get` ; celui d'une classification ou d'une extraction avec leur
+        ressource."""
+        return [EphemeralRunSummary.model_validate(item) for item in self._http.get_json("/ephemeral/runs")]
 
     def get(self, run_id: uuid.UUID | str) -> EphemeralRun:
         """Statut, puis résultats une fois terminé."""

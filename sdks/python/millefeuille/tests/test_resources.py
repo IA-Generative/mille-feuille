@@ -150,3 +150,14 @@ def test_create_dossier_with_access(make_client) -> None:
         "visibility": "restricted",
         "group_paths": ["/equipe-a"],
     }
+
+
+def test_prepare_file_uses_the_single_file_field(tmp_path: Path) -> None:
+    from millefeuille._files import prepare_file
+
+    pdf = tmp_path / "cni.pdf"
+    pdf.write_bytes(b"%PDF")
+
+    assert prepare_file(pdf) == ("file", ("cni.pdf", b"%PDF", "application/pdf"))
+    assert prepare_file(("a.txt", b"hi")) == ("file", ("a.txt", b"hi", "text/plain"))
+    assert prepare_file(b"raw")[1][0] == "document-1"

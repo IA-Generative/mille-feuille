@@ -59,6 +59,45 @@ print(result.status, result.expires_at)
 analyse existante au lieu de `analysis_config`), `persist=` (conserver le run), `cleanup=True`
 (supprimer aussi le résultat conservé côté serveur une fois récupéré).
 
+## Classer ou extraire un document, sans définir d'analyse
+
+Pour les labels ou les entités d'**un** document, sans créer d'analyse (même cycle de vie et même TTL que
+les runs ; voir [le guide](../../../docs/ephemeral-classification-extraction.md)) :
+
+```python
+classification = client.classify(
+    "cni.pdf",
+    labels=[{"name": "CNI", "definition": "Carte nationale d'identité"}, {"name": "RIB", "definition": "Relevé d'identité bancaire"}],
+    multi_label=False,        # un seul label par page ; True : un ou plusieurs
+    cleanup=True,             # supprime le run une fois le résultat récupéré
+)
+for document in classification.documents:
+    for page in document.pages:
+        for label in page.labels:  # chaque page reçoit deux classifications : "textual" et "visual"
+            print(page.page_number, label.name, label.confidence, label.source)
+
+extraction = client.extract(
+    "facture.pdf",
+    entities=[{"name": "montant", "definition": "Montant TTC", "type": "nombre"}],
+)
+for entity in extraction.documents[0].pages[0].entities:  # deux sources : "textual" (LLM) et "gliner"
+    print(entity.name, entity.value, entity.pages, entity.source)
+```
+
+`classify()` et `extract()` créent le run, attendent sa fin (`timeout`, `poll_interval`) et renvoient le
+résultat. Pour garder la main : `client.classifications.create(...)` / `client.extractions.create(...)`
+renvoient aussitôt, puis `.get(run_id)` ou `.wait(run_id, timeout=...)`. Au moins une catégorie (ou une
+entité) est requise, vérifié avant tout appel réseau.
+
+## Lister ses runs
+
+```python
+for run in client.runs.list():   # du plus récent au plus ancien, 100 au plus
+    print(run.id, run.kind, run.status, run.documents, run.persist, run.expires_at)
+```
+
+`kind` vaut `classification` ou `extraction` pour un run à une seule étape, `analyse` sinon.
+
 ## Flux A : réutiliser une analyse
 
 ```python
@@ -82,8 +121,10 @@ run = client.runs.create(analyse_id, files=["doc.pdf"], persist=False, ttl_hours
 | Ressource | Méthodes |
 |---|---|
 | `client.analyses` | `create(name, description, persist, classification_prompt, labels, extraction_prompt, entities, agents)`, `create_from_config`, `get`, `delete` |
-| `client.runs` | `create` (flux B), `create_for_analyse` (flux A), `get`, `stop`, `delete`, `wait(timeout, poll_interval)` |
-| `client` | `analyze(...)` |
+| `client.runs` | `create` (flux B), `create_for_analyse` (flux A), `list`, `get`, `stop`, `delete`, `wait(timeout, poll_interval)` |
+| `client.classifications` | `create(file, labels, multi_label, prompt, persist, ttl_hours)`, `get`, `wait` |
+| `client.extractions` | `create(file, entities, prompt, persist, ttl_hours)`, `get`, `wait` |
+| `client` | `analyze(...)`, `classify(...)`, `extract(...)`, `version()` (version du backend) |
 
 Un run démarre dès sa création : il n'y a pas d'appel `launch`. `expires_at` reste `None` tant que le
 run n'est pas terminé (le TTL démarre à la fin du run) ou si `persist=True`.

@@ -1,12 +1,12 @@
 [project]
 name = "millefeuille-ephemeral"
-version = "0.1.0"
+version = "0.2.0"
 description = "SDK Python pour l'API éphémère (/api/ephemeral) de la plateforme mille-feuille"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
 dependencies = [
-    "millefeuille>=0.1.0,<0.2",
+    "millefeuille>=0.1.1,<0.2",
     "httpx>=0.28.1",
     "pydantic>=2.7",
 ]
