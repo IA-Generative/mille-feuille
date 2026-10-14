@@ -33,6 +33,7 @@ jobs:
       pull-requests: read
     outputs:
       frontend: ${{ steps.filter.outputs.frontend }}
+      ephemeral_frontend: ${{ steps.filter.outputs.ephemeral_frontend }}
       backend: ${{ steps.filter.outputs.backend }}
       worker_document_process: ${{ steps.filter.outputs.worker_document_process }}
       worker_agent_execution: ${{ steps.filter.outputs.worker_agent_execution }}
@@ -54,6 +55,8 @@ jobs:
           filters: |
             frontend:
               - 'frontend/**'
+            ephemeral_frontend:
+              - 'ephemeral-frontend/**'
             backend:
               - 'backend/**'
             worker_document_process:
@@ -79,6 +82,7 @@ jobs:
         id: services
         env:
           FRONTEND: ${{ steps.filter.outputs.frontend }}
+          EPHEMERAL_FRONTEND: ${{ steps.filter.outputs.ephemeral_frontend }}
           BACKEND: ${{ steps.filter.outputs.backend }}
           WORKER_DOCUMENT_PROCESS: ${{ steps.filter.outputs.worker_document_process }}
           WORKER_AGENT_EXECUTION: ${{ steps.filter.outputs.worker_agent_execution }}
@@ -97,6 +101,9 @@ jobs:
 
           if [ "$FRONTEND" = "true" ] || [ "$CI" = "true" ]; then
             add '{"name":"frontend","context":"frontend","dockerfile":"frontend/Dockerfile","target":"runtime"}'
+          fi
+          if [ "$EPHEMERAL_FRONTEND" = "true" ] || [ "$CI" = "true" ]; then
+            add '{"name":"ephemeral-frontend","context":"ephemeral-frontend","dockerfile":"ephemeral-frontend/Dockerfile","target":"runtime"}'
           fi
           if [ "$BACKEND" = "true" ] || [ "$CI" = "true" ]; then
             add '{"name":"backend","context":"backend","dockerfile":"backend/Dockerfile","target":"runtime"}'
@@ -173,7 +180,7 @@ jobs:
     uses: ./.github/workflows/lint.yml
     needs:
       - path-filter
-    if: ${{ needs.path-filter.outputs.frontend == 'true' || needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_agent_execution == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.ci == 'true' }}
+    if: ${{ needs.path-filter.outputs.frontend == 'true' || needs.path-filter.outputs.ephemeral_frontend == 'true' || needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_agent_execution == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.ci == 'true' }}
     permissions:
       contents: read
     secrets:
