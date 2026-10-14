@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.22.0](https://github.com/IA-Generative/mille-feuille/compare/v0.21.0...v0.22.0) (2026-10-14)
+
+
+### Features
+
+* **chat:** zone d'envoi toujours visible, retour au dernier message et fichiers joints ([a143c70](https://github.com/IA-Generative/mille-feuille/commit/a143c707c544be93bc6687606a3a9a3c664a0427))
+
+
+### Bug Fixes
+
+* **chat:** zone d'envoi collante seulement quand la page tient en largeur ([fe2210d](https://github.com/IA-Generative/mille-feuille/commit/fe2210d2912b074dc6003e27ce92b4966e7a977b))
+
 ## [0.21.0](https://github.com/IA-Generative/mille-feuille/compare/v0.20.0...v0.21.0) (2026-10-14)
 
 
