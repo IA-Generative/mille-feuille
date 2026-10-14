@@ -31,6 +31,13 @@ repos:
         files: ^frontend/
         pass_filenames: false
 
+      - id: ephemeral-frontend-typecheck
+        name: ephemeral-frontend - typecheck (vue-tsc)
+        entry: bash -c 'cd ephemeral-frontend && pnpm run typecheck'
+        language: system
+        files: ^ephemeral-frontend/
+        pass_filenames: false
+
       # Nécessite postgres/redis/rustfs locaux (voir backend/tests/.env.testing,
       # docker-compose.yaml) - contrairement au lint, ce hook suppose
       # l'environnement de dev déjà démarré (`docker compose up postgres

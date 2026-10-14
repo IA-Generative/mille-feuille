@@ -102,6 +102,16 @@ lint-frontend:
     - pnpm install --no-frozen-lockfile
     - pnpm run typecheck
 
+lint-ephemeral-frontend:
+  stage: lint
+  image: node:22-slim
+  before_script:
+    - corepack enable
+  script:
+    - cd ephemeral-frontend
+    - pnpm install --no-frozen-lockfile
+    - pnpm run typecheck
+
 # --- Tests : même commandes que .github/workflows/unit-tests.yml. ---
 
 unit-tests-backend:
@@ -253,6 +263,29 @@ docker-build-frontend:
       TAGS="$TAGS mille-feuille/frontend:$APP_VERSION"
       if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
         TAGS="$TAGS mille-feuille/frontend:latest"
+      fi
+      export IMAGE_NAMES="$TAGS"
+      echo "Building with tags: $IMAGE_NAMES"
+
+docker-build-ephemeral-frontend:
+  extends:
+    - .docker-build-common
+  variables:
+    DOCKERFILE: "ephemeral-frontend/Dockerfile"
+    WORKING_DIR: "ephemeral-frontend"
+  before_script:
+    - |
+      SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-7)
+      APP_VERSION=$(grep '^version' backend/pyproject.toml | head -1 | cut -d'"' -f2)
+      if [ -z "$APP_VERSION" ]; then
+        echo "Error: Could not extract version from backend/pyproject.toml"
+        exit 1
+      fi
+      TAGS="mille-feuille/ephemeral-frontend:$SHORT_SHA"
+      TAGS="$TAGS mille-feuille/ephemeral-frontend:$CI_COMMIT_REF_SLUG"
+      TAGS="$TAGS mille-feuille/ephemeral-frontend:$APP_VERSION"
+      if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        TAGS="$TAGS mille-feuille/ephemeral-frontend:latest"
       fi
       export IMAGE_NAMES="$TAGS"
       echo "Building with tags: $IMAGE_NAMES"

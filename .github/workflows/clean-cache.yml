@@ -79,6 +79,7 @@ jobs:
         pr: ${{ fromJSON(needs.list-closed-prs.outputs.prs) }}
         service:
           - frontend
+          - ephemeral-frontend
           - backend
           - worker-document-process
           - worker-agent-execution
@@ -99,6 +100,7 @@ jobs:
       matrix:
         service:
           - frontend
+          - ephemeral-frontend
           - backend
           - worker-document-process
           - worker-agent-execution
