@@ -67,9 +67,12 @@ les runs ; voir [le guide](../../../docs/ephemeral-classification-extraction.md)
 ```python
 classification = client.classify(
     "cni.pdf",
-    labels=[{"name": "CNI", "definition": "Carte nationale d'identité"}, {"name": "RIB", "definition": "Relevé d'identité bancaire"}],
-    multi_label=False,        # un seul label par page ; True : un ou plusieurs
-    cleanup=True,             # supprime le run une fois le résultat récupéré
+    labels=[
+        {"name": "CNI", "definition": "Carte nationale d'identité"},
+        {"name": "RIB", "definition": "Relevé d'identité bancaire"},
+    ],
+    multi_label=False,  # un seul label par page ; True : un ou plusieurs
+    cleanup=True,  # supprime le run une fois le résultat récupéré
 )
 for document in classification.documents:
     for page in document.pages:
@@ -92,7 +95,7 @@ entité) est requise, vérifié avant tout appel réseau.
 ## Lister ses runs
 
 ```python
-for run in client.runs.list():   # du plus récent au plus ancien, 100 au plus
+for run in client.runs.list():  # du plus récent au plus ancien, 100 au plus
     print(run.id, run.kind, run.status, run.documents, run.persist, run.expires_at)
 ```
 
