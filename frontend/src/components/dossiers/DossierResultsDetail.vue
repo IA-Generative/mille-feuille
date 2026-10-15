@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 
+import ExtractionResults from "@/components/dossiers/ExtractionResults.vue";
 import PageThumbnail from "@/components/dossiers/PageThumbnail.vue";
 import type { ChatWindowSource } from "@/components/ChatWindow.vue";
 import { type ResultKind, type ResultRow, useDossierResults } from "@/composables/useDossierResults";
@@ -37,15 +38,20 @@ function viewPage(row: ResultRow) {
   });
 }
 
+// Les entités ont leur propre vue (ExtractionResults) : seule la classification charge sa liste ici.
 onMounted(() => {
+  if (!isLabel.value) return;
   loadBreakdown();
   loadRows(props.kind, 1);
 });
-watch(pageIndex, (index) => loadRows(props.kind, index + 1));
+watch(pageIndex, (index) => {
+  if (isLabel.value) loadRows(props.kind, index + 1);
+});
 </script>
 
 <template>
-  <div class="results-detail">
+  <ExtractionResults v-if="!isLabel" :dossier-id="dossierId" />
+  <div v-else class="results-detail">
     <section v-if="breakdown.length" aria-label="Répartition par fichier">
       <h3 class="fr-text--md results-detail__title">Répartition par fichier</h3>
       <ul class="results-detail__files">

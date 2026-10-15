@@ -937,3 +937,45 @@ def test_page_text_boxes_unknown_page_is_404(client: TestClient) -> None:
         lambda: client.get(f"/api/internal/pages/{unknown}/text-boxes", headers=INTERNAL_HEADERS),
     ):
         assert call().status_code == 404
+
+
+def test_dossier_extractions_are_listed_page_by_page_with_their_own_boxes(client: TestClient) -> None:
+    analyse_id = _create_analyse(client, "Analyse extractions par page")
+    dossier = client.post("/api/dossiers", json={"name": "Dossier extractions", "analyse_id": analyse_id}).json()
+    dossier = client.post(
+        f"/api/dossiers/{dossier['id']}/documents",
+        files=[("files", ("cni.pdf", b"fake-bytes", "application/pdf"))],
+    ).json()
+    document_id = dossier["documents"][0]["id"]
+    page1 = _create_page(client, document_id, 1, "Nom : Dupont")
+    page2 = _create_page(client, document_id, 2, "Dupont encore")
+    bbox1 = _create_bbox(client, page1["id"], x_min=0.1, y_min=0.1, x_max=0.3, y_max=0.12)
+    bbox2 = _create_bbox(client, page2["id"], x_min=0.5, y_min=0.2, x_max=0.7, y_max=0.22)
+    client.post(
+        f"/api/internal/pages/{page1['id']}/predictions",
+        json={
+            "kind": "entity",
+            "name": "nom",
+            "value": "Dupont",
+            "page_ids": [page2["id"]],
+            "bounding_box_ids": [bbox1["id"], bbox2["id"]],
+        },
+        headers=INTERNAL_HEADERS,
+    )
+
+    documents = client.get(f"/api/dossiers/{dossier['id']}/extractions").json()
+
+    assert [d["id"] for d in documents] == [document_id]
+    pages = documents[0]["pages"]
+    assert [p["page_number"] for p in pages] == [1, 2]
+    assert [p["page_id"] for p in pages] == [page1["id"], page2["id"]]
+    # L'entité couvre les deux pages et chacune ne porte que sa propre zone.
+    assert [e["pages"] for p in pages for e in p["entities"]] == [[1, 2], [1, 2]]
+    assert [[(b["x_min"], b["x_max"]) for b in p["entities"][0]["boxes"]] for p in pages] == [
+        [(0.1, 0.3)],
+        [(0.5, 0.7)],
+    ]
+
+
+def test_dossier_extractions_of_an_unknown_dossier_is_404(client: TestClient) -> None:
+    assert client.get(f"/api/dossiers/{uuid.uuid4()}/extractions").status_code == 404

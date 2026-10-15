@@ -146,6 +146,16 @@ class EphemeralExtractedDocument(BaseModel):
     pages: list[EphemeralExtractedPage]
 
 
+class DossierExtractedDocument(BaseModel):
+    """Entités d'un document de dossier, page par page, avec leurs zones (GET /api/dossiers/{id}/extractions). Même
+    découpage que le résultat d'un run éphémère, plus l'id du document : l'image d'une page se lit avec
+    GET /api/dossiers/{id}/documents/{document_id}/pages/{page_id}/screenshot."""
+
+    id: uuid.UUID
+    name: str
+    pages: list[EphemeralExtractedPage]
+
+
 class EphemeralExtractionOut(BaseModel):
     run_id: uuid.UUID
     status: DossierStatus

@@ -19,6 +19,7 @@ const docsRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../../docs/fr
 const ANALYSE_ID = "an-subv";
 // Version courante de l'analyse simulée : v1 partout, sauf dans le scénario de relance (analyse mise à jour).
 let currentAnalyseVersion = "v1";
+const round = (x) => Math.round(x * 1000) / 1000;
 const iso = (days) => new Date(Date.now() + days * 86_400_000).toISOString();
 
 const profiles = {
@@ -162,6 +163,30 @@ const RESULT_ROWS = {
     ),
   ),
 };
+// Extractions par document puis par page (GET /api/dossiers/{id}/extractions) : les entités de RESULT_ROWS, rangées par
+// page, chacune avec son propre rectangle (décalé selon son rang sur la page pour qu'ils ne se superposent pas).
+const RESULT_EXTRACTIONS = RESULTS_FILES.map((f) => ({
+  id: f.id,
+  name: f.name,
+  pages: Array.from({ length: f.pages }, (_, i) => {
+    const number = i + 1;
+    const rows = RESULT_ROWS.entity.filter((r) => r.document_id === f.id && r.pages.some((p) => p.page_number === number));
+    return {
+      page_number: number,
+      page_id: `pg-${f.id}-${number}`,
+      has_screenshot: true,
+      entities: rows.slice(0, 5).map((r, k) => ({
+        prediction_id: r.id,
+        name: r.name,
+        value: r.value,
+        confidence: r.confidence,
+        source: k % 2 ? "gliner" : "textual",
+        pages: r.pages.map((p) => p.page_number),
+        boxes: [{ x_min: 0.08, y_min: round(0.2 + k * 0.11), x_max: round(0.08 + 0.12 + r.value.length * 0.025), y_max: round(0.2 + k * 0.11 + 0.045) }],
+      })),
+    };
+  }),
+}));
 const RESULTS_BREAKDOWN = RESULTS_FILES.map((f) => ({
   document_id: f.id,
   document_name: f.name,
@@ -607,6 +632,7 @@ function api(role) {
       }
       return json(withDue(target));
     }
+    if (path === "/api/dossiers/dos-20/extractions") return json(RESULT_EXTRACTIONS);
     if (path === "/api/dossiers/dos-20/results/breakdown") return json(RESULTS_BREAKDOWN);
     if (path === "/api/dossiers/dos-20/results") {
       const rows = RESULT_ROWS[url.searchParams.get("kind")] ?? [];
@@ -1076,13 +1102,14 @@ async function results(browser) {
   await closeModal(page);
 
   await page.getByRole("button", { name: /Entités/ }).click();
-  await page.getByText("Répartition par fichier").waitFor();
+  await page.getByPlaceholder("Rechercher une entité ou une valeur").waitFor();
+  await page.locator(".extraction-viewer__image").waitFor();
   await shotModal(page, dir, "03-detail-entites.png");
-  await page.locator(".fr-modal--opened .fr-pagination__link", { hasText: /^2$/ }).click();
-  await shotModal(page, dir, "04-detail-entites-page-2.png");
-  await page.getByRole("button", { name: "Voir la page" }).first().click();
-  await page.locator(".source-viewer__image").waitFor();
-  await shotTopModal(page, dir, "06-page-d-une-entite.png");
+  // Filtre par entité : les pages concernées sont proposées, on saute à l'une d'elles ; survol d'une entité.
+  await page.locator(".fr-modal--opened .extraction-search__chips").getByRole("button", { name: /^adresse/ }).click();
+  await page.locator(".fr-modal--opened .extraction-search__page", { hasText: /^2/ }).click();
+  await page.locator(".fr-modal--opened .extraction-entities__item").first().hover();
+  await shotModal(page, dir, "04-detail-entites-filtre.png");
   await page.context().close();
 }
 
