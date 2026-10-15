@@ -47,8 +47,9 @@ def entity_types(entity_definitions: list[dict]) -> dict[str, str]:
     return {e["name"]: (e.get("definition") or "").strip() or e["name"] for e in entity_definitions}
 
 
-def extract(text: str, entity_definitions: list[dict]) -> list[tuple[str, str, float]]:
-    """Entités trouvées dans `text` : (nom de la définition, valeur, confiance), au-dessus de GLINER_THRESHOLD.
+def extract(text: str, entity_definitions: list[dict]) -> list[tuple[str, str, float, int | None, int | None]]:
+    """Entités trouvées dans `text` : (nom de la définition, valeur, confiance, début, fin), au-dessus de
+    GLINER_THRESHOLD. Début et fin sont les offsets de la valeur dans `text` (None si GLiNER ne les donne pas).
     Les noms qui ne correspondent à aucune définition sont écartés."""
     types = entity_types(entity_definitions)
     if not text.strip() or not types:
@@ -64,7 +65,13 @@ def extract(text: str, entity_definitions: list[dict]) -> list[tuple[str, str, f
         if name not in types:
             continue
         for span in spans:
-            value = (span.get("text") or "").strip()
+            raw = span.get("text") or ""
+            value = raw.strip()
             if value:
-                found.append((name, value, float(span.get("confidence", 0.0))))
+                # Les offsets de GLiNER encadrent le texte brut : on les resserre sur la valeur sans ses espaces.
+                start, end = span.get("start"), span.get("end")
+                if start is not None and end is not None:
+                    start += len(raw) - len(raw.lstrip())
+                    end = start + len(value)
+                found.append((name, value, float(span.get("confidence", 0.0)), start, end))
     return found

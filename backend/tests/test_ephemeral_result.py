@@ -197,3 +197,37 @@ def test_purge_deletes_only_expired_results(client: TestClient) -> None:
     assert summary["purged_results"] >= 1
     assert client.get(f"/api/ephemeral/runs/{expired}").status_code == 404
     assert client.get(f"/api/ephemeral/runs/{fresh}").status_code == 200
+
+
+def _page_with_screenshot(client: TestClient, run_id: str, key: str, data: bytes) -> str:
+    s3_connector.upload(key, data, "image/png")
+    document_id = client.get(f"/api/ephemeral/runs/{run_id}").json()["documents"][0]["id"]
+    page = client.post(
+        f"/api/internal/documents/{document_id}/pages",
+        json={"page_number": 1, "content": "Nom : Dupont", "screenshot_key": key},
+        headers=INTERNAL_HEADERS,
+    ).json()
+    return page["id"]
+
+
+def test_page_screenshot_outlives_the_run_until_the_result_is_deleted(client: TestClient) -> None:
+    run_id = _run(client, _analyse(client))
+    key = f"screenshots/{uuid.uuid4()}/page-1.png"
+    page_id = _page_with_screenshot(client, run_id, key, b"png-bytes")
+
+    _complete_steps(client, run_id)
+
+    # Le dossier a disparu, pas la capture : elle se lit encore via la route du run.
+    assert client.portal.call(_dossier_exists, uuid.UUID(run_id)) is False
+    response = client.get(f"/api/ephemeral/runs/{run_id}/pages/{page_id}/screenshot")
+    assert response.status_code == 200
+    assert response.content == b"png-bytes"
+
+    # Une page inconnue n'a pas de capture.
+    assert client.get(f"/api/ephemeral/runs/{run_id}/pages/{uuid.uuid4()}/screenshot").status_code == 404
+
+    # Supprimer le run supprime aussi sa capture.
+    assert client.delete(f"/api/ephemeral/runs/{run_id}").status_code == 204
+    assert client.get(f"/api/ephemeral/runs/{run_id}/pages/{page_id}/screenshot").status_code == 404
+    with pytest.raises(ClientError):
+        s3_connector.download(key)

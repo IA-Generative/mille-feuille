@@ -8,6 +8,7 @@ dossier complet (captures, étapes, résumés...).
 from app.models.document_page import PredictionKind, PredictionSource
 from app.models.dossier import DossierStatus
 from app.schemas.ephemeral import (
+    EphemeralBox,
     EphemeralClassificationOut,
     EphemeralClassifiedDocument,
     EphemeralClassifiedPage,
@@ -73,6 +74,8 @@ def to_extraction_out(run: EphemeralRunOut) -> EphemeralExtractionOut:
                 pages=[
                     EphemeralExtractedPage(
                         page_number=page.page_number,
+                        page_id=page.id,
+                        has_screenshot=page.has_screenshot,
                         entities=[
                             EphemeralEntityResult(
                                 prediction_id=p.id,
@@ -81,6 +84,13 @@ def to_extraction_out(run: EphemeralRunOut) -> EphemeralExtractionOut:
                                 confidence=p.confidence,
                                 source=p.source,
                                 pages=sorted(pages_of[p.id]),
+                                # Une entité multi-pages porte les zones de toutes ses pages : on ne garde ici que
+                                # celles de cette page.
+                                boxes=[
+                                    EphemeralBox(x_min=b.x_min, y_min=b.y_min, x_max=b.x_max, y_max=b.y_max)
+                                    for b in p.bounding_boxes
+                                    if b.document_page_id == page.id
+                                ],
                             )
                             for p in sorted(page.predictions, key=lambda p: p.source != PredictionSource.TEXTUAL)
                             if p.kind == PredictionKind.ENTITY

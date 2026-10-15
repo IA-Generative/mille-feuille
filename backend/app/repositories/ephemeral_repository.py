@@ -1,3 +1,4 @@
+import asyncio
 import uuid
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
@@ -6,6 +7,7 @@ from typing import Any
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.connectors import s3_connector
 from app.models.analyse_ephemere import AnalyseEphemere
 from app.models.document_page import PredictionKind, PredictionSource
 from app.models.dossier import Dossier
@@ -133,28 +135,59 @@ class EphemeralRepository:
     # --- Résultats conservés après la fin d'un run (ephemeral_results) ---
 
     async def save_result(
-        self, *, run_id: uuid.UUID, created_by: str, payload: dict[str, Any], expires_at: datetime
+        self,
+        *,
+        run_id: uuid.UUID,
+        created_by: str,
+        payload: dict[str, Any],
+        expires_at: datetime,
+        screenshot_keys: dict[str, str] | None = None,
     ) -> EphemeralResult:
-        """Idempotent : réécrit l'instantané si une ligne existe déjà pour ce run."""
+        """Idempotent : réécrit l'instantané si une ligne existe déjà pour ce run. `screenshot_keys` (captures
+        conservées avec le résultat) n'est réécrit que s'il est fourni."""
         record = await self.db.get(EphemeralResult, run_id)
         if record is None:
-            record = EphemeralResult(run_id=run_id, created_by=created_by, payload=payload, expires_at=expires_at)
+            record = EphemeralResult(
+                run_id=run_id,
+                created_by=created_by,
+                payload=payload,
+                expires_at=expires_at,
+                screenshot_keys=screenshot_keys or {},
+            )
             self.db.add(record)
         else:
             record.payload = payload
             record.expires_at = expires_at
+            if screenshot_keys is not None:
+                record.screenshot_keys = screenshot_keys
         await self.db.commit()
         return record
 
     async def get_result(self, run_id: uuid.UUID) -> EphemeralResult | None:
         return await self.db.get(EphemeralResult, run_id)
 
+    async def _delete_screenshots(self, results: Sequence[EphemeralResult]) -> None:
+        """Supprime de S3 les captures conservées avec ces résultats (S3Connector.delete avale les erreurs : on
+        préfère un fichier orphelin à une ligne qui pointe vers des images déjà supprimées)."""
+        for result in results:
+            for key in result.screenshot_keys.values():
+                await asyncio.to_thread(s3_connector.delete, key)
+
     async def delete_result(self, run_id: uuid.UUID) -> None:
+        record = await self.get_result(run_id)
+        if record is not None:
+            await self._delete_screenshots([record])
         await self.db.execute(delete(EphemeralResult).where(EphemeralResult.run_id == run_id))
         await self.db.commit()
 
     async def delete_expired_results(self) -> int:
-        """Supprime les résultats dont le TTL est écoulé ; renvoie leur nombre."""
+        """Supprime les résultats dont le TTL est écoulé, avec leurs captures ; renvoie leur nombre."""
+        expired = (
+            (await self.db.execute(select(EphemeralResult).where(EphemeralResult.expires_at < datetime.now(UTC))))
+            .scalars()
+            .all()
+        )
+        await self._delete_screenshots(expired)
         result = await self.db.execute(delete(EphemeralResult).where(EphemeralResult.expires_at < datetime.now(UTC)))
         await self.db.commit()
         return result.rowcount or 0

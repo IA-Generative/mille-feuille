@@ -33,3 +33,10 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
+
+/** Lit une image servie par le backend (protégée par le cookie de session, donc pas un simple `<img src>`). */
+export async function apiFetchBlob(path: string): Promise<Blob> {
+  const response = await fetch(`${API_BASE_URL}${path}`, { credentials: "include" });
+  if (!response.ok) throw new ApiError(response.status, response.statusText);
+  return response.blob();
+}

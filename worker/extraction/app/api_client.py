@@ -136,3 +136,20 @@ def complete_unit(client: httpx.Client, unit_id: str | None, status: str) -> Non
         client.post(f"/analysis-units/{unit_id}/complete", json={"status": status}).raise_for_status()
     except Exception:
         logger.warning("Could not complete unit %s", unit_id, exc_info=True)
+
+
+def get_text_boxes(client: httpx.Client, page_id: str) -> list[dict]:
+    """Texte positionné de la page (lignes et mots avec bbox et intervalle de caractères)."""
+    response = client.get(f"/pages/{page_id}/text-boxes")
+    response.raise_for_status()
+    return response.json()
+
+
+def add_bounding_box(
+    client: httpx.Client, page_id: str, *, x_min: float, y_min: float, x_max: float, y_max: float
+) -> dict:
+    response = client.post(
+        f"/pages/{page_id}/bounding-boxes", json={"x_min": x_min, "y_min": y_min, "x_max": x_max, "y_max": y_max}
+    )
+    response.raise_for_status()
+    return response.json()

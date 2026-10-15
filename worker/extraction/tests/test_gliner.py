@@ -24,8 +24,8 @@ def gliner_calls(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
     def extract(text, entity_definitions):
         calls.append({"text": text, "names": [e["name"] for e in entity_definitions]})
         if "Dupont" in text:
-            return [("nom", "Dupont", 0.9)]
-        return [("nom", "DUPONT", 0.97)] if "Adresse" in text else []
+            return [("nom", "Dupont", 0.9, 32, 38)]
+        return [("nom", "DUPONT", 0.97, None, None)] if "Adresse" in text else []
 
     monkeypatch.setattr(extraction_mod.gliner, "extract", extract)
     return calls
@@ -155,7 +155,14 @@ def test_extract_returns_name_value_and_confidence_and_drops_unknown_names(monke
         }
     )
     monkeypatch.setattr(gliner, "_load", lambda: model)
-    assert gliner.extract("Dupont", DEFS) == [("nom", "Dupont", 0.9)]
+    assert gliner.extract("Dupont", DEFS) == [("nom", "Dupont", 0.9, None, None)]
+
+
+def test_extract_returns_the_span_trimmed_to_the_value(monkeypatch) -> None:
+    # GLiNER encadre le texte brut « " Dupont " » (offsets 4 à 12) : le span doit couvrir « Dupont » seul.
+    model = _FakeModel({"nom": [{"text": " Dupont ", "confidence": 0.9, "start": 4, "end": 12}]})
+    monkeypatch.setattr(gliner, "_load", lambda: model)
+    assert gliner.extract("Nom  Dupont  ", DEFS) == [("nom", "Dupont", 0.9, 5, 11)]
 
 
 def test_extract_without_text_or_definitions_never_loads_the_model(monkeypatch) -> None:
@@ -197,3 +204,62 @@ def test_gliner_and_llm_fingerprints_never_collide() -> None:
     assert fingerprint.gliner_extraction_fingerprint(PAGES, DEFS) != fingerprint.extraction_fingerprint(
         PAGES, DEFS, "p"
     )
+
+
+def test_gliner_entity_gets_the_bounding_boxes_of_its_span(monkeypatch, gliner_calls) -> None:
+    backend = _UnitBackend()
+    backend.text_boxes["page-1"] = [
+        {
+            "text": "Nom: Dupont",
+            "x_min": 0.1,
+            "y_min": 0.1,
+            "x_max": 0.5,
+            "y_max": 0.12,
+            "char_start": 27,
+            "char_end": 38,
+            "words": [
+                {
+                    "text": "Nom:",
+                    "x_min": 0.1,
+                    "y_min": 0.1,
+                    "x_max": 0.2,
+                    "y_max": 0.12,
+                    "char_start": 27,
+                    "char_end": 31,
+                },
+                {
+                    "text": "Dupont",
+                    "x_min": 0.3,
+                    "y_min": 0.1,
+                    "x_max": 0.5,
+                    "y_max": 0.12,
+                    "char_start": 32,
+                    "char_end": 38,
+                },
+            ],
+        }
+    ]
+    backend.install(monkeypatch)
+    _stub_extraction(monkeypatch)
+
+    extract_dossier_entities.run("dossier-1")
+
+    # Le span GLiNER (32-38) ne recouvre que le mot « Dupont » : un seul rectangle serré, rattaché à la page 1.
+    gliner_prediction = next(p for p in backend.predictions if p["source"] == "gliner")
+    assert len(gliner_prediction["bounding_box_ids"]) == 1
+    created = backend.bounding_boxes[int(gliner_prediction["bounding_box_ids"][0].removeprefix("bbox-")) - 1]
+    assert created == {"page_id": "page-1", "x_min": 0.3, "y_min": 0.1, "x_max": 0.5, "y_max": 0.12}
+    # L'entité du LLM (même valeur, trouvée dans le texte de la page) est localisée de la même façon.
+    llm_prediction = next(p for p in backend.predictions if p["source"] == "textual" and p["name"] == "nom")
+    assert len(llm_prediction["bounding_box_ids"]) == 1
+
+
+def test_a_page_without_text_boxes_still_deposits_the_entity_without_boxes(monkeypatch, gliner_calls) -> None:
+    backend = _UnitBackend()
+    backend.install(monkeypatch)
+    _stub_extraction(monkeypatch)
+
+    extract_dossier_entities.run("dossier-1")
+
+    assert backend.bounding_boxes == []
+    assert all(p["bounding_box_ids"] == [] for p in backend.predictions)

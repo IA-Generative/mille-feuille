@@ -65,16 +65,27 @@ async def finalize_run(db: AsyncSession, dossier_id: uuid.UUID) -> bool:
     created_by = record.created_by
     expires_at = record.expires_at
     payload = to_run_schema(dossier, record).model_dump(mode="json")
+    # Captures de pages conservées avec le résultat (jusqu'à expires_at) : de quoi afficher les zones des entités.
+    screenshot_keys = {
+        str(page.id): page.screenshot_key
+        for document in dossier.documents
+        for page in document.pages
+        if page.screenshot_key
+    }
     # Sauvegardé AVANT toute suppression : si la suite échoue, le résultat n'est pas perdu.
     await ephemeral_repository.save_result(
-        run_id=dossier_id, created_by=created_by, payload=payload, expires_at=expires_at
+        run_id=dossier_id,
+        created_by=created_by,
+        payload=payload,
+        expires_at=expires_at,
+        screenshot_keys=screenshot_keys,
     )
     # Le condensé non sensible survit à la purge du résultat (métriques et verdicts, voir EphemeralRunMetrics).
     await ephemeral_repository.save_run_metrics(
         run_id=dossier_id, created_by=created_by, digest=build_digest(to_run_schema(dossier, record))
     )
     # La ligne dossier_ephemere part avec le dossier (ondelete=CASCADE).
-    await dossier_repository.delete_dossier(dossier)
+    await dossier_repository.delete_dossier(dossier, keep_screenshots=True)
 
     if analyse_ephemere_id is not None and await _delete_analyse_if_unused(db, analyse_ephemere_id):
         payload["analyse_id"] = None  # l'analyse n'existe plus : évite un identifiant orphelin

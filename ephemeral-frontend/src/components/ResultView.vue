@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
-import type { ClassificationOut, ExtractionOut, RunOut } from "@/types";
+import ExtractionExplorer from "@/components/ExtractionExplorer.vue";
+import type { ClassificationOut, ExtractedPage, ExtractionOut, RunOut } from "@/types";
 
 const props = defineProps<{ result: RunOut; mode: "classification" | "extraction" }>();
 
@@ -15,34 +16,21 @@ const extraction = computed(() => (props.mode === "extraction" ? (props.result a
 <template>
   <div v-for="doc in result.documents" :key="doc.name" class="fr-mb-3w">
     <h3 class="fr-h6">{{ doc.name }}</h3>
-    <ul class="pages">
+    <ExtractionExplorer v-if="extraction" :run-id="result.run_id" :pages="(doc.pages as ExtractedPage[])" />
+    <ul v-else class="pages">
       <li v-for="page in doc.pages" :key="page.page_number" class="page">
         <span class="num">Page {{ page.page_number }}</span>
         <div class="tags">
-          <template v-if="classification">
-            <p
-              v-for="(label, i) in (page as ClassificationOut['documents'][0]['pages'][0]).labels"
-              :key="i"
-              class="fr-tag"
-              :title="`Source : ${SOURCES[label.source]}`"
-            >
-              {{ label.name }} <small class="conf">{{ percent(label.confidence) }}</small>
-              <small class="src">{{ SOURCES[label.source] }}</small>
-            </p>
-            <span v-if="!(page as ClassificationOut['documents'][0]['pages'][0]).labels.length" class="fr-text--sm muted">—</span>
-          </template>
-          <template v-else-if="extraction">
-            <div
-              v-for="(entity, i) in (page as ExtractionOut['documents'][0]['pages'][0]).entities"
-              :key="i"
-              class="entity"
-            >
-              <span class="fr-text--sm muted">{{ entity.name }}</span>
-              <strong>{{ entity.value }}</strong>
-              <small class="conf">{{ percent(entity.confidence) }} · {{ SOURCES[entity.source] }}</small>
-            </div>
-            <span v-if="!(page as ExtractionOut['documents'][0]['pages'][0]).entities.length" class="fr-text--sm muted">—</span>
-          </template>
+          <p
+            v-for="(label, i) in (page as ClassificationOut['documents'][0]['pages'][0]).labels"
+            :key="i"
+            class="fr-tag"
+            :title="`Source : ${SOURCES[label.source]}`"
+          >
+            {{ label.name }} <small class="conf">{{ percent(label.confidence) }}</small>
+            <small class="src">{{ SOURCES[label.source] }}</small>
+          </p>
+          <span v-if="!(page as ClassificationOut['documents'][0]['pages'][0]).labels.length" class="fr-text--sm muted">—</span>
         </div>
       </li>
     </ul>
@@ -66,17 +54,12 @@ const extraction = computed(() => (props.mode === "extraction" ? (props.result a
   font-weight: 600;
 }
 .tags {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
   align-items: flex-start;
-}
-.entity {
-  display: flex;
-  flex-direction: column;
-  padding: 0.25rem 0.75rem;
-  border-radius: 0.5rem;
-  background: var(--background-alt-grey);
 }
 .conf,
 .src {

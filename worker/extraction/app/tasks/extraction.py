@@ -25,6 +25,7 @@ from app.celery_app import celery_app
 from app.config import settings
 from app.extraction_planner import group_definitions, new_entities, normalize_value, plan_lots, text_budget
 from app.fingerprint import extraction_fingerprint, gliner_extraction_fingerprint
+from app.locate import find_spans, rects_for_span
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,26 @@ def _collect_pages(dossier: dict) -> tuple[list[dict], dict[int, str]]:
     return all_pages, page_id_by_number
 
 
+def _bounding_box_ids(
+    client, page_id: str, spans: list[tuple[int, int]], text_boxes_by_page: dict[str, list[dict]]
+) -> list[str]:
+    """Crée les bbox des spans sur la page et renvoie leurs ids. Un complément de la prédiction : une page sans texte
+    positionné (extraite avant cette fonctionnalité) ou une erreur ne fait jamais échouer l'extraction."""
+    if not spans:
+        return []
+    try:
+        if page_id not in text_boxes_by_page:
+            text_boxes_by_page[page_id] = api_client.get_text_boxes(client, page_id)
+        ids = []
+        for span_start, span_end in spans:
+            for rect in rects_for_span(text_boxes_by_page[page_id], span_start, span_end):
+                ids.append(api_client.add_bounding_box(client, page_id, **rect)["id"])
+        return ids
+    except Exception:
+        logger.warning("Could not locate an entity on page %s", page_id, exc_info=True)
+        return []
+
+
 def _deposit_entity(
     client,
     entity_value,
@@ -65,6 +86,8 @@ def _deposit_entity(
     page_id_by_number: dict,
     batch_page_numbers: set,
     unit_id: str | None = None,
+    content_by_number: dict[int, str] | None = None,
+    text_boxes_by_page: dict[str, list[dict]] | None = None,
 ) -> bool:
     """Dépose une entité extraite comme prédiction. Renvoie True si le dépôt
     a réussi, False si l'entité n'est pas dans les définitions."""
@@ -80,6 +103,14 @@ def _deposit_entity(
     first_page_id = page_id_by_number[entity_page_numbers[0]]
     all_page_ids = [page_id_by_number[pn] for pn in entity_page_numbers]
 
+    # Le LLM ne donne pas d'offsets : on retrouve la valeur dans le texte de chaque page où il la place.
+    bounding_box_ids = []
+    for page_number in entity_page_numbers:
+        spans = find_spans((content_by_number or {}).get(page_number, ""), entity_value.value)
+        bounding_box_ids += _bounding_box_ids(
+            client, page_id_by_number[page_number], spans, text_boxes_by_page if text_boxes_by_page is not None else {}
+        )
+
     api_client.add_prediction(
         client,
         first_page_id,
@@ -89,6 +120,7 @@ def _deposit_entity(
         confidence=entity_value.confidence,
         entity_definition_id=entity_def["id"],
         page_ids=all_page_ids,
+        bounding_box_ids=bounding_box_ids,
         unit_id=unit_id,
     )
     logger.info(
@@ -129,6 +161,8 @@ def _process_batch(
     if seen is not None:
         entities = new_entities(entities, seen)
 
+    content_by_number = {p["page_number"]: p["content"] for p in batch}
+    text_boxes_by_page: dict[str, list[dict]] = {}
     count = 0
     for entity_value in entities:
         if _deposit_entity(
@@ -138,6 +172,8 @@ def _process_batch(
             page_id_by_number,
             batch_page_numbers,
             unit_id,
+            content_by_number,
+            text_boxes_by_page,
         ):
             count += 1
     return count
@@ -267,16 +303,20 @@ def _extract_by_document(
 def _gliner_entities(pages: list[dict], entity_defs: list[dict]) -> dict[tuple[str, str], dict]:
     """Passe chaque page dans GLiNER et fusionne les doublons du document : une même valeur trouvée sur plusieurs
     pages est une seule entité, qui couvre ces pages (comme une entité multi-pages du LLM). Clé : (définition, valeur
-    normalisée) ; valeur : valeur lue, meilleure confiance et numéros de page."""
+    normalisée) ; valeur : valeur lue, meilleure confiance, numéros de page et, par numéro de page, les spans
+    (début, fin) de la valeur dans le texte de la page."""
     merged: dict[tuple[str, str], dict] = {}
     for page in pages:
-        for name, value, confidence in gliner.extract(page["content"], entity_defs):
+        for name, value, confidence, start, end in gliner.extract(page["content"], entity_defs):
             entity = merged.setdefault(
-                (name, normalize_value(value)), {"name": name, "value": value, "confidence": confidence, "pages": []}
+                (name, normalize_value(value)),
+                {"name": name, "value": value, "confidence": confidence, "pages": [], "spans": {}},
             )
             entity["confidence"] = max(entity["confidence"], confidence)
             if page["page_number"] not in entity["pages"]:
                 entity["pages"].append(page["page_number"])
+            if start is not None and end is not None:
+                entity["spans"].setdefault(page["page_number"], []).append((start, end))
     return merged
 
 
@@ -286,9 +326,13 @@ def _process_gliner_document(
     """Extrait les entités d'un document avec GLiNER et les dépose (source=gliner), chacune sur la première page où
     elle apparaît et en référençant toutes ses pages. Renvoie le nombre d'entités déposées."""
     by_name = {entity["name"]: entity for entity in entity_defs}
+    text_boxes_by_page: dict[str, list[dict]] = {}
     count = 0
     for entity in _gliner_entities(pages, entity_defs).values():
         numbers = sorted(entity["pages"])
+        bounding_box_ids = []
+        for page_number, spans in entity["spans"].items():
+            bounding_box_ids += _bounding_box_ids(client, page_id_by_number[page_number], spans, text_boxes_by_page)
         api_client.add_prediction(
             client,
             page_id_by_number[numbers[0]],
@@ -299,6 +343,7 @@ def _process_gliner_document(
             source="gliner",
             entity_definition_id=by_name[entity["name"]]["id"],
             page_ids=[page_id_by_number[n] for n in numbers],
+            bounding_box_ids=bounding_box_ids,
             unit_id=unit_id,
         )
         logger.info(
