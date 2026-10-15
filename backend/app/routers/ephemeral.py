@@ -9,10 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.celery_client import (
-    dispatch_agent_execution,
-    dispatch_classification,
-    dispatch_entity_extraction,
-    dispatch_text_extraction,
+    dispatch_dossier_pipeline,
 )
 from app.connectors import s3_connector
 from app.core.security.ephemeral import EphemeralIdentity, get_ephemeral_identity
@@ -248,8 +245,7 @@ async def _create_run(
         await run_in_threadpool(s3_connector.upload, s3_key, data, mimetype)
         documents.append({"name": name or "document", "size": len(data), "s3_key": s3_key, "mimetype": mimetype})
     created = await dossier_repository.add_documents(dossier, documents)
-    for document in created:
-        dispatch_text_extraction(str(document.id))
+    document_ids = [str(document.id) for document in created]
     # add_documents() finit par un refresh(dossier) qui périme execution_steps
     # (accédée par launch() juste après) - même raison que le commentaire
     # équivalent dans dossiers.py:add_documents, un re-fetch recharge tout
@@ -257,9 +253,7 @@ async def _create_run(
     dossier = await dossier_repository.get(dossier.id)
 
     await dossier_repository.launch(dossier, analyse)
-    dispatch_classification(str(dossier.id))
-    dispatch_entity_extraction(str(dossier.id))
-    dispatch_agent_execution(str(dossier.id))
+    dispatch_dossier_pipeline(document_ids, str(dossier.id))
 
     ephemeral_repository = EphemeralRepository(db)
     analyse_ephemere = await ephemeral_repository.get_analyse_ephemere(analyse.id)

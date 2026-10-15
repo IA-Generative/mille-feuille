@@ -9,12 +9,7 @@ def _no_real_celery_dispatch_for_ephemeral_runs(monkeypatch: pytest.MonkeyPatch)
     """Même raison que le fixture équivalent pour /api/dossiers dans
     conftest.py : app/routers/ephemeral.py importe les dispatch_* dans son
     propre namespace, le monkeypatch de dossiers.py ne les couvre pas."""
-    for name in (
-        "dispatch_text_extraction",
-        "dispatch_classification",
-        "dispatch_entity_extraction",
-        "dispatch_agent_execution",
-    ):
+    for name in ("dispatch_dossier_pipeline",):
         monkeypatch.setattr(f"app.routers.ephemeral.{name}", lambda *args, **kwargs: None)
 
 

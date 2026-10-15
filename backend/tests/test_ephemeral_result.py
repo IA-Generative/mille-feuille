@@ -21,12 +21,7 @@ INTERNAL_HEADERS = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 
 @pytest.fixture(autouse=True)
 def _no_real_celery_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in (
-        "dispatch_text_extraction",
-        "dispatch_classification",
-        "dispatch_entity_extraction",
-        "dispatch_agent_execution",
-    ):
+    for name in ("dispatch_dossier_pipeline",):
         monkeypatch.setattr(f"app.routers.ephemeral.{name}", lambda *args, **kwargs: None)
 
 
