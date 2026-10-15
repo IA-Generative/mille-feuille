@@ -1,11 +1,17 @@
 <script setup lang="ts">
-defineProps<{
-  names: { name: string; count: number }[];
-  selected: string[];
-  filtering: boolean;
-  matchingPages: { index: number; pageNumber: number; count: number }[];
-  currentIndex: number;
-}>();
+withDefaults(
+  defineProps<{
+    names: { name: string; count: number }[];
+    selected: string[];
+    filtering: boolean;
+    matchingPages: { index: number; pageNumber: number; count: number }[];
+    currentIndex: number;
+    /** Ce que l'on cherche : « une entité ou une valeur », « une classification »… */
+    placeholder?: string;
+    filterLabel?: string;
+  }>(),
+  { placeholder: "Rechercher une entité ou une valeur", filterLabel: "Filtrer par entité" },
+);
 const query = defineModel<string>("query", { required: true });
 const emit = defineEmits<{ toggle: [name: string]; goto: [index: number]; reset: [] }>();
 </script>
@@ -13,11 +19,11 @@ const emit = defineEmits<{ toggle: [name: string]; goto: [index: number]; reset:
 <template>
   <div class="search">
     <div class="fr-search-bar" role="search">
-      <label class="fr-label" for="entity-search">Rechercher une entité ou une valeur</label>
-      <input id="entity-search" v-model="query" class="fr-input" type="search" placeholder="Rechercher une entité ou une valeur" />
+      <label class="fr-label" for="entity-search">{{ placeholder }}</label>
+      <input id="entity-search" v-model="query" class="fr-input" type="search" :placeholder="placeholder" />
     </div>
 
-    <div class="chips" role="group" aria-label="Filtrer par entité">
+    <div class="chips" role="group" :aria-label="filterLabel">
       <button
         v-for="entity in names"
         :key="entity.name"

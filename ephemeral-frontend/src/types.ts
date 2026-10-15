@@ -11,9 +11,16 @@ export interface EntityDef extends LabelDef {
 }
 
 export interface LabelResult {
+  prediction_id?: string;
   name: string;
   confidence: number | null;
   source: "textual" | "visual";
+}
+export interface ClassifiedPage {
+  page_number: number;
+  page_id: string;
+  has_screenshot: boolean;
+  labels: LabelResult[];
 }
 /** Rectangle sur la page, coordonnées normalisées (0 à 1, origine en haut à gauche). */
 export interface Box {
@@ -43,7 +50,7 @@ export interface ClassificationOut {
   status: RunStatus;
   error: string | null;
   expires_at: string | null;
-  documents: { name: string; pages: { page_number: number; labels: LabelResult[] }[] }[];
+  documents: { name: string; pages: ClassifiedPage[] }[];
 }
 export interface ExtractionOut {
   run_id: string;

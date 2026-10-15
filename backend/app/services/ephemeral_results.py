@@ -40,6 +40,8 @@ def to_classification_out(run: EphemeralRunOut) -> EphemeralClassificationOut:
                 pages=[
                     EphemeralClassifiedPage(
                         page_number=page.page_number,
+                        page_id=page.id,
+                        has_screenshot=page.has_screenshot,
                         labels=[
                             EphemeralLabelResult(
                                 prediction_id=p.id, name=p.name, confidence=p.confidence, source=p.source

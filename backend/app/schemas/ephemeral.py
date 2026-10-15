@@ -84,6 +84,11 @@ class EphemeralLabelResult(BaseModel):
 
 class EphemeralClassifiedPage(BaseModel):
     page_number: int
+    page_id: uuid.UUID = Field(
+        description="À utiliser dans GET /api/ephemeral/runs/{run_id}/pages/{page_id}/screenshot pour lire l'image de "
+        "la page."
+    )
+    has_screenshot: bool
     labels: list[EphemeralLabelResult] = Field(
         description="Un seul label en mono-label ; un ou plusieurs en multi-label ; vide si la page n'a pas (encore) "
         "été classée."
