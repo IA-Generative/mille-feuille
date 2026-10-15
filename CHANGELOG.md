@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.26.0](https://github.com/IA-Generative/mille-feuille/compare/v0.25.0...v0.26.0) (2026-10-15)
+
+
+### Features
+
+* **ephemeral:** classer et extraire en une fois, avec des aides pour remplir le formulaire ([f1492b8](https://github.com/IA-Generative/mille-feuille/commit/f1492b8b717b8fc3483b7c605852240334fd19b2))
+
+
+### Bug Fixes
+
+* **ephemeral:** ouvrir une extraction en grand avec sa zone et pouvoir copier le texte ([1f9ba8d](https://github.com/IA-Generative/mille-feuille/commit/1f9ba8d8ef2a0458649ef5d892996c48c4ca8e15))
+
 ## [0.25.0](https://github.com/IA-Generative/mille-feuille/compare/v0.24.1...v0.25.0) (2026-10-15)
 
 
