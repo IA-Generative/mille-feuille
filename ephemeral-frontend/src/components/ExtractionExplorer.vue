@@ -5,13 +5,17 @@ import EntityList from "@/components/EntityList.vue";
 import EntitySearch from "@/components/EntitySearch.vue";
 import PageNavigator from "@/components/PageNavigator.vue";
 import PageViewer from "@/components/PageViewer.vue";
-import { useExtractionExplorer } from "@/composables/useExtractionExplorer";
+import { usePageExplorer } from "@/composables/usePageExplorer";
 import { usePageScreenshots } from "@/composables/usePageScreenshots";
 import type { ExtractedPage } from "@/types";
 
 const props = defineProps<{ runId: string; pages: ExtractedPage[] }>();
 
-const explorer = useExtractionExplorer(toRef(props, "pages"));
+const explorer = usePageExplorer(
+  toRef(props, "pages"),
+  (page) => page.entities,
+  (entity) => entity.value,
+);
 const screenshots = usePageScreenshots(() => props.runId);
 const active = ref<number | null>(null);
 
@@ -24,11 +28,11 @@ watchEffect(() => {
 watchEffect(() => {
   // Changer de page ou de filtre réinitialise la mise en avant : l'indice ne désigne plus la même entité.
   void explorer.pageIndex.value;
-  void explorer.currentEntities.value;
+  void explorer.currentItems.value;
   active.value = null;
 });
 
-const groups = computed(() => explorer.currentEntities.value.map((entity, i) => ({ label: String(i + 1), boxes: entity.boxes })));
+const groups = computed(() => explorer.currentItems.value.map((entity, i) => ({ label: String(i + 1), boxes: entity.boxes })));
 const url = computed(() => (explorer.current.value ? screenshots.urls[explorer.current.value.page_id] : undefined));
 const status = computed(() => (explorer.current.value ? screenshots.state[explorer.current.value.page_id] : undefined));
 </script>
@@ -70,7 +74,7 @@ const status = computed(() => (explorer.current.value ? screenshots.state[explor
       </section>
       <section class="entities-column" aria-label="Entités extraites de la page">
         <EntityList
-          :entities="explorer.currentEntities.value"
+          :entities="explorer.currentItems.value"
           :active="active"
           :filtering="explorer.filtering.value"
           @activate="active = $event"
