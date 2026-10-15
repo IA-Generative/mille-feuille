@@ -11,7 +11,7 @@ chaque étape, pour que le frontend puisse le suivre.
 import hashlib
 import logging
 
-from liteparse.types import AnnotationRect
+from liteparse.types import AnnotationRect, ParsedPage, TextItem, WordBox
 
 from app import api_client
 from app.celery_app import celery_app
@@ -21,7 +21,9 @@ from app.storage import storage
 logger = logging.getLogger(__name__)
 
 
-def _normalize(bbox: AnnotationRect, page_width: float, page_height: float) -> tuple[float, float, float, float] | None:
+def _normalize(
+    bbox: AnnotationRect | TextItem | WordBox, page_width: float, page_height: float
+) -> tuple[float, float, float, float] | None:
     """Pixels -> 0-1 (origine en haut à gauche), et bornée à la page : liteparse
     peut renvoyer une bbox qui déborde légèrement (ex: interligne)."""
     if not page_width or not page_height:
@@ -31,6 +33,62 @@ def _normalize(bbox: AnnotationRect, page_width: float, page_height: float) -> t
     x_max = max(0.0, min(1.0, (bbox.x + bbox.width) / page_width))
     y_max = max(0.0, min(1.0, (bbox.y + bbox.height) / page_height))
     return x_min, y_min, x_max, y_max
+
+
+def _box(item, page: ParsedPage) -> dict | None:
+    """Coordonnées normalisées (0-1) d'une ligne ou d'un mot, au format de l'API ; None si la page n'a pas de taille."""
+    normalized = _normalize(item, page.width, page.height)
+    if normalized is None:
+        return None
+    x_min, y_min, x_max, y_max = normalized
+    return {"x_min": x_min, "y_min": y_min, "x_max": x_max, "y_max": y_max}
+
+
+def _locate(text: str, haystack: str, cursor: int) -> tuple[int | None, int]:
+    """Position de `text` dans `haystack` à partir de `cursor` : (début ou None, nouveau curseur). Le curseur ne recule
+    jamais, pour que deux occurrences identiques (« 12 » deux fois) soient chacune attribuée à la bonne."""
+    start = haystack.find(text, cursor)
+    if start == -1:
+        return None, cursor
+    return start, start + len(text)
+
+
+def build_text_boxes(page: ParsedPage) -> list[dict]:
+    """Texte positionné de la page : une entrée par ligne (`text_items`), avec ses mots. Les intervalles de caractères
+    sont relatifs à `page.text` ; ils valent None quand le fragment n'y est pas retrouvé (OCR)."""
+    boxes = []
+    cursor = 0
+    for item in page.text_items:
+        box = _box(item, page)
+        if not item.text or box is None:
+            continue
+        start, cursor = _locate(item.text, page.text, cursor)
+        words = []
+        word_cursor = 0
+        for word in item.words:
+            word_box = _box(word, page)
+            if not word.text or word_box is None:
+                continue
+            word_start, word_cursor = _locate(word.text, item.text, word_cursor)
+            absolute = start + word_start if start is not None and word_start is not None else None
+            words.append(
+                {
+                    "text": word.text,
+                    **word_box,
+                    "char_start": absolute,
+                    "char_end": absolute + len(word.text) if absolute is not None else None,
+                }
+            )
+        boxes.append(
+            {
+                "text": item.text,
+                **box,
+                "char_start": start,
+                "char_end": start + len(item.text) if start is not None else None,
+                "words": words,
+            }
+        )
+    return boxes
 
 
 @celery_app.task(name="app.tasks.extract_document_text", bind=True)
@@ -75,7 +133,11 @@ def extract_document_text(self, document_id: str) -> None:
                     )
                     bbox_count += 1
 
-                logger.info("Page %d: %d bbox(es)", page.page_num, bbox_count)
+                text_boxes = build_text_boxes(page)
+                if text_boxes:
+                    api_client.replace_text_boxes(client, created_page["id"], text_boxes)
+
+                logger.info("Page %d: %d bbox(es), %d ligne(s) de texte", page.page_num, bbox_count, len(text_boxes))
 
             logger.info("Extracted %d page(s) for document %s", len(result.pages), document_id)
         except Exception as error:

@@ -28,6 +28,37 @@ class BoundingBoxIn(BaseModel):
     y_max: float
 
 
+class WordBox(BaseModel):
+    """Un mot avec sa position (coordonnées normalisées) et son intervalle `[char_start, char_end)` dans le contenu de
+    la page ; l'intervalle est absent quand le mot n'a pas été retrouvé dans le contenu."""
+
+    text: str
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
+    char_start: int | None = None
+    char_end: int | None = None
+
+
+class PageTextBoxIn(BaseModel):
+    text: str
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
+    char_start: int | None = None
+    char_end: int | None = None
+    words: list[WordBox] = []
+
+
+class PageTextBoxOut(PageTextBoxIn):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    position: int
+
+
 class BoundingBoxOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

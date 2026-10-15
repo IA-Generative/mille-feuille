@@ -4,7 +4,7 @@ from collections.abc import Collection, Sequence
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func, insert, select
+from sqlalchemy import delete, func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -24,6 +24,7 @@ from app.models.document_page import (
     BoundingBox,
     DocumentPage,
     DocumentPrediction,
+    PageTextBox,
     PredictionKind,
     PredictionSource,
     PredictionValidationStatus,
@@ -896,6 +897,20 @@ class DossierRepository:
         await self.db.commit()
         await self.db.refresh(bbox)
         return bbox
+
+    async def replace_text_boxes(self, page: DocumentPage, boxes: list[dict]) -> list[PageTextBox]:
+        """Remplace le texte positionné de la page (idempotent : une extraction relancée ne duplique pas)."""
+        await self.db.execute(delete(PageTextBox).where(PageTextBox.document_page_id == page.id))
+        rows = [PageTextBox(document_page_id=page.id, position=index, **box) for index, box in enumerate(boxes)]
+        self.db.add_all(rows)
+        await self.db.commit()
+        return rows
+
+    async def list_text_boxes(self, page_id: uuid.UUID) -> list[PageTextBox]:
+        result = await self.db.execute(
+            select(PageTextBox).where(PageTextBox.document_page_id == page_id).order_by(PageTextBox.position)
+        )
+        return list(result.scalars())
 
     async def add_prediction(
         self,

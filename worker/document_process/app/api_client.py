@@ -59,3 +59,9 @@ def add_bounding_box(
     )
     response.raise_for_status()
     return response.json()
+
+
+def replace_text_boxes(client: httpx.Client, page_id: str, boxes: list[dict]) -> None:
+    """Pose le texte positionné de la page (lignes et mots avec bbox et intervalle de caractères)."""
+    response = client.put(f"/pages/{page_id}/text-boxes", json=boxes)
+    response.raise_for_status()

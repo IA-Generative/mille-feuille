@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Column, Enum, Float, ForeignKey, Integer, String, Table, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -106,6 +107,10 @@ class DocumentPage(UUIDMixin, TimestampMixin, Base):
     bounding_boxes: Mapped[list["BoundingBox"]] = relationship(
         back_populates="page", cascade="all, delete-orphan", order_by="BoundingBox.created_at"
     )
+    # Texte de la page avec sa position (voir PageTextBox) : jamais chargé avec la page, lu via sa propre route.
+    text_boxes: Mapped[list["PageTextBox"]] = relationship(
+        back_populates="page", cascade="all, delete-orphan", passive_deletes=True, order_by="PageTextBox.position"
+    )
 
 
 class BoundingBox(UUIDMixin, TimestampMixin, Base):
@@ -125,6 +130,34 @@ class BoundingBox(UUIDMixin, TimestampMixin, Base):
     y_max: Mapped[float] = mapped_column(Float, nullable=False)
 
     page: Mapped["DocumentPage"] = relationship(back_populates="bounding_boxes")
+
+
+class PageTextBox(UUIDMixin, TimestampMixin, Base):
+    """Un fragment de texte (une ligne, ou un mot isolé en OCR) de la page, avec sa position : coordonnées
+    normalisées comme BoundingBox, et intervalle `[char_start, char_end)` dans `DocumentPage.content` (NULL quand le
+    fragment n'a pas pu être retrouvé dans le contenu, typiquement en OCR). `words` détaille les mots du fragment avec
+    les mêmes champs : une valeur extraite (span de caractères) se localise donc au mot près. Table séparée de
+    `bounding_boxes` : il y en a des centaines par page et elles ne doivent pas se retrouver dans les réponses qui
+    listent les zones de la page."""
+
+    __tablename__ = "page_text_boxes"
+
+    document_page_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("document_pages.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # Ordre de lecture dans la page.
+    position: Mapped[int] = mapped_column(Integer, nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    x_min: Mapped[float] = mapped_column(Float, nullable=False)
+    y_min: Mapped[float] = mapped_column(Float, nullable=False)
+    x_max: Mapped[float] = mapped_column(Float, nullable=False)
+    y_max: Mapped[float] = mapped_column(Float, nullable=False)
+    char_start: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    char_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # [{"text", "x_min", "y_min", "x_max", "y_max", "char_start", "char_end"}, ...]
+    words: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
+
+    page: Mapped["DocumentPage"] = relationship(back_populates="text_boxes")
 
 
 class DocumentPrediction(UUIDMixin, TimestampMixin, Base):

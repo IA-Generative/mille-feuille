@@ -1,10 +1,10 @@
 import json
 
 import httpx
-from liteparse.types import AnnotationRect, LayoutBlock, ParsedPage, ParseResult, ScreenshotResult
+from liteparse.types import AnnotationRect, LayoutBlock, ParsedPage, ParseResult, ScreenshotResult, TextItem, WordBox
 
 from app import api_client
-from app.tasks import extract_document_text
+from app.tasks import build_text_boxes, extract_document_text
 
 
 def test_extract_document_text_writes_pages_bboxes_screenshots_and_status(monkeypatch) -> None:
@@ -117,3 +117,93 @@ def test_extract_document_text_reports_failure_status(monkeypatch) -> None:
 
     assert raised
     assert status_bodies == [{"status": "en_cours", "error": None}, {"status": "échec", "error": "PDF corrompu"}]
+
+
+def _page_with_lines() -> ParsedPage:
+    return ParsedPage(
+        page_num=1,
+        width=1000,
+        height=1000,
+        text="Nom : Dupont\n12 rue 12",
+        text_items=[
+            TextItem(
+                text="Nom : Dupont",
+                x=100,
+                y=100,
+                width=300,
+                height=20,
+                words=[
+                    WordBox(text="Nom", x=100, y=100, width=60, height=20),
+                    WordBox(text="Dupont", x=250, y=100, width=150, height=20),
+                ],
+            ),
+            TextItem(
+                text="12 rue 12",
+                x=100,
+                y=200,
+                width=200,
+                height=20,
+                words=[
+                    WordBox(text="12", x=100, y=200, width=30, height=20),
+                    WordBox(text="12", x=250, y=200, width=30, height=20),
+                ],
+            ),
+            TextItem(text="absent du contenu", x=0, y=0, width=10, height=10),
+            TextItem(text="", x=0, y=0, width=10, height=10),
+        ],
+    )
+
+
+def test_build_text_boxes_locates_lines_and_words_in_the_page_content() -> None:
+    boxes = build_text_boxes(_page_with_lines())
+
+    assert [box["text"] for box in boxes] == ["Nom : Dupont", "12 rue 12", "absent du contenu"]
+    first, second, missing = boxes
+    assert (first["char_start"], first["char_end"]) == (0, 12)
+    assert (first["x_min"], first["y_min"], first["x_max"], first["y_max"]) == (0.1, 0.1, 0.4, 0.12)
+    assert [(w["text"], w["char_start"], w["char_end"]) for w in first["words"]] == [("Nom", 0, 3), ("Dupont", 6, 12)]
+    # La ligne suivante commence après le saut de ligne ; le second « 12 » n'est pas confondu avec le premier.
+    assert (second["char_start"], second["char_end"]) == (13, 22)
+    assert [(w["char_start"], w["char_end"]) for w in second["words"]] == [(13, 15), (20, 22)]
+    # Un fragment introuvable (OCR) garde sa bbox mais pas d'intervalle.
+    assert (missing["char_start"], missing["char_end"]) == (None, None)
+
+
+def test_build_text_boxes_skips_pages_without_size() -> None:
+    page = _page_with_lines()
+    page.width = 0
+    assert build_text_boxes(page) == []
+
+
+def test_extract_document_text_sends_text_boxes_of_each_page(monkeypatch) -> None:
+    text_box_bodies: list[tuple[str, list]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        path = request.url.path
+        if path.endswith("/extraction-status") or path.endswith("/file-hash"):
+            return httpx.Response(200, json={"id": "doc-1", **json.loads(request.content)})
+        if path.endswith("/documents/doc-1"):
+            return httpx.Response(200, json={"id": "doc-1", "name": "cni.pdf", "s3_key": "k"})
+        if path.endswith("/pages"):
+            return httpx.Response(201, json={"id": "page-1"})
+        if path.endswith("/text-boxes"):
+            text_box_bodies.append((path, json.loads(request.content)))
+            return httpx.Response(200, json=[])
+        return httpx.Response(404)
+
+    monkeypatch.setattr(
+        api_client,
+        "get_client",
+        lambda: httpx.Client(base_url="http://backend/api/internal", transport=httpx.MockTransport(handler)),
+    )
+    monkeypatch.setattr("app.tasks.storage.get_object", lambda key: b"pdf")
+    page = _page_with_lines()
+    monkeypatch.setattr(
+        "app.tasks.parse_file", lambda data: ParseResult(pages=[page], text=page.text, total_pages=1, screenshots=[])
+    )
+    monkeypatch.setattr("app.tasks.celery_app.send_task", lambda *args, **kwargs: None)
+
+    extract_document_text.run("doc-1")
+
+    assert [path for path, _ in text_box_bodies] == ["/api/internal/pages/page-1/text-boxes"]
+    assert [box["text"] for box in text_box_bodies[0][1]] == ["Nom : Dupont", "12 rue 12", "absent du contenu"]

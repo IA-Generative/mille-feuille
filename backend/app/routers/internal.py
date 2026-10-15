@@ -57,6 +57,8 @@ from app.schemas.dossier import (
     InternalLabelDefinitionOut,
     InternalMessageIn,
     MessageOut,
+    PageTextBoxIn,
+    PageTextBoxOut,
     SuggestionDepositIn,
     SuggestionStatusIn,
     SummaryDepositIn,
@@ -308,6 +310,29 @@ async def add_bounding_box(
     if page is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page introuvable")
     return await repository.add_bounding_box(page, **body.model_dump())
+
+
+@router.put("/pages/{page_id}/text-boxes", response_model=list[PageTextBoxOut])
+async def replace_page_text_boxes(
+    page_id: uuid.UUID,
+    body: list[PageTextBoxIn],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Remplace le texte positionné de la page (lignes et mots avec bbox et intervalle de caractères) : posé par
+    document_process, lu par l'extraction pour localiser une valeur. Idempotent."""
+    repository = DossierRepository(db)
+    page = await repository.get_page_by_id(page_id)
+    if page is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page introuvable")
+    return await repository.replace_text_boxes(page, [box.model_dump() for box in body])
+
+
+@router.get("/pages/{page_id}/text-boxes", response_model=list[PageTextBoxOut])
+async def list_page_text_boxes(page_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
+    repository = DossierRepository(db)
+    if await repository.get_page_by_id(page_id) is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Page introuvable")
+    return await repository.list_text_boxes(page_id)
 
 
 @router.post(
