@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from "vue";
 
 import DefinitionList from "@/components/DefinitionList.vue";
+import HelpTitle from "@/components/HelpTitle.vue";
 import FileDropzone from "@/components/FileDropzone.vue";
 import AppFooter from "@/components/AppFooter.vue";
 import ApiDocs from "@/components/ApiDocs.vue";
@@ -22,14 +23,37 @@ const file = ref<File | null>(null);
 const labels = ref<LabelDef[]>([{ name: "", definition: "" }]);
 const entities = ref<EntityDef[]>([{ name: "", definition: "", type: "texte" }]);
 const multiLabel = ref(false);
-const prompt = ref("");
+const classificationPrompt = ref("");
+const extractionPrompt = ref("");
 const ttlHours = ref(24);
 const persist = ref(false);
 const showOptions = ref(false);
 const view = ref<"new" | "tasks" | "docs" | "changelog">("new");
 
-const definitionsReady = computed(() =>
-  (mode.value === "classification" ? labels.value : entities.value).some((row) => row.name.trim()),
+const MODES: { value: Mode; label: string; description: string }[] = [
+  {
+    value: "classification",
+    label: "Classification",
+    description: "Range chaque page du document dans une catégorie que vous définissez (ex. carte d'identité, justificatif de domicile).",
+  },
+  {
+    value: "extraction",
+    label: "Extraction",
+    description: "Récupère des valeurs précises (nom, date, montant…) et les situe sur la page.",
+  },
+  {
+    value: "both",
+    label: "Les deux",
+    description: "Fait les deux en une seule fois : le document n'est envoyé et traité qu'une fois, et vous obtenez deux résultats.",
+  },
+];
+const wantsClassification = computed(() => mode.value !== "extraction");
+const wantsExtraction = computed(() => mode.value !== "classification");
+
+const definitionsReady = computed(
+  () =>
+    (!wantsClassification.value || labels.value.some((row) => row.name.trim())) &&
+    (!wantsExtraction.value || entities.value.some((row) => row.name.trim())),
 );
 const canSubmit = computed(() => !!file.value && definitionsReady.value && !run.submitting.value);
 const running = computed(() => !!run.runId.value && !!run.result.value && !TERMINAL.includes(run.result.value.status));
@@ -42,7 +66,8 @@ const submit = () => {
     file: file.value,
     ttlHours: ttlHours.value,
     persist: persist.value,
-    prompt: prompt.value,
+    classificationPrompt: classificationPrompt.value,
+    extractionPrompt: extractionPrompt.value,
     multiLabel: multiLabel.value,
     labels: clean(labels.value),
     entities: clean(entities.value),
@@ -110,43 +135,97 @@ onMounted(fetchProfile);
       <TaskList v-if="view === 'tasks'" @open="openTask" />
 
       <section v-else-if="!run.runId.value">
-        <div class="fr-segmented fr-mb-3w">
+        <div class="fr-segmented fr-mb-1w">
           <div class="fr-segmented__elements">
-            <div v-for="m in ['classification', 'extraction'] as Mode[]" :key="m" class="fr-segmented__element">
-              <input :id="`mode-${m}`" v-model="mode" type="radio" name="mode" :value="m" />
-              <label class="fr-label" :for="`mode-${m}`">{{ m === "classification" ? "Classification" : "Extraction" }}</label>
+            <div v-for="m in MODES" :key="m.value" class="fr-segmented__element">
+              <input :id="`mode-${m.value}`" v-model="mode" type="radio" name="mode" :value="m.value" />
+              <label class="fr-label" :for="`mode-${m.value}`">{{ m.label }}</label>
             </div>
           </div>
         </div>
+        <p class="fr-hint-text fr-mb-3w" aria-live="polite">{{ MODES.find((m) => m.value === mode)?.description }}</p>
 
         <FileDropzone v-model="file" />
 
-        <h2 class="fr-h5 fr-mt-4w">{{ mode === "classification" ? "Catégories" : "Informations à extraire" }}</h2>
-        <DefinitionList
-          v-if="mode === 'classification'"
-          v-model="labels"
-          add-label="Ajouter une catégorie"
-          name-placeholder="Nom (ex. CNI)"
-        />
-        <DefinitionList
-          v-else
-          v-model="entities"
-          with-type
-          add-label="Ajouter une information"
-          name-placeholder="Nom (ex. date de naissance)"
-        />
+        <template v-if="wantsClassification">
+          <HelpTitle title="Catégories" help-label="À quoi servent les catégories ?">
+            <p>
+              Une catégorie est un <strong>type de page ou de pièce</strong> que vous voulez reconnaître. Chaque page du document est
+              rangée dans la catégorie qui lui correspond le mieux.
+            </p>
+            <ul>
+              <li><strong>Nom</strong> : court, tel que vous voulez le retrouver dans le résultat (ex. « Carte d'identité »).</li>
+              <li>
+                <strong>Définition</strong> : une phrase qui dit à quoi on reconnaît cette catégorie (ex. « Carte nationale d'identité
+                française, recto ou verso »). Plus elle est précise, plus le résultat est fiable.
+              </li>
+              <li><strong>Résultat</strong> : pour chaque page, la catégorie, un indice de confiance et la méthode utilisée (texte de la page ou apparence).</li>
+            </ul>
+            <p class="fr-mt-1w">Astuce : ajoutez une catégorie « Autre » pour les pages qui n'entrent dans aucune des vôtres.</p>
+          </HelpTitle>
+          <DefinitionList
+            v-model="labels"
+            add-label="Ajouter une catégorie"
+            name-placeholder="Nom (ex. Carte d'identité)"
+            definition-placeholder="Comment la reconnaître ? (ex. Carte nationale d'identité française)"
+          />
+        </template>
+
+        <template v-if="wantsExtraction">
+          <HelpTitle title="Informations à extraire" help-label="À quoi servent les informations à extraire ?">
+            <p>
+              Une information est une <strong>valeur précise</strong> que vous cherchez dans le document : un nom, une date, un
+              montant… Chaque valeur trouvée est située sur la page.
+            </p>
+            <ul>
+              <li><strong>Nom</strong> : ce que vous cherchez (ex. « date de naissance »).</li>
+              <li>
+                <strong>Définition</strong> : une phrase qui précise la valeur attendue, avec son format si utile (ex. « Date de
+                naissance du titulaire, au format jj/mm/aaaa »).
+              </li>
+              <li>
+                <strong>Type</strong> : aide à lire la valeur. <em>Texte</em> (un nom, une adresse), <em>date</em>,
+                <em>nombre</em> (un montant), <em>booléen</em> (oui ou non), <em>identifiant</em> (un numéro, une référence).
+              </li>
+              <li>
+                <strong>Résultat</strong> : la valeur, un indice de confiance et la zone de la page où elle se trouve ; cliquez dessus
+                pour la voir de près et la copier.
+              </li>
+            </ul>
+          </HelpTitle>
+          <DefinitionList
+            v-model="entities"
+            with-type
+            add-label="Ajouter une information"
+            name-placeholder="Nom (ex. date de naissance)"
+            definition-placeholder="Que chercher ? (ex. Date de naissance du titulaire, au format jj/mm/aaaa)"
+          />
+        </template>
 
         <button type="button" class="fr-btn fr-btn--tertiary-no-outline fr-btn--sm fr-mt-3w" @click="showOptions = !showOptions">
           {{ showOptions ? "Masquer" : "Afficher" }} les options
         </button>
         <div v-if="showOptions" class="fr-mt-2w options">
-          <div v-if="mode === 'classification'" class="fr-checkbox-group">
+          <div v-if="wantsClassification" class="fr-checkbox-group">
             <input id="multi" v-model="multiLabel" type="checkbox" />
-            <label class="fr-label" for="multi">Plusieurs catégories possibles par page</label>
+            <label class="fr-label" for="multi">
+              Plusieurs catégories possibles par page
+              <span class="fr-hint-text">À cocher si une même page peut relever de plusieurs catégories à la fois.</span>
+            </label>
           </div>
-          <div class="fr-input-group">
-            <label class="fr-label" for="prompt">Consigne complémentaire (facultatif)</label>
-            <textarea id="prompt" v-model="prompt" class="fr-input" rows="2"></textarea>
+          <div v-if="wantsClassification" class="fr-input-group">
+            <label class="fr-label" for="classification-prompt">
+              {{ wantsExtraction ? "Consigne pour la classification" : "Consigne complémentaire" }} (facultatif)
+              <span class="fr-hint-text">Un contexte propre à votre cas, ex. « Ce sont les pièces d'un dossier de titre de séjour ».</span>
+            </label>
+            <textarea id="classification-prompt" v-model="classificationPrompt" class="fr-input" rows="2"></textarea>
+          </div>
+          <div v-if="wantsExtraction" class="fr-input-group">
+            <label class="fr-label" for="extraction-prompt">
+              {{ wantsClassification ? "Consigne pour l'extraction" : "Consigne complémentaire" }} (facultatif)
+              <span class="fr-hint-text">Une précision qui vaut pour toutes les informations, ex. « Les dates sont au format jj/mm/aaaa ».</span>
+            </label>
+            <textarea id="extraction-prompt" v-model="extractionPrompt" class="fr-input" rows="2"></textarea>
           </div>
           <div class="fr-checkbox-group fr-mb-2w">
             <input id="persist" v-model="persist" type="checkbox" />
@@ -163,7 +242,7 @@ onMounted(fetchProfile);
 
         <p v-if="run.error.value" class="fr-error-text fr-mt-2w">{{ run.error.value }}</p>
         <button class="fr-btn fr-btn--lg fr-mt-4w" :disabled="!canSubmit" @click="submit">
-          {{ run.submitting.value ? "Envoi…" : mode === "classification" ? "Classer le document" : "Extraire les informations" }}
+          {{ run.submitting.value ? "Envoi…" : mode === "classification" ? "Classer le document" : mode === "extraction" ? "Extraire les informations" : "Classer et extraire" }}
         </button>
       </section>
 
@@ -182,7 +261,12 @@ onMounted(fetchProfile);
         <p v-if="running || !run.result.value" class="fr-text--sm" aria-live="polite">Traitement en cours…</p>
         <p v-if="run.error.value" class="fr-error-text">{{ run.error.value }}</p>
         <p v-if="run.result.value?.error" class="fr-error-text">{{ run.result.value.error }}</p>
-        <ResultView v-if="run.result.value" :result="run.result.value" :mode="run.mode.value" />
+        <ResultView
+          v-if="run.result.value"
+          :mode="run.mode.value"
+          :classification="run.classification.value"
+          :extraction="run.extraction.value"
+        />
         <p v-if="run.result.value?.expires_at" class="fr-text--xs">
           Résultat supprimé le {{ new Date(run.result.value.expires_at).toLocaleString("fr-FR") }}.
         </p>

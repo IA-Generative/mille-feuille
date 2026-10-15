@@ -11,7 +11,12 @@ const loading = ref(true);
 const error = ref("");
 let timer: ReturnType<typeof setTimeout> | null = null;
 
-const KIND: Record<string, string> = { classification: "Classification", extraction: "Extraction", analyse: "Analyse" };
+const KIND: Record<string, string> = {
+  classification: "Classification",
+  extraction: "Extraction",
+  both: "Classification et extraction",
+  analyse: "Analyse",
+};
 const BADGE: Record<string, string> = {
   "terminé": "fr-badge--success",
   "échec": "fr-badge--error",

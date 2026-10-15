@@ -15,6 +15,12 @@ const extraction = `curl -X POST "${base}/api/ephemeral/extractions?ttl_hours=24
   -F file=@facture.pdf \\
   -F 'entities=[{"name":"montant","definition":"Montant TTC","type":"nombre"},{"name":"date","definition":"Date de la facture","type":"date"}]'`;
 
+const both = `curl -X POST "${base}/api/ephemeral/classification-and-extraction?ttl_hours=24" \\
+  -H "X-App-Token: $KEY" \\
+  -F file=@dossier.pdf \\
+  -F 'labels=[{"name":"CNI","definition":"Carte nationale d identité"}]' \\
+  -F 'entities=[{"name":"nom","definition":"Nom du titulaire","type":"texte"}]'`;
+
 const read = `curl "${base}/api/ephemeral/classifications/$RUN_ID" -H "X-App-Token: $KEY"
 curl "${base}/api/ephemeral/extractions/$RUN_ID" -H "X-App-Token: $KEY"`;
 
@@ -58,14 +64,21 @@ const token = `curl -X POST "${base}/api/app-tokens" \\
     </p>
     <pre>{{ extraction }}</pre>
 
-    <h3 class="fr-h6">4. Lire le résultat</h3>
+    <h3 class="fr-h6">4. Classer et extraire en une fois</h3>
+    <p>
+      Même fichier, <code>labels</code> et <code>entities</code> dans un seul envoi : le document n'est traité qu'une
+      fois, et le <code>run_id</code> se lit avec les deux routes de l'étape suivante.
+    </p>
+    <pre>{{ both }}</pre>
+
+    <h3 class="fr-h6">5. Lire le résultat</h3>
     <p>
       La réponse de création contient <code>run_id</code>. Interrogez-la jusqu'à ce que <code>status</code> soit
       <code>terminé</code> (ou <code>échec</code> / <code>arrêté</code>).
     </p>
     <pre>{{ read }}</pre>
 
-    <h3 class="fr-h6">5. Gérer ses traitements</h3>
+    <h3 class="fr-h6">6. Gérer ses traitements</h3>
     <pre>{{ manage }}</pre>
 
     <h3 class="fr-h6">Conservation</h3>

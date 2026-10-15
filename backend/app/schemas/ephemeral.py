@@ -173,8 +173,9 @@ class EphemeralRunSummary(BaseModel):
     """Une ligne de la liste des runs de l'appelant : de quoi les retrouver, pas leur contenu."""
 
     id: uuid.UUID
-    kind: Literal["classification", "extraction", "analyse"] = Field(
-        description="`classification` / `extraction` : run à une seule étape (flux C) ; `analyse` : pipeline complet."
+    kind: Literal["classification", "extraction", "both", "analyse"] = Field(
+        description="`classification` / `extraction` : run à une seule étape (flux C) ; `both` : classification et "
+        "extraction en un seul run ; `analyse` : pipeline complet."
     )
     status: DossierStatus
     documents: list[str] = Field(description="Noms des documents du run.")
