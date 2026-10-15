@@ -183,6 +183,7 @@ function scrollCarousel(direction: 1 | -1) {
       @close="isDetailOpened = false"
       :title="selectedCard.title"
       :icon="selectedCard.icon"
+      :size="selectedCard.kind === 'extraction' ? 'lg' : undefined"
     >
       <DossierResultsDetail
         v-if="selectedCard.kind === 'classification' || selectedCard.kind === 'extraction'"

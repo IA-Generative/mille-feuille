@@ -80,8 +80,10 @@ from app.schemas.dossier import (
     PredictionValidationOut,
     WorkflowStatusUpdate,
 )
+from app.schemas.ephemeral import DossierExtractedDocument
 from app.schemas.pagination import Page
 from app.services.custom_fields import normalize_value, validate_value
+from app.services.ephemeral_results import to_extracted_pages
 from app.services.prediction_validation import AnalysisFrozenError
 
 router = APIRouter(
@@ -781,6 +783,21 @@ async def get_results_breakdown(
     repository = DossierRepository(db)
     await _get_or_404(repository, dossier_id, user)
     return await repository.results_breakdown(dossier_id)
+
+
+@router.get("/{dossier_id}/extractions", response_model=list[DossierExtractedDocument])
+async def get_dossier_extractions(
+    dossier_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> list[DossierExtractedDocument]:
+    """Les entités extraites de chaque document, page par page, avec leurs zones : de quoi afficher la page et ses
+    rectangles à côté de la liste (modale des résultats d'extraction)."""
+    dossier = await _get_or_404(DossierRepository(db), dossier_id, user)
+    return [
+        DossierExtractedDocument(id=document.id, name=document.name, pages=to_extracted_pages(document))
+        for document in dossier.documents
+    ]
 
 
 @router.get("/{dossier_id}/results", response_model=Page[DossierResultRowOut])

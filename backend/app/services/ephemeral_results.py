@@ -59,49 +59,54 @@ def to_classification_out(run: EphemeralRunOut) -> EphemeralClassificationOut:
     )
 
 
-def to_extraction_out(run: EphemeralRunOut) -> EphemeralExtractionOut:
-    documents = []
-    for document in run.documents:
-        # Une entité peut s'étendre sur plusieurs pages : la prédiction apparaît sur chacune d'elles, on
-        # regroupe ses pages (pour `pages`) à partir de l'id de prédiction.
-        pages_of: dict = {}
-        for page in document.pages:
-            for prediction in page.predictions:
-                pages_of.setdefault(prediction.id, []).append(page.page_number)
-        documents.append(
-            EphemeralExtractedDocument(
-                name=document.name,
-                pages=[
-                    EphemeralExtractedPage(
-                        page_number=page.page_number,
-                        page_id=page.id,
-                        has_screenshot=page.has_screenshot,
-                        entities=[
-                            EphemeralEntityResult(
-                                prediction_id=p.id,
-                                name=p.name,
-                                value=p.value,
-                                confidence=p.confidence,
-                                source=p.source,
-                                pages=sorted(pages_of[p.id]),
-                                # Une entité multi-pages porte les zones de toutes ses pages : on ne garde ici que
-                                # celles de cette page.
-                                boxes=[
-                                    EphemeralBox(x_min=b.x_min, y_min=b.y_min, x_max=b.x_max, y_max=b.y_max)
-                                    for b in p.bounding_boxes
-                                    if b.document_page_id == page.id
-                                ],
-                            )
-                            for p in sorted(page.predictions, key=lambda p: p.source != PredictionSource.TEXTUAL)
-                            if p.kind == PredictionKind.ENTITY
-                        ],
-                    )
-                    for page in sorted(document.pages, key=lambda p: p.page_number)
-                ],
-            )
+def to_extracted_pages(document) -> list[EphemeralExtractedPage]:
+    """Pages d'un document avec, pour chacune, ses entités et leurs zones. Partagé par le résultat d'un run éphémère et
+    par les extractions d'un dossier (GET /api/dossiers/{id}/extractions) : `document` est un document de dossier."""
+    # Une entité peut s'étendre sur plusieurs pages : la prédiction apparaît sur chacune d'elles, on
+    # regroupe ses pages (pour `pages`) à partir de l'id de prédiction.
+    pages_of: dict = {}
+    for page in document.pages:
+        for prediction in page.predictions:
+            pages_of.setdefault(prediction.id, []).append(page.page_number)
+    return [
+        EphemeralExtractedPage(
+            page_number=page.page_number,
+            page_id=page.id,
+            has_screenshot=page.has_screenshot,
+            entities=[
+                EphemeralEntityResult(
+                    prediction_id=p.id,
+                    name=p.name,
+                    value=p.value,
+                    confidence=p.confidence,
+                    source=p.source,
+                    pages=sorted(pages_of[p.id]),
+                    # Une entité multi-pages porte les zones de toutes ses pages : on ne garde ici que celles de cette
+                    # page.
+                    boxes=[
+                        EphemeralBox(x_min=b.x_min, y_min=b.y_min, x_max=b.x_max, y_max=b.y_max)
+                        for b in p.bounding_boxes
+                        if b.document_page_id == page.id
+                    ],
+                )
+                for p in sorted(page.predictions, key=lambda p: p.source != PredictionSource.TEXTUAL)
+                if p.kind == PredictionKind.ENTITY
+            ],
         )
+        for page in sorted(document.pages, key=lambda p: p.page_number)
+    ]
+
+
+def to_extraction_out(run: EphemeralRunOut) -> EphemeralExtractionOut:
     return EphemeralExtractionOut(
-        run_id=run.id, status=run.status, error=_error(run), expires_at=run.expires_at, documents=documents
+        run_id=run.id,
+        status=run.status,
+        error=_error(run),
+        expires_at=run.expires_at,
+        documents=[
+            EphemeralExtractedDocument(name=document.name, pages=to_extracted_pages(document))
+            for document in run.documents
+        ],
     )
 
 
