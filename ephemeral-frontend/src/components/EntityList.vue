@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import CopyButton from "@/components/CopyButton.vue";
 import type { EntityResult } from "@/types";
 
 defineProps<{ entities: EntityResult[]; active: number | null; filtering: boolean }>();
-const emit = defineEmits<{ activate: [index: number | null] }>();
+const emit = defineEmits<{ activate: [index: number | null]; open: [index: number] }>();
 
 const SOURCES: Record<string, string> = { textual: "Texte", visual: "Visuel", gliner: "GLiNER" };
 const percent = (c: number | null) => (c == null ? "" : `${Math.round(c * 100)} %`);
@@ -15,21 +16,23 @@ const percent = (c: number | null) => (c == null ? "" : `${Math.round(c * 100)} 
       :key="entity.prediction_id ?? i"
       class="entity"
       :class="{ active: active === i }"
-      tabindex="0"
       @mouseenter="emit('activate', i)"
       @mouseleave="emit('activate', null)"
-      @focus="emit('activate', i)"
-      @blur="emit('activate', null)"
+      @focusin="emit('activate', i)"
+      @focusout="emit('activate', null)"
     >
-      <span class="number" aria-hidden="true">{{ i + 1 }}</span>
-      <div class="body">
-        <span class="fr-text--sm muted">{{ entity.name }}</span>
-        <strong>{{ entity.value }}</strong>
-        <small class="muted">
-          {{ percent(entity.confidence) }} · {{ SOURCES[entity.source] }}
-          <template v-if="!entity.boxes.length"> · non localisée</template>
-        </small>
-      </div>
+      <button type="button" class="open" :aria-label="`Voir ${entity.name} : ${entity.value}`" @click="emit('open', i)">
+        <span class="number" aria-hidden="true">{{ i + 1 }}</span>
+        <span class="body">
+          <span class="fr-text--sm muted">{{ entity.name }}</span>
+          <strong>{{ entity.value }}</strong>
+          <small class="muted">
+            {{ percent(entity.confidence) }} · {{ SOURCES[entity.source] }}
+            <template v-if="!entity.boxes.length"> · non localisée</template>
+          </small>
+        </span>
+      </button>
+      <CopyButton :text="entity.value" />
     </li>
     <li v-if="!entities.length" class="empty fr-text--sm muted">
       {{ filtering ? "Aucune entité de cette page ne correspond." : "Aucune entité sur cette page." }}
@@ -48,16 +51,29 @@ const percent = (c: number | null) => (c == null ? "" : `${Math.round(c * 100)} 
 }
 .entity {
   display: flex;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: flex-start;
-  padding: 0.6rem 0.9rem;
+  padding: 0.6rem 0.5rem 0.6rem 0.9rem;
   border-radius: 0.75rem;
   background: var(--background-alt-grey);
   outline-offset: 2px;
 }
 .entity.active,
-.entity:focus-visible {
+.entity:focus-within {
   outline: 2px solid var(--border-action-high-blue-france);
+}
+.open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .number {
   flex: 0 0 auto;
