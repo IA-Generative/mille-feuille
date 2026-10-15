@@ -83,7 +83,13 @@ def test_unknown_result_is_404(client: TestClient) -> None:
 
 
 def _prediction(kind: str, name: str, value: str, confidence: float, source: str = "textual") -> SimpleNamespace:
-    return SimpleNamespace(id=uuid.uuid4(), kind=kind, name=name, value=value, confidence=confidence, source=source)
+    return SimpleNamespace(
+        id=uuid.uuid4(), kind=kind, name=name, value=value, confidence=confidence, source=source, bounding_boxes=[]
+    )
+
+
+def _page(**fields) -> SimpleNamespace:
+    return SimpleNamespace(id=uuid.uuid4(), has_screenshot=False, **fields)
 
 
 def _run(pages: list[SimpleNamespace], status: DossierStatus = DossierStatus.TERMINE) -> SimpleNamespace:
@@ -98,14 +104,14 @@ def _run(pages: list[SimpleNamespace], status: DossierStatus = DossierStatus.TER
 
 def test_classification_view_lists_labels_per_page_sorted_by_confidence() -> None:
     pages = [
-        SimpleNamespace(
+        _page(
             page_number=2, predictions=[_prediction("label", "RIB", "RIB", 0.9), _prediction("entity", "x", "y", 1.0)]
         ),
-        SimpleNamespace(
+        _page(
             page_number=1,
             predictions=[_prediction("label", "CNI", "CNI", 0.6), _prediction("label", "RIB", "RIB", 0.8)],
         ),
-        SimpleNamespace(page_number=3, predictions=[]),
+        _page(page_number=3, predictions=[]),
     ]
     out = to_classification_out(_run(pages))
     assert [p.page_number for p in out.documents[0].pages] == [1, 2, 3]
@@ -119,7 +125,7 @@ def test_classification_view_lists_labels_per_page_sorted_by_confidence() -> Non
 
 def test_classification_view_exposes_the_source_with_textual_labels_first() -> None:
     pages = [
-        SimpleNamespace(
+        _page(
             page_number=1,
             predictions=[
                 _prediction("label", "RIB", "RIB", 0.99, source="visual"),
@@ -139,8 +145,8 @@ def test_classification_view_exposes_the_source_with_textual_labels_first() -> N
 def test_extraction_view_lists_entities_per_page_with_all_their_pages() -> None:
     name = _prediction("entity", "nom", "Dupont", 0.9)
     pages = [
-        SimpleNamespace(page_number=1, predictions=[name, _prediction("label", "CNI", "CNI", 0.9)]),
-        SimpleNamespace(page_number=2, predictions=[name]),
+        _page(page_number=1, predictions=[name, _prediction("label", "CNI", "CNI", 0.9)]),
+        _page(page_number=2, predictions=[name]),
     ]
     out = to_extraction_out(_run(pages))
     first, second = out.documents[0].pages
@@ -151,7 +157,7 @@ def test_extraction_view_lists_entities_per_page_with_all_their_pages() -> None:
 def test_extraction_view_exposes_the_source_with_textual_entities_first() -> None:
     gliner = _prediction("entity", "nom", "Dupont", 0.95, source="gliner")
     llm = _prediction("entity", "nom", "Dupont", 0.8)
-    pages = [SimpleNamespace(page_number=1, predictions=[gliner, llm])]
+    pages = [_page(page_number=1, predictions=[gliner, llm])]
     entities = to_extraction_out(_run(pages)).documents[0].pages[0].entities
     assert [(e.name, e.source.value) for e in entities] == [("nom", "textual"), ("nom", "gliner")]
 
