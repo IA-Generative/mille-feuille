@@ -338,10 +338,23 @@ def _extract_with_gliner(client, dossier_id: str, dossier: dict, entity_defs: li
     return total, failed
 
 
+# Le flux éphémère dépose l'extraction de texte et cette tâche en même temps : les pages n'existent qu'une fois
+# l'extraction terminée. On se replanifie tant qu'un document est en attente/en cours, sinon on conclurait sur 0 page.
+_EXTRACTION_PENDING = {"en_attente", "en_cours"}
+_PAGES_RETRY_DELAY_SECONDS = 5
+_PAGES_MAX_RETRIES = 120
+
+
+def _text_extraction_pending(dossier: dict) -> bool:
+    return any(document.get("text_extraction_status") in _EXTRACTION_PENDING for document in dossier["documents"])
+
+
 @celery_app.task(name="app.tasks.extract_dossier_entities", bind=True)
 def extract_dossier_entities(self, dossier_id: str) -> None:
     with api_client.get_client() as client:
         dossier = api_client.get_dossier(client, dossier_id)
+        if _text_extraction_pending(dossier):
+            raise self.retry(countdown=_PAGES_RETRY_DELAY_SECONDS, max_retries=_PAGES_MAX_RETRIES)
         analyse_id = dossier["analyse_id"]
 
         step_id = _find_step_id(dossier, "extraction")

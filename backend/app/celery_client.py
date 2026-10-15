@@ -1,4 +1,4 @@
-from celery import Celery
+from celery import Celery, chain, group
 
 from app.config import RedisSettings
 
@@ -38,6 +38,30 @@ def dispatch_entity_extraction(dossier_id: str) -> str:
     return celery_client.send_task(
         "app.tasks.extract_dossier_entities", args=[dossier_id], queue=ENTITY_EXTRACTION_QUEUE
     ).id
+
+
+def dispatch_dossier_pipeline(document_ids: list[str], dossier_id: str) -> str:
+    """Enchaîne tout le pipeline d'un dossier : extraction de texte de tous les documents, puis (toutes les pages
+    créées) classification et extraction d'entités en parallèle, puis (quand les deux sont finies) exécution des
+    agents. Sans cet ordre, la classification et l'extraction liraient un dossier sans pages et concluraient sur
+    « 0/0 ». Signatures immuables : le résultat d'une étape n'est jamais passé en argument à la suivante.
+    Si une étape échoue, la suivante ne part pas."""
+
+    def signature(name: str, args: list[str], queue: str | None = None):
+        return celery_client.signature(name, args=args, queue=queue, immutable=True)
+
+    return (
+        chain(
+            group(signature("app.tasks.extract_document_text", [document_id]) for document_id in document_ids),
+            group(
+                signature("app.tasks.classify_dossier", [dossier_id], CLASSIFICATION_QUEUE),
+                signature("app.tasks.extract_dossier_entities", [dossier_id], ENTITY_EXTRACTION_QUEUE),
+            ),
+            signature("app.tasks.run_agents", [dossier_id], "agent_execution"),
+        )
+        .apply_async()
+        .id
+    )
 
 
 def dispatch_agent_execution(dossier_id: str) -> str:

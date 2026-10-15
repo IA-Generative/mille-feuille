@@ -20,12 +20,7 @@ LABELS = json.dumps([{"name": "CNI", "definition": "Carte d'identité"}])
 def _env_key(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(ephemeral_security._settings, "EPHEMERAL_API_KEY", KEY)
     monkeypatch.setattr("app.routers.ephemeral.s3_connector.upload", lambda *args, **kwargs: None)
-    for name in (
-        "dispatch_text_extraction",
-        "dispatch_classification",
-        "dispatch_entity_extraction",
-        "dispatch_agent_execution",
-    ):
+    for name in ("dispatch_dossier_pipeline",):
         monkeypatch.setattr(f"app.routers.ephemeral.{name}", lambda *args, **kwargs: None)
 
 

@@ -13,12 +13,7 @@ from app.services.ephemeral_results import to_classification_out, to_extraction_
 @pytest.fixture(autouse=True)
 def _no_s3_nor_celery(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.routers.ephemeral.s3_connector.upload", lambda *args, **kwargs: None)
-    for name in (
-        "dispatch_text_extraction",
-        "dispatch_classification",
-        "dispatch_entity_extraction",
-        "dispatch_agent_execution",
-    ):
+    for name in ("dispatch_dossier_pipeline",):
         monkeypatch.setattr(f"app.routers.ephemeral.{name}", lambda *args, **kwargs: None)
 
 
