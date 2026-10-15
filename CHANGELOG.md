@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.25.0](https://github.com/IA-Generative/mille-feuille/compare/v0.24.1...v0.25.0) (2026-10-15)
+
+
+### Features
+
+* **document-process:** stocker le texte des pages avec sa position (lignes et mots) ([5ed110f](https://github.com/IA-Generative/mille-feuille/commit/5ed110f4c9f8131c652ed7546166224e5efb1484))
+* **dossiers:** afficher les extractions page par page avec leurs zones dans les résultats ([842a718](https://github.com/IA-Generative/mille-feuille/commit/842a71824a56ccd981c025865af0f39d94871af0))
+* **ephemeral:** afficher la classification page par page avec la capture de la page ([e016a13](https://github.com/IA-Generative/mille-feuille/commit/e016a135c1aa17efdb0292c37e1edc84051cc545))
+* **ephemeral:** localiser les entités extraites sur la page et les afficher sur sa capture ([881accf](https://github.com/IA-Generative/mille-feuille/commit/881accfb17f542d0a4eab06347d482d4b463aa3a))
+
+
+### Bug Fixes
+
+* **ephemeral:** enchaîner extraction de texte, analyses puis agents ([b5294cc](https://github.com/IA-Generative/mille-feuille/commit/b5294cc390f3777ef06156f992e5acd029bc79e3))
+
 ## [0.24.1](https://github.com/IA-Generative/mille-feuille/compare/v0.24.0...v0.24.1) (2026-10-14)
 
 
