@@ -36,7 +36,7 @@ from app.schemas.ephemeral import (
 )
 from app.schemas.ephemeral_metrics import FeedbackIn, FeedbackOut, GlobalMetricsOut, RunMetricsOut
 from app.services import ephemeral_metrics
-from app.services.ephemeral_results import to_classification_out, to_extraction_out, to_run_summary
+from app.services.ephemeral_results import COMBINED_RUN_PREFIX, to_classification_out, to_extraction_out, to_run_summary
 from app.services.ephemeral_run_service import finalize_run, to_run_schema
 
 router = APIRouter(prefix="/ephemeral", tags=["Ephemeral"], dependencies=[Depends(get_ephemeral_identity)])
@@ -619,6 +619,49 @@ async def create_ephemeral_classification(
         multi_label=multi_label,
         classification_prompt=classification_prompt,
         labels=_parse_definitions(TypeAdapter(list[LabelDefinitionIn]), labels, "labels"),
+    )
+
+
+@router.post(
+    "/classification-and-extraction",
+    response_model=EphemeralRunCreated,
+    status_code=status.HTTP_201_CREATED,
+    summary="Classe les pages et extrait les entités d'un document en un seul appel",
+    description='Multipart : `file` (un document), `labels` (JSON : `[{"name": "CNI", "definition": "..."}]`, au moins '
+    'un), `entities` (JSON : `[{"name": "nom", "definition": "...", "type": "texte"}]`, au moins une), `multi_label`, '
+    "`classification_prompt` et `extraction_prompt` (optionnels), `persist` (défaut false). **Un seul run** : le "
+    "fichier n'est envoyé et traité qu'une fois (texte, captures), puis classification et extraction tournent en "
+    "parallèle. Lisez les deux résultats avec le même `run_id` : GET /api/ephemeral/classifications/{run_id} et "
+    "GET /api/ephemeral/extractions/{run_id}. TTL et purge : voir docs/ephemeral-api.md.",
+    responses={
+        400: {"description": "ttl_hours hors bornes (doit être entre 1 et 17520)."},
+        422: {"description": "`labels` ou `entities` n'est pas un JSON valide ou est vide."},
+    },
+)
+async def create_ephemeral_classification_and_extraction(
+    file: UploadFile,
+    labels: Annotated[str, Form(description='JSON : [{"name": "...", "definition": "..."}]')],
+    entities: Annotated[str, Form(description='JSON : [{"name": "...", "definition": "...", "type": "texte"}]')],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+    multi_label: Annotated[bool, Form()] = False,
+    classification_prompt: Annotated[str, Form()] = "",
+    extraction_prompt: Annotated[str, Form()] = "",
+    persist: Annotated[bool, Form()] = False,
+    ttl_hours: Annotated[int | None, Query()] = None,
+) -> EphemeralRunCreated:
+    return await _create_single_file_run(
+        db=db,
+        identity=identity,
+        file=file,
+        name=f"{COMBINED_RUN_PREFIX} éphémères {uuid.uuid4()}",
+        persist=persist,
+        ttl_hours=ttl_hours,
+        multi_label=multi_label,
+        classification_prompt=classification_prompt,
+        labels=_parse_definitions(TypeAdapter(list[LabelDefinitionIn]), labels, "labels"),
+        extraction_prompt=extraction_prompt,
+        entities=_parse_definitions(TypeAdapter(list[EntityDefinitionIn]), entities, "entities"),
     )
 
 

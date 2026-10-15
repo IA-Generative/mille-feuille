@@ -1,5 +1,6 @@
 export type RunStatus = "en_attente" | "en_cours" | "terminé" | "arrêté" | "échec";
-export type Mode = "classification" | "extraction";
+/** `both` : classification et extraction en un seul run. */
+export type Mode = "classification" | "extraction" | "both";
 export type EntityType = "texte" | "date" | "nombre" | "booléen" | "identifiant";
 
 export interface LabelDef {

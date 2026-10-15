@@ -7,7 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.models.dossier import DossierStatus
-from app.services.ephemeral_results import to_classification_out, to_extraction_out
+from app.services.ephemeral_results import to_classification_out, to_extraction_out, to_run_summary
 
 
 @pytest.fixture(autouse=True)
@@ -208,3 +208,60 @@ def test_list_runs_shows_the_callers_runs_with_their_kind_and_persist(client: Te
     assert runs[extraction]["kind"] == "extraction"
     assert runs[extraction]["persist"] is True
     assert runs[extraction]["documents"] == ["cni.pdf"]
+
+
+def test_run_summary_kind_tells_single_step_runs_from_the_combined_run() -> None:
+    def kind(name: str) -> str:
+        run = _run([])
+        run.name, run.persist = name, False
+        run.created_at = run.ended_at = datetime(2026, 10, 15)
+        return to_run_summary(run).kind
+
+    assert kind("Classification éphémère x") == "classification"
+    assert kind("Extraction éphémère x") == "extraction"
+    # Ce nom commence par « Classification » : il ne doit pas être pris pour une classification seule.
+    assert kind("Classification et extraction éphémères x") == "both"
+    assert kind("Run éphémère x") == "analyse"
+
+
+def test_classification_and_extraction_in_one_run_read_by_both_results(client: TestClient) -> None:
+    created = client.post(
+        "/api/ephemeral/classification-and-extraction",
+        files=FILE,
+        data={
+            "labels": LABELS,
+            "entities": ENTITIES,
+            "multi_label": "true",
+            "classification_prompt": "Classe",
+            "extraction_prompt": "Extrait",
+        },
+    )
+    assert created.status_code == 201
+    run_id = created.json()["run_id"]
+
+    # Un seul run, lisible par les deux vues.
+    assert client.get(f"/api/ephemeral/classifications/{run_id}").json()["run_id"] == run_id
+    assert client.get(f"/api/ephemeral/extractions/{run_id}").json()["run_id"] == run_id
+
+    run = client.get(f"/api/ephemeral/runs/{run_id}").json()
+    analyse = client.get(f"/api/ephemeral/analyses/{run['analyse_id']}").json()
+    assert [lbl["name"] for lbl in analyse["classification"]["labels"]] == ["CNI", "RIB"]
+    assert analyse["classification"]["prompt"] == "Classe"
+    assert [e["name"] for e in analyse["extraction"]["entities"]] == ["nom"]
+    assert analyse["extraction"]["prompt"] == "Extrait"
+
+    # Dans la liste, c'est un run « les deux », pas une classification.
+    summary = next(r for r in client.get("/api/ephemeral/runs").json() if r["id"] == run_id)
+    assert summary["kind"] == "both"
+
+
+@pytest.mark.parametrize(
+    ("labels", "entities"), [("[]", ENTITIES), (LABELS, "[]"), ("pas du json", ENTITIES), (LABELS, "pas du json")]
+)
+def test_classification_and_extraction_need_valid_labels_and_entities(
+    client: TestClient, labels: str, entities: str
+) -> None:
+    response = client.post(
+        "/api/ephemeral/classification-and-extraction", files=FILE, data={"labels": labels, "entities": entities}
+    )
+    assert response.status_code == 422

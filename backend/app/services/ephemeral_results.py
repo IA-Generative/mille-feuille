@@ -112,11 +112,18 @@ def to_extraction_out(run: EphemeralRunOut) -> EphemeralExtractionOut:
     )
 
 
+# Nom des runs qui font la classification et l'extraction en un appel (POST /classification-and-extraction).
+COMBINED_RUN_PREFIX = "Classification et extraction"
+
+
 def to_run_summary(run: EphemeralRunOut) -> EphemeralRunSummary:
     # Un run à une seule étape (flux C) porte son type dans le nom de son dossier ; ses deux étapes existent
     # toujours, elles ne permettent pas de le deviner.
+    # Le préfixe des deux étapes est testé avant celui de la classification seule, qu'il commence de la même façon.
     kind = (
-        "classification"
+        "both"
+        if run.name.startswith(COMBINED_RUN_PREFIX)
+        else "classification"
         if run.name.startswith("Classification")
         else "extraction"
         if run.name.startswith("Extraction")
