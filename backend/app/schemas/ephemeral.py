@@ -103,6 +103,16 @@ class EphemeralClassificationOut(BaseModel):
     documents: list[EphemeralClassifiedDocument]
 
 
+class EphemeralBox(BaseModel):
+    """Rectangle sur la page, coordonnées normalisées (0 à 1, origine en haut à gauche) : à multiplier par la largeur
+    et la hauteur de l'image de la page."""
+
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
+
+
 class EphemeralEntityResult(BaseModel):
     prediction_id: uuid.UUID = Field(description="À réutiliser dans POST /ephemeral/runs/{run_id}/feedback.")
     name: str
@@ -113,10 +123,21 @@ class EphemeralEntityResult(BaseModel):
         "texte de la page). Chaque page reçoit les deux : une même entité peut apparaître avec chaque source."
     )
     pages: list[int] = Field(description="Toutes les pages sur lesquelles l'entité a été trouvée.")
+    boxes: list[EphemeralBox] = Field(
+        default=[],
+        description="Où la valeur se trouve **sur cette page** : un rectangle par ligne qu'elle couvre, serré autour "
+        "de ses mots. Vide si la valeur n'a pas pu être localisée (page sans texte positionné, valeur reformatée "
+        "par le LLM).",
+    )
 
 
 class EphemeralExtractedPage(BaseModel):
     page_number: int
+    page_id: uuid.UUID = Field(
+        description="À utiliser dans GET /api/ephemeral/runs/{run_id}/pages/{page_id}/screenshot pour lire l'image de "
+        "la page, sur laquelle les `boxes` des entités se dessinent."
+    )
+    has_screenshot: bool
     entities: list[EphemeralEntityResult]
 
 

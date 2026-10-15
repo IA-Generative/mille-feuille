@@ -126,6 +126,9 @@ class _UnitBackend:
         self.declared: list[dict] = []
         self.completed: list[tuple[str, str]] = []
         self.predictions: list[dict] = []
+        # Texte positionné des pages (page_id -> lignes) servi par /text-boxes, et bbox créées par le worker.
+        self.text_boxes: dict[str, list[dict]] = {}
+        self.bounding_boxes: list[dict] = []
 
     def handler(self, request: httpx.Request) -> httpx.Response:
         path = request.url.path
@@ -151,6 +154,11 @@ class _UnitBackend:
             return httpx.Response(200, json=_log_response())
         if path.endswith("/complete"):
             return httpx.Response(200, json=_step_complete_response("step", "classification"))
+        if path.endswith("/text-boxes"):
+            return httpx.Response(200, json=self.text_boxes.get(path.split("/")[-2], []))
+        if path.endswith("/bounding-boxes"):
+            self.bounding_boxes.append({"page_id": path.split("/")[-2], **json.loads(request.content)})
+            return httpx.Response(201, json={"id": f"bbox-{len(self.bounding_boxes)}"})
         if path.endswith("/predictions"):
             self.predictions.append(json.loads(request.content))
             return httpx.Response(201, json={"id": "pred", **self.predictions[-1]})

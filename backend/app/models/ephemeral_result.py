@@ -26,3 +26,7 @@ class EphemeralResult(TimestampMixin, Base):
     created_by: Mapped[str] = mapped_column(String, nullable=False)
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    # Captures de pages conservées jusqu'à `expires_at` (id de page -> clé S3), pour afficher les zones des résultats
+    # sur la page : seules ces images survivent à la fin du run, le fichier d'origine est supprimé. Jamais exposé tel
+    # quel : l'image se lit via GET /api/ephemeral/runs/{run_id}/pages/{page_id}/screenshot.
+    screenshot_keys: Mapped[dict[str, str]] = mapped_column(JSONB, nullable=False, default=dict, server_default="{}")

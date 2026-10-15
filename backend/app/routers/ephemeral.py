@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Response, UploadFile, status
 from fastapi.concurrency import run_in_threadpool
 from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.exc import IntegrityError
@@ -473,6 +473,49 @@ async def delete_ephemeral_run(
     # toujours lancé immédiatement à la création (_create_run), en_attente
     # ne devrait jamais se produire en pratique - pas de branche dédiée.
     await dossier_repository.delete_dossier(dossier)
+
+
+@router.get(
+    "/runs/{run_id}/pages/{page_id}/screenshot",
+    summary="Image d'une page d'un run",
+    description="Image de la page, sur laquelle dessiner les `boxes` des entités (coordonnées normalisées). Pour un "
+    "run `persist=false` terminé, la capture est conservée avec le résultat et supprimée à son expiration "
+    "(`expires_at`), avec lui. Le fichier d'origine, lui, est supprimé à la fin du run. Même scope strict que "
+    "GET /api/ephemeral/runs/{id}.",
+    response_class=Response,
+    responses={
+        200: {"content": {"image/png": {}}, "description": "Capture de la page."},
+        404: {"description": "Run ou page introuvable, pas de capture, ou run d'un autre créateur."},
+    },
+)
+async def get_ephemeral_page_screenshot(
+    run_id: uuid.UUID,
+    page_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    identity: Annotated[EphemeralIdentity, Depends(get_ephemeral_identity)],
+) -> Response:
+    ephemeral_repository = EphemeralRepository(db)
+    key: str | None = None
+    if await ephemeral_repository.get_dossier_ephemere(run_id) is not None:
+        dossier, _ = await _get_owned_run_or_404(db, run_id, identity)
+        key = next(
+            (
+                page.screenshot_key
+                for document in dossier.documents
+                for page in document.pages
+                if page.id == page_id and page.screenshot_key
+            ),
+            None,
+        )
+    else:
+        result = await ephemeral_repository.get_result(run_id)
+        if result is None or result.created_by != identity.id:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run éphémère introuvable")
+        key = result.screenshot_keys.get(str(page_id))
+    if key is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Capture introuvable")
+    data, content_type = await run_in_threadpool(s3_connector.download, key)
+    return Response(content=data, media_type=content_type)
 
 
 def _parse_definitions[T](adapter: TypeAdapter[list[T]], raw: str, field: str) -> list[T]:

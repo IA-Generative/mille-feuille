@@ -1090,7 +1090,7 @@ class DossierRepository:
         await self.db.commit()
         await self.db.refresh(dossier)
 
-    async def delete_dossier(self, dossier: Dossier) -> None:
+    async def delete_dossier(self, dossier: Dossier, *, keep_screenshots: bool = False) -> None:
         """Supprime un dossier et tout ce qui en dépend : fichiers S3 (les
         documents eux-mêmes et les captures de page), puis la ligne Dossier -
         le cascade DB (execution_steps, documents, pages, bounding_boxes,
@@ -1105,13 +1105,16 @@ class DossierRepository:
         Un dossier encore actif (en_attente/en_cours) ne peut pas être
         supprimé directement : il doit d'abord être arrêté (stop()) - à
         l'appelant (endpoint, tâche de purge) de le faire avant d'appeler
-        cette méthode, pas à elle de le faire implicitement."""
+        cette méthode, pas à elle de le faire implicitement.
+
+        `keep_screenshots` : conserve les captures de page sur S3 (résultat d'un run éphémère persist=false, qui les
+        garde jusqu'à son expiration) ; le fichier d'origine est supprimé dans tous les cas."""
         if dossier.status in (DossierStatus.EN_ATTENTE, DossierStatus.EN_COURS):
             raise ValueError(f"Cannot delete dossier {dossier.id}: still {dossier.status} - stop it first")
         for document in dossier.documents:
             await asyncio.to_thread(s3_connector.delete, document.s3_key)
             for page in document.pages:
-                if page.screenshot_key:
+                if page.screenshot_key and not keep_screenshots:
                     await asyncio.to_thread(s3_connector.delete, page.screenshot_key)
         # Documents générés (#143) : les lignes partent par cascade, pas les fichiers.
         generated = await self.db.execute(
