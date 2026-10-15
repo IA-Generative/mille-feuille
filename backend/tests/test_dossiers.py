@@ -894,3 +894,46 @@ def test_internal_suggestion_routes_require_app_token(client: TestClient) -> Non
         headers={"X-App-Token": "wrong-token"},
     )
     assert response.status_code == 401
+
+
+def test_page_text_boxes_are_replaced_and_listed_in_reading_order(client: TestClient) -> None:
+    analyse_id = _create_analyse(client, "Analyse texte positionné")
+    dossier = client.post("/api/dossiers", json={"name": "Dossier texte", "analyse_id": analyse_id}).json()
+    dossier = client.post(
+        f"/api/dossiers/{dossier['id']}/documents",
+        files=[("files", ("cni.pdf", b"fake-bytes", "application/pdf"))],
+    ).json()
+    page = _create_page(client, dossier["documents"][0]["id"], 1, "Nom : Dupont")
+    url = f"/api/internal/pages/{page['id']}/text-boxes"
+    word = {"text": "Dupont", "x_min": 0.3, "y_min": 0.1, "x_max": 0.5, "y_max": 0.12, "char_start": 6, "char_end": 12}
+    line = {
+        "text": "Nom : Dupont",
+        "x_min": 0.1,
+        "y_min": 0.1,
+        "x_max": 0.5,
+        "y_max": 0.12,
+        "char_start": 0,
+        "char_end": 12,
+    }
+
+    first = client.put(
+        url, json=[{**line, "words": [word]}, {**line, "text": "autre", "char_start": None}], headers=INTERNAL_HEADERS
+    )
+    assert first.status_code == 200
+
+    # Remplacement : une relance de l'extraction de texte ne duplique pas.
+    client.put(url, json=[{**line, "words": [word]}], headers=INTERNAL_HEADERS)
+    boxes = client.get(url, headers=INTERNAL_HEADERS).json()
+    assert [box["text"] for box in boxes] == ["Nom : Dupont"]
+    assert boxes[0]["position"] == 0
+    assert (boxes[0]["char_start"], boxes[0]["char_end"]) == (0, 12)
+    assert boxes[0]["words"] == [word]
+
+
+def test_page_text_boxes_unknown_page_is_404(client: TestClient) -> None:
+    unknown = "00000000-0000-0000-0000-000000000000"
+    for call in (
+        lambda: client.put(f"/api/internal/pages/{unknown}/text-boxes", json=[], headers=INTERNAL_HEADERS),
+        lambda: client.get(f"/api/internal/pages/{unknown}/text-boxes", headers=INTERNAL_HEADERS),
+    ):
+        assert call().status_code == 404
