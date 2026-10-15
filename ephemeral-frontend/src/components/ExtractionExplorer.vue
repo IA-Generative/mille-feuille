@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, toRef, watchEffect } from "vue";
 
+import EntityDialog from "@/components/EntityDialog.vue";
 import EntityList from "@/components/EntityList.vue";
 import EntitySearch from "@/components/EntitySearch.vue";
 import PageNavigator from "@/components/PageNavigator.vue";
@@ -18,6 +19,7 @@ const explorer = usePageExplorer(
 );
 const screenshots = usePageScreenshots(() => props.runId);
 const active = ref<number | null>(null);
+const opened = ref<number | null>(null);
 
 // La page affichée est chargée à la demande ; revenir dessus ne la redemande pas.
 watchEffect(() => {
@@ -30,6 +32,7 @@ watchEffect(() => {
   void explorer.pageIndex.value;
   void explorer.currentItems.value;
   active.value = null;
+  opened.value = null;
 });
 
 const groups = computed(() => explorer.currentItems.value.map((entity, i) => ({ label: String(i + 1), boxes: entity.boxes })));
@@ -78,9 +81,18 @@ const status = computed(() => (explorer.current.value ? screenshots.state[explor
           :active="active"
           :filtering="explorer.filtering.value"
           @activate="active = $event"
+          @open="opened = $event"
         />
       </section>
     </div>
+
+    <EntityDialog
+      v-if="opened !== null && explorer.currentItems.value[opened]"
+      :entity="explorer.currentItems.value[opened]"
+      :src="url"
+      :page-number="explorer.current.value.page_number"
+      @close="opened = null"
+    />
   </div>
 </template>
 

@@ -124,6 +124,10 @@ Pour n'obtenir que les labels ou les entités d'**un** document, sans définir d
 
 *Rendu du frontend éphémère sur des données simulées : la page à gauche, avec un rectangle numéroté autour de chaque valeur localisée ; les extractions de la page à droite. Au-dessus, une recherche sur les entités et les valeurs, un filtre par entité (ici « adresse ») qui propose les pages concernées pour y aller d'un clic, et la pagination par page. Survoler ou focaliser une entité met son rectangle en avant ; une valeur non localisée est signalée « non localisée ».*
 
+Cliquer sur une extraction ouvre une fenêtre avec la zone de la page autour de la valeur (le rectangle, un peu agrandi pour que le contexte se lise) et la valeur en texte sélectionnable. Chaque carte, comme la fenêtre, a un bouton **Copier**.
+
+![Fenêtre d'une extraction : la zone agrandie de la page et la valeur copiable](ephemeral-extraction-modal.png)
+
 Les deux `GET` sont des vues de `GET /api/ephemeral/runs/{id}` (même scope strict, même conservation du résultat) ; `stop` et `DELETE` passent par `/api/ephemeral/runs/{run_id}`. `multi_label` est une colonne de `analyses`, posée à la création : elle n'est pas encore modifiable via l'API standard des analyses (donc sans historique de versions).
 
 ### Verdicts et métriques
