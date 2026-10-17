@@ -47,6 +47,11 @@
           "type": "toml",
           "path": "worker/document_render/pyproject.toml",
           "jsonpath": "project.version"
+        },
+        {
+          "type": "toml",
+          "path": "worker/async_api/pyproject.toml",
+          "jsonpath": "project.version"
         }
       ],
       "changelog-sections": [
