@@ -1,0 +1,53 @@
+# Exemple de values d'environnement pour le worker AsyncTaskAPI sur le cluster internal-gw (beta),
+# à côté de la plateforme async-api (namespace `async-api`). Les values réelles vivent côté Argo CD :
+# ce fichier documente ce qu'elles doivent porter, et sert au contrôle `helm template` de la CI.
+#
+#   helm template millefeuille ./millefeuille \
+#     -f millefeuille/values/common-values.yaml \
+#     -f millefeuille/values/examples/values-internal-gw-beta.yaml
+#
+# Secret Vault `exploration/beta/millefeuille/async-api-worker` (docs/secrets.md § 12) :
+#   BROKER_URL             amqp://millefeuille-worker:<mdp>@async-api-rabbitmq.async-api.svc.cluster.local:5672/
+#                          (compte dédié rendu par async-api, URL en FQDN : KEDA la lit aussi)
+#   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY   clé IAM dédiée sur le seau d'async-api (lecture + PutObject)
+#   MILLEFEUILLE_API_TOKEN jeton d'application mille-feuille (POST /api/app-tokens)
+#   HEARTBEAT_API_KEY      clé du consommateur async-api `millefeuille-worker` (dès que le heartbeat existe)
+global:
+  env:
+    ENVIRONMENT: "beta"
+
+worker_async_api:
+  enabled: true
+  image:
+    # Une version publiée (cd.yml construit l'image à la release) ; jamais `latest`.
+    tag: "0.27.0"
+  env:
+    IN_QUEUE_NAME: "mille_feuille_queue_in"
+    OUT_QUEUE_NAME: "mille_feuille_queue_out"
+    SERVICE_CLASS: "long"
+    WORKER_CONCURRENCY: "2"
+    # Stockage objet d'async-api sur beta.
+    AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
+    AWS_S3_BUCKET_NAME: "beta-sdid-async-api"
+    AWS_DEFAULT_REGION: "fr-par"
+    MILLEFEUILLE_BASE_URL: "http://millefeuille-backend:8000"
+    # Signes de vie vers async-api, par le Service interne de sa passerelle (PR #662 d'async-api).
+    HEARTBEAT_API_URL: "http://async-api-apisix.async-api.svc.cluster.local"
+    HEARTBEAT_SERVICE: "mille-feuille"
+    HEARTBEAT_INTERVAL_SECONDS: "15"
+  # À remplacer par la mesure du test de charge (pic RSS d'un pod à WORKER_CONCURRENCY tâches de 100 Mio).
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "768Mi"
+      cpu: "500m"
+
+extraObjects:
+  millefeuille-keda-async-api:
+    spec:
+      # Contre-pression : WORKER_CONCURRENCY x maxReplicaCount sous la capacité mesurée des workers Celery
+      # et du quota du hub (async-api, lot C, règles C-4).
+      minReplicaCount: 1
+      maxReplicaCount: 4

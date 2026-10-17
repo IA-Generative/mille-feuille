@@ -162,8 +162,14 @@ helm template millefeuille ./millefeuille -f millefeuille/values/common-values.y
 
 Les identifiants (`BROKER_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `MILLEFEUILLE_API_TOKEN`) viennent du secret
 `millefeuille-async-api-worker` (Vault) ; tout le reste est dans `env`, avec des valeurs par défaut (`common-values.yaml`). Sondes : `/health`
-(vivacité) et `/ready` (stockage objet), sur le port `8084`. Pas de mise à l'échelle KEDA : le worker consomme
-RabbitMQ, pas les files Celery ; régler `WORKER_CONCURRENCY` et `replicaCount` selon la mémoire.
+(vivacité) et `/ready` (stockage objet), sur le port `8084` ; `/__version__` et `/metrics` sur le même port.
+
+**Mise à l'échelle** : KEDA sur la file d'entrée RabbitMQ (`extraObjects.millefeuille-keda-async-api` dans
+`common-values.yaml`, déclencheur `rabbitmq` en AMQP, `QueueLength`, `value` = `WORKER_CONCURRENCY`, URL lue dans le secret —
+**en FQDN**, l'opérateur KEDA est dans un autre namespace). `WORKER_CONCURRENCY × maxReplicaCount` doit rester sous ce que
+les workers Celery et le hub absorbent : au-delà, les runs attendent dans mille-feuille et le pont les fait expirer
+(`RUN_TIMEOUT`). Pas de descente à zéro au premier lot. Les ressources sont des valeurs de départ, fixées par le test de
+charge sur beta. Un exemple de values pour internal-gw : `millefeuille/values/examples/values-internal-gw-beta.yaml`.
 
 L'image `worker-async-api` doit être publiée avant d'activer le composant (voir ci-dessous).
 
