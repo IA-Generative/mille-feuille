@@ -792,7 +792,9 @@ extraObjects:
         name: "millefeuille-redis"
         key: "REDIS_PASSWORD"
 
-  # ScaledObject for document_process (queue: document_processing)
+  # ScaledObject for document_process. The queue is `celery`, Celery's default: neither the worker
+  # (no task_default_queue) nor the backend (dispatch without `queue=`) names another one, so the
+  # `document_processing` list that was watched here never filled and this worker never scaled.
   millefeuille-keda-document-process:
     apiVersion: keda.sh/v1alpha1
     kind: ScaledObject
@@ -811,7 +813,7 @@ extraObjects:
         metricType: AverageValue
         metadata:
           address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
-          listName: "document_processing"
+          listName: "celery"
           listLength: "5"
         authenticationRef:
           name: millefeuille-keda-triggerauth
