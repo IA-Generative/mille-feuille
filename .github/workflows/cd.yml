@@ -56,6 +56,7 @@ jobs:
       PRERELEASE_MANIFEST_FILE: ${{ env.PRERELEASE_MANIFEST_FILE }}
       ENABLE_PRERELEASE: ${{ env.ENABLE_PRERELEASE }}
       IMAGE_BASE: ${{ steps.image-base.outputs.IMAGE_BASE }}
+      HAS_ASYNC_API_TOKEN: ${{ steps.async-api-token.outputs.HAS_ASYNC_API_TOKEN }}
     steps:
       - name: Exposing env vars
         run: echo "Exposing env vars"
@@ -64,6 +65,20 @@ jobs:
         id: image-base
         shell: bash
         run: echo "IMAGE_BASE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      # Le contexte `secrets` n'est pas lisible dans le `if` d'un job : on expose sa présence ici.
+      - name: Check async-api access
+        id: async-api-token
+        shell: bash
+        env:
+          ASYNC_API_TOKEN: ${{ secrets.ASYNC_API_TOKEN }}
+        run: |
+          if [ -n "$ASYNC_API_TOKEN" ]; then
+            echo "HAS_ASYNC_API_TOKEN=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Secret ASYNC_API_TOKEN absent : l'image worker-async-api ne sera pas construite à la release."
+            echo "HAS_ASYNC_API_TOKEN=false" >> "$GITHUB_OUTPUT"
+          fi
 
   release:
     uses: dnum-mi/fabnum-cicd/.github/workflows/release-app.yml@v0
@@ -141,6 +156,45 @@ jobs:
       CACHE_MODE: min
       BUILD_ARGS: |
         APP_VERSION=${{ needs.release.outputs.version }}
+
+  # L'image du worker AsyncTaskAPI (worker/async_api) : contexte = racine du dépôt (elle embarque les
+  # SDK), et `mic-worker` vient du dépôt privé async-api — le secret ASYNC_API_TOKEN est nécessaire au
+  # build. Job séparé de la matrice, ABSENT des `needs` de bump-chart et release-chart : son échec ou
+  # son absence (secret manquant) ne bloque jamais la release du chart. Les build-args alimentent
+  # /app/version.json (GET /__version__ du worker).
+  build-docker-worker-async-api:
+    uses: dnum-mi/fabnum-cicd/.github/workflows/build-docker.yml@v0
+    needs:
+      - expose-vars
+      - release
+    if: ${{ needs.release.outputs.release-created == 'true' && needs.expose-vars.outputs.HAS_ASYNC_API_TOKEN == 'true' }}
+    permissions:
+      packages: write
+      contents: read
+    with:
+      IMAGE_NAME: ${{ needs.expose-vars.outputs.IMAGE_BASE }}/worker-async-api
+      IMAGE_TAG: ${{ needs.release.outputs.version }}
+      IMAGE_CONTEXT: .
+      IMAGE_DOCKERFILE: worker/async_api/Dockerfile
+      IMAGE_TARGET: runtime
+      BUILD_AMD64: ${{ needs.expose-vars.outputs.BUILD_AMD64 == 'true' }}
+      BUILD_ARM64: ${{ needs.expose-vars.outputs.BUILD_ARM64 == 'true' }}
+      LATEST_TAG: ${{ needs.expose-vars.outputs.LATEST_TAG == 'true' }}
+      USE_QEMU: ${{ needs.expose-vars.outputs.USE_QEMU == 'true' }}
+      TAG_MAJOR_AND_MINOR: ${{ needs.expose-vars.outputs.TAG_MAJOR_AND_MINOR == 'true' && needs.expose-vars.outputs.LATEST_TAG == 'true' }}
+      TAG_SHORT_SHA: ${{ needs.expose-vars.outputs.TAG_SHORT_SHA == 'true' }}
+      CACHE: true
+      CACHE_MODE: min
+      BUILD_ARGS: |
+        APP_VERSION=${{ needs.release.outputs.version }}
+        VERSION=${{ needs.release.outputs.version }}
+        COMMIT=${{ github.sha }}
+        BUILD=${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        SOURCE=${{ github.server_url }}/${{ github.repository }}
+    secrets:
+      # Lu uniquement par le Dockerfile de worker/async_api (--mount=type=secret,id=github_token).
+      BUILD_SECRETS: |
+        github_token=${{ secrets.ASYNC_API_TOKEN }}
 
   # Bump the Helm chart version + appVersion in Chart.yaml, then commit the
   # bump directly on the release branch (local mode). Runs after build-docker

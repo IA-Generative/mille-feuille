@@ -79,6 +79,18 @@ backend:
 
 Voir aussi [`ephemeral-frontend/README.md`](../../ephemeral-frontend/README.md) pour UneFeuille.
 
+## Le worker AsyncTaskAPI (`worker_async_api`)
+
+Désactivé par défaut : il faut le RabbitMQ et le stockage objet d'[async-api](https://github.com/IA-Generative/async-api),
+que le chart ne fournit pas. Quand il est activé, il est mis à l'échelle par **KEDA sur la file d'entrée RabbitMQ** du service
+(`extraObjects.millefeuille-keda-async-api`, déclencheur `rabbitmq` en AMQP, URL lue dans le secret
+`millefeuille-async-api-worker`, clé `BROKER_URL`, **en FQDN**). `WORKER_CONCURRENCY × maxReplicaCount` est le réglage de
+contre-pression : au-delà de ce que les workers Celery et le hub absorbent, les runs s'empilent dans mille-feuille et
+expirent dans le pont. Les ressources de `common-values.yaml` sont des valeurs de départ ; la mesure sur beta les fixe.
+
+Un exemple complet pour le cluster internal-gw (beta) : [`examples/values-internal-gw-beta.yaml`](examples/values-internal-gw-beta.yaml).
+Le détail du worker (contrat, codes d'erreur, variables) : [`worker/async_api/README.md`](../../worker/async_api/README.md).
+
 ## Vérifier un jeu de values
 
 ```bash

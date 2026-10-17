@@ -15,7 +15,13 @@ def _client() -> OpenAI:
         raise RuntimeError(
             "OPENAI_API_KEY et OPENAI_API_BASE_URL doivent être configurés pour utiliser le worker extraction."
         )
-    return OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_API_BASE_URL)
+    # Délai et nouvelles tentatives explicites : sans eux, le SDK attend 600 s par appel (voir WorkerSettings).
+    return OpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.OPENAI_API_BASE_URL,
+        timeout=settings.OPENAI_TIMEOUT_SECONDS,
+        max_retries=settings.OPENAI_MAX_RETRIES,
+    )
 
 
 class EntityValue(BaseModel):

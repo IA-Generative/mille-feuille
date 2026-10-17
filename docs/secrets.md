@@ -291,12 +291,15 @@ Variables attendues dans Vault :
 | Variable              | Description                                                                   | Exemple                                  |
 | --------------------- | ----------------------------------------------------------------------------- | ---------------------------------------- |
 | `BROKER_URL`          | URL RabbitMQ d'AsyncTaskAPI, identifiants compris                              | `amqps://user:password@rabbitmq:5672`    |
-| `AWS_ACCESS_KEY_ID`       | Clé d'accès au stockage objet **d'AsyncTaskAPI** (lecture seule suffit : lecture des objets et `HEAD` du bucket) | `SCW...` |
+| `AWS_ACCESS_KEY_ID`       | Clé d'accès au stockage objet **d'AsyncTaskAPI** : `s3:ListBucket` (le `/ready` fait un `HEAD` du bucket), `s3:GetObject` (les fichiers déposés) et `s3:PutObject` (le worker y dépose `{client_id}/{task_id}/resultat.json`) — **pas** `s3:DeleteObject` | `SCW...` |
 | `AWS_SECRET_ACCESS_KEY`       | Clé secrète associée                                                           | `xxxxxxxx`                               |
 | `MILLEFEUILLE_API_TOKEN` | Token API de mille-feuille (en-tête `X-App-Token`), voir ci-dessous              | `ddd_...`                                |
 
 > **Ce n'est pas le stockage de mille-feuille** : `millefeuille-s3` ne sert pas ici. Le worker lit les fichiers dans le
-> stockage d'AsyncTaskAPI (endpoint et bucket dans `env`), puis les envoie à mille-feuille par son API.
+> stockage d'AsyncTaskAPI (endpoint et bucket dans `env`), les envoie à mille-feuille par son API, puis y dépose le
+> résultat complet du run sous le préfixe du client. Une clé d'application IAM dédiée (politique de seau : lecture +
+> `PutObject`, sans suppression) est demandée à l'exploitant d'async-api ; une restriction par préfixe n'est pas
+> possible, le préfixe étant celui de chaque client.
 
 **Créer `MILLEFEUILLE_API_TOKEN`** : le token est renvoyé **une seule fois** à sa création, par un utilisateur Keycloak
 (les routes `/api/app-tokens` n'acceptent pas un token API) :

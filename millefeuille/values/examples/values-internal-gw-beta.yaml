@@ -1,0 +1,151 @@
+# Values d'environnement de mille-feuille sur le cluster internal-gw (beta), namespace `millefeuille`,
+# à côté de la plateforme async-api (namespace `async-api`). Posées et déployées depuis la branche
+# `feat/async-api-worker-plateforme` le 17/10/2026, pour éprouver le worker AsyncTaskAPI de bout en
+# bout et jouer la campagne de mesure d'async-api ; pas de frontend, pas d'ingress, pas de Keycloak.
+#
+#   helm upgrade --install millefeuille ./millefeuille -n millefeuille \
+#     -f millefeuille/values/common-values.yaml \
+#     -f millefeuille/values/examples/values-internal-gw-beta.yaml
+#
+# Ce que ce site n'a pas, et comment on fait sans :
+# - pas de Vault Secrets Operator : les dix VaultStaticSecret de common-values sont neutralisés
+#   (`null`) et les secrets sont posés à la main (docs/secrets.md pour les clés) ;
+# - pas de Keycloak : le backend démarre sans lui (il ne le joint qu'à la connexion d'un
+#   utilisateur) ; le worker s'authentifie par la clé d'environnement de l'API éphémère
+#   (EPHEMERAL_API_KEY = MILLEFEUILLE_API_TOKEN), non persistante par construction ;
+# - pas de Harbor : les images viennent de ghcr (publiées par la CI du dépôt à chaque release) ;
+#   `global.projectName` est vide pour ne pas préfixer les dépôts d'image.
+# Secrets attendus dans le namespace : millefeuille-db-superuser, -db-appuser, -db-infos, -redis,
+# -s3, -openai, -worker, -keycloak, -async-api-worker, registry-pull-secret (ghcr).
+global:
+  projectName: ""
+  env:
+    ENVIRONMENT: "beta"
+  ingress:
+    enabled: false
+  imagePullSecrets:
+    - name: registry-pull-secret
+
+# Les dix secrets Vault de common-values : posés à la main ici. Le schéma du chart refuse `null` :
+# une chaîne vide ne rend rien (extra-objects.yaml passe une chaîne telle quelle à `tpl`).
+extraObjects:
+  millefeuille-s3: ""
+  millefeuille-openai: ""
+  millefeuille-keycloak: ""
+  millefeuille-worker: ""
+  millefeuille-async-api-worker: ""
+  millefeuille-redis: ""
+  millefeuille-db-superuser: ""
+  millefeuille-db-appuser: ""
+  millefeuille-db-infos: ""
+  millefeuille-db-backups: ""
+  # Pas de rendu de documents sur ce site : son worker est arrêté, son ScaledObject aussi.
+  millefeuille-keda-document-render: ""
+  millefeuille-keda-async-api:
+    spec:
+      minReplicaCount: 1
+      maxReplicaCount: 2
+
+cnpg:
+  cluster:
+    instances: 1
+    storage:
+      size: 8Gi
+      storageClass: sbs-default-retain
+  backups:
+    enabled: false
+
+backend:
+  replicaCount: 1
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/backend
+    tag: "0.26.0"
+    pullPolicy: IfNotPresent
+
+jobs:
+  migration:
+    image:
+      registry: ghcr.io
+      repository: ia-generative/mille-feuille/backend
+      tag: "0.26.0"
+    # L'attente de PostgreSQL de common-values nomme l'image Harbor avec le projet en dur : ici, ghcr.
+    initContainers:
+    - name: wait-for-postgres
+      image: "ghcr.io/ia-generative/mille-feuille/backend:0.26.0"
+      imagePullPolicy: "IfNotPresent"
+      command:
+      - "python"
+      - "-c"
+      - "import os,socket,time\nfrom urllib.parse import urlsplit\nu = urlsplit(os.environ['DATABASE_URL'])\nprint(f'Waiting for PostgreSQL at {u.hostname}:{u.port or 5432}', flush=True)\nwhile True:\n    try:\n        socket.create_connection((u.hostname, u.port or 5432), 2).close()\n        break\n    except OSError:\n        time.sleep(1)\nprint('PostgreSQL reachable', flush=True)"
+      envFrom:
+      - secretRef:
+          name: "millefeuille-db-infos"
+
+worker_document:
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-document-process
+    tag: "0.26.0"
+worker_agent:
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-agent-execution
+    tag: "0.26.0"
+worker_classification:
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-classification
+    tag: "0.26.0"
+worker_extraction:
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-extraction
+    tag: "0.26.0"
+worker_render:
+  replicaCount: 0
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-document-render
+    tag: "0.26.0"
+frontend:
+  replicaCount: 0
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/frontend
+    tag: "0.26.0"
+ephemeral_frontend:
+  replicaCount: 0
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/ephemeral-frontend
+    tag: "0.26.0"
+
+worker_async_api:
+  enabled: true
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-async-api
+    # Construite depuis la branche feat/async-api-worker-plateforme (commit ec95e7bf) et poussée à la main ;
+    # remplacée par le tag de la release dès que cd.yml la construit.
+    tag: "beta-ec95e7bf"
+    pullPolicy: IfNotPresent
+  env:
+    IN_QUEUE_NAME: "mille_feuille_queue_in"
+    OUT_QUEUE_NAME: "mille_feuille_queue_out"
+    SERVICE_CLASS: "long"
+    WORKER_CONCURRENCY: "2"
+    AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
+    AWS_S3_BUCKET_NAME: "beta-sdid-async-api"
+    AWS_DEFAULT_REGION: "fr-par"
+    MILLEFEUILLE_BASE_URL: "http://millefeuille-backend:8000"
+  networkPolicy:
+    ingress:
+      # Le collecteur de métriques de ce cluster (les sondes du kubelet ne sont pas filtrées).
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: beta-sdid-obs
+        ports:
+          - port: 8084
+            protocol: TCP

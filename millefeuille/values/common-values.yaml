@@ -118,6 +118,23 @@ worker_document:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"
+  # Parallélisme et délais EXPLICITES : sans --concurrency Celery lance un processus par cœur du
+  # nœud (os.cpu_count()), invisible et sans rapport avec les ressources du pod ; sans --time-limit une
+  # étape bloquée sur le hub tient la file indéfiniment. Ces valeurs sont les points de départ du test
+  # de charge d'async-api (lot C) : WORKER_CONCURRENCY x maxReplicaCount du pont doit rester sous la
+  # somme des concurrences de ces workers (contre-pression).
+  args:
+    - "celery"
+    - "-A"
+    - "app.celery_app"
+    - "worker"
+    - "--loglevel=info"
+    # La file réellement consommée : ni le worker ni le backend ne nomment de file pour l'extraction de
+    # texte, les deux emploient donc la file Celery par défaut, `celery` (pas `document_processing`).
+    - "--queues=celery"
+    - "--concurrency=2"
+    - "--time-limit=300"
+    - "--soft-time-limit=270"
   env:
     CELERY_QUEUE_NAME: "document_processing"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
@@ -189,6 +206,21 @@ worker_agent:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"
+  # Parallélisme et délais EXPLICITES : sans --concurrency Celery lance un processus par cœur du
+  # nœud (os.cpu_count()), invisible et sans rapport avec les ressources du pod ; sans --time-limit une
+  # étape bloquée sur le hub tient la file indéfiniment. Ces valeurs sont les points de départ du test
+  # de charge d'async-api (lot C) : WORKER_CONCURRENCY x maxReplicaCount du pont doit rester sous la
+  # somme des concurrences de ces workers (contre-pression).
+  args:
+    - "celery"
+    - "-A"
+    - "app.celery_app"
+    - "worker"
+    - "--loglevel=info"
+    - "--queues=agent_execution"
+    - "--concurrency=4"
+    - "--time-limit=900"
+    - "--soft-time-limit=840"
   env:
     CELERY_QUEUE_NAME: "agent_execution"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
@@ -231,6 +263,21 @@ worker_classification:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"
+  # Parallélisme et délais EXPLICITES : sans --concurrency Celery lance un processus par cœur du
+  # nœud (os.cpu_count()), invisible et sans rapport avec les ressources du pod ; sans --time-limit une
+  # étape bloquée sur le hub tient la file indéfiniment. Ces valeurs sont les points de départ du test
+  # de charge d'async-api (lot C) : WORKER_CONCURRENCY x maxReplicaCount du pont doit rester sous la
+  # somme des concurrences de ces workers (contre-pression).
+  args:
+    - "celery"
+    - "-A"
+    - "app.celery_app"
+    - "worker"
+    - "--loglevel=info"
+    - "--queues=classification"
+    - "--concurrency=2"
+    - "--time-limit=900"
+    - "--soft-time-limit=840"
   env:
     CELERY_QUEUE_NAME: "classification"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
@@ -266,6 +313,21 @@ worker_extraction:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"
+  # Parallélisme et délais EXPLICITES : sans --concurrency Celery lance un processus par cœur du
+  # nœud (os.cpu_count()), invisible et sans rapport avec les ressources du pod ; sans --time-limit une
+  # étape bloquée sur le hub tient la file indéfiniment. Ces valeurs sont les points de départ du test
+  # de charge d'async-api (lot C) : WORKER_CONCURRENCY x maxReplicaCount du pont doit rester sous la
+  # somme des concurrences de ces workers (contre-pression).
+  args:
+    - "celery"
+    - "-A"
+    - "app.celery_app"
+    - "worker"
+    - "--loglevel=info"
+    - "--queues=entity_extraction"
+    - "--concurrency=2"
+    - "--time-limit=900"
+    - "--soft-time-limit=840"
   env:
     CELERY_QUEUE_NAME: "entity_extraction"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
@@ -273,9 +335,11 @@ worker_extraction:
 # AsyncTaskAPI worker - RabbitMQ consumer, no Celery (worker/async_api). Lets mille-feuille be consumed
 # by the async-api platform (https://github.com/IA-Generative/async-api): it runs analyses through
 # the backend's ephemeral API (/api/ephemeral/*).
-# Opt-in: flip `enabled` once the `millefeuille-async-api-worker` secret exists (see below). Not scaled
-# by KEDA: it consumes RabbitMQ, not the Celery Redis queues, and its concurrency is
-# WORKER_CONCURRENCY (bounded by memory, since files are loaded in RAM - see worker/async_api/README.md).
+# Opt-in: flip `enabled` once the `millefeuille-async-api-worker` secret exists (see below). Scaled by
+# KEDA on the RabbitMQ input queue of the service (`millefeuille-keda-async-api` in `extraObjects`):
+# a bridge is cheap, the real capacity is the Celery workers and the LLM hub behind it, so
+# `WORKER_CONCURRENCY x maxReplicaCount` must stay under what they absorb (back-pressure) - the
+# values below are placeholders until the load test on beta fixes them (async-api, lot C).
 worker_async_api:
   enabled: false
   image:
@@ -320,11 +384,83 @@ worker_async_api:
     MAX_FILE_SIZE_BYTES: "52428800"
     MAX_TOTAL_SIZE_BYTES: "104857600"
     MAX_FILES: "20"
-    # Wait for a run to finish (seconds), and polling interval.
+    # Wait for a run to finish (seconds), and polling interval. The worker refuses to start if
+    # RUN_TIMEOUT_SECONDS + transfers + cleanup exceed 60 % of the broker's 30 min ack deadline.
     RUN_TIMEOUT_SECONDS: "900"
     POLL_INTERVAL_SECONDS: "3"
+    # Timeout of the one call that carries the files (multipart upload, up to MAX_TOTAL_SIZE_BYTES).
+    MILLEFEUILLE_UPLOAD_TIMEOUT: "180"
     # Delete the result kept by mille-feuille once it has been returned in the `success` message.
     DELETE_RUN_AFTER_RESULT: "true"
+  # PLACEHOLDERS until measured (load test on beta): files are held in RAM while uploaded, so the
+  # peak is about WORKER_CONCURRENCY x MAX_TOTAL_SIZE_BYTES x 2 (buffer + multipart body) + ~150 Mi
+  # of runtime, i.e. ~550 Mi at concurrency 2. The limit is a safety net (twice the witness peak).
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "768Mi"
+      cpu: "500m"
+  # On SIGTERM mic-worker cancels the in-flight tasks; their messages are redelivered by the broker
+  # and the runs are resumed or recreated. Waiting RUN_TIMEOUT_SECONDS would save nothing: 120 s is
+  # enough for the synchronous cleanup of an abandoned run (three calls at the request timeout).
+  terminationGracePeriodSeconds: 120
+  # The worker needs nothing inbound. Outbound: DNS, async-api's RabbitMQ (another namespace of the
+  # same cluster), the backend of this release, and HTTPS (async-api object storage on Scaleway,
+  # async-api gateway for the heartbeat). Adapt the namespace selectors to the site.
+  networkPolicy:
+    create: true
+    policyTypes:
+      - Ingress
+      - Egress
+    ingress:
+      # Prometheus scraping of :8084/metrics (the kubelet probes are not filtered by NetworkPolicy).
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: monitoring
+        ports:
+          - port: 8084
+            protocol: TCP
+    egress:
+      - to:
+          - namespaceSelector: {}
+        ports:
+          - port: 53
+            protocol: UDP
+          - port: 53
+            protocol: TCP
+      # async-api's broker, in its own namespace.
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: async-api
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: rabbitmq
+        ports:
+          - port: 5672
+            protocol: TCP
+      # The mille-feuille backend of this release (ephemeral API).
+      - to:
+          - podSelector:
+              matchLabels:
+                app.kubernetes.io/name: millefeuille-backend
+        ports:
+          - port: 8000
+            protocol: TCP
+      # Object storage (Scaleway S3, no fixed IP) and the async-api gateway (heartbeat): HTTPS out of the cluster.
+      - to:
+          - ipBlock:
+              cidr: 0.0.0.0/0
+              except:
+                - 10.0.0.0/8
+                - 172.16.0.0/12
+                - 192.168.0.0/16
+        ports:
+          - port: 443
+            protocol: TCP
 
 jobs:
   migration:
@@ -656,7 +792,9 @@ extraObjects:
         name: "millefeuille-redis"
         key: "REDIS_PASSWORD"
 
-  # ScaledObject for document_process (queue: document_processing)
+  # ScaledObject for document_process. The queue is `celery`, Celery's default: neither the worker
+  # (no task_default_queue) nor the backend (dispatch without `queue=`) names another one, so the
+  # `document_processing` list that was watched here never filled and this worker never scaled.
   millefeuille-keda-document-process:
     apiVersion: keda.sh/v1alpha1
     kind: ScaledObject
@@ -675,7 +813,7 @@ extraObjects:
         metricType: AverageValue
         metadata:
           address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
-          listName: "document_processing"
+          listName: "celery"
           listLength: "5"
         authenticationRef:
           name: millefeuille-keda-triggerauth
@@ -776,6 +914,58 @@ extraObjects:
           listLength: "5"
         authenticationRef:
           name: millefeuille-keda-triggerauth
+
+  # --- KEDA for the AsyncTaskAPI worker (RabbitMQ queue length) ---
+  # Same pattern as the Celery ScaledObjects above, on async-api's broker instead of Redis. The
+  # trigger reads the AMQP URL from the worker's own secret (key BROKER_URL), which MUST be a FQDN
+  # (amqp://user:pass@async-api-rabbitmq.async-api.svc.cluster.local:5672/): the KEDA operator runs in
+  # its own namespace and cannot resolve a short name. `QueueLength` counts the messages waiting (not
+  # the ones being processed), hence `value` = WORKER_CONCURRENCY: one more replica per two waiting
+  # messages. maxReplicaCount is the back-pressure knob: WORKER_CONCURRENCY x maxReplicaCount must
+  # stay under what the Celery workers and the LLM hub absorb, or runs pile up inside mille-feuille
+  # and time out in the bridge. The scale-down stabilization window is >= RUN_TIMEOUT_SECONDS so a
+  # replica is never removed in the middle of a run. No idleReplicaCount: 0 for now - a `long` service
+  # with no consumer stops sending heartbeats and async-api would report it unavailable.
+  millefeuille-keda-async-api-triggerauth:
+    apiVersion: keda.sh/v1alpha1
+    kind: TriggerAuthentication
+    metadata:
+      name: millefeuille-keda-async-api-triggerauth
+    spec:
+      secretTargetRef:
+      - parameter: "host"
+        name: "millefeuille-async-api-worker"
+        key: "BROKER_URL"
+
+  millefeuille-keda-async-api:
+    apiVersion: keda.sh/v1alpha1
+    kind: ScaledObject
+    metadata:
+      name: millefeuille-worker-async-api
+    spec:
+      scaleTargetRef:
+        name: millefeuille-worker-async-api
+        kind: Deployment
+        apiVersion: apps/v1
+      minReplicaCount: 1
+      maxReplicaCount: 4
+      pollingInterval: 15
+      cooldownPeriod: 300
+      advanced:
+        horizontalPodAutoscalerConfig:
+          behavior:
+            scaleDown:
+              stabilizationWindowSeconds: 900
+      triggers:
+      - type: rabbitmq
+        metricType: AverageValue
+        metadata:
+          protocol: amqp
+          mode: QueueLength
+          value: "2"
+          queueName: "mille_feuille_queue_in"
+        authenticationRef:
+          name: millefeuille-keda-async-api-triggerauth
 
 # A known external S3 (s3.fr-par.scw.cloud, same one used for cnpg backups) is used instead -
 # no need to self-host object storage.
