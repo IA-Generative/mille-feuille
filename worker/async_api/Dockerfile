@@ -36,6 +36,24 @@ COPY --from=builder --chown=appuser:appuser /worker/async_api/.venv /app/.venv
 COPY --from=builder /sdks /sdks
 COPY --chown=appuser:appuser worker/async_api/contrat.json worker/async_api/main.py ./
 COPY --chown=appuser:appuser worker/async_api/src/ ./src/
+
+# `/app/version.json`, servi par mic-worker sur GET /__version__ (convention ADR-0004 d'async-api,
+# format Dockerflow) : version, commit, build, date du code, source, et les sections du CHANGELOG
+# tenu par release-please. Les cinq build-args viennent de la CI ; sans eux, « dev » (poste).
+ARG VERSION=dev
+ARG COMMIT=
+ARG BUILD=
+ARG CODE_DATE=
+ARG SOURCE=https://github.com/IA-Generative/mille-feuille
+COPY scripts/version_json.py CHANGELOG.md* /tmp/version/
+RUN python /tmp/version/version_json.py --version "$VERSION" --commit "$COMMIT" --build "$BUILD" \
+      --code-date "$CODE_DATE" --source "$SOURCE" --changelog /tmp/version/CHANGELOG.md \
+      --out /app/version.json \
+ && chmod 0644 /app/version.json \
+ && rm -rf /tmp/version
+# La version que le worker annonce (signes de vie vers async-api, journal).
+ENV WORKER_VERSION=$VERSION
+
 USER appuser
 EXPOSE 8084
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \

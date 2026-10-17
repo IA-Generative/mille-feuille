@@ -15,6 +15,7 @@ from millefeuille_ephemeral import EphemeralClient, EphemeralRun, MilleFeuilleEr
 from pydantic import ValidationError
 
 from src.config import NOM_FICHIER_RESULTAT, REPONSE_MAX_OCTETS, SORTIE_AGENT_MAX_OCTETS
+from src.enums import ClasseErreurAmont, EtatRun
 from src.exceptions import (
     ECHEC_TECHNIQUE,
     AnalysisNotFoundError,
@@ -28,6 +29,14 @@ from src.exceptions import (
     UpstreamError,
 )
 from src.messages import PERSIST_PLATEFORME, AnalyzeRequest
+from src.metriques import (
+    PAGES_TOTAL,
+    RESULTAT_OCTETS,
+    RUN_DURATION_SECONDS,
+    RUN_WAIT_SECONDS,
+    RUNS_TOTAL,
+    UPSTREAM_ERRORS_TOTAL,
+)
 from src.schemas import (
     AgentResume,
     DocumentResume,
@@ -42,6 +51,8 @@ _PROGRESS_VALIDATED = 0.05
 _PROGRESS_FILES_READY = 0.2
 _PROGRESS_RUN_STARTED = 0.25
 _PROGRESS_RUN_MAX = 0.95  # 1.0 est le message terminal : jamais émis en progression
+
+_PREMIER_STATUT_SERVEUR = 500
 
 # Libellés neutres rendus au consommateur pour une erreur du service d'analyse (garde C-17).
 _LIBELLE_REQUETE_REFUSEE = "Requête refusée par le service d'analyse"
@@ -100,6 +111,7 @@ class AnalyzeTask(AsyncTaskInterface):
                 raise RuntimeError(f"{e.error_code}: {e.detail}") from e
             except MilleFeuilleError as e:
                 erreur = self._traduire(e)
+                UPSTREAM_ERRORS_TOTAL.labels(classe=self._classe_amont(e).value).inc()
                 logger.error(
                     f"Task {task_id}: mille-feuille error [{erreur.error_code}] — "
                     f"{type(e).__name__} {e.status_code} {e.message}"
@@ -110,6 +122,16 @@ class AnalyzeTask(AsyncTaskInterface):
             except Exception as exc:
                 logger.exception(f"Task {task_id}: échec technique — {type(exc).__name__}: {exc}")
                 raise RuntimeError(ECHEC_TECHNIQUE) from exc
+
+    @staticmethod
+    def _classe_amont(erreur: MilleFeuilleError) -> ClasseErreurAmont:
+        if erreur.status_code is None:
+            return ClasseErreurAmont.RESEAU
+        return (
+            ClasseErreurAmont.CINQ_CENTS
+            if erreur.status_code >= _PREMIER_STATUT_SERVEUR
+            else ClasseErreurAmont.QUATRE_CENTS
+        )
 
     @staticmethod
     def _traduire(erreur: MilleFeuilleError) -> MilleFeuilleBridgeError:
@@ -148,6 +170,7 @@ class AnalyzeTask(AsyncTaskInterface):
             await progress(progress=_PROGRESS_RUN_STARTED, payload=None)
 
             result = await self._wait(run_id, progress)
+            self._observer(result)
             if result.status != DossierStatus.TERMINE:
                 raise RunFailedError(self._failure_message(result))
             resultat_file_id, octets = await self._deposer_resultat(client_id, task_id, result)
@@ -231,8 +254,24 @@ class AnalyzeTask(AsyncTaskInterface):
                 last_reported = reported
                 await progress(progress=reported, payload=None)
             if self._clock() + self.poll_interval > deadline:
+                RUNS_TOTAL.labels(etat=EtatRun.DELAI.value).inc()
                 raise RunTimeoutError(f"Le run {run_id} n'est pas terminé après {self.run_timeout:.0f} s.")
             await asyncio.sleep(self.poll_interval)
+
+    @staticmethod
+    def _observer(run: EphemeralRun) -> None:
+        """Les métriques d'un run conclu : son issue, sa durée, son attente avant la première étape, ses pages."""
+        etat = {DossierStatus.TERMINE: EtatRun.TERMINE, DossierStatus.ARRETE: EtatRun.ARRETE}.get(
+            run.status, EtatRun.ECHEC
+        )
+        RUNS_TOTAL.labels(etat=etat.value).inc()
+        if run.ended_at is not None:
+            RUN_DURATION_SECONDS.observe(max(0.0, (run.ended_at - run.created_at).total_seconds()))
+        debuts = [step.started_at for step in run.execution_steps]
+        if debuts:
+            RUN_WAIT_SECONDS.observe(max(0.0, (min(debuts) - run.created_at).total_seconds()))
+        if run.status == DossierStatus.TERMINE:
+            PAGES_TOTAL.inc(sum(len(document.pages) for document in run.documents))
 
     @staticmethod
     def _progress_of(run: EphemeralRun) -> float:
@@ -262,6 +301,7 @@ class AnalyzeTask(AsyncTaskInterface):
         ).encode("utf-8")
         cle = f"{client_id}/{task_id}/{NOM_FICHIER_RESULTAT}"
         await asyncio.to_thread(self.s3_client.upload, cle, charge)
+        RESULTAT_OCTETS.observe(len(charge))
         return cle, len(charge)
 
     @classmethod

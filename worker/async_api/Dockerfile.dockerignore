@@ -7,6 +7,8 @@
 !worker/async_api/contrat.json
 !worker/async_api/main.py
 !worker/async_api/src
+!scripts/version_json.py
+!CHANGELOG.md
 **/.venv
 **/__pycache__
 **/.pytest_cache
