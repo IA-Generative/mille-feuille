@@ -7,17 +7,34 @@ from typing import Any, Protocol
 from loguru import logger
 from mic_worker import S3Client
 from mic_worker.typed import AsyncProgressProtocol, AsyncTaskInterface, IncomingMessage
+from millefeuille.exceptions import NotFoundError
+from millefeuille.exceptions import ValidationError as MilleFeuilleValidationError
 from millefeuille.models import DossierStatus, ExecutionStepStatus
 from millefeuille_ephemeral import EphemeralClient, EphemeralRun, MilleFeuilleError
 from pydantic import ValidationError
 
-from src.exceptions import FileTooLargeError, InvalidRequestError, RunFailedError, RunTimeoutError
+from src.exceptions import (
+    ECHEC_TECHNIQUE,
+    AnalysisNotFoundError,
+    FichierIntrouvableError,
+    FileTooLargeError,
+    InvalidRequestError,
+    MilleFeuilleBridgeError,
+    RunFailedError,
+    RunTimeoutError,
+    TooManyFilesError,
+    UpstreamError,
+)
 from src.messages import PERSIST_PLATEFORME, AnalyzeRequest
 
 _PROGRESS_VALIDATED = 0.05
 _PROGRESS_FILES_READY = 0.2
 _PROGRESS_RUN_STARTED = 0.25
 _PROGRESS_RUN_MAX = 0.95  # 1.0 est le message terminal : jamais émis en progression
+
+# Libellés neutres rendus au consommateur pour une erreur du service d'analyse (garde C-17).
+_LIBELLE_REQUETE_REFUSEE = "Requête refusée par le service d'analyse"
+_LIBELLE_AMONT_INDISPONIBLE = "Service d'analyse indisponible, réessayer plus tard"
 
 
 class _Clock(Protocol):
@@ -61,6 +78,36 @@ class AnalyzeTask(AsyncTaskInterface):
 
     async def execute(self, incoming_message: IncomingMessage, progress: AsyncProgressProtocol) -> dict[str, Any]:
         task_id = incoming_message.task_id
+        with logger.contextualize(task_id=task_id):
+            try:
+                return await self._executer(incoming_message, progress)
+            except MilleFeuilleBridgeError as e:
+                logger.info(f"Task {task_id} failed [{e.error_code}]: {e.detail}")
+                raise RuntimeError(f"{e.error_code}: {e.detail}") from e
+            except MilleFeuilleError as e:
+                erreur = self._traduire(e)
+                logger.error(
+                    f"Task {task_id}: mille-feuille error [{erreur.error_code}] — "
+                    f"{type(e).__name__} {e.status_code} {e.message}"
+                )
+                raise RuntimeError(f"{erreur.error_code}: {erreur.detail}") from e
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.exception(f"Task {task_id}: échec technique — {type(exc).__name__}: {exc}")
+                raise RuntimeError(ECHEC_TECHNIQUE) from exc
+
+    @staticmethod
+    def _traduire(erreur: MilleFeuilleError) -> MilleFeuilleBridgeError:
+        """Une erreur du backend, en code neutre : le consommateur n'en voit ni l'URL, ni le statut,
+        ni le texte brut. Un 400/422 est de son ressort (la requête est refusée) ; tout le reste
+        (authentification du worker, 5xx, réseau) est un incident amont, à réessayer."""
+        if isinstance(erreur, MilleFeuilleValidationError):
+            return InvalidRequestError(_LIBELLE_REQUETE_REFUSEE)
+        return UpstreamError(_LIBELLE_AMONT_INDISPONIBLE)
+
+    async def _executer(self, incoming_message: IncomingMessage, progress: AsyncProgressProtocol) -> dict[str, Any]:
+        task_id = incoming_message.task_id
         request = self._parse(incoming_message.body)
         await progress(progress=_PROGRESS_VALIDATED, payload=None)
 
@@ -80,9 +127,7 @@ class AnalyzeTask(AsyncTaskInterface):
             else:
                 assert request.analyse_id is not None
                 analyse_id = request.analyse_id
-            run = await asyncio.to_thread(
-                self.client.runs.create, analyse_id, files, PERSIST_PLATEFORME, request.ttl_hours
-            )
+            run = await self._creer_run(request, analyse_id, files)
             run_id = run.id
             logger.info(f"Task {task_id}: run {run_id} started")
             await progress(progress=_PROGRESS_RUN_STARTED, payload=None)
@@ -94,15 +139,25 @@ class AnalyzeTask(AsyncTaskInterface):
             if self.delete_run_after_result:
                 await self._delete_run_quietly(task_id, run_id)
             return response
-        except MilleFeuilleError as error:
-            # Le message vient du backend (ex. 404 analyse introuvable) : c'est l'information utile.
-            logger.error(f"Task {task_id}: mille-feuille error — {error.status_code} {error.message}")
-            self._abandon(task_id, run_id, created_analyse_id)
-            raise RuntimeError(f"Erreur mille-feuille ({error.status_code}) : {error.message}") from error
         except BaseException:
-            # Échec, délai dépassé ou arrêt du worker (CancelledError) : ne pas laisser un run orphelin.
+            # Échec, erreur amont, délai dépassé ou arrêt du worker (CancelledError) : ne pas laisser
+            # un run orphelin. La traduction en code neutre est faite un étage plus haut.
             self._abandon(task_id, run_id, created_analyse_id)
             raise
+
+    async def _creer_run(
+        self, request: AnalyzeRequest, analyse_id: uuid.UUID, files: list[tuple[str, bytes]]
+    ) -> EphemeralRun:
+        try:
+            return await asyncio.to_thread(
+                self.client.runs.create, analyse_id, files, PERSIST_PLATEFORME, request.ttl_hours
+            )
+        except NotFoundError as error:
+            if request.analyse_id is None:
+                raise  # l'analyse vient d'être créée : un 404 ici est un incident amont, pas une faute du consommateur
+            raise AnalysisNotFoundError(
+                f"L'analyse {request.analyse_id} est introuvable, ou hors du périmètre du jeton du worker."
+            ) from error
 
     def _parse(self, body: dict[str, Any]) -> AnalyzeRequest:
         try:
@@ -111,7 +166,7 @@ class AnalyzeTask(AsyncTaskInterface):
             details = "; ".join(f"{'.'.join(map(str, e['loc'])) or 'message'} : {e['msg']}" for e in error.errors())
             raise InvalidRequestError(f"Message d'entrée invalide — {details}") from error
         if len(request.files) > self.max_files:
-            raise InvalidRequestError(f"Trop de fichiers : {len(request.files)} (maximum {self.max_files}).")
+            raise TooManyFilesError(f"Trop de fichiers : {len(request.files)} (maximum {self.max_files}).")
         return request
 
     async def _check_sizes(self, request: AnalyzeRequest) -> None:
@@ -119,7 +174,10 @@ class AnalyzeTask(AsyncTaskInterface):
         et le message serait redélivré indéfiniment."""
         total = 0
         for ref in request.files:
-            size = await self.s3_client.get_size(ref.file_id)
+            try:
+                size = await self.s3_client.get_size(ref.file_id)
+            except FileNotFoundError as error:
+                raise FichierIntrouvableError(f"Le fichier {ref.display_name} est introuvable au stockage.") from error
             if size > self.max_file_size:
                 raise FileTooLargeError(
                     f"Le fichier {ref.display_name} pèse {size} octets, maximum {self.max_file_size}."
@@ -160,9 +218,14 @@ class AnalyzeTask(AsyncTaskInterface):
 
     @staticmethod
     def _failure_message(run: EphemeralRun) -> str:
+        """Ce que le consommateur apprend d'un run en échec : son état et les étapes concernées, par
+        leur libellé (les noms d'agents qu'il a lui-même définis). La sortie des étapes — texte produit
+        par un modèle, potentiellement long et parlant — reste au journal (garde C-17)."""
         failed = [step for step in run.execution_steps if step.status == ExecutionStepStatus.ECHEC]
-        detail = "; ".join(f"{step.label} : {step.output or 'sans détail'}" for step in failed)
-        return f"Le run {run.id} est {run.status.value}" + (f" — {detail}" if detail else ".")
+        for step in failed:
+            logger.warning(f"Run {run.id}: étape `{step.label}` en échec — {step.output or 'sans détail'}")
+        etapes = ", ".join(step.label for step in failed)
+        return f"Le run est {run.status.value}" + (f" — étapes en échec : {etapes}" if etapes else ".")
 
     @staticmethod
     def _to_response(run: EphemeralRun) -> dict[str, Any]:
