@@ -69,6 +69,18 @@ jobs:
       registry: ghcr.io
       repository: ia-generative/mille-feuille/backend
       tag: "0.26.0"
+    # L'attente de PostgreSQL de common-values nomme l'image Harbor avec le projet en dur : ici, ghcr.
+    initContainers:
+    - name: wait-for-postgres
+      image: "ghcr.io/ia-generative/mille-feuille/backend:0.26.0"
+      imagePullPolicy: "IfNotPresent"
+      command:
+      - "python"
+      - "-c"
+      - "import os,socket,time\nfrom urllib.parse import urlsplit\nu = urlsplit(os.environ['DATABASE_URL'])\nprint(f'Waiting for PostgreSQL at {u.hostname}:{u.port or 5432}', flush=True)\nwhile True:\n    try:\n        socket.create_connection((u.hostname, u.port or 5432), 2).close()\n        break\n    except OSError:\n        time.sleep(1)\nprint('PostgreSQL reachable', flush=True)"
+      envFrom:
+      - secretRef:
+          name: "millefeuille-db-infos"
 
 worker_document:
   image:
