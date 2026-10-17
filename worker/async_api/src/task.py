@@ -12,7 +12,7 @@ from millefeuille_ephemeral import EphemeralClient, EphemeralRun, MilleFeuilleEr
 from pydantic import ValidationError
 
 from src.exceptions import FileTooLargeError, InvalidRequestError, RunFailedError, RunTimeoutError
-from src.messages import AnalyzeRequest
+from src.messages import PERSIST_PLATEFORME, AnalyzeRequest
 
 _PROGRESS_VALIDATED = 0.05
 _PROGRESS_FILES_READY = 0.2
@@ -72,14 +72,16 @@ class AnalyzeTask(AsyncTaskInterface):
         run_id: uuid.UUID | None = None
         try:
             if request.analysis is not None:
-                analyse = await asyncio.to_thread(self.client.analyses.create_from_config, request.analysis)
+                analyse = await asyncio.to_thread(
+                    self.client.analyses.create_from_config, request.analysis.vers_config()
+                )
                 created_analyse_id = analyse.id
                 analyse_id = analyse.id
             else:
                 assert request.analyse_id is not None
                 analyse_id = request.analyse_id
             run = await asyncio.to_thread(
-                self.client.runs.create, analyse_id, files, request.persist, request.ttl_hours
+                self.client.runs.create, analyse_id, files, PERSIST_PLATEFORME, request.ttl_hours
             )
             run_id = run.id
             logger.info(f"Task {task_id}: run {run_id} started")
@@ -89,7 +91,7 @@ class AnalyzeTask(AsyncTaskInterface):
             if result.status != DossierStatus.TERMINE:
                 raise RunFailedError(self._failure_message(result))
             response = self._to_response(result)
-            if self.delete_run_after_result and not request.persist:
+            if self.delete_run_after_result:
                 await self._delete_run_quietly(task_id, run_id)
             return response
         except MilleFeuilleError as error:

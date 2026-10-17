@@ -1,5 +1,13 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+#: Plafond de `ttl_hours` ouvert à la plateforme (7 jours), bien sous les 2 ans de l'API éphémère.
+#: Le résultat est rendu dans la réponse et le run supprimé aussitôt (`DELETE_RUN_AFTER_RESULT`) :
+#: le TTL ne sert plus qu'à borner la rétention si cette suppression échoue.
+TTL_MAX_PLATEFORME = 168
+TTL_DEFAUT_PLATEFORME = 24
+#: Nombre de documents par tâche, déclaré dans le schéma (`files.maxItems`) : refusé en 422 à la soumission.
+MAX_FILES_PLATEFORME = 20
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="allow")
@@ -33,7 +41,7 @@ class Settings(BaseSettings):
     # (contrat de service d'async-api, §5 : borner ses consommations).
     MAX_FILE_SIZE_BYTES: int = 50 * 1024 * 1024
     MAX_TOTAL_SIZE_BYTES: int = 100 * 1024 * 1024
-    MAX_FILES: int = 20
+    MAX_FILES: int = MAX_FILES_PLATEFORME
 
     # Durée maximale d'attente de la fin d'un run, et fréquence d'interrogation.
     RUN_TIMEOUT_SECONDS: float = 900.0

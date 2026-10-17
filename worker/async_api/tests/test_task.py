@@ -101,13 +101,25 @@ async def test_existing_analyse_id_skips_analysis_creation() -> None:
     assert client.runs.create.call_args.args[3] == 24  # ttl par défaut
 
 
-async def test_persist_true_keeps_the_run() -> None:
+async def test_persist_is_refused_by_the_contract() -> None:
     task, _, client = make_task([make_run()])
 
-    await run_task(task, {**BODY, "persist": True})
+    with pytest.raises(InvalidRequestError, match="persist"):
+        await run_task(task, {**BODY, "persist": True})
 
-    assert client.runs.create.call_args.args[2] is True
-    client.runs.delete.assert_not_called()
+    client.runs.create.assert_not_called()
+
+
+async def test_analysis_is_created_without_persist_and_with_platform_tools() -> None:
+    task, _, client = make_task([make_run()])
+    body = {**BODY, "analysis": {**ANALYSIS, "agents": [{"name": "a", "prompt": "p", "tools": ["lecture_document"]}]}}
+
+    await run_task(task, body)
+
+    config = client.analyses.create_from_config.call_args.args[0]
+    assert config.persist is False
+    assert [outil.value for outil in config.agents[0].tools] == ["lecture_document"]
+    assert client.runs.create.call_args.args[2] is False
 
 
 async def test_delete_after_result_can_be_disabled() -> None:
@@ -136,6 +148,11 @@ async def test_delete_failure_does_not_fail_the_task() -> None:
         {"analysis": ANALYSIS, "files": BODY["files"], "ttl_hours": 0},
         {"analysis": ANALYSIS, "files": BODY["files"], "inconnu": 1},
         {"analysis": {"name": "n", "agents": [{"name": "a", "prompt": ""}]}, "files": BODY["files"]},
+        {
+            "analysis": {"name": "n", "agents": [{"name": "a", "prompt": "p", "tools": ["recherche_web"]}]},
+            "files": BODY["files"],
+        },
+        {"analysis": ANALYSIS, "files": BODY["files"], "ttl_hours": 169},
     ],
 )
 async def test_invalid_message_is_rejected_before_any_io(body: dict[str, Any]) -> None:

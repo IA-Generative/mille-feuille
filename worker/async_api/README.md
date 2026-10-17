@@ -17,7 +17,7 @@ Il **ne réimplémente pas le pipeline** : chaque tâche passe par l'API éphém
 3. Création de l'analyse éphémère (si `analysis` est fourni) puis lancement du run.
 4. Attente de la fin du run ; progression = étapes d'exécution terminées / total, entre 0.25 et 0.95.
 5. Message `success` avec le résultat complet du run, puis suppression du résultat conservé côté mille-feuille
-   (sauf `persist: true`).
+.
 
 En cas d'échec, de délai dépassé ou d'arrêt du worker, le run et l'analyse créés par la tâche sont arrêtés et supprimés.
 
@@ -25,7 +25,7 @@ En cas d'échec, de délai dépassé ou d'arrêt du worker, le run et l'analyse 
 
 Le schéma d'entrée fait foi dans [`contrat.json`](contrat.json) (manifeste `mic-worker`, validé au démarrage et par les tests).
 
-Entrée (`data.body`), `analysis` **ou** `analyse_id` :
+Entrée (`data.body`), `analysis` **ou** `analyse_id` (1 à 20 fichiers) :
 
 ```json
 {
@@ -36,13 +36,19 @@ Entrée (`data.body`), `analysis` **ou** `analyse_id` :
     "labels": [{ "name": "CNI", "definition": "Carte nationale d'identité" }],
     "extraction_prompt": "Extrait nom et prénom",
     "entities": [{ "name": "nom", "type": "texte" }],
-    "agents": [{ "name": "vérif", "prompt": "Vérifie la cohérence des données" }]
+    "agents": [{ "name": "vérif", "prompt": "Vérifie la cohérence des données", "tools": ["lecture_document"] }]
   },
   "files": [{ "file_id": "astree/a1b2c3d4/cni.pdf", "name": "cni.pdf" }],
-  "ttl_hours": 24,
-  "persist": false
+  "ttl_hours": 24
 }
 ```
+
+Ce que la plateforme n'ouvre pas, à dessein : `persist` (un run de plateforme n'est jamais conservé — le
+résultat est rendu dans la réponse et le run supprimé), les outils d'agent qui sortent du dossier
+(`recherche_web`, `base_connaissances`, `appel_agent` : seuls `lecture_document`, `calculatrice` et
+`verification_coherence` sont acceptés) et un `ttl_hours` au-delà de 168 h. Le manifeste déclare aussi
+`taille_max_fichier_mio: 50` (= `MAX_FILE_SIZE_BYTES`) : async-api refuse en `413` à la soumission ce que le
+worker refuserait après coup, et `files.maxItems: 20` (= `MAX_FILES`), refusé en `422`.
 
 Sortie : messages `started`, `progress` (`0.0` à `1.0`), puis `success` dont `response` est le run
 (`status`, `execution_steps` avec les sorties des agents, `documents` avec pages et prédictions, `expires_at`...),
