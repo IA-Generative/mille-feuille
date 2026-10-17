@@ -91,6 +91,19 @@ async def test_success_creates_analysis_runs_waits_and_cleans_up() -> None:
     assert values == sorted(values) and values[0] == 0.05 and max(values) < 1.0
 
 
+async def test_upload_goes_through_the_dedicated_client_when_given() -> None:
+    task, _, client = make_task([make_run()])
+    client_depot = MagicMock(spec=EphemeralClient)
+    client_depot.runs = MagicMock()
+    client_depot.runs.create.return_value = make_run("en_cours", ("en_cours",))
+    task.client_depot = client_depot
+
+    await run_task(task)
+
+    client_depot.runs.create.assert_called_once()
+    client.runs.create.assert_not_called()
+
+
 async def test_existing_analyse_id_skips_analysis_creation() -> None:
     task, _, client = make_task([make_run()])
 

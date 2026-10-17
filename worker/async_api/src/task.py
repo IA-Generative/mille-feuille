@@ -58,6 +58,7 @@ class AnalyzeTask(AsyncTaskInterface):
         s3_client: S3Client,
         client: EphemeralClient,
         *,
+        client_depot: EphemeralClient | None = None,
         max_file_size: int,
         max_total_size: int,
         max_files: int,
@@ -68,6 +69,8 @@ class AnalyzeTask(AsyncTaskInterface):
     ) -> None:
         self.s3_client = s3_client
         self.client = client
+        # Le client du dépôt multipart a un délai plus long (`MILLEFEUILLE_UPLOAD_TIMEOUT`) ; sans lui, le même.
+        self.client_depot = client_depot or client
         self.max_file_size = max_file_size
         self.max_total_size = max_total_size
         self.max_files = max_files
@@ -150,7 +153,7 @@ class AnalyzeTask(AsyncTaskInterface):
     ) -> EphemeralRun:
         try:
             return await asyncio.to_thread(
-                self.client.runs.create, analyse_id, files, PERSIST_PLATEFORME, request.ttl_hours
+                self.client_depot.runs.create, analyse_id, files, PERSIST_PLATEFORME, request.ttl_hours
             )
         except NotFoundError as error:
             if request.analyse_id is None:
