@@ -118,6 +118,23 @@ worker_document:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"
+  # Parallélisme et délais EXPLICITES : sans --concurrency Celery lance un processus par cœur du
+  # nœud (os.cpu_count()), invisible et sans rapport avec les ressources du pod ; sans --time-limit une
+  # étape bloquée sur le hub tient la file indéfiniment. Ces valeurs sont les points de départ du test
+  # de charge d'async-api (lot C) : WORKER_CONCURRENCY x maxReplicaCount du pont doit rester sous la
+  # somme des concurrences de ces workers (contre-pression).
+  args:
+    - "celery"
+    - "-A"
+    - "app.celery_app"
+    - "worker"
+    - "--loglevel=info"
+    # La file réellement consommée : ni le worker ni le backend ne nomment de file pour l'extraction de
+    # texte, les deux emploient donc la file Celery par défaut, `celery` (pas `document_processing`).
+    - "--queues=celery"
+    - "--concurrency=2"
+    - "--time-limit=300"
+    - "--soft-time-limit=270"
   env:
     CELERY_QUEUE_NAME: "document_processing"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
@@ -189,6 +206,21 @@ worker_agent:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"
+  # Parallélisme et délais EXPLICITES : sans --concurrency Celery lance un processus par cœur du
+  # nœud (os.cpu_count()), invisible et sans rapport avec les ressources du pod ; sans --time-limit une
+  # étape bloquée sur le hub tient la file indéfiniment. Ces valeurs sont les points de départ du test
+  # de charge d'async-api (lot C) : WORKER_CONCURRENCY x maxReplicaCount du pont doit rester sous la
+  # somme des concurrences de ces workers (contre-pression).
+  args:
+    - "celery"
+    - "-A"
+    - "app.celery_app"
+    - "worker"
+    - "--loglevel=info"
+    - "--queues=agent_execution"
+    - "--concurrency=4"
+    - "--time-limit=900"
+    - "--soft-time-limit=840"
   env:
     CELERY_QUEUE_NAME: "agent_execution"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
@@ -231,6 +263,21 @@ worker_classification:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"
+  # Parallélisme et délais EXPLICITES : sans --concurrency Celery lance un processus par cœur du
+  # nœud (os.cpu_count()), invisible et sans rapport avec les ressources du pod ; sans --time-limit une
+  # étape bloquée sur le hub tient la file indéfiniment. Ces valeurs sont les points de départ du test
+  # de charge d'async-api (lot C) : WORKER_CONCURRENCY x maxReplicaCount du pont doit rester sous la
+  # somme des concurrences de ces workers (contre-pression).
+  args:
+    - "celery"
+    - "-A"
+    - "app.celery_app"
+    - "worker"
+    - "--loglevel=info"
+    - "--queues=classification"
+    - "--concurrency=2"
+    - "--time-limit=900"
+    - "--soft-time-limit=840"
   env:
     CELERY_QUEUE_NAME: "classification"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
@@ -266,6 +313,21 @@ worker_extraction:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"
+  # Parallélisme et délais EXPLICITES : sans --concurrency Celery lance un processus par cœur du
+  # nœud (os.cpu_count()), invisible et sans rapport avec les ressources du pod ; sans --time-limit une
+  # étape bloquée sur le hub tient la file indéfiniment. Ces valeurs sont les points de départ du test
+  # de charge d'async-api (lot C) : WORKER_CONCURRENCY x maxReplicaCount du pont doit rester sous la
+  # somme des concurrences de ces workers (contre-pression).
+  args:
+    - "celery"
+    - "-A"
+    - "app.celery_app"
+    - "worker"
+    - "--loglevel=info"
+    - "--queues=entity_extraction"
+    - "--concurrency=2"
+    - "--time-limit=900"
+    - "--soft-time-limit=840"
   env:
     CELERY_QUEUE_NAME: "entity_extraction"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
