@@ -1,53 +1,139 @@
-# Exemple de values d'environnement pour le worker AsyncTaskAPI sur le cluster internal-gw (beta),
-# à côté de la plateforme async-api (namespace `async-api`). Les values réelles vivent côté Argo CD :
-# ce fichier documente ce qu'elles doivent porter, et sert au contrôle `helm template` de la CI.
+# Values d'environnement de mille-feuille sur le cluster internal-gw (beta), namespace `millefeuille`,
+# à côté de la plateforme async-api (namespace `async-api`). Posées et déployées depuis la branche
+# `feat/async-api-worker-plateforme` le 17/10/2026, pour éprouver le worker AsyncTaskAPI de bout en
+# bout et jouer la campagne de mesure d'async-api ; pas de frontend, pas d'ingress, pas de Keycloak.
 #
-#   helm template millefeuille ./millefeuille \
+#   helm upgrade --install millefeuille ./millefeuille -n millefeuille \
 #     -f millefeuille/values/common-values.yaml \
 #     -f millefeuille/values/examples/values-internal-gw-beta.yaml
 #
-# Secret Vault `exploration/beta/millefeuille/async-api-worker` (docs/secrets.md § 12) :
-#   BROKER_URL             amqp://millefeuille-worker:<mdp>@async-api-rabbitmq.async-api.svc.cluster.local:5672/
-#                          (compte dédié rendu par async-api, URL en FQDN : KEDA la lit aussi)
-#   AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY   clé IAM dédiée sur le seau d'async-api (lecture + PutObject)
-#   MILLEFEUILLE_API_TOKEN jeton d'application mille-feuille (POST /api/app-tokens)
-#   HEARTBEAT_API_KEY      clé du consommateur async-api `millefeuille-worker` (dès que le heartbeat existe)
+# Ce que ce site n'a pas, et comment on fait sans :
+# - pas de Vault Secrets Operator : les dix VaultStaticSecret de common-values sont neutralisés
+#   (`null`) et les secrets sont posés à la main (docs/secrets.md pour les clés) ;
+# - pas de Keycloak : le backend démarre sans lui (il ne le joint qu'à la connexion d'un
+#   utilisateur) ; le worker s'authentifie par la clé d'environnement de l'API éphémère
+#   (EPHEMERAL_API_KEY = MILLEFEUILLE_API_TOKEN), non persistante par construction ;
+# - pas de Harbor : les images viennent de ghcr (publiées par la CI du dépôt à chaque release) ;
+#   `global.projectName` est vide pour ne pas préfixer les dépôts d'image.
+# Secrets attendus dans le namespace : millefeuille-db-superuser, -db-appuser, -db-infos, -redis,
+# -s3, -openai, -worker, -keycloak, -async-api-worker, registry-pull-secret (ghcr).
 global:
+  projectName: ""
   env:
     ENVIRONMENT: "beta"
+  ingress:
+    enabled: false
+  imagePullSecrets:
+    - name: registry-pull-secret
+
+# Les dix secrets Vault de common-values : posés à la main ici. Le schéma du chart refuse `null` :
+# une chaîne vide ne rend rien (extra-objects.yaml passe une chaîne telle quelle à `tpl`).
+extraObjects:
+  millefeuille-s3: ""
+  millefeuille-openai: ""
+  millefeuille-keycloak: ""
+  millefeuille-worker: ""
+  millefeuille-async-api-worker: ""
+  millefeuille-redis: ""
+  millefeuille-db-superuser: ""
+  millefeuille-db-appuser: ""
+  millefeuille-db-infos: ""
+  millefeuille-db-backups: ""
+  # Pas de rendu de documents sur ce site : son worker est arrêté, son ScaledObject aussi.
+  millefeuille-keda-document-render: ""
+  millefeuille-keda-async-api:
+    spec:
+      minReplicaCount: 1
+      maxReplicaCount: 2
+
+cnpg:
+  cluster:
+    instances: 1
+    storage:
+      size: 8Gi
+      storageClass: sbs-default-retain
+  backups:
+    enabled: false
+
+backend:
+  replicaCount: 1
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/backend
+    tag: "0.26.0"
+    pullPolicy: IfNotPresent
+
+jobs:
+  migration:
+    image:
+      registry: ghcr.io
+      repository: ia-generative/mille-feuille/backend
+      tag: "0.26.0"
+
+worker_document:
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-document-process
+    tag: "0.26.0"
+worker_agent:
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-agent-execution
+    tag: "0.26.0"
+worker_classification:
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-classification
+    tag: "0.26.0"
+worker_extraction:
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-extraction
+    tag: "0.26.0"
+worker_render:
+  replicaCount: 0
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-document-render
+    tag: "0.26.0"
+frontend:
+  replicaCount: 0
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/frontend
+    tag: "0.26.0"
+ephemeral_frontend:
+  replicaCount: 0
+  image:
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/ephemeral-frontend
+    tag: "0.26.0"
 
 worker_async_api:
   enabled: true
   image:
-    # Une version publiée (cd.yml construit l'image à la release) ; jamais `latest`.
-    tag: "0.27.0"
+    registry: ghcr.io
+    repository: ia-generative/mille-feuille/worker-async-api
+    # Construite depuis la branche feat/async-api-worker-plateforme (commit ec95e7bf) et poussée à la main ;
+    # remplacée par le tag de la release dès que cd.yml la construit.
+    tag: "beta-ec95e7bf"
+    pullPolicy: IfNotPresent
   env:
     IN_QUEUE_NAME: "mille_feuille_queue_in"
     OUT_QUEUE_NAME: "mille_feuille_queue_out"
     SERVICE_CLASS: "long"
     WORKER_CONCURRENCY: "2"
-    # Stockage objet d'async-api sur beta.
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
     AWS_S3_BUCKET_NAME: "beta-sdid-async-api"
     AWS_DEFAULT_REGION: "fr-par"
     MILLEFEUILLE_BASE_URL: "http://millefeuille-backend:8000"
-    # Signes de vie vers async-api, par le Service interne de sa passerelle (PR #662 d'async-api).
-    HEARTBEAT_API_URL: "http://async-api-apisix.async-api.svc.cluster.local"
-    HEARTBEAT_SERVICE: "mille-feuille"
-    HEARTBEAT_INTERVAL_SECONDS: "15"
-  # À remplacer par la mesure du test de charge (pic RSS d'un pod à WORKER_CONCURRENCY tâches de 100 Mio).
-  resources:
-    requests:
-      memory: "256Mi"
-      cpu: "100m"
-    limits:
-      memory: "768Mi"
-      cpu: "500m"
-
-extraObjects:
-  millefeuille-keda-async-api:
-    spec:
-      # Contre-pression : WORKER_CONCURRENCY x maxReplicaCount sous la capacité mesurée des workers Celery
-      # et du quota du hub (async-api, lot C, règles C-4).
-      minReplicaCount: 1
-      maxReplicaCount: 4
+  networkPolicy:
+    ingress:
+      # Le collecteur de métriques de ce cluster (les sondes du kubelet ne sont pas filtrées).
+      - from:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: beta-sdid-obs
+        ports:
+          - port: 8084
+            protocol: TCP
