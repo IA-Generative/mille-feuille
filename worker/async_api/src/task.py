@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import json
 import time
 import uuid
 from typing import Any, Protocol
@@ -9,10 +10,11 @@ from mic_worker import S3Client
 from mic_worker.typed import AsyncProgressProtocol, AsyncTaskInterface, IncomingMessage
 from millefeuille.exceptions import NotFoundError
 from millefeuille.exceptions import ValidationError as MilleFeuilleValidationError
-from millefeuille.models import DossierStatus, ExecutionStepStatus
+from millefeuille.models import DossierStatus, ExecutionStepStatus, PredictionKind
 from millefeuille_ephemeral import EphemeralClient, EphemeralRun, MilleFeuilleError
 from pydantic import ValidationError
 
+from src.config import NOM_FICHIER_RESULTAT, REPONSE_MAX_OCTETS, SORTIE_AGENT_MAX_OCTETS
 from src.exceptions import (
     ECHEC_TECHNIQUE,
     AnalysisNotFoundError,
@@ -26,6 +28,15 @@ from src.exceptions import (
     UpstreamError,
 )
 from src.messages import PERSIST_PLATEFORME, AnalyzeRequest
+from src.schemas import (
+    AgentResume,
+    DocumentResume,
+    Durees,
+    EntiteResume,
+    LabelResume,
+    MilleFeuilleResult,
+    PageResume,
+)
 
 _PROGRESS_VALIDATED = 0.05
 _PROGRESS_FILES_READY = 0.2
@@ -112,6 +123,7 @@ class AnalyzeTask(AsyncTaskInterface):
     async def _executer(self, incoming_message: IncomingMessage, progress: AsyncProgressProtocol) -> dict[str, Any]:
         task_id = incoming_message.task_id
         request = self._parse(incoming_message.body)
+        client_id = self._client_id(request)
         await progress(progress=_PROGRESS_VALIDATED, payload=None)
 
         await self._check_sizes(request)
@@ -138,7 +150,8 @@ class AnalyzeTask(AsyncTaskInterface):
             result = await self._wait(run_id, progress)
             if result.status != DossierStatus.TERMINE:
                 raise RunFailedError(self._failure_message(result))
-            response = self._to_response(result)
+            resultat_file_id, octets = await self._deposer_resultat(client_id, task_id, result)
+            response = self._to_response(result, resultat_file_id, octets)
             if self.delete_run_after_result:
                 await self._delete_run_quietly(task_id, run_id)
             return response
@@ -161,6 +174,16 @@ class AnalyzeTask(AsyncTaskInterface):
             raise AnalysisNotFoundError(
                 f"L'analyse {request.analyse_id} est introuvable, ou hors du périmètre du jeton du worker."
             ) from error
+
+    @staticmethod
+    def _client_id(request: AnalyzeRequest) -> str:
+        """Le client propriétaire des fichiers (`{client_id}/{uuid}/{nom}`), qui recevra le résultat
+        sous son préfixe. Tous les fichiers doivent partager ce préfixe : l'API l'a déjà vérifié pour
+        chacun, le worker refuse ce qui lui parviendrait autrement."""
+        prefixes = {ref.file_id.split("/", 1)[0] for ref in request.files}
+        if len(prefixes) != 1 or "" in prefixes:
+            raise InvalidRequestError("Les fichiers doivent tous appartenir au même client.")
+        return prefixes.pop()
 
     def _parse(self, body: dict[str, Any]) -> AnalyzeRequest:
         try:
@@ -230,10 +253,85 @@ class AnalyzeTask(AsyncTaskInterface):
         etapes = ", ".join(step.label for step in failed)
         return f"Le run est {run.status.value}" + (f" — étapes en échec : {etapes}" if etapes else ".")
 
+    async def _deposer_resultat(self, client_id: str, task_id: str, run: EphemeralRun) -> tuple[str, int]:
+        """Le run complet, en JSON, sur le stockage d'async-api sous le préfixe du client. Clé
+        déterministe : une redélivrance réécrit la même, c'est ce qui rend la tâche rejouable."""
+        charge = json.dumps(
+            run.model_dump(mode="json", exclude={"documents": {"__all__": {"s3_key"}}}),
+            ensure_ascii=False,
+        ).encode("utf-8")
+        cle = f"{client_id}/{task_id}/{NOM_FICHIER_RESULTAT}"
+        await asyncio.to_thread(self.s3_client.upload, cle, charge)
+        return cle, len(charge)
+
+    @classmethod
+    def _to_response(cls, run: EphemeralRun, resultat_file_id: str, octets: int) -> dict[str, Any]:
+        """Le résumé borné du run : catégories par page, entités par document, sortie des agents."""
+        resume = MilleFeuilleResult(
+            status=run.status.value,
+            run_id=str(run.id),
+            resultat_file_id=resultat_file_id,
+            resultat_octets=octets,
+            documents=[cls._resumer_document(document) for document in run.documents],
+            agents=[cls._resumer_agent(step) for step in run.execution_steps],
+            durees=Durees(created_at=run.created_at, started_at=run.started_at, ended_at=run.ended_at),
+        )
+        return cls._borner(resume).model_dump(mode="json")
+
     @staticmethod
-    def _to_response(run: EphemeralRun) -> dict[str, Any]:
-        """Résultat complet du run ; les clés S3 internes de mille-feuille n'ont pas d'intérêt pour le consommateur."""
-        return run.model_dump(mode="json", exclude={"documents": {"__all__": {"s3_key"}}})
+    def _resumer_document(document: Any) -> DocumentResume:  # noqa: ANN401 — millefeuille.models.Document
+        pages = [
+            PageResume(
+                page_number=page.page_number,
+                labels=[
+                    LabelResume(name=p.name, confidence=p.confidence, source=p.source.value)
+                    for p in page.predictions
+                    if p.kind == PredictionKind.LABEL
+                ],
+            )
+            for page in document.pages
+        ]
+        entites: dict[tuple[str, str, str], EntiteResume] = {}
+        for page in document.pages:
+            for p in page.predictions:
+                if p.kind != PredictionKind.ENTITY:
+                    continue
+                cle = (p.name, p.value, p.source.value)
+                entite = entites.setdefault(
+                    cle,
+                    EntiteResume(name=p.name, value=p.value, confidence=p.confidence, source=p.source.value, pages=[]),
+                )
+                if page.page_number not in entite.pages:
+                    entite.pages.append(page.page_number)
+        return DocumentResume(
+            name=document.name, page_count=len(document.pages), pages=pages, entities=list(entites.values())
+        )
+
+    @staticmethod
+    def _resumer_agent(step: Any) -> AgentResume:  # noqa: ANN401 — millefeuille.models.ExecutionStep
+        sortie = step.output
+        tronque = sortie is not None and len(sortie.encode("utf-8")) > SORTIE_AGENT_MAX_OCTETS
+        if tronque:
+            sortie = sortie.encode("utf-8")[:SORTIE_AGENT_MAX_OCTETS].decode("utf-8", errors="ignore")
+        return AgentResume(label=step.label, status=step.status.value, output=sortie, tronque=tronque)
+
+    @staticmethod
+    def _borner(resume: MilleFeuilleResult) -> MilleFeuilleResult:
+        """Sous `REPONSE_MAX_OCTETS` : d'abord les entités (par moitiés), puis les pages. Le fichier
+        déposé garde tout ; le résumé le dit (`tronque`)."""
+
+        def taille() -> int:
+            return len(resume.model_dump_json().encode("utf-8"))
+
+        while taille() > REPONSE_MAX_OCTETS and any(document.entities for document in resume.documents):
+            for document in resume.documents:
+                document.entities = document.entities[: len(document.entities) // 2]
+            resume.tronque = True
+        while taille() > REPONSE_MAX_OCTETS and any(document.pages for document in resume.documents):
+            for document in resume.documents:
+                document.pages = document.pages[: len(document.pages) // 2]
+            resume.tronque = True
+        return resume
 
     async def _delete_run_quietly(self, task_id: str, run_id: uuid.UUID) -> None:
         try:

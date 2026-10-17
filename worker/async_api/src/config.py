@@ -18,6 +18,13 @@ DELAI_TRANSFERTS_MAX_S = 60
 DEBIT_DEPOT_MIN_OCTETS_S = 2 * 1024 * 1024
 #: Nettoyage synchrone d'un run abandonné, au pire : `stop`, `delete` du run, `delete` de l'analyse.
 _APPELS_DE_NETTOYAGE = 3
+#: Borne du résumé rendu dans le message `success` : sous les 256 Kio que l'API d'async-api accepte en
+#: corps (BODY_TOO_LARGE) — le run complet, lui, est déposé sur le stockage sans borne.
+REPONSE_MAX_OCTETS = 256 * 1024
+#: Borne de la sortie d'un agent dans le résumé (texte d'un modèle, potentiellement long).
+SORTIE_AGENT_MAX_OCTETS = 64 * 1024
+#: Nom du fichier du run complet sous `{client_id}/{task_id}/` — déterministe : une redélivrance réécrit la même clé.
+NOM_FICHIER_RESULTAT = "resultat.json"
 
 #: Plafond de `ttl_hours` ouvert à la plateforme (7 jours), bien sous les 2 ans de l'API éphémère.
 #: Le résultat est rendu dans la réponse et le run supprimé aussitôt (`DELETE_RUN_AFTER_RESULT`) :

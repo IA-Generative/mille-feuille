@@ -50,9 +50,42 @@ résultat est rendu dans la réponse et le run supprimé), les outils d'agent qu
 `taille_max_fichier_mio: 50` (= `MAX_FILE_SIZE_BYTES`) : async-api refuse en `413` à la soumission ce que le
 worker refuserait après coup, et `files.maxItems: 20` (= `MAX_FILES`), refusé en `422`.
 
-Sortie : messages `started`, `progress` (`0.0` à `1.0`), puis `success` dont `response` est le run
-(`status`, `execution_steps` avec les sorties des agents, `documents` avec pages et prédictions, `expires_at`...),
-ou `failure` avec un `error_message` lisible (message invalide, fichier trop gros, run en échec, délai dépassé, erreur de l'API).
+Sortie : messages `started`, `progress` (`0.0` à `1.0`), puis `success` dont `response` est un **résumé borné**
+du run (256 Kio au plus) :
+
+```json
+{
+  "status": "terminé",
+  "run_id": "3f2b8c1e-…",
+  "resultat_file_id": "astree/<task_id>/resultat.json",
+  "resultat_octets": 184320,
+  "documents": [
+    {
+      "name": "cni.pdf",
+      "page_count": 2,
+      "pages": [{ "page_number": 1, "labels": [{ "name": "CNI", "confidence": 0.96, "source": "textual" }] }],
+      "entities": [{ "name": "nom", "value": "Dupont", "confidence": 0.9, "source": "textual", "pages": [1] }]
+    }
+  ],
+  "agents": [{ "label": "vérif", "status": "terminé", "output": "…", "tronque": false }],
+  "durees": { "created_at": "…", "started_at": "…", "ended_at": "…" },
+  "tronque": false
+}
+```
+
+Le run **complet** (texte de chaque page, boîtes, journaux d'étapes — 20 à 50 Kio par page) est déposé sur le
+stockage d'async-api à `{client_id}/{task_id}/resultat.json` (`resultat_file_id`, clé déterministe : une
+redélivrance réécrit la même), sous le préfixe du client qui a soumis les fichiers — lui seul peut le lire, et
+le soumettre à son tour à un autre service. Si le résumé dépasse la borne, les entités puis les pages en sont
+retirées par moitiés et `tronque` vaut `true` ; le fichier garde tout. La sortie d'un agent est coupée à 64 Kio
+dans le résumé (`agents[].tronque`).
+
+Échec : `failure` avec un `error_message` au format `CODE: détail`, le code étant stable et unique dans la
+plateforme : `INVALID_REQUEST`, `TOO_MANY_FILES`, `FILE_TOO_LARGE`, `FILE_NOT_FOUND`, `ANALYSIS_NOT_FOUND`
+(l'`analyse_id` fourni n'est pas visible du jeton du worker), `RUN_FAILED` (avec les libellés des étapes en
+échec — jamais leur sortie, qui reste au journal), `RUN_TIMEOUT`, `UPSTREAM_ERROR` (le service d'analyse ne
+répond pas ou répond 5xx : réessayer plus tard), `WORKER_ERROR` (panne technique du worker). Ni URL, ni statut
+HTTP, ni texte brut du backend ne sortent vers le consommateur.
 
 ## Configuration
 
@@ -64,11 +97,12 @@ Variables d'environnement (voir [`.env.example`](.env.example)) :
 | `IN_QUEUE_NAME` / `OUT_QUEUE_NAME` | `mille_feuille_queue_in` / `_out` | files du service |
 | `WORKER_CONCURRENCY` | `2` | tâches simultanées |
 | `SERVICE_CLASS` | (aucune) | classe de service d'async-api ; `long` pour émettre la progression |
-| `AWS_*` | (obligatoires) | stockage objet d'AsyncTaskAPI (fichiers déposés avant la tâche) |
+| `AWS_*` | (obligatoires) | stockage objet d'AsyncTaskAPI : lecture des fichiers déposés avant la tâche, **écriture** de `resultat.json` sous le préfixe du client |
 | `MILLEFEUILLE_BASE_URL` | (obligatoire) | backend mille-feuille |
 | `MILLEFEUILLE_API_TOKEN` | (obligatoire) | token API (`X-App-Token`), créé via `POST /api/app-tokens` |
 | `MAX_FILE_SIZE_BYTES` / `MAX_TOTAL_SIZE_BYTES` / `MAX_FILES` | 50 Mo / 100 Mo / 20 | bornes mémoire |
-| `RUN_TIMEOUT_SECONDS` / `POLL_INTERVAL_SECONDS` | `900` / `3` | attente du run |
+| `RUN_TIMEOUT_SECONDS` / `POLL_INTERVAL_SECONDS` | `900` / `3` | attente du run ; refusé au démarrage si attente + transferts + nettoyage dépassent 1 080 s (60 % de l'échéance d'acquittement de 30 min du courtier) |
+| `MILLEFEUILLE_UPLOAD_TIMEOUT` | `180` | délai du seul appel qui porte les fichiers (dépôt multipart) ; doit couvrir `MAX_TOTAL_SIZE_BYTES` à 2 Mio/s |
 | `DELETE_RUN_AFTER_RESULT` | `true` | supprime le résultat conservé une fois renvoyé |
 
 Health check HTTP sur le port `8084` (`/health`, `/ready` qui éprouve le stockage objet).
