@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from app.llm import (
     AnalyseSuggestion,
     SuggestionResult,
@@ -48,3 +50,17 @@ def test_suggest_analyses_calls_llm_with_structured_output() -> None:
     assert messages[0]["role"] == "system"
     assert messages[1]["role"] == "user"
     assert "CNI" in messages[1]["content"]
+
+
+def test_client_applies_the_hub_timeout_and_retries_of_the_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app import llm
+
+    monkeypatch.setattr(llm.settings, "OPENAI_API_KEY", "cle-de-test")
+    monkeypatch.setattr(llm.settings, "OPENAI_API_BASE_URL", "http://hub.test/v1")
+    monkeypatch.setattr(llm.settings, "OPENAI_TIMEOUT_SECONDS", 7.5)
+    monkeypatch.setattr(llm.settings, "OPENAI_MAX_RETRIES", 1)
+
+    client = llm._client()
+
+    assert client.timeout == 7.5
+    assert client.max_retries == 1

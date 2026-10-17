@@ -33,3 +33,20 @@ def test_explicit_celery_urls_win_over_the_redis_url(monkeypatch: pytest.MonkeyP
     )
     assert config.celery_broker_url == "redis://broker:6379/1"
     assert config.celery_result_backend == "redis://results:6379/2"
+
+
+def test_without_any_variable_a_hub_call_is_bounded_well_under_the_sdk_default(monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("OPENAI_TIMEOUT_SECONDS", "OPENAI_MAX_RETRIES"):
+        monkeypatch.delenv(name, raising=False)
+
+    config = settings(monkeypatch)
+
+    assert config.OPENAI_TIMEOUT_SECONDS == 120.0
+    assert config.OPENAI_MAX_RETRIES == 2
+
+
+def test_the_hub_timeout_and_retries_come_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    config = settings(monkeypatch, OPENAI_TIMEOUT_SECONDS="45", OPENAI_MAX_RETRIES="0")
+
+    assert config.OPENAI_TIMEOUT_SECONDS == 45.0
+    assert config.OPENAI_MAX_RETRIES == 0
