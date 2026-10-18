@@ -126,9 +126,9 @@ worker_async_api:
   image:
     registry: ghcr.io
     repository: ia-generative/mille-feuille/worker-async-api
-    # Construite depuis la branche feat/async-api-worker-plateforme (commit ec95e7bf) et poussée à la main ;
+    # Construite depuis la branche feat/async-api-worker-plateforme (commit 4dd430aa) et poussée à la main ;
     # remplacée par le tag de la release dès que cd.yml la construit.
-    tag: "beta-ec95e7bf"
+    tag: "beta-4dd430aa"
     pullPolicy: IfNotPresent
   env:
     IN_QUEUE_NAME: "mille_feuille_queue_in"
