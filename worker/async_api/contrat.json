@@ -64,7 +64,7 @@
               "type": "string",
               "minLength": 1,
               "maxLength": 1024,
-              "description": "Identifiant S3 du fichier préalablement uploadé via POST /v1/storage/upload",
+              "description": "Identifiant S3 du fichier préalablement déposé via POST /storage/upload",
               "examples": [
                 "client1/a1b2c3d4/cni.pdf"
               ],
