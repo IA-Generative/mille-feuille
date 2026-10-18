@@ -294,6 +294,7 @@ Variables attendues dans Vault :
 | `AWS_ACCESS_KEY_ID`       | Clé d'accès au stockage objet **d'AsyncTaskAPI** : `s3:ListBucket` (le `/ready` fait un `HEAD` du bucket), `s3:GetObject` (les fichiers déposés) et `s3:PutObject` (le worker y dépose `{client_id}/{task_id}/resultat.json`) — **pas** `s3:DeleteObject` | `SCW...` |
 | `AWS_SECRET_ACCESS_KEY`       | Clé secrète associée                                                           | `xxxxxxxx`                               |
 | `MILLEFEUILLE_API_TOKEN` | Token API de mille-feuille (en-tête `X-App-Token`), voir ci-dessous              | `ddd_...`                                |
+| `HEARTBEAT_API_KEY` | Clé du consommateur APISIX d'async-api (`millefeuille_worker`, autorisé sur `mille-feuille`) pour le heartbeat ; sans effet tant que `HEARTBEAT_API_URL` (dans `env`) est vide | `xxxxxxxx` |
 
 > **Ce n'est pas le stockage de mille-feuille** : `millefeuille-s3` ne sert pas ici. Le worker lit les fichiers dans le
 > stockage d'AsyncTaskAPI (endpoint et bucket dans `env`), les envoie à mille-feuille par son API, puis y dépose le

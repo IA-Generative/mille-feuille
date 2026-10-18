@@ -392,6 +392,11 @@ worker_async_api:
     MILLEFEUILLE_UPLOAD_TIMEOUT: "180"
     # Delete the result kept by mille-feuille once it has been returned in the `success` message.
     DELETE_RUN_AFTER_RESULT: "true"
+    # Heartbeat vers async-api (mic-worker) : le pont annonce qu'il consomme. Activé par l'URL du Service
+    # INTERNE de la passerelle APISIX d'async-api (jamais l'adresse publique) ; vide = désactivé. Le nom du
+    # service et la version viennent du manifeste et de version.json ; la clé HEARTBEAT_API_KEY est dans le
+    # secret millefeuille-async-api-worker (docs/secrets.md § 12).
+    HEARTBEAT_API_URL: ""
   # PLACEHOLDERS until measured (load test on beta): files are held in RAM while uploaded, so the
   # peak is about WORKER_CONCURRENCY x MAX_TOTAL_SIZE_BYTES x 2 (buffer + multipart body) + ~150 Mi
   # of runtime, i.e. ~550 Mi at concurrency 2. The limit is a safety net (twice the witness peak).
@@ -450,7 +455,18 @@ worker_async_api:
         ports:
           - port: 8000
             protocol: TCP
-      # Object storage (Scaleway S3, no fixed IP) and the async-api gateway (heartbeat): HTTPS out of the cluster.
+      # async-api's gateway (APISIX), in its namespace: the heartbeat, on the container port behind the Service.
+      - to:
+          - namespaceSelector:
+              matchLabels:
+                kubernetes.io/metadata.name: async-api
+            podSelector:
+              matchLabels:
+                app.kubernetes.io/name: async-api-apisix
+        ports:
+          - port: 9080
+            protocol: TCP
+      # Object storage (Scaleway S3, no fixed IP): HTTPS out of the cluster.
       - to:
           - ipBlock:
               cidr: 0.0.0.0/0

@@ -9,6 +9,7 @@ from millefeuille_ephemeral import EphemeralClient
 
 import src.logger  # noqa: F401 — side-effect: configure logging
 from src.config import settings
+from src.heartbeat import build_heartbeat_config
 from src.task import AnalyzeTask
 
 
@@ -65,6 +66,8 @@ async def main() -> None:
             sondes={"object_storage": s3_client.verifier_acces},
         ),
         classe_de_service=settings.SERVICE_CLASS,
+        # Activé par le déploiement (HEARTBEAT_API_URL) ; nom du service et version déduits.
+        heartbeat_config=build_heartbeat_config(manifeste.nom),
     )
     try:
         await runner.start()

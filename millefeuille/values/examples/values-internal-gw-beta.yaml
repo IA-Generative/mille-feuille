@@ -139,6 +139,9 @@ worker_async_api:
     AWS_S3_BUCKET_NAME: "beta-sdid-async-api"
     AWS_DEFAULT_REGION: "fr-par"
     MILLEFEUILLE_BASE_URL: "http://millefeuille-backend:8000"
+    # Heartbeat vers async-api par le Service interne de sa passerelle (port 80 → 9080) ; la clé
+    # HEARTBEAT_API_KEY vient du secret millefeuille-async-api-worker.
+    HEARTBEAT_API_URL: "http://async-api-apisix.async-api.svc.cluster.local"
   networkPolicy:
     ingress:
       # Le collecteur de métriques de ce cluster (les sondes du kubelet ne sont pas filtrées).

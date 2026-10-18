@@ -104,6 +104,8 @@ Variables d'environnement (voir [`.env.example`](.env.example)) :
 | `RUN_TIMEOUT_SECONDS` / `POLL_INTERVAL_SECONDS` | `900` / `3` | attente du run ; refusé au démarrage si attente + transferts + nettoyage dépassent 1 080 s (60 % de l'échéance d'acquittement de 30 min du courtier) |
 | `MILLEFEUILLE_UPLOAD_TIMEOUT` | `180` | délai du seul appel qui porte les fichiers (dépôt multipart) ; doit couvrir `MAX_TOTAL_SIZE_BYTES` à 2 Mio/s |
 | `DELETE_RUN_AFTER_RESULT` | `true` | supprime le résultat conservé une fois renvoyé |
+| `HEARTBEAT_API_URL` | (aucune) | heartbeat vers async-api (mic-worker) : Service **interne** de la passerelle APISIX d'async-api, jamais l'adresse publique ; absent = désactivé. `HEARTBEAT_SERVICE` et `HEARTBEAT_VERSION` sont déduits du manifeste et de `version.json`, `HEARTBEAT_INTERVAL_SECONDS` vaut 15 |
+| `HEARTBEAT_API_KEY` | (secret) | clé d'un consommateur de la passerelle autorisé sur `mille-feuille` ; sans elle le battement est refusé, journalisé, et le worker continue |
 
 Health check HTTP sur le port `8084` (`/health`, `/ready` qui éprouve le stockage objet).
 
@@ -118,7 +120,7 @@ Trois endroits, selon l'usage. Le détail (Vault, création des jetons, rotation
 
 | Où | Secret | Contenu |
 |---|---|---|
-| Kubernetes (Vault, via le chart) | `millefeuille-async-api-worker` | `BROKER_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `MILLEFEUILLE_API_TOKEN` (identifiants uniquement) |
+| Kubernetes (Vault, via le chart) | `millefeuille-async-api-worker` | `BROKER_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `MILLEFEUILLE_API_TOKEN`, `HEARTBEAT_API_KEY` (identifiants uniquement) |
 | GitHub Actions | `ASYNC_API_TOKEN` | Jeton en lecture sur le dépôt privé `async-api` (installation de `mic-worker` : lint, tests, build d'image) |
 | Local / docker compose | `.env` | `ASYNC_API_WORKER_TOKEN` (token API mille-feuille), `GH_TOKEN` (build), `RABBITMQ_USER` / `RABBITMQ_PASSWORD` (facultatifs, valeurs de dev par défaut) |
 

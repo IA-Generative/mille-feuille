@@ -411,7 +411,7 @@ wheels = [
 [[package]]
 name = "mic-worker"
 version = "0.2.0"
-source = { git = "https://github.com/IA-Generative/async-api?subdirectory=workers%2Fpython%2Fmic-worker&rev=c710ebf725cdf5bccc0e139cc341f187faf0edc2#c710ebf725cdf5bccc0e139cc341f187faf0edc2" }
+source = { git = "https://github.com/IA-Generative/async-api?subdirectory=workers%2Fpython%2Fmic-worker&rev=43f71471fa5f71f32036e6fdcb1aefc7f4175f29#43f71471fa5f71f32036e6fdcb1aefc7f4175f29" }
 dependencies = [
     { name = "aio-pika" },
     { name = "boto3" },
@@ -449,7 +449,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "loguru", specifier = ">=0.7.3" },
-    { name = "mic-worker", git = "https://github.com/IA-Generative/async-api?subdirectory=workers%2Fpython%2Fmic-worker&rev=c710ebf725cdf5bccc0e139cc341f187faf0edc2" },
+    { name = "mic-worker", git = "https://github.com/IA-Generative/async-api?subdirectory=workers%2Fpython%2Fmic-worker&rev=43f71471fa5f71f32036e6fdcb1aefc7f4175f29" },
     { name = "millefeuille", editable = "../../sdks/python/millefeuille" },
     { name = "millefeuille-ephemeral", editable = "../../sdks/python/millefeuille-ephemeral" },
     { name = "pydantic", specifier = ">=2.7" },
