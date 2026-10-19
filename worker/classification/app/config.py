@@ -29,6 +29,10 @@ class WorkerSettings(BaseSettings):
     # tâche Celery. 120 s couvrent une page dense sous charge ; au-delà, le SDK réessaie.
     OPENAI_TIMEOUT_SECONDS: float = 120.0
     OPENAI_MAX_RETRIES: int = 2
+    # Borne de la réponse du LLM de classification (un label, une confiance, une brève justification ; en
+    # multi-label, quelques labels). Sans borne, une boucle du décodage guidé du hub court jusqu'à la limite
+    # du contexte (voir app.llm._completion_structuree).
+    LLM_MAX_OUTPUT_TOKENS: int = 600
     # Modèle vision pour décrire la capture de chaque page (VLM).
     VLM_MODEL: str = "pixtral-12b-2409"
     # Modèle texte pour la classification.

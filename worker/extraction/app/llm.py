@@ -1,9 +1,10 @@
 """Client OpenAI pour l'extraction d'entités : LLM en structured output (JSON schema via response_format)."""
 
+import json
 import logging
 
-from openai import OpenAI
-from pydantic import BaseModel, Field
+from openai import LengthFinishReasonError, OpenAI
+from pydantic import BaseModel, Field, ValidationError
 
 from app.config import settings
 
@@ -22,6 +23,60 @@ def _client() -> OpenAI:
         timeout=settings.OPENAI_TIMEOUT_SECONDS,
         max_retries=settings.OPENAI_MAX_RETRIES,
     )
+
+
+_TEMPERATURE = 0.1
+
+
+def _avec_schema_dans_le_prompt(messages: list[dict], modele: type[BaseModel]) -> list[dict]:
+    """Les mêmes messages, le schéma JSON attendu ajouté à la consigne système (gemma n'accepte qu'un
+    seul message système, en tête : on complète le premier plutôt que d'en ajouter un)."""
+    consigne = "Réponds avec un seul objet JSON conforme à ce schéma JSON, sans autre texte :\n" + json.dumps(
+        modele.model_json_schema(), ensure_ascii=False
+    )
+    copie = [dict(m) for m in messages]
+    if copie and copie[0].get("role") == "system":
+        copie[0]["content"] = f"{copie[0]['content']}\n\n{consigne}"
+    else:
+        copie.insert(0, {"role": "system", "content": consigne})
+    return copie
+
+
+def _completion_structuree[T: BaseModel](modele: type[T], messages: list[dict], *, max_tokens: int) -> T:
+    """Sortie structurée en deux temps.
+
+    1. Schéma imposé au décodage (`response_format=modele`), borné par `max_tokens`. Sur le hub, gemma-4 en
+       décodage guidé part parfois en boucle d'espaces à l'intérieur du JSON (observé le 19/10/2026 : des
+       centaines de jetons de tabulations, puis jusqu'à la limite du contexte, soit des minutes sans réponse
+       et une étape en échec). La borne transforme cette boucle en réponse tronquée, immédiate.
+    2. Repli : mode `json_object`, le schéma décrit dans le prompt, la réponse validée par pydantic. Sur le
+       même prompt, ce mode répond en moins d'une seconde avec la forme attendue.
+    """
+    client = _client()
+    try:
+        response = client.beta.chat.completions.parse(
+            model=settings.LLM_MODEL,
+            messages=messages,
+            response_format=modele,
+            temperature=_TEMPERATURE,
+            max_tokens=max_tokens,
+        )
+        parsed = response.choices[0].message.parsed
+        if parsed is not None:
+            return parsed
+        logger.warning(
+            "Sortie structurée vide (finish_reason=%s) : repli en json_object", response.choices[0].finish_reason
+        )
+    except (LengthFinishReasonError, ValidationError, ValueError) as exc:
+        logger.warning("Sortie structurée inexploitable (%s) : repli en json_object", type(exc).__name__)
+    response = client.chat.completions.create(
+        model=settings.LLM_MODEL,
+        messages=_avec_schema_dans_le_prompt(messages, modele),
+        response_format={"type": "json_object"},
+        temperature=_TEMPERATURE,
+        max_tokens=max_tokens,
+    )
+    return modele.model_validate_json(response.choices[0].message.content or "")
 
 
 class EntityValue(BaseModel):
@@ -75,13 +130,12 @@ def extract_entities_batch(
         f"Réponds uniquement avec le JSON demandé."
     )
     pages_text = "\n\n".join(f"--- Page {page['page_number']} ---\n{page['content'] or '(vide)'}" for page in pages)
-    response = _client().beta.chat.completions.parse(
-        model=settings.LLM_MODEL,
-        messages=[
+    # La part du budget réservée à la réponse borne aussi la génération : voir _completion_structuree.
+    return _completion_structuree(
+        ExtractionResult,
+        [
             {"role": "system", "content": system},
             {"role": "user", "content": f"{source_section(source)}{pages_text}"},
         ],
-        response_format=ExtractionResult,
-        temperature=0.1,
+        max_tokens=settings.EXTRACTION_RESERVED_OUTPUT_TOKENS,
     )
-    return response.choices[0].message.parsed

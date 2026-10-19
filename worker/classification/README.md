@@ -17,7 +17,7 @@ Worker Celery **dédié à la classification** des pages d'un dossier. Code, ima
 - Il parle au backend par l'API interne (`/api/internal/*`) : aucun accès direct à la base.
 
 Variables : `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` (ou `REDIS_URL`), `BACKEND_INTERNAL_URL`,
-`INTERNAL_WORKER_TOKEN`, `AWS_*` (S3), `OPENAI_API_KEY`, `OPENAI_API_BASE_URL`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_MAX_RETRIES`, `LLM_MODEL`, `VLM_MODEL`,
+`INTERNAL_WORKER_TOKEN`, `AWS_*` (S3), `OPENAI_API_KEY`, `OPENAI_API_BASE_URL`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_MAX_RETRIES`, `LLM_MAX_OUTPUT_TOKENS`, `LLM_MODEL`, `VLM_MODEL`,
 `CLIP_ENABLED`, `CLIP_MODEL`, `CLIP_NUM_THREADS`, `CLIP_MULTI_LABEL_THRESHOLD`.
 
 Tests : `uv run pytest`.
