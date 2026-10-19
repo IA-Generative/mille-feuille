@@ -9,6 +9,7 @@ from millefeuille_ephemeral import EphemeralClient
 
 import src.logger  # noqa: F401 — side-effect: configure logging
 from src.config import settings
+from src.heartbeat import build_heartbeat_config
 from src.task import AnalyzeTask
 
 
@@ -23,11 +24,11 @@ def build_s3_client() -> S3Client:
     )
 
 
-def build_client() -> EphemeralClient:
+def build_client(timeout: float = settings.MILLEFEUILLE_REQUEST_TIMEOUT) -> EphemeralClient:
     return EphemeralClient(
         settings.MILLEFEUILLE_BASE_URL,
         api_token=settings.MILLEFEUILLE_API_TOKEN,
-        timeout=settings.MILLEFEUILLE_REQUEST_TIMEOUT,
+        timeout=timeout,
     )
 
 
@@ -38,6 +39,8 @@ async def main() -> None:
 
     s3_client = build_s3_client()
     client = build_client()
+    # Le dépôt multipart porte les fichiers : son délai est le seul à devoir couvrir MAX_TOTAL_SIZE_BYTES.
+    client_depot = build_client(timeout=settings.MILLEFEUILLE_UPLOAD_TIMEOUT)
 
     runner = AsyncWorkerRunner(
         amqp_url=settings.BROKER_URL,
@@ -46,6 +49,7 @@ async def main() -> None:
         task_provider=lambda: AnalyzeTask(
             s3_client=s3_client,
             client=client,
+            client_depot=client_depot,
             max_file_size=settings.MAX_FILE_SIZE_BYTES,
             max_total_size=settings.MAX_TOTAL_SIZE_BYTES,
             max_files=settings.MAX_FILES,
@@ -62,11 +66,14 @@ async def main() -> None:
             sondes={"object_storage": s3_client.verifier_acces},
         ),
         classe_de_service=settings.SERVICE_CLASS,
+        # Activé par le déploiement (HEARTBEAT_API_URL) ; nom du service et version déduits.
+        heartbeat_config=build_heartbeat_config(manifeste.nom),
     )
     try:
         await runner.start()
     finally:
         client.close()
+        client_depot.close()
     logger.info("mille-feuille async-api worker stopped")
 
 

@@ -19,7 +19,8 @@ Worker Celery **dédié à l'extraction des entités** d'un dossier. Code, image
 - Pas de S3 : seul le texte des pages est lu, via l'API interne du backend (`/api/internal/*`).
 
 Variables : `CELERY_BROKER_URL` / `CELERY_RESULT_BACKEND` (ou `REDIS_URL`), `BACKEND_INTERNAL_URL`,
-`INTERNAL_WORKER_TOKEN`, `OPENAI_API_KEY`, `OPENAI_API_BASE_URL`, `LLM_MODEL`, `EXTRACTION_*`, `GLINER_ENABLED`,
+`INTERNAL_WORKER_TOKEN`, `OPENAI_API_KEY`, `OPENAI_API_BASE_URL`, `OPENAI_TIMEOUT_SECONDS`, `OPENAI_MAX_RETRIES`,
+`LLM_MODEL`, `EXTRACTION_*`, `GLINER_ENABLED`,
 `GLINER_MODEL`, `GLINER_NUM_THREADS`, `GLINER_THRESHOLD`.
 
 Tests : `uv run pytest`.

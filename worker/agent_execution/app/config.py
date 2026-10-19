@@ -19,6 +19,12 @@ class WorkerSettings(BaseSettings):
     # structured output).
     OPENAI_API_KEY: str = ""
     OPENAI_API_BASE_URL: str = ""
+    # Délai d'un appel au hub (secondes) et nouvelles tentatives du SDK OpenAI. Sans délai explicite, le SDK attend
+    # 600 s par appel : une requête que le hub ne sert jamais (observé le 17/10/2026 sur internal-gw : première
+    # requête muette, la suivante servie en moins d'une seconde) consomme à elle seule la limite de temps de la
+    # tâche Celery. 120 s couvrent une page dense sous charge ; au-delà, le SDK réessaie.
+    OPENAI_TIMEOUT_SECONDS: float = 120.0
+    OPENAI_MAX_RETRIES: int = 2
     # Modèle texte pour les agents, le chat, les résumés et les propositions.
     LLM_MODEL: str = "llama-3.3-70b-instruct"
     # Génération des valeurs de champs d'un document (issue #141) : budget de jetons estimés du contexte

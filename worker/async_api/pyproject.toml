@@ -6,8 +6,10 @@ requires-python = ">=3.13"
 dependencies = [
     "millefeuille",
     "millefeuille-ephemeral",
-    # Bibliothèque de worker d'async-api : non publiée sur PyPI, donc épinglée sur un commit.
-    "mic-worker @ git+https://github.com/IA-Generative/async-api@8c109970c528cc622c04e6a3488d0e73be9bcd0a#subdirectory=workers/python/mic-worker",
+    # Bibliothèque de worker d'async-api : non publiée sur PyPI, donc épinglée sur un commit de sa
+    # branche d'intégration `beta` (manifeste avec `moteur` et `taille_max_fichier_mio`, /__version__).
+    # À remonter sur un tag dès que mic-worker en portera un ; async-api le contrôle (externe.yaml).
+    "mic-worker @ git+https://github.com/IA-Generative/async-api@43f71471fa5f71f32036e6fdcb1aefc7f4175f29#subdirectory=workers/python/mic-worker",
     "loguru>=0.7.3",
     "pydantic>=2.7",
     "pydantic-settings>=2.0",
@@ -15,6 +17,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "jsonschema>=4.23",
     "pytest>=8.0",
     "pytest-asyncio>=1.3.0",
     "pytest-cov>=7.1.0",

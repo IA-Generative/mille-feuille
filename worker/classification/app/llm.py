@@ -1,10 +1,11 @@
 """Client OpenAI pour la classification : VLM (description de la capture d'une page) puis LLM (structured output)."""
 
 import base64
+import json
 import logging
 
-from openai import OpenAI
-from pydantic import BaseModel, Field
+from openai import LengthFinishReasonError, OpenAI
+from pydantic import BaseModel, Field, ValidationError
 
 from app.config import settings
 
@@ -16,7 +17,67 @@ def _client() -> OpenAI:
         raise RuntimeError(
             "OPENAI_API_KEY et OPENAI_API_BASE_URL doivent être configurés pour utiliser le worker classification."
         )
-    return OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_API_BASE_URL)
+    # Délai et nouvelles tentatives explicites : sans eux, le SDK attend 600 s par appel (voir WorkerSettings).
+    return OpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.OPENAI_API_BASE_URL,
+        timeout=settings.OPENAI_TIMEOUT_SECONDS,
+        max_retries=settings.OPENAI_MAX_RETRIES,
+    )
+
+
+_TEMPERATURE = 0.1
+
+
+def _avec_schema_dans_le_prompt(messages: list[dict], modele: type[BaseModel]) -> list[dict]:
+    """Les mêmes messages, le schéma JSON attendu ajouté à la consigne système (gemma n'accepte qu'un
+    seul message système, en tête : on complète le premier plutôt que d'en ajouter un)."""
+    consigne = "Réponds avec un seul objet JSON conforme à ce schéma JSON, sans autre texte :\n" + json.dumps(
+        modele.model_json_schema(), ensure_ascii=False
+    )
+    copie = [dict(m) for m in messages]
+    if copie and copie[0].get("role") == "system":
+        copie[0]["content"] = f"{copie[0]['content']}\n\n{consigne}"
+    else:
+        copie.insert(0, {"role": "system", "content": consigne})
+    return copie
+
+
+def _completion_structuree[T: BaseModel](modele: type[T], messages: list[dict], *, max_tokens: int) -> T:
+    """Sortie structurée en deux temps.
+
+    1. Schéma imposé au décodage (`response_format=modele`), borné par `max_tokens`. Sur le hub, gemma-4 en
+       décodage guidé part parfois en boucle d'espaces à l'intérieur du JSON (observé le 19/10/2026 : des
+       centaines de jetons de tabulations, puis jusqu'à la limite du contexte, soit des minutes sans réponse
+       et une étape en échec). La borne transforme cette boucle en réponse tronquée, immédiate.
+    2. Repli : mode `json_object`, le schéma décrit dans le prompt, la réponse validée par pydantic. Sur le
+       même prompt, ce mode répond en moins d'une seconde avec la forme attendue.
+    """
+    client = _client()
+    try:
+        response = client.beta.chat.completions.parse(
+            model=settings.LLM_MODEL,
+            messages=messages,
+            response_format=modele,
+            temperature=_TEMPERATURE,
+            max_tokens=max_tokens,
+        )
+        parsed = response.choices[0].message.parsed
+        if parsed is not None:
+            return parsed
+        logger.warning(
+            "Sortie structurée vide (finish_reason=%s) : repli en json_object", response.choices[0].finish_reason
+        )
+    except (LengthFinishReasonError, ValidationError, ValueError) as exc:
+        logger.warning("Sortie structurée inexploitable (%s) : repli en json_object", type(exc).__name__)
+    response = client.chat.completions.create(
+        model=settings.LLM_MODEL,
+        messages=_avec_schema_dans_le_prompt(messages, modele),
+        response_format={"type": "json_object"},
+        temperature=_TEMPERATURE,
+        max_tokens=max_tokens,
+    )
+    return modele.model_validate_json(response.choices[0].message.content or "")
 
 
 class LabelPrediction(BaseModel):
@@ -116,13 +177,8 @@ def classify_page(
         f"--- Description visuelle de la page (VLM) ---\n{image_description or '(indisponible)'}\n\n"
         f"{'Quels labels correspondent' if multi_label else 'Quel label correspond le mieux'} à cette page ?"
     )
-    response = _client().beta.chat.completions.parse(
-        model=settings.LLM_MODEL,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
-        response_format=MultiLabelClassificationResult if multi_label else ClassificationResult,
-        temperature=0.1,
+    return _completion_structuree(
+        MultiLabelClassificationResult if multi_label else ClassificationResult,
+        [{"role": "system", "content": system}, {"role": "user", "content": user}],
+        max_tokens=settings.LLM_MAX_OUTPUT_TOKENS,
     )
-    return response.choices[0].message.parsed

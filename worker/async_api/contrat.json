@@ -3,111 +3,363 @@
   "nom": "mille-feuille",
   "titre": "Analyser des documents avec mille-feuille",
   "classe": "long",
-  "description": "Exécute une analyse mille-feuille (classification, extraction d'entités, agents) sur un ou plusieurs documents déjà déposés dans le stockage, et renvoie le résultat complet du run. L'analyse est soit définie à la volée dans la requête, soit une analyse mille-feuille existante.",
-  "description_courte": "Pour un ensemble de documents : classe chaque document, en extrait des entités et exécute des agents selon la définition d'analyse fournie.",
+  "description": "Exécute une analyse mille-feuille (classification, extraction d'entités, agents) sur un ou plusieurs documents déjà déposés dans le stockage, et renvoie le résultat du run. L'analyse est soit définie à la volée dans la requête, soit une analyse mille-feuille existante. Le run n'est jamais conservé côté mille-feuille au-delà de la durée demandée : le résultat est rendu dans la réponse de la tâche.",
+  "description_courte": "Pour un ensemble de documents : classe chaque page, en extrait des entités et exécute des agents selon la définition d'analyse fournie.",
   "icone": "fr-icon-search-line",
+  "moteur": "Pipeline mille-feuille : texte des pages par OCR ou modèle de vision, classification par modèle de langage et CLIP, extraction d'entités par modèle de langage et GLiNER2.5, agents LangGraph sur un hub compatible OpenAI",
+  "taille_max_fichier_mio": 50,
+  "gpu": false,
   "entree": {
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
-    "required": ["files"],
+    "required": [
+      "files"
+    ],
     "additionalProperties": false,
-    "oneOf": [{ "required": ["analysis"] }, { "required": ["analyse_id"] }],
+    "oneOf": [
+      {
+        "required": [
+          "analysis"
+        ],
+        "not": {
+          "required": [
+            "analyse_id"
+          ]
+        }
+      },
+      {
+        "required": [
+          "analyse_id"
+        ],
+        "not": {
+          "required": [
+            "analysis"
+          ]
+        }
+      }
+    ],
     "properties": {
       "files": {
         "type": "array",
         "minItems": 1,
-        "description": "Documents à analyser, préalablement déposés dans le stockage",
+        "maxItems": 20,
+        "description": "Documents à analyser (1 à 20), préalablement déposés dans le stockage ; 50 Mio au plus chacun, 100 Mio au plus en tout",
         "x-titre": "Documents",
+        "examples": [
+          [
+            {
+              "file_id": "client1/a1b2c3d4/cni.pdf",
+              "name": "cni.pdf"
+            }
+          ]
+        ],
         "items": {
           "type": "object",
-          "required": ["file_id"],
+          "required": [
+            "file_id"
+          ],
           "additionalProperties": false,
           "properties": {
             "file_id": {
               "type": "string",
               "minLength": 1,
               "maxLength": 1024,
-              "description": "Identifiant S3 du fichier préalablement uploadé via POST /v1/storage/upload",
-              "examples": ["astree/a1b2c3d4/CNI.pdf"],
+              "description": "Identifiant S3 du fichier préalablement déposé via POST /storage/upload",
+              "examples": [
+                "client1/a1b2c3d4/cni.pdf"
+              ],
               "x-titre": "Document"
             },
             "name": {
               "type": "string",
               "minLength": 1,
+              "maxLength": 255,
               "description": "Nom d'affichage du document (par défaut, le dernier segment de file_id)",
+              "examples": [
+                "cni.pdf"
+              ],
               "x-titre": "Nom"
             }
-          }
+          },
+          "examples": [
+            {
+              "file_id": "client1/a1b2c3d4/cni.pdf",
+              "name": "cni.pdf"
+            }
+          ]
         }
       },
       "analysis": {
         "type": "object",
-        "required": ["name"],
+        "required": [
+          "name"
+        ],
         "additionalProperties": false,
-        "description": "Définition complète de l'analyse, créée à la volée pour ce run (exclusif avec analyse_id)",
+        "description": "Définition complète de l'analyse, créée à la volée pour ce run et supprimée avec lui (exclusif avec analyse_id)",
         "x-titre": "Définition de l'analyse",
+        "examples": [
+          {
+            "name": "Vérification CNI",
+            "description": "Classe le document, en extrait le nom et vérifie la cohérence.",
+            "classification_prompt": "Classe le document parmi les catégories proposées.",
+            "multi_label": false,
+            "labels": [
+              {
+                "name": "CNI",
+                "definition": "Carte nationale d'identité"
+              }
+            ],
+            "extraction_prompt": "Extrait le nom du titulaire.",
+            "entities": [
+              {
+                "name": "nom",
+                "definition": "Nom de famille du titulaire",
+                "type": "texte"
+              }
+            ],
+            "agents": [
+              {
+                "name": "vérification",
+                "prompt": "Vérifie la cohérence entre le nom extrait et la catégorie du document.",
+                "tools": [
+                  "lecture_document"
+                ],
+                "output": true
+              }
+            ]
+          }
+        ],
         "properties": {
-          "name": { "type": "string", "minLength": 1, "x-titre": "Nom" },
-          "description": { "type": "string", "x-titre": "Description" },
-          "persist": { "type": "boolean", "default": false, "description": "true : l'analyse est conservée après le run" },
-          "classification_prompt": { "type": "string", "x-titre": "Consigne de classification" },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 255,
+            "x-titre": "Nom",
+            "examples": [
+              "Vérification CNI"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 4000,
+            "x-titre": "Description",
+            "examples": [
+              "Classe le document et en extrait le nom."
+            ]
+          },
+          "classification_prompt": {
+            "type": "string",
+            "maxLength": 8000,
+            "x-titre": "Consigne de classification",
+            "examples": [
+              "Classe le document parmi les catégories proposées."
+            ]
+          },
           "multi_label": {
             "type": "boolean",
             "default": false,
-            "description": "true : une page peut recevoir plusieurs labels (sinon un seul par page)",
-            "x-titre": "Plusieurs catégories par page"
+            "description": "true : une page peut recevoir plusieurs catégories (sinon une seule par page)",
+            "x-titre": "Plusieurs catégories par page",
+            "examples": [
+              false
+            ]
           },
           "labels": {
             "type": "array",
+            "maxItems": 100,
+            "x-titre": "Catégories",
+            "examples": [
+              [
+                {
+                  "name": "CNI",
+                  "definition": "Carte nationale d'identité"
+                }
+              ]
+            ],
             "items": {
               "type": "object",
-              "required": ["name"],
+              "required": [
+                "name"
+              ],
               "additionalProperties": false,
               "properties": {
-                "name": { "type": "string" },
-                "definition": { "type": "string" }
-              }
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255,
+                  "examples": [
+                    "CNI"
+                  ]
+                },
+                "definition": {
+                  "type": "string",
+                  "maxLength": 2000,
+                  "examples": [
+                    "Carte nationale d'identité"
+                  ]
+                }
+              },
+              "examples": [
+                {
+                  "name": "CNI",
+                  "definition": "Carte nationale d'identité"
+                }
+              ]
             }
           },
-          "extraction_prompt": { "type": "string", "x-titre": "Consigne d'extraction" },
+          "extraction_prompt": {
+            "type": "string",
+            "maxLength": 8000,
+            "x-titre": "Consigne d'extraction",
+            "examples": [
+              "Extrait le nom du titulaire."
+            ]
+          },
           "entities": {
             "type": "array",
+            "maxItems": 100,
+            "x-titre": "Entités à extraire",
+            "examples": [
+              [
+                {
+                  "name": "nom",
+                  "definition": "Nom de famille du titulaire",
+                  "type": "texte"
+                }
+              ]
+            ],
             "items": {
               "type": "object",
-              "required": ["name", "type"],
+              "required": [
+                "name",
+                "type"
+              ],
               "additionalProperties": false,
               "properties": {
-                "name": { "type": "string" },
-                "definition": { "type": "string" },
-                "type": { "enum": ["texte", "date", "nombre", "booléen", "identifiant"] }
-              }
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255,
+                  "examples": [
+                    "nom"
+                  ]
+                },
+                "definition": {
+                  "type": "string",
+                  "maxLength": 2000,
+                  "examples": [
+                    "Nom de famille du titulaire"
+                  ]
+                },
+                "type": {
+                  "enum": [
+                    "texte",
+                    "date",
+                    "nombre",
+                    "booléen",
+                    "identifiant"
+                  ],
+                  "examples": [
+                    "texte"
+                  ]
+                }
+              },
+              "examples": [
+                {
+                  "name": "nom",
+                  "definition": "Nom de famille du titulaire",
+                  "type": "texte"
+                }
+              ]
             }
           },
           "agents": {
             "type": "array",
+            "maxItems": 20,
+            "x-titre": "Agents",
+            "examples": [
+              [
+                {
+                  "name": "vérification",
+                  "prompt": "Vérifie la cohérence entre le nom extrait et la catégorie du document.",
+                  "tools": [
+                    "lecture_document"
+                  ],
+                  "output": true
+                }
+              ]
+            ],
             "items": {
               "type": "object",
-              "required": ["name", "prompt"],
+              "required": [
+                "name",
+                "prompt"
+              ],
               "additionalProperties": false,
               "properties": {
-                "name": { "type": "string" },
-                "prompt": { "type": "string", "minLength": 1 },
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 255,
+                  "examples": [
+                    "vérification"
+                  ]
+                },
+                "prompt": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 16000,
+                  "examples": [
+                    "Vérifie la cohérence entre le nom extrait et la catégorie du document."
+                  ]
+                },
                 "tools": {
                   "type": "array",
+                  "description": "Outils que l'agent peut employer ; seuls ceux qui restent dans le dossier sont ouverts à la plateforme",
+                  "examples": [
+                    [
+                      "lecture_document"
+                    ]
+                  ],
                   "items": {
                     "enum": [
                       "lecture_document",
-                      "recherche_web",
-                      "base_connaissances",
-                      "appel_agent",
                       "calculatrice",
                       "verification_coherence"
+                    ],
+                    "examples": [
+                      "lecture_document"
                     ]
                   }
                 },
-                "output": { "type": "boolean", "default": true },
-                "model": { "type": ["string", "null"] }
-              }
+                "output": {
+                  "type": "boolean",
+                  "default": true,
+                  "examples": [
+                    true
+                  ]
+                },
+                "model": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "maxLength": 255,
+                  "examples": [
+                    null
+                  ]
+                }
+              },
+              "examples": [
+                {
+                  "name": "vérification",
+                  "prompt": "Vérifie la cohérence entre le nom extrait et la catégorie du document.",
+                  "tools": [
+                    "lecture_document"
+                  ],
+                  "output": true
+                }
+              ]
             }
           }
         }
@@ -115,23 +367,74 @@
       "analyse_id": {
         "type": "string",
         "format": "uuid",
+        "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$",
         "description": "Identifiant d'une analyse mille-feuille existante (exclusif avec analysis)",
-        "x-titre": "Analyse existante"
+        "x-titre": "Analyse existante",
+        "examples": [
+          "3f2b8c1e-5d4a-4e6b-9a7c-1d2e3f4a5b6c"
+        ]
       },
       "ttl_hours": {
         "type": "integer",
         "minimum": 1,
-        "maximum": 17520,
+        "maximum": 168,
         "default": 24,
-        "description": "Durée de conservation du résultat côté mille-feuille, en heures",
-        "x-titre": "Durée de conservation (h)"
-      },
-      "persist": {
-        "type": "boolean",
-        "default": false,
-        "description": "true : le run et ses fichiers sont conservés dans mille-feuille (sans expiration)",
-        "x-titre": "Conserver le run"
+        "description": "Durée de conservation du résultat côté mille-feuille si sa suppression après restitution échoue, en heures (7 jours au plus)",
+        "x-titre": "Durée de conservation (h)",
+        "examples": [
+          24
+        ]
       }
-    }
+    },
+    "examples": [
+      {
+        "files": [
+          {
+            "file_id": "client1/a1b2c3d4/cni.pdf",
+            "name": "cni.pdf"
+          }
+        ],
+        "analysis": {
+          "name": "Vérification CNI",
+          "description": "Classe le document, en extrait le nom et vérifie la cohérence.",
+          "classification_prompt": "Classe le document parmi les catégories proposées.",
+          "multi_label": false,
+          "labels": [
+            {
+              "name": "CNI",
+              "definition": "Carte nationale d'identité"
+            }
+          ],
+          "extraction_prompt": "Extrait le nom du titulaire.",
+          "entities": [
+            {
+              "name": "nom",
+              "definition": "Nom de famille du titulaire",
+              "type": "texte"
+            }
+          ],
+          "agents": [
+            {
+              "name": "vérification",
+              "prompt": "Vérifie la cohérence entre le nom extrait et la catégorie du document.",
+              "tools": [
+                "lecture_document"
+              ],
+              "output": true
+            }
+          ]
+        },
+        "ttl_hours": 24
+      },
+      {
+        "files": [
+          {
+            "file_id": "client1/a1b2c3d4/cni.pdf",
+            "name": "cni.pdf"
+          }
+        ],
+        "analyse_id": "3f2b8c1e-5d4a-4e6b-9a7c-1d2e3f4a5b6c"
+      }
+    ]
   }
 }

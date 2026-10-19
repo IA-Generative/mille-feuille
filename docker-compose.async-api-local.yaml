@@ -1,0 +1,33 @@
+# Surcouche pour brancher le worker AsyncTaskAPI sur une pile async-api locale (`make up` dans le
+# dépôt async-api : courtier `broker`, stockage Garage `garage`, réseau `async-api-dev`) plutôt que
+# sur le RabbitMQ de ce dépôt. Le backend mille-feuille reste celui de cette pile.
+#
+#   export GH_TOKEN=$(gh auth token)      # mic-worker vient du dépôt privé async-api (build)
+#   ASYNC_API_WORKER_TOKEN=<token API> docker compose --profile async-api \
+#     -f docker-compose.yaml -f docker-compose.async-api-local.yaml up --build worker-async-api
+#
+# Valeurs de dev d'async-api (.env.example de ce dépôt-là) ; côté async-api, créer le client et
+# l'autoriser sur `mille-feuille` (api/add_client.py, api/add_client_service.py) avant la première
+# soumission — une pile compose neuve n'a aucun client en base.
+services:
+  worker-async-api:
+    environment:
+      BROKER_URL: amqp://kalo:kalo@broker:5672
+      AWS_ENDPOINT_URL: http://garage:3900
+      AWS_ACCESS_KEY_ID: GK000000000000000000000001
+      AWS_SECRET_ACCESS_KEY: "0000000000000000000000000000000000000000000000000000000000000001"
+      AWS_S3_BUCKET_NAME: brio-dev-api-data
+      AWS_S3_VERIFY: "false"
+      MILLEFEUILLE_BASE_URL: http://backend:8000
+    depends_on: !reset []
+    networks:
+      - default
+      - async-api-dev
+
+  # Le RabbitMQ de ce dépôt n'a plus d'objet : le worker parle à celui d'async-api.
+  rabbitmq:
+    profiles: ["jamais"]
+
+networks:
+  async-api-dev:
+    external: true
