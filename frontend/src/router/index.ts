@@ -21,6 +21,7 @@ import DossierDetailPage from "@/pages/DossierDetailPage.vue";
 import DossiersPage from "@/pages/DossiersPage.vue";
 import ProfilePage from "@/pages/ProfilePage.vue";
 import TrackingPage from "@/pages/TrackingPage.vue";
+import UsagePage from "@/pages/UsagePage.vue";
 import WelcomePage from "@/pages/WelcomePage.vue";
 
 export const router = createRouter({
@@ -90,6 +91,7 @@ export const router = createRouter({
     { path: "/dossiers/:id/documents/:draftId", name: "document-review", component: DocumentReviewPage },
     { path: "/suivi", name: "tracking", component: TrackingPage },
     { path: "/profile", name: "profile", component: ProfilePage },
+    { path: "/consommation", name: "usage", component: UsagePage },
     {
       path: "/administration",
       name: "administration",

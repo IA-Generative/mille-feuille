@@ -11,7 +11,7 @@ l'exécution du graphe (voir app/helper_graph.py, app/helper_tools.py).
 
 import logging
 
-from app import api_client
+from app import api_client, usage
 from app.celery_app import celery_app
 from app.helper_graph import run_helper_chat as run_helper_chat_graph
 from app.helper_tools import ConsultedResource, HelperTools
@@ -29,12 +29,14 @@ def _resources_to_api(resources: list[ConsultedResource]) -> list[dict]:
 
 @celery_app.task(name="app.tasks.run_helper_chat", bind=True)
 def run_helper_chat(self, conversation_id: str, model: str | None = None) -> None:
+    usage.bind("run_helper_chat")
     with api_client.get_client() as client:
         try:
             # 1. Charge la conversation (historique user/assistant).
             conversation = api_client.get_agent_conversation(client, conversation_id)
             # L'agent agit au nom de la personne qui a ouvert la conversation.
             api_client.act_for(client, conversation["created_by"])
+            usage.bind("run_helper_chat", user_id=conversation["created_by"])
             history = _build_conversation_history(conversation)
             tools = HelperTools(client)
 

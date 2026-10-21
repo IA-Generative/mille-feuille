@@ -16,7 +16,7 @@ du dossier.
 import logging
 import time
 
-from app import api_client
+from app import api_client, usage
 from app.agent_graph import run_agent
 from app.celery_app import celery_app
 from app.tools import AgentTools
@@ -83,6 +83,7 @@ def _run_single_agent(client, dossier: dict, agent: dict, step_id: str | None) -
 
 @celery_app.task(name="app.tasks.run_agents", bind=True)
 def run_agents(self, dossier_id: str) -> None:
+    usage.bind("run_agents", dossier_id=dossier_id)
     with api_client.get_client() as client:
         dossier = api_client.get_dossier(client, dossier_id)
         analyse_id = dossier["analyse_id"]

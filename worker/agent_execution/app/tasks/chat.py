@@ -18,7 +18,7 @@ reconstruit le contexte à partir de l'historique de la conversation.
 
 import logging
 
-from app import api_client
+from app import api_client, usage
 from app.analysis_tools import AnalysisProposer
 from app.celery_app import celery_app
 from app.chat_graph import run_chat as run_chat_graph
@@ -97,12 +97,14 @@ def _sources_to_api(sources: list) -> list[dict]:
 
 @celery_app.task(name="app.tasks.run_chat", bind=True)
 def run_chat(self, conversation_id: str, dossier_id: str) -> None:
+    usage.bind("run_chat", dossier_id=dossier_id)
     with api_client.get_client() as client:
         try:
             # 1. Charge la conversation (historique + modèle LLM).
             conversation = api_client.get_conversation(client, conversation_id)
             history = _build_conversation_history(conversation)
             model = conversation.get("model")
+            usage.bind("run_chat", user_id=conversation.get("user_id"), dossier_id=dossier_id)
 
             # 2. Charge le dossier complet (pages, prédictions, synthèses).
             dossier = api_client.get_dossier(client, dossier_id)

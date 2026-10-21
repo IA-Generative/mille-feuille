@@ -44,6 +44,8 @@ from app.routers.profile import router as profile_router
 from app.routers.reports import router as reports_router
 from app.routers.sources import router as sources_router
 from app.routers.tracking import router as tracking_router
+from app.routers.usage import internal_router as internal_usage_router
+from app.routers.usage import router as usage_router
 from app.routers.user_tasks import router as user_tasks_router
 from app.routers.users import router as users_router
 from app.routers.work_slots import router as work_slots_router
@@ -179,6 +181,8 @@ app.include_router(notifications_router, prefix="/api")
 app.include_router(work_slots_router, prefix="/api")
 app.include_router(user_tasks_router, prefix="/api")
 app.include_router(ephemeral_router, prefix="/api")
+app.include_router(usage_router, prefix="/api")
+app.include_router(internal_usage_router, prefix="/api")
 # /mcp/helper doit être monté avant /mcp : Starlette résout les Mount par
 # préfixe dans l'ordre d'enregistrement, et "/mcp/helper/..." commence
 # aussi par "/mcp" - sans cet ordre, tout irait au mauvais sous-app.

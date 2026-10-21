@@ -19,7 +19,7 @@ Chacune pointe vers le label_definition_id correspondant.
 
 import logging
 
-from app import api_client, clip, llm
+from app import api_client, clip, llm, usage
 from app.celery_app import celery_app
 from app.config import settings
 from app.fingerprint import classification_fingerprint, visual_classification_fingerprint
@@ -153,6 +153,7 @@ def _text_extraction_pending(dossier: dict) -> bool:
 
 @celery_app.task(name="app.tasks.classify_dossier", bind=True)
 def classify_dossier(self, dossier_id: str) -> None:
+    usage.bind("classify_dossier", dossier_id=dossier_id)
     with api_client.get_client() as client:
         dossier = api_client.get_dossier(client, dossier_id)
         if _text_extraction_pending(dossier):

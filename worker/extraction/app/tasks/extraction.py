@@ -20,7 +20,7 @@ entités multi-pages.
 import logging
 from functools import partial
 
-from app import api_client, gliner, llm
+from app import api_client, gliner, llm, usage
 from app.celery_app import celery_app
 from app.config import settings
 from app.extraction_planner import group_definitions, new_entities, normalize_value, plan_lots, text_budget
@@ -396,6 +396,7 @@ def _text_extraction_pending(dossier: dict) -> bool:
 
 @celery_app.task(name="app.tasks.extract_dossier_entities", bind=True)
 def extract_dossier_entities(self, dossier_id: str) -> None:
+    usage.bind("extract_dossier_entities", dossier_id=dossier_id)
     with api_client.get_client() as client:
         dossier = api_client.get_dossier(client, dossier_id)
         if _text_extraction_pending(dossier):
