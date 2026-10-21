@@ -9,7 +9,7 @@ brouillon : terminé (propositions, champs sans valeur trouvée, contexte tronqu
 
 import logging
 
-from app import api_client, document_generation, llm
+from app import api_client, document_generation, llm, usage
 from app.celery_app import celery_app
 from app.config import settings
 
@@ -21,6 +21,7 @@ def generate_document_fields(
     self, draft_id: str, names: list[str] | None = None, instruction: str | None = None
 ) -> None:
     """``names`` limite les champs (régénération) ; ``instruction`` est la consigne facultative de l'instructeur."""
+    usage.bind("generate_document_fields")
     with api_client.get_client() as client:
         count = 0
         missing: list[str] = []

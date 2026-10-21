@@ -58,6 +58,11 @@ function goProfile() {
   router.push("/profile");
 }
 
+function goUsage() {
+  closeMenu();
+  router.push("/consommation");
+}
+
 function goAdmin() {
   closeMenu();
   router.push("/administration");
@@ -170,6 +175,11 @@ onBeforeUnmount(() => {
       <button type="button" class="user-menu__item" role="menuitem" @click="goProfile">
         <VIcon name="ri-account-circle-line" />
         <span>Profil</span>
+      </button>
+
+      <button type="button" class="user-menu__item" role="menuitem" @click="goUsage">
+        <VIcon name="ri-drop-line" />
+        <span>Ma consommation</span>
       </button>
 
       <button v-if="isAdmin" type="button" class="user-menu__item" role="menuitem" @click="goAdmin">

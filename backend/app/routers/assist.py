@@ -5,11 +5,14 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from openai import AsyncOpenAI
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import LlmSettings
 from app.connectors import redis_connector
 from app.core.security.factory import RequestContext, get_current_user
+from app.db import get_db
 from app.schemas.llm import ChatCompletionRequest, ChatCompletionResponse
+from app.services.usage_service import UsageService
 
 router = APIRouter(prefix="/llm", tags=["Assist"])
 
@@ -67,7 +70,9 @@ async def _default_chat_model() -> str | None:
     response_model=ChatCompletionResponse,
 )
 async def complete(
-    body: ChatCompletionRequest, _: Annotated[RequestContext, Depends(get_current_user)]
+    body: ChatCompletionRequest,
+    user: Annotated[RequestContext, Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> ChatCompletionResponse:
     if _openai_client is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="LLM hub is not configured")
@@ -80,5 +85,13 @@ async def complete(
 
     completion = await _openai_client.chat.completions.create(
         model=model, messages=[{"role": "user", "content": body.prompt}]
+    )
+    usage = completion.usage
+    await UsageService(db).record_quietly(
+        "llm_assist",
+        model,
+        usage.prompt_tokens if usage else None,
+        usage.completion_tokens if usage else None,
+        user.user_id,
     )
     return ChatCompletionResponse(content=completion.choices[0].message.content or "")

@@ -10,7 +10,7 @@ l'API interne (append-only : chaque génération crée une nouvelle ligne).
 
 import logging
 
-from app import api_client
+from app import api_client, usage
 from app.bm25 import document_label
 from app.celery_app import celery_app
 from app.config import settings
@@ -42,6 +42,7 @@ def _truncate(text: str, limit: int = _MAX_CONTENT_CHARS) -> str:
 def run_document_summary(self, dossier_id: str, document_id: str) -> None:
     """Génère un résumé pour un document : récupère les pages via l'API
     interne, concatène leur contenu, appelle le LLM, dépose le résumé."""
+    usage.bind("run_document_summary", dossier_id=dossier_id)
     with api_client.get_client() as client:
         api_client.set_document_summary_status(client, document_id, status="en_cours")
         try:
@@ -90,6 +91,7 @@ def run_dossier_summary(self, dossier_id: str) -> None:
     """Génère un résumé global pour un dossier : récupère les résumés
     individuels des documents + les synthèses des agents (ExecutionStep.output),
     concatène le tout, appelle le LLM, dépose le résumé."""
+    usage.bind("run_dossier_summary", dossier_id=dossier_id)
     with api_client.get_client() as client:
         api_client.set_dossier_summary_status(client, dossier_id, status="en_cours")
         try:

@@ -11,7 +11,7 @@ brut des documents comme fallback.
 
 import logging
 
-from app import api_client
+from app import api_client, usage
 from app.celery_app import celery_app
 from app.llm import suggest_analyses
 
@@ -95,6 +95,7 @@ def suggest_dossier_analyse(self, dossier_id: str) -> None:
     récupère le résumé du dossier (ou fallback sur le contenu brut), liste
     les analyses disponibles via l'API agent, appelle le LLM, et dépose les
     suggestions."""
+    usage.bind("suggest_dossier_analyse", dossier_id=dossier_id)
     with api_client.get_client() as client:
         api_client.set_suggestion_status(client, dossier_id, status="en_cours")
         try:

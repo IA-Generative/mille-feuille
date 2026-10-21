@@ -5,6 +5,7 @@ import logging
 from openai import OpenAI
 from pydantic import BaseModel, Field
 
+from app import usage
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -15,7 +16,9 @@ def _client() -> OpenAI:
         raise RuntimeError(
             "OPENAI_API_KEY et OPENAI_API_BASE_URL doivent être configurés pour utiliser le worker extraction."
         )
-    return OpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_API_BASE_URL)
+    return OpenAI(
+        api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_API_BASE_URL, http_client=usage.http_client()
+    )
 
 
 class EntityValue(BaseModel):

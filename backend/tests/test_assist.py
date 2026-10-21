@@ -14,6 +14,7 @@ def _fake_openai_client(
             raise RuntimeError(f"model '{model}' does not support chat completions")
         return SimpleNamespace(
             choices=[SimpleNamespace(message=SimpleNamespace(content=completion_content))],
+            usage=SimpleNamespace(prompt_tokens=12, completion_tokens=5),
         )
 
     models_data = [SimpleNamespace(id=i) for i in all_ids]

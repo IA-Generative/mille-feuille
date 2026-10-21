@@ -83,6 +83,7 @@ from .generation_prompt import GenerationPromptVersion
 from .notification import Notification, NotificationCursor
 from .report import Report, ReportStatus, ReportType
 from .summary import DocumentSummary, DossierSummary, SummaryStatus
+from .token_usage import TokenUsage, TokenUsageKind
 from .user_preference import UserPreference
 from .user_task import UserTask, UserTaskKind, UserTaskStatus
 from .work_slot import WorkSlot
@@ -181,6 +182,8 @@ __all__ = [
     "StatusDefinition",
     "SummaryStatus",
     "TextExtractionStatus",
+    "TokenUsage",
+    "TokenUsageKind",
     "UserPreference",
     "Notification",
     "NotificationCursor",

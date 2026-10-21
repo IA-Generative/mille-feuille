@@ -10,7 +10,7 @@ nombre de propositions, ou échec avec la raison).
 
 import logging
 
-from app import api_client, llm
+from app import api_client, llm, usage
 from app.analysis_tools import AnalysisProposer
 from app.celery_app import celery_app
 from app.config import settings
@@ -25,9 +25,13 @@ MAX_PROPOSALS_PER_NOTE = 10
 
 @celery_app.task(name="app.tasks.propose_from_note", bind=True)
 def propose_from_note(self, note_id: str) -> None:
+    usage.bind("propose_from_note")
     with api_client.get_client() as client:
         try:
             note = api_client.get_note(client, note_id)
+            usage.bind(
+                "propose_from_note", user_id=note.get("analysis_requested_by"), dossier_id=note.get("dossier_id")
+            )
             if note.get("archived"):
                 api_client.finish_note_analysis(client, note_id, status="échec", error="Cette note est archivée.")
                 return
