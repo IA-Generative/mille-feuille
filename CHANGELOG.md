@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.0](https://github.com/IA-Generative/mille-feuille/compare/v0.26.0...v0.27.0) (2026-10-21)
+
+
+### Features
+
+* **consommation:** attribuer les tokens d'un run éphémère à son auteur ([ac4deaf](https://github.com/IA-Generative/mille-feuille/commit/ac4deaf33eafd854349ef91e1772828826d4d309))
+* **consommation:** compter les tokens des appels au LLM, avec ma consommation et la vue admin ([3e295b2](https://github.com/IA-Generative/mille-feuille/commit/3e295b2cc4e28422602357fd4bc7364321c46969))
+
 ## [0.26.0](https://github.com/IA-Generative/mille-feuille/compare/v0.25.0...v0.26.0) (2026-10-15)
 
 
