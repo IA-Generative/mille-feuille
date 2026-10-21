@@ -16,9 +16,10 @@ const { usage, loading, error } = useUsage(days);
       <UsagePeriodSelector v-model="days" />
     </div>
     <p class="usage-page__intro">
-      Les tokens consommés pour vous par les modèles : vos questions dans le chat, l'assistant, l'aide à la rédaction
-      et les traitements que vous avez lancés (notes, génération de documents). La classification, l'extraction et les
-      résumés d'un dossier ne sont rattachés à personne : ils n'apparaissent pas ici.
+      Les tokens consommés pour vous par les modèles : vos questions dans le chat, l'assistant, l'aide à la rédaction,
+      les traitements que vous avez lancés (notes, génération de documents) et vos runs via l'API éphémère. La
+      classification, l'extraction et les résumés d'un dossier classique ne sont rattachés à personne : ils
+      n'apparaissent pas ici.
     </p>
 
     <div v-if="error" class="fr-alert fr-alert--error" role="alert">{{ error }}</div>
