@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security.ephemeral import ENV_KEY_IDENTITY_ID
 from app.core.security.factory import RequestContext
 from app.models.token_usage import TokenUsage, TokenUsageKind
 from app.repositories.token_usage_repository import TokenUsageRepository
@@ -24,6 +25,12 @@ def _sums(row) -> dict:  # noqa: ANN001
     }
 
 
+def _display(row) -> str | None:  # noqa: ANN001
+    if row.user_id == ENV_KEY_IDENTITY_ID:
+        return "Clé d'API de l'environnement"
+    return row.display
+
+
 class UsageService:
     """Tokens consommés par les appels au LLM, par tâche, jour, modèle et personne."""
 
@@ -32,9 +39,14 @@ class UsageService:
         self.usage = TokenUsageRepository(db)
 
     async def record(self, entry: UsageIn) -> None:
+        """Le run éphémère d'un dossier donne son auteur quand le worker n'en connaît pas : résolu ici, une fois, pour
+        que la consommation reste attribuée après la purge du run."""
+        user_id = entry.user_id
+        if user_id is None and entry.dossier_id is not None:
+            user_id = await self.usage.ephemeral_creator(entry.dossier_id)
         await self.usage.add(
             TokenUsage(
-                user_id=entry.user_id,
+                user_id=user_id,
                 step=entry.step,
                 kind=entry.kind,
                 model=entry.model,
@@ -85,7 +97,7 @@ class UsageService:
             by_day=[DayUsage(day=row.day, **_sums(row)) for row in await self.usage.by_day(since, user_id)],
             by_model=[ModelUsage(model=row.model, **_sums(row)) for row in await self.usage.by_model(since, user_id)],
             by_user=[
-                UserUsage(user_id=row.user_id, display=row.display, **_sums(row))
+                UserUsage(user_id=row.user_id, display=_display(row), **_sums(row))
                 for row in await self.usage.by_user(since)
             ]
             if with_users

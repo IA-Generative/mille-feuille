@@ -63,3 +63,21 @@ def test_admin_usage_is_forbidden_for_a_non_admin(client: TestClient) -> None:
         assert client.get("/api/admin/usage").status_code == 403
     finally:
         del app.dependency_overrides[get_current_user]
+
+
+def test_an_ephemeral_run_is_attributed_to_whoever_launched_it(client: TestClient, monkeypatch) -> None:
+    monkeypatch.setattr("app.routers.ephemeral.s3_connector.upload", lambda *args, **kwargs: None)
+    monkeypatch.setattr("app.routers.ephemeral.dispatch_dossier_pipeline", lambda *args, **kwargs: None)
+    labels = '[{"name": "CNI", "definition": "Carte d\'identité"}]'
+    run = client.post(
+        "/api/ephemeral/classifications",
+        files=[("file", ("cni.pdf", b"x", "application/pdf"))],
+        data={"labels": labels},
+    ).json()["run_id"]
+
+    # Le worker ne connaît pas l'auteur : seul le dossier est donné.
+    _deposit(client, dossier_id=run, input_tokens=40, output_tokens=2)
+
+    # Le client de test est « dev-user » : le run lui revient.
+    data = client.get("/api/admin/usage?days=7&user_id=dev-user").json()
+    assert data["totals"]["input_tokens"] >= 40

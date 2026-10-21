@@ -1,9 +1,12 @@
+import uuid
 from datetime import datetime
 
-from sqlalchemy import Date, cast, func, select
+from sqlalchemy import Date, String, cast, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.app_token import AppToken
 from app.models.app_user import AppUser
+from app.models.dossier_ephemere import DossierEphemere
 from app.models.token_usage import TokenUsage
 
 
@@ -27,6 +30,10 @@ class TokenUsageRepository:
     async def add(self, usage: TokenUsage) -> None:
         self.db.add(usage)
 
+    async def ephemeral_creator(self, dossier_id: uuid.UUID) -> str | None:
+        """Qui a lancé le run éphémère de ce dossier (personne, jeton API ou clé d'environnement), s'il en est un."""
+        return await self.db.scalar(select(DossierEphemere.created_by).where(DossierEphemere.dossier_id == dossier_id))
+
     def _filtered(self, statement, since: datetime, user_id: str | None):
         statement = statement.where(TokenUsage.created_at >= since)
         return statement.where(TokenUsage.user_id == user_id) if user_id is not None else statement
@@ -48,12 +55,15 @@ class TokenUsageRepository:
         return (await self.db.execute(self._filtered(statement, since, user_id))).all()
 
     async def by_user(self, since: datetime):
-        """Le nom vient de l'annuaire local (app_users), jamais l'identifiant Keycloak brut."""
+        """Le nom vient de l'annuaire local (app_users) ou, pour un run éphémère lancé par un jeton API, du nom de ce
+        jeton : jamais l'identifiant brut."""
+        display = func.coalesce(AppUser.name, AppToken.name).label("display")
         statement = (
-            select(TokenUsage.user_id, AppUser.name.label("display"), *_sums())
+            select(TokenUsage.user_id, display, *_sums())
             .outerjoin(AppUser, AppUser.user_id == TokenUsage.user_id)
+            .outerjoin(AppToken, cast(AppToken.id, String) == TokenUsage.user_id)
             .where(TokenUsage.created_at >= since)
-            .group_by(TokenUsage.user_id, AppUser.name)
+            .group_by(TokenUsage.user_id, AppUser.name, AppToken.name)
             .order_by(_biggest_first())
         )
         return (await self.db.execute(statement)).all()
