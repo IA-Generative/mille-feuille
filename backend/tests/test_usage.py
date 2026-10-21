@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.core.security.factory import RequestContext, get_current_user
 from app.main import app
 
-WORKER_HEADERS = {"X-App-Token": "test-worker-token"}
+WORKER_HEADERS = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 
 
 def _deposit(client: TestClient, **fields) -> None:
