@@ -38,6 +38,7 @@ from app.routers.health import router as health_router
 from app.routers.internal import router as internal_router
 from app.routers.internal_agent import agent_conversations_router as internal_agent_conversations_router
 from app.routers.internal_agent import router as internal_agent_router
+from app.routers.internal_tools import router as internal_tools_router
 from app.routers.models import router as models_router
 from app.routers.notifications import router as notifications_router
 from app.routers.profile import router as profile_router
@@ -165,6 +166,7 @@ app.include_router(models_router, prefix="/api")
 app.include_router(assist_router, prefix="/api")
 app.include_router(internal_router, prefix="/api")
 app.include_router(internal_agent_router, prefix="/api")
+app.include_router(internal_tools_router, prefix="/api")
 app.include_router(internal_agent_conversations_router, prefix="/api")
 app.include_router(app_tokens_router, prefix="/api")
 app.include_router(reports_router, prefix="/api")

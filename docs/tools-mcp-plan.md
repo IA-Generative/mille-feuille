@@ -15,7 +15,7 @@ Ordre retenu : **UI sur mocks d'abord**, puis backend, puis worker (design épur
 | 3. Registre, API et import MCP | **fait** (CRUD, `discover`, `refresh`, garde SSRF, visibilité) ; frontend branché sur l'API |
 | 3 bis. Outils d'un agent (#336, #337) | **fait** : sélection enregistrée, contrôle des droits, historique et restauration, outil indisponible signalé |
 | 4. Identité et appel (token exchange) | à faire : le mode « identité de l'utilisateur » répond aujourd'hui « pas encore disponible » |
-| 5. Proxy d'appel et test unitaire | à faire : le test unitaire est simulé côté frontend |
+| 5. Proxy d'appel (#338) | **fait** : route interne, quotas, journal, sortie bornée ; le test unitaire (#339) est encore simulé côté frontend |
 | 6. Worker | à faire |
 | 7. Chat | à faire : menu des outils et confirmation simulés |
 | 8. Préparation de la suite | à faire |
