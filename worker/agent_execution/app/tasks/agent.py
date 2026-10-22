@@ -23,6 +23,7 @@ from app import api_client, usage
 from app.agent_graph import run_agent
 from app.agent_tool_set import ExtraTools, build_extra_tools
 from app.celery_app import celery_app
+from app.knowledge_tools import KnowledgeContext
 from app.tools import AgentTools
 
 logger = logging.getLogger(__name__)
@@ -74,7 +75,14 @@ def _log_missing_tools(client, step_id: str, extra: ExtraTools) -> None:
         api_client.add_execution_log(client, step_id, level="warning", message=message)
 
 
-def _run_single_agent(client, dossier: dict, agent: dict, step_id: str | None, acting_user: str | None = None) -> str:
+def _run_single_agent(
+    client,
+    dossier: dict,
+    agent: dict,
+    step_id: str | None,
+    acting_user: str | None = None,
+    knowledge: KnowledgeContext | None = None,
+) -> str:
     """Exécute un agent unique et dépose son résultat sur son execution_step.
     Renvoie la réponse de l'agent."""
     if step_id:
@@ -88,7 +96,9 @@ def _run_single_agent(client, dossier: dict, agent: dict, step_id: str | None, a
     # classification + extraction) pour construire les outils.
     fresh_dossier = api_client.get_dossier(client, dossier["id"])
     run_id = f"agent-{dossier['id']}-{agent.get('id', 'x')}-{uuid.uuid4().hex[:8]}"
-    extra = build_extra_tools(client, agent.get("tools", []), acting_user=acting_user, run_id=run_id)
+    extra = build_extra_tools(
+        client, agent.get("tools", []), acting_user=acting_user, run_id=run_id, knowledge=knowledge
+    )
     if step_id:
         _log_missing_tools(client, step_id, extra)
     tools = AgentTools(fresh_dossier, extra=extra)
@@ -117,6 +127,7 @@ def run_agents(self, dossier_id: str, acting_user: str | None = None) -> None:
         try:
             definitions = api_client.get_analyse_definitions(client, analyse_id)
             agents = definitions.get("agents", [])
+            knowledge = KnowledgeContext(analyse_id, definitions.get("knowledge_collections", []))
 
             if not agents:
                 logger.info("No agents defined for analyse %s, nothing to run", analyse_id)
@@ -140,7 +151,7 @@ def run_agents(self, dossier_id: str, acting_user: str | None = None) -> None:
                     logger.info("Agent '%s' reused for dossier %s", agent["name"], dossier_id)
                     continue
                 try:
-                    _run_single_agent(client, dossier, agent, step_id, acting_user)
+                    _run_single_agent(client, dossier, agent, step_id, acting_user, knowledge)
                 except Exception as agent_error:
                     logger.exception(
                         "Agent '%s' failed for dossier %s",

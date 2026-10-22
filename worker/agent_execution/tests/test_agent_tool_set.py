@@ -67,11 +67,11 @@ def test_an_internal_function_is_executed_here() -> None:
 
 def test_unknown_or_not_yet_runnable_ids_are_skipped_not_fatal() -> None:
     extra = build_extra_tools(
-        Backend().client(), ["recherche_web", "base_connaissances", "lecture_document", "calculatrice"],
+        Backend().client(), ["recherche_web", "appel_agent", "lecture_document", "calculatrice"],
         acting_user=None, run_id="r",
     )  # fmt: skip
 
-    assert extra.skipped == ["recherche_web", "base_connaissances", "lecture_document"]
+    assert extra.skipped == ["recherche_web", "appel_agent", "lecture_document"]
     assert names(extra) == ["calculer"]
 
 

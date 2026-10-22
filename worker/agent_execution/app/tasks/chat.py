@@ -26,6 +26,8 @@ from app.analysis_tools import AnalysisProposer
 from app.celery_app import celery_app
 from app.chat_graph import run_chat as run_chat_graph
 from app.config import settings
+from app.knowledge_tools import TOOL_ID as KNOWLEDGE_TOOL_ID
+from app.knowledge_tools import KnowledgeContext
 from app.note_tools import NoteWriter
 from app.tools import AgentTools
 
@@ -139,6 +141,15 @@ def _sources_to_api(sources: list) -> list[dict]:
     return result
 
 
+def _knowledge_context(client, dossier: dict, tool_ids: list[str]) -> KnowledgeContext | None:
+    """Les collections de la base de connaissances de l'analyse, lues seulement si la conversation a l'outil."""
+    analyse_id = dossier.get("analyse_id")
+    if KNOWLEDGE_TOOL_ID not in tool_ids or not analyse_id:
+        return None
+    definitions = api_client.get_analyse_definitions(client, analyse_id)
+    return KnowledgeContext(analyse_id, definitions.get("knowledge_collections", []))
+
+
 @celery_app.task(name="app.tasks.run_chat", bind=True)
 def run_chat(self, conversation_id: str, dossier_id: str) -> None:
     usage.bind("run_chat", dossier_id=dossier_id)
@@ -162,12 +173,14 @@ def run_chat(self, conversation_id: str, dossier_id: str) -> None:
             # Les outils que l'analyse autorise (ses agents), moins ceux que la personne a retirés : calculatrice,
             # dates, serveurs MCP, appelés en son nom. Un outil qui modifie des données est donné, mais son appel
             # attend l'accord de la personne (la tâche se termine, la décision relance le chat).
+            knowledge = _knowledge_context(client, dossier, conversation.get("tool_ids", []))
             extra = build_extra_tools(
                 client,
                 conversation.get("tool_ids", []),
                 acting_user=conversation.get("user_id"),
                 run_id=f"chat-{conversation_id}-{uuid.uuid4().hex[:8]}",
                 confirm_side_effects=True,
+                knowledge=knowledge,
             )
             tools = AgentTools(dossier, analysis=proposer, notes=note_writer, extra=extra, ask_user=True)
 
