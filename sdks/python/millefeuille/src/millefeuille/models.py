@@ -117,6 +117,9 @@ class EntityType(StrEnum):
 
 
 class AgentTool(StrEnum):
+    """Les identifiants de l'ancienne liste d'outils, gardés pour la compatibilité. Le champ `tools` d'un agent est
+    maintenant une liste d'identifiants quelconques (outils internes, tools de serveurs MCP) : voir `Agent.tools`."""
+
     LECTURE_DOCUMENT = "lecture_document"
     RECHERCHE_WEB = "recherche_web"
     BASE_CONNAISSANCES = "base_connaissances"
@@ -144,7 +147,9 @@ class AgentCreate(_In):
 
     name: str
     prompt: str = Field(min_length=1)
-    tools: list[AgentTool] = []
+    # Identifiants d'outils : un tool interne (`calculatrice`, `calcul_dates`) ou un tool d'un serveur MCP. Le serveur
+    # valide la liste ; `AgentTool` ne couvre plus que les anciens identifiants.
+    tools: list[str] = []
     output: bool = True
     # Identifiant renvoyé par `client.models.list()` ; None = modèle par défaut du hub.
     model: str | None = None
@@ -231,8 +236,8 @@ class Agent(_Out):
     name: str
     prompt: str
     prompt_versions: list[Version[str]]
-    tools: list[AgentTool]
-    tools_versions: list[Version[list[AgentTool]]]
+    tools: list[str]
+    tools_versions: list[Version[list[str]]]
     output: bool
     output_versions: list[Version[bool]]
     model: str | None
