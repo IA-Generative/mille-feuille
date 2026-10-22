@@ -7,6 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from app.models.chat_tool_call import ChatToolCallStatus
 
 MAX_CALLS_PER_BATCH = 5
+# L'outil du chat qui pose une question à choix à la personne (voir services/chat_questions.py).
+ASK_USER = "ask_user"
+MAX_QUESTIONS = 4
 
 
 class ChatToolCallIn(BaseModel):
@@ -33,6 +36,7 @@ class ChatToolCallOut(BaseModel):
     id: uuid.UUID
     message_id: uuid.UUID
     position: int
+    tool_id: str
     tool_name: str
     server_name: str
     arguments: dict[str, Any]
@@ -80,3 +84,22 @@ class ToolCallDecisions(BaseModel):
 
 class ToolCallResultIn(BaseModel):
     result: str
+
+
+class QuestionAnswer(BaseModel):
+    """La réponse à une question : des options proposées (une seule sauf question à réponses multiples) et/ou un texte
+    libre (« Autre »)."""
+
+    selected: list[str] = Field(default_factory=list, max_length=10)
+    other: str | None = Field(default=None, max_length=MAX_COMMENT_LENGTH)
+
+    @field_validator("other")
+    @classmethod
+    def _blank_is_none(cls, value: str | None) -> str | None:
+        return (value or "").strip() or None
+
+
+class QuestionAnswers(BaseModel):
+    """Une réponse par question, dans l'ordre où elles ont été posées."""
+
+    answers: list[QuestionAnswer] = Field(min_length=1, max_length=MAX_QUESTIONS)
