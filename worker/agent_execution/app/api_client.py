@@ -419,3 +419,23 @@ def call_tool(
     )
     response.raise_for_status()
     return response.json()
+
+
+def search_knowledge(
+    client: httpx.Client,
+    analyse_id: str,
+    query: str,
+    top_k: int,
+    *,
+    acting_user: str | None,
+    run_id: str | None,
+) -> dict:
+    """Cherche dans les collections que l'analyse autorise, par le backend, au nom de la personne. La réponse porte
+    toujours `ok` et `code` : une erreur métier (session expirée, quota…) n'est pas une erreur HTTP."""
+    response = client.post(
+        "/knowledge/search",
+        json={"analyse_id": analyse_id, "query": query, "top_k": top_k, "run_id": run_id},
+        headers=_as_person(acting_user),
+    )
+    response.raise_for_status()
+    return response.json()
