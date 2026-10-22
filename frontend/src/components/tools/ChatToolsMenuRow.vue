@@ -1,21 +1,31 @@
 <script setup lang="ts">
-import type { Tool } from "@/types/tool";
+import type { ChatTool } from "@/types/chatTool";
 
-defineProps<{ tool: Tool }>();
+defineProps<{ tool: ChatTool }>();
 const active = defineModel<boolean>({ required: true });
 </script>
 
 <template>
-  <li class="chat-tools-row">
+  <li class="chat-tools-row" :class="{ 'chat-tools-row--locked': !tool.givenToModel }">
     <span class="chat-tools-row__icon"><VIcon :name="tool.kind === 'mcp' ? 'ri-plug-line' : 'ri-tools-line'" scale="0.9" /></span>
     <span class="chat-tools-row__text" :title="tool.description">
       <span class="chat-tools-row__name">
         {{ tool.name }}
-        <VIcon v-if="tool.sideEffect" name="ri-edit-2-line" scale="0.7" class="chat-tools-row__edit" title="Demande une confirmation avant appel" />
+        <VIcon v-if="tool.sideEffect" name="ri-edit-2-line" scale="0.7" class="chat-tools-row__edit" />
       </span>
-      <span class="chat-tools-row__description">{{ tool.description }}</span>
+      <span class="chat-tools-row__description">
+        <template v-if="!tool.givenToModel">Modifie des données : pas encore utilisable dans le chat (confirmation à venir)</template>
+        <template v-else>{{ tool.description }}</template>
+      </span>
     </span>
-    <input v-model="active" type="checkbox" role="switch" class="chat-tools-row__switch" :aria-label="tool.name" />
+    <input
+      v-model="active"
+      type="checkbox"
+      role="switch"
+      class="chat-tools-row__switch"
+      :aria-label="tool.name"
+      :disabled="!tool.givenToModel"
+    />
   </li>
 </template>
 
@@ -30,6 +40,10 @@ const active = defineModel<boolean>({ required: true });
 
 .chat-tools-row:hover {
   background: var(--background-alt-grey);
+}
+
+.chat-tools-row--locked {
+  opacity: 0.6;
 }
 
 .chat-tools-row__icon {
@@ -72,6 +86,10 @@ const active = defineModel<boolean>({ required: true });
   background: var(--border-default-grey);
   cursor: pointer;
   transition: background 0.15s ease;
+}
+
+.chat-tools-row__switch:disabled {
+  cursor: not-allowed;
 }
 
 .chat-tools-row__switch::after {

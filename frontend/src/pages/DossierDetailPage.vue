@@ -23,7 +23,6 @@ import ChatToolsMenu from "@/components/tools/ChatToolsMenu.vue";
 import ToolConfirmCard from "@/components/tools/ToolConfirmCard.vue";
 import { useConversations } from "@/composables/useConversations";
 import { useToolConfirmation } from "@/composables/useToolConfirmation";
-import { useChatTools } from "@/composables/useChatTools";
 import { TOOLS_PREVIEW } from "@/utils/featureFlags";
 import { useDossiers } from "@/composables/useDossiers";
 import { useHelperAgent } from "@/composables/useHelperAgent";
@@ -157,10 +156,7 @@ function onModelChange(value: string) {
   setModel(value || null);
 }
 
-// Aperçu (phase 1, données simulées) : outils de l'analyse et confirmation avant un tool qui modifie des données.
-const { chatToolIds } = useChatTools();
-// Outils laissés actifs pour cette conversation : tout est actif par défaut, la personne ne peut que retirer.
-const activeChatToolIds = ref<string[]>(chatToolIds());
+// Confirmation avant un outil qui modifie des données : aperçu simulé (#342), masqué par défaut.
 const { pendingToolCall, resolveToolCall } = useToolConfirmation();
 
 const dossier = computed(() => dossiers.value.find((d) => d.id === dossierId));
@@ -535,8 +531,8 @@ async function onDeleteConversation() {
         />
       </template>
 
-      <template v-if="TOOLS_PREVIEW" #composer-actions>
-        <ChatToolsMenu v-model:active-ids="activeChatToolIds" :tool-ids="chatToolIds()" />
+      <template #composer-actions>
+        <ChatToolsMenu :dossier-id="dossierId" :conversation-id="conversation?.id" />
       </template>
 
       <template #message-extra="{ message }">
