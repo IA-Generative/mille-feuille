@@ -12,7 +12,6 @@ from app.connectors import s3_connector
 from app.core.security.share_token import generate_token, hash_token
 from app.models.analyse import (
     Agent,
-    AgentTool,
     Analyse,
     EntityDefinition,
     FieldVersion,
@@ -26,6 +25,7 @@ from app.models.dossier import Dossier
 from app.models.dossier_event import DossierEventType
 from app.repositories.dossier_event_repository import DossierEventRepository
 from app.services.due_date import normalize_thresholds
+from app.services.tools.ids import unique
 
 if TYPE_CHECKING:
     from app.schemas.analyse import AgentOut, AnalyseOut, CustomFieldsUpdate, DueSettingsIn, StatusDefinitionIn
@@ -216,7 +216,7 @@ class AnalyseRepository:
         elif field == VersionedField.AGENT_PROMPT and agent:
             await self.update_agent_prompt(analyse, agent, content)
         elif field == VersionedField.AGENT_TOOLS and agent:
-            await self.update_agent_tools(analyse, agent, [AgentTool(t) for t in content])
+            await self.update_agent_tools(analyse, agent, list(content))
         elif field == VersionedField.AGENT_OUTPUT and agent:
             await self.update_agent_output(analyse, agent, content)
         elif field == VersionedField.AGENT_MODEL and agent:
@@ -564,7 +564,7 @@ class AnalyseRepository:
         *,
         name: str,
         prompt: str,
-        tools: list[AgentTool],
+        tools: list[str],
         output: bool,
         model: str | None = None,
     ) -> Agent:
@@ -572,7 +572,7 @@ class AnalyseRepository:
             analyse_id=analyse.id,
             name=name,
             prompt=prompt,
-            tools=[t.value for t in tools],
+            tools=unique(tools),
             output=output,
             model=model,
         )
@@ -592,8 +592,8 @@ class AnalyseRepository:
         await self.db.commit()
         await self.db.refresh(analyse)
 
-    async def update_agent_tools(self, analyse: Analyse, agent: Agent, tools: list[AgentTool]) -> None:
-        new_values = [t.value for t in tools]
+    async def update_agent_tools(self, analyse: Analyse, agent: Agent, tools: list[str]) -> None:
+        new_values = unique(tools)
         if sorted(agent.tools) == sorted(new_values):
             return
         self._record_version(analyse, VersionedField.AGENT_TOOLS, agent.tools, agent)
@@ -642,11 +642,11 @@ class AnalyseRepository:
                 Version(id=v.id, content=v.content, created_at=v.created_at)
                 for v in self.field_versions(analyse, VersionedField.AGENT_PROMPT, agent.id)
             ],
-            tools=[AgentTool(t) for t in agent.tools],
+            tools=list(agent.tools),
             tools_versions=[
                 Version(
                     id=v.id,
-                    content=[AgentTool(t) for t in v.content],
+                    content=list(v.content),
                     created_at=v.created_at,
                 )
                 for v in self.field_versions(analyse, VersionedField.AGENT_TOOLS, agent.id)
