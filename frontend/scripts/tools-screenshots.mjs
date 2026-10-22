@@ -1,6 +1,3 @@
-// Les écrans simulés sont masqués par défaut : lancer le serveur de dev avec VITE_TOOLS_PREVIEW=true pour les capturer
-//   VITE_TOOLS_PREVIEW=true pnpm dev
-// Usage « vérifier que tout est masqué » (serveur de dev lancé SANS la variable) : node scripts/tools-screenshots.mjs --verifier-masque
 // Captures de la page « Mes outils » et du sélecteur de tools d'un agent (docs/tools-mcp-plan.md, phase 1).
 // Les écrans s'appuient sur des données simulées côté interface ; l'API est simulée ici (interception de /api/**).
 // Le serveur de dev doit tourner (pnpm dev).
@@ -199,6 +196,82 @@ const agentToolsRoute = (route, path) => {
   return false;
 };
 
+// --- Base de connaissances : sources, collections d'un fournisseur, collections de l'analyse (mêmes formes que l'API) ---
+const pageImage = (lines) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="210" height="297" viewBox="0 0 210 297"><rect width="210" height="297" fill="#fff"/><rect x="0.5" y="0.5" width="209" height="296" fill="none" stroke="#ddd"/>${lines.map((y) => `<rect x="25" y="${y}" width="${y % 3 ? 160 : 120}" height="5" rx="2" fill="#c9c9c9"/>`).join("")}</svg>`)}`;
+const PAGE_PREVIEW = pageImage([40, 55, 70, 85, 100, 115, 130, 145, 160, 175, 190, 205, 220, 235]);
+const col = (id, name, description, document_count, extra = {}) => ({ id, name, description, document_count, url: null, preview_url: null, ...extra });
+const KB_SOURCES = [
+  { id: "kb-refs", name: "Textes de référence", url: "https://base-de-connaissances.example.gouv.fr", auth_mode: "token_exchange", audience: "kb-refs", visibility: "all", owner_name: "Camille Roux", owned_by_me: false, created_at: iso(-30) },
+  { id: "kb-service-public", name: "Sites officiels", url: "https://kb-sites.example.gouv.fr", auth_mode: "none", audience: null, visibility: "private", owner_name: "Alex Martin", owned_by_me: true, created_at: iso(-4) },
+];
+const KB_COLLECTIONS = {
+  "kb-refs": [
+    col("ceseda", "CESEDA : textes et commentaires", "Code de l'entrée et du séjour des étrangers et du droit d'asile.", 1240, { url: "https://base-de-connaissances.example.gouv.fr/c/ceseda", preview_url: pageImage([40, 60, 80, 100, 120]) }),
+    col("ce", "Jurisprudence du Conseil d'État", "Décisions du Conseil d'État depuis 1990.", 8410, { preview_url: pageImage([40, 70, 100, 130]) }),
+    col("ta", "Jurisprudence des tribunaux administratifs", "Décisions des tribunaux administratifs.", 12030),
+    col("circulaires", "Circulaires et instructions ministérielles", "Circulaires publiées au Bulletin officiel.", 960),
+    col("subv-guide", "Guide de l'instruction des subventions", "Procédures et pièces à exiger pour une subvention.", 85, { url: "https://base-de-connaissances.example.gouv.fr/c/subv-guide", preview_url: PAGE_PREVIEW }),
+    col("courriers", "Modèles de courriers", "Courriers types de l'administration.", 140),
+    col("crpa", "Code des relations entre le public et l'administration", "Textes et commentaires du CRPA.", 420),
+    col("cgct", "Code général des collectivités territoriales", "Textes et commentaires du CGCT.", 2100),
+    col("secu-routiere", "Code de la sécurité routière", "Textes, barèmes et commentaires.", 760),
+    col("doctrine", "Doctrine interne", "Notes de doctrine des services.", 230),
+    col("reponses", "Réponses ministérielles", "Réponses aux questions parlementaires.", 5100),
+  ],
+  "kb-service-public": [
+    col("service-public", "Fiches pratiques Service-Public", "Fiches pratiques à destination des usagers.", 3500, { url: "https://www.service-public.example.fr" }),
+    col("associations", "Associations : démarches", "Création, subventions et obligations des associations.", 310),
+  ],
+};
+const sourceName = (id) => KB_SOURCES.find((s) => s.id === id).name;
+const collectionOf = (sourceId, collectionId) => KB_COLLECTIONS[sourceId]?.find((c) => c.id === collectionId);
+let ANALYSE_KB = [{ source_id: "kb-refs", collection_id: "subv-guide", name: "Guide de l'instruction des subventions" }, { source_id: "kb-refs", collection_id: "crpa", name: "Code des relations entre le public et l'administration" }, { source_id: "kb-refs", collection_id: "circulaires", name: "Circulaires et instructions ministérielles" }, { source_id: "kb-service-public", collection_id: "associations", name: "Associations : démarches" }];
+let ANALYSE_KB_VERSIONS = [
+  { id: "kv-2", created_at: iso(-6), content: ANALYSE_KB.slice(0, 2) },
+  { id: "kv-1", created_at: iso(-20), content: ANALYSE_KB.slice(0, 1) },
+];
+// La collection « circulaires » a disparu chez le fournisseur, et la personne n'a plus droit à « crpa ».
+const analyseKbOut = () => ({
+  collections: ANALYSE_KB.map((item) => {
+    const found = collectionOf(item.source_id, item.collection_id);
+    const status = item.collection_id === "crpa" ? "forbidden" : found && item.collection_id !== "circulaires" ? "available" : "not_found";
+    return { ...item, name: found?.name ?? item.name, source_name: sourceName(item.source_id), status };
+  }),
+  versions: ANALYSE_KB_VERSIONS,
+});
+const knowledgeRoute = (route, path) => {
+  const json = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+  const method = route.request().method();
+  if (path === "/api/knowledge-sources" && method === "GET") return json({ items: KB_SOURCES, total: KB_SOURCES.length, page: 1, page_size: 100, pages: 1 }), true;
+  if (path === "/api/knowledge-sources" && method === "POST") {
+    const body = route.request().postDataJSON();
+    if (body.url.includes("refuse")) return json({ detail: "Le fournisseur a refusé l'authentification." }, 502), true;
+    KB_SOURCES.unshift({ id: "kb-nouveau", name: body.name, url: body.url, auth_mode: body.auth_mode, audience: body.audience, visibility: body.visibility, owner_name: "Alex Martin", owned_by_me: true, created_at: new Date().toISOString() });
+    KB_COLLECTIONS["kb-nouveau"] = [];
+    return json(KB_SOURCES[0], 201), true;
+  }
+  const check = path.match(/^\/api\/knowledge-sources\/([^/]+)\/check$/);
+  if (check) return route.fulfill({ status: 204 }), true;
+  const list = path.match(/^\/api\/knowledge-sources\/([^/]+)\/collections$/);
+  if (list) {
+    const url = new URL(route.request().url());
+    const q = (url.searchParams.get("q") ?? "").toLowerCase();
+    const page = Number(url.searchParams.get("page") ?? 1);
+    const size = Number(url.searchParams.get("page_size") ?? 20);
+    const all = (KB_COLLECTIONS[list[1]] ?? []).filter((c) => `${c.name} ${c.description}`.toLowerCase().includes(q));
+    return json({ items: all.slice((page - 1) * size, page * size), total: all.length, page, page_size: size, pages: Math.max(1, Math.ceil(all.length / size)) }), true;
+  }
+  if (path === `/api/analyses/${ANALYSE_ID}/knowledge-collections`) {
+    if (method === "PUT") {
+      const refs = route.request().postDataJSON().collections;
+      ANALYSE_KB_VERSIONS = [{ id: `kv-${Date.now()}`, created_at: new Date().toISOString(), content: ANALYSE_KB }, ...ANALYSE_KB_VERSIONS];
+      ANALYSE_KB = refs.map((r) => ({ ...r, name: collectionOf(r.source_id, r.collection_id)?.name ?? ANALYSE_KB.find((o) => o.collection_id === r.collection_id)?.name ?? r.collection_id }));
+    }
+    return json(analyseKbOut()), true;
+  }
+  return false;
+};
+
 const handler = (route) => {
   const path = new URL(route.request().url()).pathname;
   const json = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
@@ -215,7 +288,7 @@ const handler = (route) => {
     SERVERS = [added, ...SERVERS];
     return json(added, 201);
   }
-  if (agentToolsRoute(route, path) || toolTestRoute(route, path) || conversationToolsRoute(route, path) || decisionRoute(route, path) || answerRoute(route, path)) return;
+  if (agentToolsRoute(route, path) || toolTestRoute(route, path) || conversationToolsRoute(route, path) || knowledgeRoute(route, path) || decisionRoute(route, path) || answerRoute(route, path)) return;
   if (path === "/api/auth/me") return json(profile);
   if (path === "/api/cgu/acceptance") return json({ accepted: true, cgu: null });
   if (path === "/api/cgu") return json({}, 404);
@@ -235,32 +308,6 @@ const context = await browser.newContext({ viewport: { width: 1280, height: 800 
 const page = await context.newPage();
 await page.route("**/api/**", handler);
 
-// --- Vérification du masquage : sans VITE_TOOLS_PREVIEW, aucun écran simulé n'apparaît ---
-if (process.argv.includes("--verifier-masque")) {
-  const failures = [];
-  const expect = (ok, message) => { console.log(`${ok ? "✓" : "✗"} ${message}`); if (!ok) failures.push(message); };
-
-  await page.goto(`${baseUrl}/outils`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(500);
-  expect(await page.getByRole("heading", { name: "Mes outils" }).count() === 1, "« Mes outils » (page réelle) reste visible");
-  expect(await page.locator(".server-card__tool").getByRole("button", { name: "Tester" }).count() > 0, "« Mes outils » : « Tester » sur les tools MCP (réel)");
-  expect(await page.locator(".internal-tool").getByRole("button", { name: "Tester" }).count() === 0, "« Mes outils » : pas de « Tester » sur les outils internes");
-
-  await page.goto(`${baseUrl}/analyses/${ANALYSE_ID}/agents`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(500);
-  expect(await page.getByRole("button", { name: "Choisir les outils" }).count() > 0, "Agents : le sélecteur d'outils (réel) est visible");
-  // (la case « Base de connaissances » de l'éditeur d'origine existe : on vise le titre du bloc simulé)
-  expect(await page.getByRole("heading", { name: "Base de connaissances" }).count() === 0, "Agents : pas de collections simulées");
-
-  await page.goto(`${baseUrl}/dossiers/dos-1`, { waitUntil: "networkidle" });
-  await page.waitForTimeout(800);
-  expect(await page.getByRole("button", { name: "Outils de la conversation" }).count() === 1, "Chat : le menu des outils (réel) est visible");
-  expect(await page.locator(".tool-call-card").count() === 1, "Chat : la demande d'autorisation (réelle) est visible");
-
-  await browser.close();
-  process.exit(failures.length ? 1 : 0);
-}
-
 const settle = (ms = 500) => page.waitForTimeout(ms);
 const shot = async (file, locator) => {
   await settle(600);
@@ -277,6 +324,23 @@ await shot("page-outils.png");
 await page.getByPlaceholder("Rechercher un outil, un serveur…").fill("association");
 await shot("page-outils-recherche.png");
 await page.getByPlaceholder("Rechercher un outil, un serveur…").fill("");
+
+// 1 quater. Ajout d'une source de connaissances : la connexion est vérifiée avant l'enregistrement
+await page.getByRole("button", { name: "Ajouter une source de connaissances" }).click();
+await settle(600);
+await page.getByLabel("Nom").first().fill("Doctrine interne");
+await page.getByLabel(/Adresse de l'API/).fill("https://refuse.example.gouv.fr");
+await page.getByLabel(/Audience Keycloak/).fill("kb-doctrine");
+await page.getByRole("button", { name: "Vérifier et ajouter" }).click();
+await settle(700);
+await page.screenshot({ path: resolve(outDir, "ajout-source-erreur.png") });
+console.log("✓ tools/ajout-source-erreur.png");
+await page.getByLabel(/Adresse de l'API/).fill("https://doctrine.example.gouv.fr");
+await settle(300);
+await page.screenshot({ path: resolve(outDir, "ajout-source.png") });
+console.log("✓ tools/ajout-source.png");
+await page.getByRole("button", { name: "Annuler" }).last().click();
+await settle(500);
 
 // 1 ter. Testeur d'un outil (entrée / sortie)
 const testButton = (tool) => page.locator(".server-card__tool", { hasText: tool }).getByRole("button", { name: "Tester" });
@@ -346,16 +410,21 @@ await page.getByText("Historique des versions").last().click();
 await settle(400);
 await shot("agent-outils-enregistres.png", editor);
 
-// 4 bis. Collections de la base de connaissances (analyse)
-await page.screenshot({ path: resolve(outDir, "collections-analyse.png"), fullPage: true });
-console.log("✓ tools/collections-analyse.png");
+// 4 bis. Collections de la base de connaissances (analyse) : l'état est celui de la personne qui regarde
+await settle(400);
+await shot("collections-analyse.png", page.locator(".knowledge-field"));
 await page.setViewportSize({ width: 1280, height: 1250 });
 await page.getByRole("button", { name: "Choisir les collections" }).click();
 await settle(1200);
 await page.screenshot({ path: resolve(outDir, "collections-modale.png") });
 console.log("✓ tools/collections-modale.png");
+await page.getByRole("tab", { name: "Sites officiels" }).click();
+await settle(500);
+await page.screenshot({ path: resolve(outDir, "collections-modale-source.png") });
+console.log("✓ tools/collections-modale-source.png");
+await page.getByRole("tab", { name: "Textes de référence" }).click();
 await page.getByPlaceholder("Rechercher une collection…").fill("jurisprudence");
-await settle(400);
+await settle(900);
 await page.screenshot({ path: resolve(outDir, "collections-recherche.png") });
 console.log("✓ tools/collections-recherche.png");
 await page.keyboard.press("Escape");
@@ -454,5 +523,25 @@ await questionShot("chat-question-multiple.png");
 await questionCard.getByRole("button", { name: "Valider" }).click();
 await settle(800);
 await questionShot("chat-question-repondue.png");
+
+// Sources de la base de connaissances citées par la réponse : lien, aperçu de la page et passage surligné
+MESSAGES.push(
+  { id: "m7", role: "user", content: "Quelles pièces faut-il exiger pour une subvention ?", created_at: iso(-0.0005), sources: [], feedback: null },
+  {
+    id: "m8", role: "assistant", created_at: iso(-0.0004), sources: [], feedback: null,
+    content: "Une demande de subvention comporte les statuts de l'association, un RIB et le budget prévisionnel [1]. Les pièces peuvent varier selon le montant demandé [2].",
+    external_sources: [
+      { source_id: "p-8f2c", kind: "document", title: "Guide de l'instruction des subventions 2026.pdf", url: "https://base-de-connaissances.example.gouv.fr/v1/documents/d-120?page=14", preview_url: PAGE_PREVIEW, page: 14, boxes: [{ page: 14, x_min: 0.1, y_min: 0.34, x_max: 0.9, y_max: 0.46 }], passage: "Toute demande de subvention comporte les statuts de l'association, un RIB, le budget prévisionnel de l'exercice et le dernier rapport d'activité.", score: 0.91, collection_name: "Guide de l'instruction des subventions", source_name: "Textes de référence" },
+      { source_id: "w-31", kind: "web", title: "Service-Public.fr — Subvention aux associations", url: "https://www.service-public.example.fr/associations/subvention", preview_url: null, page: null, boxes: [], passage: "Les pièces à joindre varient selon le montant demandé et la collectivité qui instruit la demande.", score: 0.77, collection_name: "Fiches pratiques Service-Public", source_name: "Sites officiels" },
+    ],
+  },
+);
+await page.reload({ waitUntil: "networkidle" });
+await settle(800);
+const external = page.locator(".chat-external-sources");
+await external.evaluate((el) => el.scrollIntoView({ block: "center" }));
+await settle(600);
+await page.screenshot({ path: resolve(outDir, "chat-sources-externes.png") });
+console.log("✓ tools/chat-sources-externes.png");
 
 await browser.close();

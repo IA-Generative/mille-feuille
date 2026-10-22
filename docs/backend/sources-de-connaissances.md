@@ -81,3 +81,11 @@ Un fournisseur ou une collection qui échoue n'empêche pas les autres : ils son
 ## Sources d'un message du chat (#369)
 
 Les sources trouvées pendant une exécution sont **déposées avec le message de l'assistant** (`external_sources`, 10 au plus, sans doublon, dans l'ordre où le modèle les a vues) : table `message_external_sources` (migration `d7e8f9a0b1c2`), exposée dans `external_sources` de chaque message (`position`, `source_id`, `kind`, `title`, `url`, `preview_url`, `page`, `boxes`, `passage`, `score`, collection, source). Tout est recopié au moment de la réponse : la source peut changer ou disparaître chez le fournisseur, le message garde ce qui le fondait. Elles sont distinctes des `sources` d'un message (documents du dossier).
+
+## Interface (#360)
+
+- **Mes outils** (`/outils`) : une section « Bases de connaissances » (liste, recherche, pagination) et un bouton « Ajouter une source de connaissances » : le formulaire vérifie la connexion avant l'enregistrement et affiche l'erreur renvoyée (adresse refusée, authentification refusée, fournisseur hors contrat). « Vérifier la connexion » revérifie avec l'identité de la personne.
+- **Analyse, onglet Agents** : le bloc « Base de connaissances » montre les collections choisies avec leur **état pour la personne qui regarde** : une collection introuvable, au droit retiré ou dont la source est inaccessible est signalée en orange et se retire d'un clic. « Choisir les collections » ouvre une modale : une source à la fois (onglets), recherche et pagination **chez le fournisseur**, aperçu et lien « Ouvrir » quand il en fournit, choix gardé d'une source à l'autre. L'historique des listes se restaure.
+- **Chat** : les sources citées par une réponse s'affichent sous le message, numérotées comme dans le texte ([1], [2]), avec le lien, l'aperçu de la page et le passage surligné quand le fournisseur donne des zones (coordonnées normalisées 0..1), ou un simple lien pour un site web.
+- Les images d'aperçu viennent du fournisseur et sont chargées par le navigateur, sans en-tête de provenance (`referrerpolicy="no-referrer"`). Les liens s'ouvrent dans un autre onglet (`rel="noopener noreferrer"`).
+

@@ -1,17 +1,18 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, onMounted, provide, ref } from "vue";
 import { useRoute } from "vue-router";
 
 import AddAgentModal from "@/components/analyses/AddAgentModal.vue";
 import AgentCard from "@/components/analyses/AgentCard.vue";
 import KnowledgeCollectionsField from "@/components/tools/KnowledgeCollectionsField.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
-import { TOOLS_PREVIEW } from "@/utils/featureFlags";
 
 const route = useRoute();
 const { getById, fetchAnalyse } = useAnalyses();
 
 const analyse = computed(() => getById(String(route.params.id)));
+// Le sélecteur d'outils d'un agent compte les collections de cette analyse (outil « Base de connaissances »).
+provide("analyseId", String(route.params.id));
 
 onMounted(() => {
   if (!analyse.value) fetchAnalyse(String(route.params.id));
@@ -22,7 +23,7 @@ const isAddAgentModalOpened = ref(false);
 
 <template>
   <div v-if="analyse" class="analyse-agents-tab">
-    <KnowledgeCollectionsField v-if="TOOLS_PREVIEW" />
+    <KnowledgeCollectionsField :analyse-id="analyse.id" />
 
     <div class="analyse-agents-tab__header">
       <p class="fr-text--sm">

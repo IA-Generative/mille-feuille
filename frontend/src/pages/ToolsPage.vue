@@ -1,30 +1,48 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 
+import AddKnowledgeSourceModal from "@/components/tools/AddKnowledgeSourceModal.vue";
 import AddToolServerModal from "@/components/tools/AddToolServerModal.vue";
 import InternalToolRow from "@/components/tools/InternalToolRow.vue";
+import KnowledgeSourceCard from "@/components/tools/KnowledgeSourceCard.vue";
 import ToolSearchInput from "@/components/tools/ToolSearchInput.vue";
 import ToolServerCard from "@/components/tools/ToolServerCard.vue";
 import ToolsListSection from "@/components/tools/ToolsListSection.vue";
+import { useKnowledgeSources } from "@/composables/useKnowledgeSources";
 import { useTools } from "@/composables/useTools";
 import { matchesSearch } from "@/utils/toolSearch";
 
 const { internalTools, servers, loading, error, fetchTools, removeServer, refreshServer } = useTools();
+const {
+  sources: knowledgeSources,
+  error: sourcesError,
+  fetchSources,
+  checkSource,
+  removeSource,
+} = useKnowledgeSources();
 const isAddOpened = ref(false);
+const isAddSourceOpened = ref(false);
 const actionError = ref("");
+const actionNotice = ref("");
 
-onMounted(() => fetchTools(true));
+onMounted(() => Promise.all([fetchTools(true), fetchSources(true)]));
 
 // Une action sur un serveur (actualiser, supprimer) peut échouer : on le dit plutôt que de ne rien faire.
-async function run(action: () => Promise<void>) {
+async function run(action: () => Promise<void>, notice = "") {
   actionError.value = "";
+  actionNotice.value = "";
   try {
     await action();
+    actionNotice.value = notice;
   } catch (e) {
     actionError.value = e instanceof Error ? e.message : "L'action a échoué.";
   }
 }
 const query = ref("");
+
+const filteredSources = computed(() =>
+  knowledgeSources.value.filter((source) => matchesSearch(query.value, `${source.name} ${source.url}`)),
+);
 
 const filteredInternalTools = computed(() =>
   internalTools.value.filter((tool) => matchesSearch(query.value, `${tool.name} ${tool.description}`)),
@@ -44,14 +62,21 @@ const filteredServers = computed(() =>
   <div class="tools-page">
     <div class="tools-page__header">
       <h1 class="fr-h2">Mes outils</h1>
-      <DsfrButton label="Ajouter un serveur MCP" icon="ri-add-line" @click="isAddOpened = true" />
+      <div class="tools-page__buttons">
+        <DsfrButton label="Ajouter une source de connaissances" icon="ri-book-2-line" secondary @click="isAddSourceOpened = true" />
+        <DsfrButton label="Ajouter un serveur MCP" icon="ri-add-line" @click="isAddOpened = true" />
+      </div>
     </div>
     <p class="tools-page__intro">
       Les outils que les agents peuvent utiliser. Les outils internes sont fournis par la plateforme ; les serveurs MCP
-      sont ajoutés par les utilisateurs. Chaque agent choisit, dans son analyse, ceux dont il a besoin.
+      et les sources de connaissances sont ajoutés par les utilisateurs. Chaque agent choisit, dans son analyse, ceux
+      dont il a besoin, et l'analyse choisit les collections qu'ils peuvent interroger.
     </p>
 
-    <div v-if="error || actionError" class="fr-alert fr-alert--error" role="alert">{{ error || actionError }}</div>
+    <div v-if="error || sourcesError || actionError" class="fr-alert fr-alert--error" role="alert">
+      {{ error || sourcesError || actionError }}
+    </div>
+    <div v-else-if="actionNotice" class="fr-alert fr-alert--success fr-alert--sm" role="status">{{ actionNotice }}</div>
     <p v-else-if="loading && servers.length === 0 && internalTools.length === 0" class="tools-page__empty">Chargement…</p>
 
     <ToolSearchInput v-model="query" class="tools-page__search" />
@@ -71,6 +96,21 @@ const filteredServers = computed(() =>
       </template>
     </ToolsListSection>
 
+    <ToolsListSection title="Bases de connaissances" :total="filteredSources.length" :reset-key="query">
+      <template #default="{ start, end }">
+        <KnowledgeSourceCard
+          v-for="source in filteredSources.slice(start, end)"
+          :key="source.id"
+          :source="source"
+          @remove="run(() => removeSource($event))"
+          @check="run(() => checkSource($event), 'La source répond comme le contrat de la base de connaissances.')"
+        />
+      </template>
+      <template #empty>
+        <p class="tools-page__empty">{{ query ? "Aucune source ne correspond." : "Aucune source de connaissances pour le moment." }}</p>
+      </template>
+    </ToolsListSection>
+
     <ToolsListSection title="Outils internes" :total="filteredInternalTools.length" :reset-key="query">
       <template #default="{ start, end }">
         <ul class="tools-page__internal">
@@ -83,6 +123,7 @@ const filteredServers = computed(() =>
     </ToolsListSection>
 
     <AddToolServerModal v-model:opened="isAddOpened" />
+    <AddKnowledgeSourceModal v-model:opened="isAddSourceOpened" />
   </div>
 </template>
 
@@ -91,6 +132,12 @@ const filteredServers = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.tools-page__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .tools-page__header {
