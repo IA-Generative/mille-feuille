@@ -20,6 +20,7 @@ import ChatProposals from "@/components/analysis/ChatProposals.vue";
 import { parseAssistantSuggestion, parseMessageMarkers } from "@/utils/assistantSuggestion";
 import { setDocumentSource, useDossierSources } from "@/composables/useDocumentSources";
 import ChatToolsMenu from "@/components/tools/ChatToolsMenu.vue";
+import ChatExternalSources from "@/components/tools/ChatExternalSources.vue";
 import ToolCallCard from "@/components/tools/ToolCallCard.vue";
 import ToolQuestionCard from "@/components/tools/ToolQuestionCard.vue";
 import { useConversations } from "@/composables/useConversations";
@@ -554,6 +555,7 @@ async function onDeleteConversation() {
       </template>
 
       <template #message-extra="{ message }">
+        <ChatExternalSources v-if="message.externalSources?.length" :sources="message.externalSources" />
         <ToolCallCard
           v-if="message.toolCalls?.length"
           :calls="message.toolCalls"

@@ -1,8 +1,8 @@
-# Tools des agents : captures et écrans simulés
+# Tools des agents : captures des écrans
 
 Épique [#343](https://github.com/IA-Generative/mille-feuille/issues/343). Plan et avancement : [tools-mcp-plan.md](../../tools-mcp-plan.md).
 
-## Ce qui est réel, ce qui est simulé
+## Les écrans
 
 | Écran | État | Captures |
 | --- | --- | --- |
@@ -12,21 +12,18 @@
 | **Menu des outils du chat** : outils de l'analyse, retrait par conversation, outil qui modifie des données signalé | **réel** (#341) | `chat-menu-*.png`, `chat-outils*.png` |
 | **Autorisation d'outils qui modifient des données** : une carte à onglets sous le message, tout autoriser / refuser, une validation, état après décision | **réel** (#342) | `chat-confirmation*.png` |
 | **Questions à choix de l'assistant** : onglets, choix unique ou multiple, « Autre », une validation | **réel** (#353) | `chat-question*.png` |
-| Collections de la base de connaissances d'une analyse | simulé, épique « base de connaissances » à venir | `collections-*.png` |
+| **Sources de connaissances** dans « Mes outils » : liste, recherche, ajout avec vérification de la connexion, revérifier, supprimer | **réel** (#356, #360) | `page-outils.png`, `ajout-source*.png` |
+| **Collections de la base de connaissances d'une analyse** : état propre à la personne (indisponible signalé, à retirer), choix par source avec recherche et pagination chez le fournisseur, aperçu et lien, historique et restauration | **réel** (#358, #360) | `collections-*.png`, `selecteur-agent.png` |
+| **Sources d'une base de connaissances citées par une réponse** : numérotées comme dans le texte, lien, aperçu de la page avec le passage surligné (zones normalisées), site web sans aperçu | **réel** (#369, #360) | `chat-sources-externes.png` |
 
-## Les écrans simulés sont masqués par défaut
+## Régénérer les captures
 
-Une seule bascule, `VITE_TOOLS_PREVIEW` (`frontend/src/utils/featureFlags.ts`), les affiche. Sans elle :
-
-- il n'y a pas de bloc de collections.
+Plus aucun écran n'est simulé dans l'interface : la bascule `VITE_TOOLS_PREVIEW` est retirée. L'API est simulée **par le script de captures** (interception de `/api/**`), avec les mêmes formes que l'API réelle.
 
 ```bash
 cd frontend
-VITE_TOOLS_PREVIEW=true pnpm dev          # afficher les écrans simulés
-node scripts/tools-screenshots.mjs        # régénérer les captures (l'API est simulée par le script)
-
-pnpm dev                                  # sans la variable
-node scripts/tools-screenshots.mjs --verifier-masque   # vérifie que rien de simulé n'apparaît
+pnpm dev                                  # le serveur de développement
+node scripts/tools-screenshots.mjs        # régénère les captures dans docs/frontend/tools/
 ```
 
-Quand une issue de la liste rend son écran réel, on retire sa condition `TOOLS_PREVIEW`.
+Après une régénération, ne garder que les captures des écrans modifiés (les autres changent de quelques pixels sans raison).
