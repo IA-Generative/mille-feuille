@@ -1,5 +1,7 @@
 import { ref } from "vue";
 
+import { TOOLS_PREVIEW } from "@/utils/featureFlags";
+
 // Données simulées (phase 1, docs/tools-mcp-plan.md) : demande de confirmation avant l'appel d'un tool qui modifie
 // des données. Le vrai flux viendra du worker (événement de chat) ; ici on ne garde que la forme.
 
@@ -23,7 +25,7 @@ export function useToolConfirmation() {
 }
 
 // Permet de déclencher la demande à la main pendant la maquette (captures d'écran).
-if (import.meta.env.DEV) {
+if (import.meta.env.DEV && TOOLS_PREVIEW) {
   (window as unknown as { __toolsMock: object }).__toolsMock = {
     askConfirmation: () =>
       useToolConfirmation().requestToolCall({

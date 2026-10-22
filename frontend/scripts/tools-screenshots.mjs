@@ -1,3 +1,6 @@
+// Les écrans simulés sont masqués par défaut : lancer le serveur de dev avec VITE_TOOLS_PREVIEW=true pour les capturer
+//   VITE_TOOLS_PREVIEW=true pnpm dev
+// Usage « vérifier que tout est masqué » (serveur de dev lancé SANS la variable) : node scripts/tools-screenshots.mjs --verifier-masque
 // Captures de la page « Mes outils » et du sélecteur de tools d'un agent (docs/tools-mcp-plan.md, phase 1).
 // Les écrans s'appuient sur des données simulées côté interface ; l'API est simulée ici (interception de /api/**).
 // Le serveur de dev doit tourner (pnpm dev).
@@ -7,7 +10,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const baseUrl = process.argv[2] ?? "http://localhost:5173";
+const baseUrl = process.argv.slice(2).find((arg) => !arg.startsWith("--")) ?? "http://localhost:5173";
 const outDir = resolve(dirname(fileURLToPath(import.meta.url)), "../../docs/frontend/tools");
 mkdirSync(outDir, { recursive: true });
 
@@ -159,6 +162,31 @@ const browser = await chromium.launch();
 const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, locale: "fr-FR", timezoneId: "Europe/Paris" });
 const page = await context.newPage();
 await page.route("**/api/**", handler);
+
+// --- Vérification du masquage : sans VITE_TOOLS_PREVIEW, aucun écran simulé n'apparaît ---
+if (process.argv.includes("--verifier-masque")) {
+  const failures = [];
+  const expect = (ok, message) => { console.log(`${ok ? "✓" : "✗"} ${message}`); if (!ok) failures.push(message); };
+
+  await page.goto(`${baseUrl}/outils`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(500);
+  expect(await page.getByRole("heading", { name: "Mes outils" }).count() === 1, "« Mes outils » (page réelle) reste visible");
+  expect(await page.getByRole("button", { name: "Tester" }).count() === 0, "« Mes outils » : aucun bouton Tester");
+
+  await page.goto(`${baseUrl}/analyses/${ANALYSE_ID}/agents`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(500);
+  expect(await page.getByText("Outils disponibles").count() > 0, "Agents : les cases à cocher d'origine reviennent");
+  expect(await page.getByRole("button", { name: "Choisir les outils" }).count() === 0, "Agents : pas de sélecteur simulé");
+  // (la case « Base de connaissances » de l'éditeur d'origine existe : on vise le titre du bloc simulé)
+  expect(await page.getByRole("heading", { name: "Base de connaissances" }).count() === 0, "Agents : pas de collections simulées");
+
+  await page.goto(`${baseUrl}/dossiers/dos-1`, { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  expect(await page.getByRole("button", { name: "Outils de la conversation" }).count() === 0, "Chat : pas de menu des outils");
+
+  await browser.close();
+  process.exit(failures.length ? 1 : 0);
+}
 
 const settle = (ms = 500) => page.waitForTimeout(ms);
 const shot = async (file, locator) => {

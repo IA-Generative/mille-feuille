@@ -46,6 +46,10 @@ Décisions de l'implémentation :
 - `static_token` est refusé à la validation (422) ; `token_exchange` répond 422 `token_exchange_indisponible` jusqu'à la phase 4 ;
 - limite connue de la garde d'URL : le DNS est vérifié avant la connexion, pas pendant (voir `url_guard.py`).
 
+### Écrans simulés
+
+Les écrans qui ne sont pas encore reliés à l'API sont **masqués par défaut** par la bascule `VITE_TOOLS_PREVIEW` ; voir [frontend/tools/README.md](frontend/tools/README.md). Chaque issue qui rend un écran réel retire sa condition.
+
 ## Décisions d'interface prises depuis la conception
 
 - **Sélection des tools d'un agent** : un résumé en pastilles et un bouton qui ouvre une modale (recherche, filtres par source, pagination, « Tout sélectionner »). Les outils internes sont actifs par défaut.
