@@ -385,3 +385,30 @@ def deposit_suggested_analyses(client: httpx.Client, dossier_id: str, *, suggest
     )
     response.raise_for_status()
     return response.json()
+
+
+# --- Outils MCP : définitions et appels (aucun jeton ne passe par le worker) ---
+
+
+def _as_person(acting_user: str | None) -> dict[str, str]:
+    """En-tête de la personne pour qui l'agent travaille, posé **par requête** : le client reste partagé."""
+    return {"X-Acting-User": acting_user} if acting_user else {}
+
+
+def resolve_tools(client: httpx.Client, tool_ids: list[str], acting_user: str | None) -> dict:
+    """Les définitions des tools MCP que cette personne peut utiliser, et la liste de ceux qu'elle ne peut pas."""
+    response = client.post("/tools/resolve", json={"tool_ids": tool_ids}, headers=_as_person(acting_user))
+    response.raise_for_status()
+    return response.json()
+
+
+def call_tool(
+    client: httpx.Client, tool_id: str, arguments: dict, *, acting_user: str | None, run_id: str | None
+) -> dict:
+    """Appelle un tool MCP par le backend, au nom de la personne. La réponse porte toujours `ok`, `code` et `output` :
+    une erreur métier (session expirée, délai dépassé…) n'est pas une erreur HTTP."""
+    response = client.post(
+        f"/tools/{tool_id}/call", json={"arguments": arguments, "run_id": run_id}, headers=_as_person(acting_user)
+    )
+    response.raise_for_status()
+    return response.json()
