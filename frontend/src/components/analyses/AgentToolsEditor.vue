@@ -1,21 +1,46 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { ref, watch } from "vue";
 
-import ToolSelectionField from "@/components/tools/ToolSelectionField.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
-import { useTools } from "@/composables/useTools";
+import { useAnalyses } from "@/composables/useAnalyses";
 import { AGENT_TOOL_LABELS, type Agent, type AgentTool } from "@/types/analyse";
 
-defineProps<{ analyseId: string; agent: Agent }>();
+const props = defineProps<{ analyseId: string; agent: Agent }>();
 
-// Aperçu (phase 1, données simulées) : la sélection n'est pas encore enregistrée. Le branchement sur l'API
-// (et sur l'historique ci-dessous) viendra avec le backend des tools.
-const { defaultToolIds, fetchTools } = useTools();
-const pickedToolIds = ref<string[]>([]);
-onMounted(async () => {
-  await fetchTools();
-  pickedToolIds.value = defaultToolIds();
-});
+const { updateAgentTools, restoreAgentToolsVersion } = useAnalyses();
+
+const toolOptions = (Object.keys(AGENT_TOOL_LABELS) as AgentTool[]).map((tool) => ({
+  name: tool,
+  value: tool,
+  label: AGENT_TOOL_LABELS[tool],
+}));
+
+const draftTools = ref<AgentTool[]>([...props.agent.tools]);
+const isDirty = ref(false);
+
+watch(
+  () => props.agent.tools,
+  (tools) => {
+    draftTools.value = [...tools];
+    isDirty.value = false;
+  },
+);
+
+watch(
+  draftTools,
+  (tools) => {
+    isDirty.value = JSON.stringify([...tools].sort()) !== JSON.stringify([...props.agent.tools].sort());
+  },
+  { deep: true },
+);
+
+function save() {
+  updateAgentTools(props.analyseId, props.agent.id, draftTools.value);
+}
+
+function restoreVersion(versionId: string) {
+  restoreAgentToolsVersion(props.analyseId, props.agent.id, versionId);
+}
 
 function formatVersionContent(tools: AgentTool[]) {
   return tools.length > 0 ? tools.map((tool) => AGENT_TOOL_LABELS[tool]).join(", ") : "(aucun outil)";
@@ -24,8 +49,9 @@ function formatVersionContent(tools: AgentTool[]) {
 
 <template>
   <div class="agent-tools-editor">
-    <ToolSelectionField v-model="pickedToolIds" />
-    <VersionHistory :versions="agent.toolsVersions" :format-content="formatVersionContent" @restore="() => {}" />
+    <DsfrCheckboxSet v-model="draftTools" legend="Outils disponibles" :options="toolOptions" inline small />
+    <DsfrButton label="Enregistrer" :disabled="!isDirty" size="sm" @click="save" />
+    <VersionHistory :versions="agent.toolsVersions" :format-content="formatVersionContent" @restore="restoreVersion" />
   </div>
 </template>
 

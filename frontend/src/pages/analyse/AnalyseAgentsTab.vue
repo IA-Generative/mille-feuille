@@ -6,6 +6,7 @@ import AddAgentModal from "@/components/analyses/AddAgentModal.vue";
 import AgentCard from "@/components/analyses/AgentCard.vue";
 import KnowledgeCollectionsField from "@/components/tools/KnowledgeCollectionsField.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
+import { TOOLS_PREVIEW } from "@/utils/featureFlags";
 
 const route = useRoute();
 const { getById, fetchAnalyse } = useAnalyses();
@@ -21,7 +22,7 @@ const isAddAgentModalOpened = ref(false);
 
 <template>
   <div v-if="analyse" class="analyse-agents-tab">
-    <KnowledgeCollectionsField />
+    <KnowledgeCollectionsField v-if="TOOLS_PREVIEW" />
 
     <div class="analyse-agents-tab__header">
       <p class="fr-text--sm">
