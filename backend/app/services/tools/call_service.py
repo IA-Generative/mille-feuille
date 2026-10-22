@@ -53,7 +53,7 @@ class ToolCallService:
     ) -> tuple[ToolCallOutcome, int]:
         """Renvoie le résultat et la durée en millisecondes ; journalise l'appel quelle qu'en soit l'issue."""
         started = time.monotonic()
-        resolved = await self._resolve(user, tool_id)
+        resolved = await self.resolve(user, tool_id)
         if isinstance(resolved, ToolCallOutcome):
             tool, server, outcome = None, None, resolved
         else:
@@ -71,7 +71,7 @@ class ToolCallService:
         )
         return outcome, duration_ms
 
-    async def _resolve(self, user: RequestContext, tool_id: str) -> tuple[Tool, ToolServer] | ToolCallOutcome:
+    async def resolve(self, user: RequestContext, tool_id: str) -> tuple[Tool, ToolServer] | ToolCallOutcome:
         """Le tool et son serveur. Un serveur invisible pour la personne répond « inconnu »."""
         try:
             parsed = uuid.UUID(tool_id)

@@ -14,10 +14,10 @@ Ordre retenu : **UI sur mocks d'abord**, puis backend, puis worker (design épur
 | 2. Modèle de données | **fait** pour le registre et pour les outils d'un agent (identifiants dans la colonne existante, aucune migration) ; collections par analyse **à faire** |
 | 3. Registre, API et import MCP | **fait** (CRUD, `discover`, `refresh`, garde SSRF, visibilité) ; frontend branché sur l'API |
 | 3 bis. Outils d'un agent (#336, #337) | **fait** : sélection enregistrée, contrôle des droits, historique et restauration, outil indisponible signalé |
-| 4. Identité et appel (token exchange) | à faire : le mode « identité de l'utilisateur » répond aujourd'hui « pas encore disponible » |
-| 5. Proxy d'appel (#338) | **fait** : route interne, quotas, journal, sortie bornée ; le test unitaire (#339) est encore simulé côté frontend |
+| 4. Identité et appel (#334) | **fait** : échange de jeton Keycloak à partir de la session, vérifié contre un vrai Keycloak ; compte de service et jeton statique prévus, grisés |
+| 5. Proxy d'appel (#338) et test unitaire (#339) | **fait** : route interne, quotas, journal, sortie bornée ; test d'un tool MCP avec un modèle au choix (consommation comptée) ; tester un outil interne viendra avec le worker (#340) |
 | 6. Worker | à faire |
-| 7. Chat | à faire : menu des outils et confirmation simulés |
+| 7. Chat | à faire (#341, #342) : menu des outils et confirmation, simulés et masqués |
 | 8. Préparation de la suite | à faire |
 
 ### Ce qui existe côté backend

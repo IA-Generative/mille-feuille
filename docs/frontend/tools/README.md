@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | **Mes outils** (`/outils`) : liste, recherche, pagination, ajout d'un serveur MCP, import, actualiser, supprimer | **réel**, branché sur l'API (#333, #334, #335) | `page-outils*.png`, `ajout-serveur*.png`, `import-tools.png` |
 | **Outils d'un agent** : sélecteur (recherche, filtres, pagination), enregistrement, historique et restauration, outil devenu indisponible | **réel** (#336, #337) | `selecteur-*.png`, `agent-*.png` |
-| Bouton « Tester » d'un outil | simulé (#339) | `test-outil-*.png` |
+| **Test unitaire** d'un outil MCP : demande, choix du modèle, sortie brute | **réel** (#339) ; réservé aux tools MCP (les internes sont exécutés par le worker) | `test-outil-*.png` |
 | Menu des outils du chat, confirmation avant un outil qui modifie des données | simulé (#341, #342) | `chat-*.png` |
 | Collections de la base de connaissances d'une analyse | simulé, épique « base de connaissances » à venir | `collections-*.png` |
 
@@ -17,7 +17,7 @@
 Une seule bascule, `VITE_TOOLS_PREVIEW` (`frontend/src/utils/featureFlags.ts`), les affiche. Sans elle :
 
 - le chat est inchangé ;
-- il n'y a ni bouton « Tester » ni bloc de collections.
+- il n'y a pas de bloc de collections.
 
 ```bash
 cd frontend
