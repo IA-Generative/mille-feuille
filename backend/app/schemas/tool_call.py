@@ -58,3 +58,27 @@ class ToolResolveOut(BaseModel):
     tools: list[ToolDefinitionOut]
     # Les identifiants que la personne ne peut pas utiliser (inconnus, serveur invisible, tool non autorisé).
     unavailable: list[str]
+
+
+class ChatToolOut(BaseModel):
+    id: str
+    name: str
+    description: str
+    kind: Literal["internal", "mcp"]
+    server_name: str | None = None
+    side_effect: bool
+    # Le modèle peut-il l'appeler dans le chat ? Faux pour un outil qui modifie des données, tant qu'il n'y a pas de
+    # confirmation (#342) : le menu le montre désactivé.
+    given_to_model: bool
+
+
+class ConversationToolsOut(BaseModel):
+    tools: list[ChatToolOut]
+    # Ce que la personne a retiré pour cette conversation.
+    excluded: list[str]
+    # Prévus par l'analyse, mais que cette personne ne peut pas utiliser.
+    unavailable: list[str]
+
+
+class ConversationToolsUpdate(BaseModel):
+    excluded: list[str] = Field(default_factory=list, max_length=200)

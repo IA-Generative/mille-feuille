@@ -25,6 +25,7 @@ from app.routers.assist import router as assist_router
 from app.routers.auth import router as auth_router
 from app.routers.cgu import admin_router as cgu_admin_router
 from app.routers.cgu import public_router as cgu_public_router
+from app.routers.conversation_tools import router as conversation_tools_router
 from app.routers.conversations import router as conversations_router
 from app.routers.dashboard import router as dashboard_router
 from app.routers.document_drafts import router as document_drafts_router
@@ -162,6 +163,7 @@ app.include_router(document_drafts_router, prefix="/api")
 app.include_router(generated_documents_router, prefix="/api")
 app.include_router(analysis_proposals_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api")
+app.include_router(conversation_tools_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(assist_router, prefix="/api")
 app.include_router(internal_router, prefix="/api")
