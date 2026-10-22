@@ -53,6 +53,8 @@ class ExtraTools:
     # Pour le journal de l'étape : ce qui n'a pas pu être donné à l'agent, et pourquoi.
     skipped: list[str] = field(default_factory=list)
     unavailable: list[str] = field(default_factory=list)
+    # Les tools qui modifient des données, écartés parce que rien ne demande de confirmation (le chat, pour l'instant).
+    withheld: list[str] = field(default_factory=list)
 
     def definitions(self) -> list[dict[str, Any]]:
         return list(self._definitions)
@@ -64,7 +66,16 @@ class ExtraTools:
         return self._runners[name](arguments)
 
 
-def build_extra_tools(client: httpx.Client, tool_ids: list[str], *, acting_user: str | None, run_id: str) -> ExtraTools:
+def build_extra_tools(
+    client: httpx.Client,
+    tool_ids: list[str],
+    *,
+    acting_user: str | None,
+    run_id: str,
+    allow_side_effects: bool = True,
+) -> ExtraTools:
+    """`allow_side_effects=False` : un tool MCP qui modifie des données n'est pas donné au modèle. C'est le cas du
+    chat tant que la personne ne confirme pas l'appel (un agent, lui, tourne sans personne)."""
     extra = ExtraTools()
     mcp_ids: list[str] = []
     for tool_id in dict.fromkeys(tool_ids):
@@ -79,7 +90,9 @@ def build_extra_tools(client: httpx.Client, tool_ids: list[str], *, acting_user:
             extra.skipped.append(tool_id)
 
     if mcp_ids:
-        _add_mcp_tools(extra, client, mcp_ids, acting_user=acting_user, run_id=run_id)
+        _add_mcp_tools(
+            extra, client, mcp_ids, acting_user=acting_user, run_id=run_id, allow_side_effects=allow_side_effects
+        )
 
     notices = []
     if any(name.startswith("mcp_") for name in extra._runners):
@@ -90,7 +103,15 @@ def build_extra_tools(client: httpx.Client, tool_ids: list[str], *, acting_user:
     return extra
 
 
-def _add_mcp_tools(extra: ExtraTools, client: httpx.Client, tool_ids: list[str], *, acting_user, run_id: str) -> None:
+def _add_mcp_tools(
+    extra: ExtraTools,
+    client: httpx.Client,
+    tool_ids: list[str],
+    *,
+    acting_user: str | None,
+    run_id: str,
+    allow_side_effects: bool,
+) -> None:
     try:
         resolved = api_client.resolve_tools(client, tool_ids, acting_user)
     except httpx.HTTPError:
@@ -99,13 +120,15 @@ def _add_mcp_tools(extra: ExtraTools, client: httpx.Client, tool_ids: list[str],
         extra.unavailable.extend(tool_ids)
         return
     extra.unavailable.extend(resolved["unavailable"])
-    if not resolved["tools"]:
+    definitions = [d for d in resolved["tools"] if allow_side_effects or not d.get("side_effect")]
+    extra.withheld.extend(d["id"] for d in resolved["tools"] if d not in definitions)
+    if not definitions:
         return
 
     def call(tool_id: str, arguments: dict[str, Any]) -> dict[str, Any]:
         return api_client.call_tool(client, tool_id, arguments, acting_user=acting_user, run_id=run_id)
 
-    mcp = McpTools(resolved["tools"], call)
+    mcp = McpTools(definitions, call)
     extra._definitions.extend(mcp.definitions())
     for definition in mcp.definitions():
         name = definition["function"]["name"]
