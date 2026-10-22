@@ -80,6 +80,7 @@ from app.schemas.user_task import UserTaskOut, UserTaskUpdateIn
 from app.services import analysis_builder, analysis_carryover, generation_prompt
 from app.services.document_fields import FieldValueError, load_revision_elements
 from app.services.ephemeral_run_service import finalize_run
+from app.services.tools.conversation_tools import tool_ids_for_chat
 from app.services.user_task_service import update_task
 
 # Routes appelées par les workers Celery (pas par le navigateur) : le worker
@@ -575,10 +576,16 @@ async def get_internal_conversation(
     """Conversation complète pour le worker : historique des messages +
     modèle LLM préféré. Le worker en a besoin pour construire le contexte
     du graphe LangGraph de chat."""
-    conversation = await DossierRepository(db).get_conversation(conversation_id)
+    repository = DossierRepository(db)
+    conversation = await repository.get_conversation(conversation_id)
     if conversation is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation introuvable")
-    return conversation
+    out = InternalConversationOut.model_validate(conversation)
+    dossier = await repository.get(conversation.dossier_id)
+    analyse = await AnalyseRepository(db).get(dossier.analyse_id) if dossier and dossier.analyse_id else None
+    if analyse is not None:
+        out.tool_ids = tool_ids_for_chat(analyse, conversation.excluded_tools)
+    return out
 
 
 @router.post(

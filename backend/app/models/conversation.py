@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Column, Enum, ForeignKey, String, Table, Text, UniqueConstraint
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -74,6 +75,9 @@ class Conversation(UUIDMixin, TimestampMixin, Base):
     # Identifiant de modèle LLM tel que renvoyé par GET /models ; None = pas
     # de préférence, le hub par défaut sera utilisé.
     model: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Les outils que la personne a **retirés** pour cette conversation (identifiants). Tout ce que l'analyse autorise
+    # est actif par défaut : elle ne peut que retirer, jamais ajouter un outil que l'analyse n'autorise pas.
+    excluded_tools: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
 
     dossier: Mapped["Dossier"] = relationship(back_populates="conversations")
     messages: Mapped[list["Message"]] = relationship(
