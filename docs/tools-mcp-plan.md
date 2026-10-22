@@ -17,7 +17,7 @@ Ordre retenu : **UI sur mocks d'abord**, puis backend, puis worker (design épur
 | 4. Identité et appel (#334) | **fait** : échange de jeton Keycloak à partir de la session, vérifié contre un vrai Keycloak ; compte de service et jeton statique prévus, grisés |
 | 5. Proxy d'appel (#338) et test unitaire (#339) | **fait** : route interne, quotas, journal, sortie bornée ; test d'un tool MCP avec un modèle au choix (consommation comptée) ; tester un outil interne viendra avec le worker (#340) |
 | 6. Worker (#340) | **fait** : calculatrice, calcul de dates et tools MCP donnés aux agents (au nom de la personne qui lance l'analyse), sortie externe balisée comme non fiable ; le socle de lecture du dossier reste toujours donné ; détail dans [backend/outils-des-agents.md](backend/outils-des-agents.md) |
-| 7. Chat | à faire (#341, #342) : menu des outils et confirmation, simulés et masqués |
+| 7. Chat | menu des outils (#341) **fait** : outils de l'analyse, retrait par conversation, outils MCP appelés au nom de l'auteur ; la confirmation avant un outil qui modifie des données (#342) reste **à faire** et masquée |
 | 8. Préparation de la suite | à faire |
 
 ### Ce qui existe côté backend

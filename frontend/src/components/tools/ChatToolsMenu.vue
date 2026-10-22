@@ -1,19 +1,22 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from "vue";
 
 import ChatToolsMenuRow from "@/components/tools/ChatToolsMenuRow.vue";
 import ToolSearchInput from "@/components/tools/ToolSearchInput.vue";
-import { useTools } from "@/composables/useTools";
-import type { Tool } from "@/types/tool";
+import { useConversationTools } from "@/composables/useConversationTools";
+import type { ChatTool } from "@/types/chatTool";
 import { matchesSearch } from "@/utils/toolSearch";
 
-// `toolIds` : les outils que l'analyse autorise ; `activeIds` : ceux que la personne laisse actifs pour cette
-// conversation. Elle ne peut que retirer, jamais ajouter un outil que l'analyse n'autorise pas.
-const props = defineProps<{ toolIds: string[] }>();
-const activeIds = defineModel<string[]>("activeIds", { required: true });
+// Les outils que l'analyse autorise pour cette conversation. L'assistant choisit lui-même parmi ceux qui sont activés ;
+// la personne ne peut que retirer, jamais ajouter un outil que l'analyse n'autorise pas.
+const props = defineProps<{ dossierId: string; conversationId: string | undefined }>();
 
-const { internalTools, servers, fetchTools } = useTools();
-onMounted(() => fetchTools());
+const { tools, excluded, unavailable, error, load, setExcluded } = useConversationTools(
+  props.dossierId,
+  toRef(props, "conversationId"),
+);
+onMounted(load);
+watch(() => props.conversationId, load);
 
 const root = ref<HTMLElement>();
 const opened = ref(false);
@@ -22,36 +25,37 @@ const query = ref("");
 interface Section {
   id: string;
   title: string;
-  tools: Tool[];
+  tools: ChatTool[];
 }
 
-const sections = computed<Section[]>(() =>
-  [
-    { id: "internal", title: "Outils internes", tools: internalTools.value },
-    ...servers.value.map((server) => ({ id: server.id, title: server.name, tools: server.tools })),
-  ]
-    .map((section) => ({
-      ...section,
-      tools: section.tools.filter(
-        (tool) => props.toolIds.includes(tool.id) && matchesSearch(query.value, `${tool.name} ${tool.description} ${section.title}`),
-      ),
-    }))
-    .filter((section) => section.tools.length > 0),
-);
+const sections = computed<Section[]>(() => {
+  const matching = tools.value.filter((tool) =>
+    matchesSearch(query.value, `${tool.name} ${tool.description} ${tool.serverName ?? ""}`),
+  );
+  const internal = matching.filter((tool) => tool.kind === "internal");
+  const byServer = new Map<string, ChatTool[]>();
+  for (const tool of matching.filter((candidate) => candidate.kind === "mcp")) {
+    byServer.set(tool.serverName ?? "", [...(byServer.get(tool.serverName ?? "") ?? []), tool]);
+  }
+  return [
+    { id: "internal", title: "Outils internes", tools: internal },
+    ...[...byServer].map(([name, list]) => ({ id: name, title: name, tools: list })),
+  ].filter((section) => section.tools.length > 0);
+});
 
-const isRestricted = computed(() => activeIds.value.length < props.toolIds.length);
+// Seuls les outils que le modèle peut appeler comptent : un outil qui modifie des données est montré, désactivé.
+const callable = computed(() => tools.value.filter((tool) => tool.givenToModel));
+const activeCount = computed(() => callable.value.filter((tool) => !excluded.value.includes(tool.id)).length);
+const isRestricted = computed(() => activeCount.value < callable.value.length);
+const hasAnything = computed(() => tools.value.length > 0 || unavailable.value.length > 0);
 
-function isActive(id: string) {
-  return activeIds.value.includes(id);
-}
+const isActive = (tool: ChatTool) => tool.givenToModel && !excluded.value.includes(tool.id);
 
 function setActive(id: string, active: boolean) {
-  activeIds.value = active ? [...activeIds.value, id] : activeIds.value.filter((activeId) => activeId !== id);
+  setExcluded(active ? excluded.value.filter((removed) => removed !== id) : [...excluded.value, id]);
 }
 
-function enableAll() {
-  activeIds.value = [...props.toolIds];
-}
+const enableAll = () => setExcluded([]);
 
 function onDocumentClick(event: MouseEvent) {
   if (opened.value && root.value && !root.value.contains(event.target as Node)) opened.value = false;
@@ -72,7 +76,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="root" class="chat-tools-menu">
+  <div v-if="hasAnything" ref="root" class="chat-tools-menu">
     <button
       type="button"
       class="chat-tools-menu__trigger"
@@ -83,7 +87,7 @@ onBeforeUnmount(() => {
       @click="opened = !opened"
     >
       <VIcon name="ri-tools-line" />
-      <span v-if="isRestricted" class="chat-tools-menu__count">{{ activeIds.length }}</span>
+      <span v-if="isRestricted" class="chat-tools-menu__count">{{ activeCount }}</span>
     </button>
 
     <div v-if="opened" class="chat-tools-menu__panel" role="dialog" aria-label="Outils de la conversation">
@@ -100,17 +104,23 @@ onBeforeUnmount(() => {
             <ChatToolsMenuRow
               v-for="tool in section.tools"
               :key="tool.id"
-              :model-value="isActive(tool.id)"
+              :model-value="isActive(tool)"
               :tool="tool"
               @update:model-value="setActive(tool.id, $event)"
             />
           </ul>
         </section>
         <p v-if="sections.length === 0" class="chat-tools-menu__empty">Aucun outil ne correspond.</p>
+        <p v-if="unavailable.length > 0" class="chat-tools-menu__unavailable">
+          {{ unavailable.length }} outil{{ unavailable.length > 1 ? "s" : "" }} prévu{{ unavailable.length > 1 ? "s" : "" }}
+          par l'analyse {{ unavailable.length > 1 ? "ne sont" : "n'est" }} pas utilisable{{ unavailable.length > 1 ? "s" : "" }}
+          avec vos droits.
+        </p>
+        <p v-if="error" class="chat-tools-menu__unavailable" role="alert">{{ error }}</p>
       </div>
 
       <div class="chat-tools-menu__footer">
-        <span>{{ activeIds.length }} sur {{ toolIds.length }} activés</span>
+        <span>{{ activeCount }} sur {{ callable.length }} activés</span>
         <button v-if="isRestricted" type="button" class="chat-tools-menu__link" @click="enableAll">Tout activer</button>
         <RouterLink to="/outils" class="chat-tools-menu__link">Gérer mes outils</RouterLink>
       </div>
@@ -219,6 +229,12 @@ onBeforeUnmount(() => {
   margin: 1.5rem 0;
   text-align: center;
   font-size: 0.875rem;
+  color: var(--text-mention-grey);
+}
+
+.chat-tools-menu__unavailable {
+  margin: 0.75rem 0.75rem 0.25rem;
+  font-size: 0.75rem;
   color: var(--text-mention-grey);
 }
 
