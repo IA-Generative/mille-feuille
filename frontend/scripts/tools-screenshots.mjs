@@ -38,7 +38,7 @@ const analyse = {
       name: "Contrôle de conformité juridique",
       prompt: "Vérifie que la demande respecte les textes applicables et cite les articles pertinents.",
       prompt_versions: [],
-      tools: ["calculatrice", "recherche_web", "base_connaissances", "srv-legifrance-rechercher_texte", "srv-supprime-ancien_tool"],
+      tools: ["calculatrice", "calcul_dates", "recherche_web", "srv-legifrance-rechercher_texte", "srv-supprime-ancien_tool"],
       tools_versions: [{ id: "tv-1", created_at: iso(-4), content: ["calculatrice", "recherche_web"] }],
       output: true,
       output_versions: [],
@@ -79,16 +79,8 @@ const MESSAGES = [
 // --- Registre des tools : réponses de l'API (mêmes formes que backend/app/schemas/tool.py) ---
 const internal = (id, name, description, side_effect = false, config = null) => ({ id, name, description, kind: "internal", server_id: null, side_effect, enabled: true, config });
 const INTERNAL_TOOLS = [
-  internal("lecture_document", "Lecture de document", "Lit le contenu d'un document du dossier, page par page."),
-  internal("recherche_web", "Recherche web", "Cherche une information sur le web."),
-  internal("base_connaissances", "Base de connaissances", "Interroge la base de connaissances de la plateforme.", false, "collections"),
-  internal("appel_agent", "Appel à un autre agent", "Délègue une sous-tâche à un autre agent de l'analyse."),
-  internal("calculatrice", "Calculatrice", "Effectue des calculs exacts (montants, taux, totaux)."),
-  internal("verification_coherence", "Vérification de cohérence", "Compare des informations entre documents et signale les écarts."),
-  internal("recherche_dossier", "Recherche dans le dossier", "Cherche des passages dans les documents du dossier."),
-  internal("calcul_dates", "Calcul de dates", "Délais, échéances et durées entre deux dates."),
-  internal("notes_internes", "Notes internes", "Ajoute une note interne au dossier.", true),
-  internal("propositions_analyse", "Propositions de modification de l'analyse", "Propose de modifier un élément de l'analyse, à valider par une personne.", true),
+  internal("calculatrice", "Calculatrice", "Effectue des calculs exacts : montants, taux, totaux, pourcentages."),
+  internal("calcul_dates", "Calcul de dates", "Jour de la semaine, ajout d'une durée, écart entre deux dates, bornes d'un mois ou d'un trimestre, date du jour."),
 ];
 const mcp = (server, name, description, side_effect = false, enabled = true) => ({ id: `${server}-${name}`, name, description, kind: "mcp", server_id: server, side_effect, enabled, config: null });
 const server = (id, name, url, auth_mode, visibility, owner_name, owned_by_me, days, tools, audience = null) => ({ id, name, url, auth_mode, audience: auth_mode === "token_exchange" ? (audience ?? `mcp-${id.replace("srv-", "")}`) : null, visibility, owner_name, owned_by_me, synced_at: iso(-days), tools });
@@ -295,7 +287,7 @@ await shot("selecteur-agent.png");
 // 4 ter. Un outil devenu indisponible est signalé, la personne le retire et enregistre
 const editor = page.locator(".agent-tools-editor");
 await shot("agent-outil-indisponible.png", editor);
-await page.getByRole("button", { name: /Retirer l'outil indisponible/ }).click();
+for (let i = 0; i < 2; i++) await page.getByRole("button", { name: /Retirer l'outil indisponible/ }).first().click();
 await page.getByRole("button", { name: "Enregistrer", exact: true }).last().click();
 await settle(600);
 await page.getByText("Historique des versions").last().click();
@@ -355,9 +347,7 @@ await page.screenshot({ path: resolve(outDir, "chat-menu-mcp.png") });
 console.log("✓ tools/chat-menu-mcp.png");
 await page.locator(".chat-tools-menu__list").evaluate((el) => (el.scrollTop = 0));
 
-await page.getByLabel("Recherche web").uncheck({ force: true });
-await page.getByLabel("Appel à un autre agent").uncheck({ force: true });
-await page.getByLabel("Vérification de cohérence").uncheck({ force: true });
+await page.getByLabel("Calculatrice").uncheck({ force: true });
 await page.getByPlaceholder("Rechercher un outil, un serveur…").fill("recherche");
 await settle(300);
 await page.screenshot({ path: resolve(outDir, "chat-menu-recherche.png") });

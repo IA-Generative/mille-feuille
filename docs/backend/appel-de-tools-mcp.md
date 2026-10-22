@@ -27,6 +27,10 @@ Issue [#338](https://github.com/IA-Generative/mille-feuille/issues/338), dans l'
 7. **borne la sortie** (`TOOL_OUTPUT_MAX_CHARS`) et la marque `untrusted` ;
 8. **journalise** l'appel.
 
+## Résoudre les définitions (pour le worker)
+
+`POST /api/internal/tools/resolve` avec `{ "tool_ids": [...] }` renvoie, pour la personne transmise (`X-Acting-User`), les définitions utilisables (nom, description, schéma des arguments) et la liste de ce qu'elle ne peut pas utiliser (inconnu, serveur invisible, tool non autorisé, identifiant interne). Voir [outils-des-agents.md](outils-des-agents.md).
+
 ## Les codes d'échec
 
 Chaque code est stable et accompagné d'un message en français, lisible par le modèle (dans `output`).
