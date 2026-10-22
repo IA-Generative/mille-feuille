@@ -13,6 +13,13 @@ class ToolSettings(BaseSettings):
     # Durée maximale d'une découverte des tools d'un serveur (`tools/list`).
     TOOL_DISCOVERY_TIMEOUT_SECONDS: float = 10.0
 
+    # Appel d'un tool MCP : délai maximal, taille maximale de la sortie (elle est ensuite donnée à un modèle), et
+    # quotas (appels par run, appels par personne et par minute).
+    TOOL_CALL_TIMEOUT_SECONDS: float = 30.0
+    TOOL_OUTPUT_MAX_CHARS: int = 20000
+    TOOL_CALLS_PER_RUN: int = 20
+    TOOL_CALLS_PER_MINUTE: int = 60
+
     model_config = SettingsConfigDict(case_sensitive=True, env_file=(".env", ".env.local"), extra="ignore")
 
     @property

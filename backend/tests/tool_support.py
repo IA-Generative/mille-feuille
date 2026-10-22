@@ -6,7 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.routers.tool_servers import get_tool_lister
+from app.routers.tool_servers import get_identity_tokens, get_tool_lister
+from app.services.tools.credentials_errors import CredentialsUnavailableError
 from app.services.tools.mcp_discovery import DiscoveredTool
 
 LEGIFRANCE_TOOLS = [
@@ -42,6 +43,27 @@ def lister() -> FakeLister:
 def _public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
     """Tout nom se résout vers une adresse publique, sans interroger le DNS."""
     monkeypatch.setattr("app.services.tools.url_guard._system_resolver", lambda host: ["93.184.216.34"])
+
+
+class FakeIdentityTokens:
+    """Remplace session + échange Keycloak : aucune connexion à Keycloak ni à Redis."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str | None, str | None]] = []
+
+    async def token_for(self, user_id: str | None, audience: str | None) -> str:
+        self.calls.append((user_id, audience))
+        if not user_id:
+            raise CredentialsUnavailableError("identite_absente", "Aucune personne n'est associée à cet appel.")
+        return f"exchanged-for-{audience}"
+
+
+@pytest.fixture
+def identity_tokens() -> FakeIdentityTokens:
+    fake = FakeIdentityTokens()
+    app.dependency_overrides[get_identity_tokens] = lambda: fake
+    yield fake
+    del app.dependency_overrides[get_identity_tokens]
 
 
 def create_server(

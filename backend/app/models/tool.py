@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -51,6 +51,25 @@ class ToolServer(UUIDMixin, TimestampMixin, Base):
     tools: Mapped[list["Tool"]] = relationship(
         back_populates="server", cascade="all, delete-orphan", order_by="Tool.name", lazy="selectin"
     )
+
+
+class ToolCallLog(UUIDMixin, TimestampMixin, Base):
+    """Journal d'un appel de tool MCP : qui, quel serveur, quel tool, combien de temps, avec quelle issue. Ne garde
+    ni les arguments ni la sortie (ils peuvent contenir des données personnelles)."""
+
+    __tablename__ = "tool_call_logs"
+
+    user_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
+    # Le serveur peut être supprimé ensuite : on garde son nom et celui du tool, pas la clé étrangère.
+    server_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("tool_servers.id", ondelete="SET NULL"), nullable=True
+    )
+    server_name: Mapped[str] = mapped_column(String, nullable=False, default="")
+    tool_name: Mapped[str] = mapped_column(String, nullable=False, default="")
+    run_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    duration_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    # « ok », ou le code d'erreur (`session_requise`, `delai_depasse`, `quota_depasse`…).
+    outcome: Mapped[str] = mapped_column(String, nullable=False)
 
 
 class Tool(UUIDMixin, TimestampMixin, Base):
