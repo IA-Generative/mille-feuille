@@ -43,6 +43,8 @@ from app.routers.notifications import router as notifications_router
 from app.routers.profile import router as profile_router
 from app.routers.reports import router as reports_router
 from app.routers.sources import router as sources_router
+from app.routers.tool_servers import router as tool_servers_router
+from app.routers.tools import router as tools_router
 from app.routers.tracking import router as tracking_router
 from app.routers.usage import internal_router as internal_usage_router
 from app.routers.usage import router as usage_router
@@ -181,6 +183,8 @@ app.include_router(notifications_router, prefix="/api")
 app.include_router(work_slots_router, prefix="/api")
 app.include_router(user_tasks_router, prefix="/api")
 app.include_router(ephemeral_router, prefix="/api")
+app.include_router(tool_servers_router, prefix="/api")
+app.include_router(tools_router, prefix="/api")
 app.include_router(usage_router, prefix="/api")
 app.include_router(internal_usage_router, prefix="/api")
 # /mcp/helper doit être monté avant /mcp : Starlette résout les Mount par

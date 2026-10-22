@@ -1,0 +1,552 @@
+openapi: 3.1.0
+info:
+  title: API de la base de connaissances
+  version: 1.0.0
+  description: |
+    Contrat que doit respecter un fournisseur de collections pour être branché sur la plateforme (outil « Base de
+    connaissances » des agents et du chat). Une API REST ou un serveur MCP peuvent le remplir : les noms de routes
+    ci-dessous sont ceux d'une API REST, un serveur MCP expose les mêmes capacités sous forme de tools.
+
+    Les collections sont rattachées à **l'analyse** : la plateforme enregistre leurs identifiants, avec historique
+    (voir [tools-mcp-plan.md](../tools-mcp-plan.md)).
+
+    ## Principes
+
+    - **Les droits sont ceux de la personne.** La liste et la recherche ne renvoient que ce qu'elle a le droit de voir.
+      Une collection hors de ses droits se comporte comme si elle n'existait pas dans les listes, et est signalée
+      `forbidden` quand on la demande explicitement.
+    - **Les identifiants sont stables.** Une collection garde son `id` quand on la renomme.
+    - **Le résultat est citable.** Chaque passage porte de quoi afficher la source dans le chat.
+    - **Un échec partiel n'est pas un échec.** Si une collection demandée est indisponible, on renvoie les résultats
+      des autres et on signale celle qui manque (`skipped`).
+    - **Les sorties sont bornées**, parce qu'elles sont ensuite données à un modèle de langage.
+
+    ## Routes
+
+    | Route | Rôle | Obligatoire |
+    | --- | --- | --- |
+    | `GET /v1/collections` | Lister les collections, paginées | oui |
+    | `POST /v1/collections/lookup` | Retrouver des collections par identifiant | oui |
+    | `POST /v1/search` | Chercher dans un ensemble de collections | oui |
+    | `POST /v1/collections/search` | Trouver les bonnes collections pour une question | non |
+    | `GET /v1/documents/{document_id}` | Lire un document ou un passage avec son contexte | non |
+    | `GET /v1/health` | Santé du service | non |
+
+    Une route facultative non implémentée répond `404` : la plateforme masque alors la fonction correspondante
+    (bouton « Suggérer », « Voir la source »).
+servers:
+  - url: https://base-de-connaissances.example.gouv.fr
+    description: À remplacer par l'adresse du fournisseur.
+security:
+  - bearerAuth: []
+tags:
+  - name: Collections
+  - name: Recherche
+  - name: Documents
+  - name: Service
+
+paths:
+  /v1/collections:
+    get:
+      tags: [Collections]
+      operationId: listCollections
+      summary: Lister les collections
+      description: |
+        Les collections visibles par la personne, paginées. La pagination et le filtre `q` se font **côté serveur** : la
+        plateforme n'a jamais la liste complète.
+
+        Même convention de pagination que le reste de la plateforme (`page` à partir de 1, `page_size`, `total`).
+      parameters:
+        - $ref: "#/components/parameters/ActingUser"
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: page_size
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+        - name: q
+          in: query
+          description: Filtre par texte sur le nom et la description (sans tenir compte des accents ni de la casse).
+          schema: { type: string, maxLength: 200 }
+      responses:
+        "200":
+          description: Une page de collections.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CollectionPage" }
+              example:
+                items:
+                  - id: subv-guide
+                    name: Guide de l'instruction des subventions
+                    description: Procédures et pièces à exiger pour une subvention.
+                    document_count: 85
+                    updated_at: "2026-10-01T08:30:00Z"
+                total: 12
+                page: 1
+                page_size: 20
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+
+  /v1/collections/lookup:
+    post:
+      tags: [Collections]
+      operationId: lookupCollections
+      summary: Retrouver des collections par identifiant
+      description: |
+        L'analyse enregistre des identifiants : cette route les résout. Elle permet d'afficher les noms à jour et de
+        repérer une collection supprimée ou dont la personne n'a plus le droit, sans erreur globale.
+      parameters:
+        - $ref: "#/components/parameters/ActingUser"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  uniqueItems: true
+                  items: { type: string }
+            example:
+              ids: [subv-guide, crpa, ancienne-collection]
+      responses:
+        "200":
+          description: Les collections trouvées, et celles qui ne le sont pas.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, missing]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Collection" }
+                  missing:
+                    type: array
+                    items: { $ref: "#/components/schemas/MissingCollection" }
+              example:
+                items:
+                  - id: subv-guide
+                    name: Guide de l'instruction des subventions
+                    description: Procédures et pièces à exiger pour une subvention.
+                    document_count: 85
+                    updated_at: "2026-10-01T08:30:00Z"
+                missing:
+                  - { id: ancienne-collection, reason: not_found }
+                  - { id: crpa, reason: forbidden }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/InvalidRequest" }
+
+  /v1/collections/search:
+    post:
+      tags: [Collections]
+      operationId: searchCollections
+      summary: Trouver les bonnes collections pour une question
+      description: |
+        **Facultative.** Classe les collections visibles selon leur pertinence pour une question ou une description
+        (par exemple celle d'une analyse). Sert au bouton « Suggérer des collections » : la personne valide toujours la
+        sélection.
+
+        Le classement peut se faire par le sens (recommandé) ou par mots-clés. Le fournisseur indique lequel dans
+        `GET /v1/health` (`capabilities.collection_search`).
+      parameters:
+        - $ref: "#/components/parameters/ActingUser"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [query]
+              properties:
+                query: { type: string, minLength: 3, maxLength: 2000 }
+                limit: { type: integer, minimum: 1, maximum: 20, default: 5 }
+            example:
+              query: Instruction des demandes de subvention des associations
+              limit: 5
+      responses:
+        "200":
+          description: Les collections classées, de la plus à la moins pertinente.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: object
+                      required: [collection, score]
+                      properties:
+                        collection: { $ref: "#/components/schemas/Collection" }
+                        score: { $ref: "#/components/schemas/Score" }
+                        reason:
+                          type: string
+                          description: Courte justification, affichable à la personne.
+                  usage: { $ref: "#/components/schemas/Usage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotImplemented" }
+        "422": { $ref: "#/components/responses/InvalidRequest" }
+
+  /v1/search:
+    post:
+      tags: [Recherche]
+      operationId: search
+      summary: Chercher dans un ensemble de collections
+      description: |
+        Cherche `query` dans les collections `collection_ids` et renvoie les passages les plus pertinents, toutes
+        collections confondues.
+
+        **Prérequis** :
+        - `collection_ids` contient de 1 à 20 identifiants ;
+        - `query` fait au moins 3 caractères ;
+        - `top_k` ne dépasse pas 50.
+
+        Une collection demandée mais inaccessible (supprimée, hors des droits, indisponible) n'invalide pas la requête :
+        elle est listée dans `skipped`. La requête échoue en `422` seulement si **aucune** collection n'est utilisable.
+
+        Les `score` sont comparables d'une collection à l'autre (voir `Score`).
+      parameters:
+        - $ref: "#/components/parameters/ActingUser"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SearchRequest" }
+            example:
+              query: pièces à fournir pour une demande de subvention
+              collection_ids: [subv-guide, circulaires]
+              top_k: 5
+              filters: { type_document: circulaire, annee_min: 2020 }
+              max_chars: 4000
+      responses:
+        "200":
+          description: Les passages classés, et les collections ignorées.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchResponse" }
+              example:
+                items:
+                  - passage_id: p-8f2c
+                    collection_id: subv-guide
+                    document_id: d-120
+                    document_name: Guide de l'instruction des subventions 2026.pdf
+                    page: 14
+                    text: Toute demande de subvention comporte les statuts de l'association, un RIB, le budget prévisionnel…
+                    score: 0.91
+                    source_url: https://base-de-connaissances.example.gouv.fr/v1/documents/d-120?page=14
+                    metadata: { type_document: guide, annee: 2026 }
+                skipped:
+                  - { collection_id: circulaires, reason: unavailable }
+                usage: { input_tokens: 18, total_tokens: 18 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422": { $ref: "#/components/responses/InvalidRequest" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+        "503": { $ref: "#/components/responses/Unavailable" }
+
+  /v1/documents/{document_id}:
+    get:
+      tags: [Documents]
+      operationId: getDocument
+      summary: Lire un document ou un passage avec son contexte
+      description: |
+        **Facultative.** Sert à « Voir la source » et à lire autour d'un passage trouvé. Sans `page` ni `passage_id`,
+        renvoie le début du document, borné par `max_chars`.
+      parameters:
+        - $ref: "#/components/parameters/ActingUser"
+        - name: document_id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1 }
+        - name: passage_id
+          in: query
+          schema: { type: string }
+        - name: context
+          in: query
+          description: Nombre de passages voisins à inclure de chaque côté de `passage_id`.
+          schema: { type: integer, minimum: 0, maximum: 5, default: 1 }
+        - name: max_chars
+          in: query
+          schema: { type: integer, minimum: 100, maximum: 20000, default: 4000 }
+      responses:
+        "200":
+          description: Le contenu demandé.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DocumentContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+
+  /v1/health:
+    get:
+      tags: [Service]
+      operationId: health
+      summary: Santé du service et capacités
+      description: |
+        Ne demande pas d'authentification. Indique la version et les fonctions facultatives disponibles, pour que la
+        plateforme n'affiche que ce qui fonctionne.
+      security: []
+      responses:
+        "200":
+          description: Le service répond.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version]
+                properties:
+                  status: { type: string, enum: [ok, degraded] }
+                  version: { type: string, examples: ["1.0.0"] }
+                  capabilities:
+                    type: object
+                    properties:
+                      collection_search:
+                        type: string
+                        enum: [semantic, keyword, none]
+                        description: Mode de classement de `POST /v1/collections/search`.
+                      documents: { type: boolean, description: "`GET /v1/documents/{id}` est disponible." }
+                      filters:
+                        type: array
+                        description: Clés de filtre acceptées par `POST /v1/search`.
+                        items: { type: string }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Jeton qui identifie l'appelant. Selon le branchement :
+        - **identité de la personne** (token exchange Keycloak) : les droits sont ceux de la personne ;
+        - **jeton d'application** : l'appelant est un service de confiance et transmet la personne dans `X-Acting-User`.
+
+  parameters:
+    ActingUser:
+      name: X-Acting-User
+      in: header
+      required: false
+      description: |
+        Identifiant (Keycloak) de la personne pour laquelle un **service de confiance** agit. Ignoré, et refusé en
+        `403`, si l'appelant n'est pas un service de confiance. Sans lui et sans identité dans le jeton, l'appelant n'a
+        accès à aucune collection restreinte.
+      schema: { type: string }
+
+  schemas:
+    Collection:
+      type: object
+      required: [id, name, document_count]
+      properties:
+        id:
+          type: string
+          description: Identifiant stable, conservé en cas de renommage.
+        name: { type: string }
+        description: { type: string }
+        document_count: { type: integer, minimum: 0 }
+        updated_at:
+          type: string
+          format: date-time
+          description: Dernière modification du contenu, pour détecter qu'une collection a changé.
+        tags:
+          type: array
+          items: { type: string }
+
+    CollectionPage:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items: { $ref: "#/components/schemas/Collection" }
+        total: { type: integer, minimum: 0 }
+        page: { type: integer, minimum: 1 }
+        page_size: { type: integer, minimum: 1 }
+
+    MissingCollection:
+      type: object
+      required: [id, reason]
+      properties:
+        id: { type: string }
+        reason:
+          type: string
+          enum: [not_found, forbidden]
+          description: |
+            `not_found` : la collection n'existe plus. `forbidden` : elle existe mais la personne n'y a pas droit.
+
+    Score:
+      type: number
+      minimum: 0
+      maximum: 1
+      description: |
+        Pertinence normalisée entre 0 et 1, **comparable d'une collection à l'autre** : le fournisseur normalise lui-même
+        pour que le classement mélangé soit juste.
+
+    SearchRequest:
+      type: object
+      required: [query, collection_ids]
+      properties:
+        query: { type: string, minLength: 3, maxLength: 2000 }
+        collection_ids:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string }
+        top_k: { type: integer, minimum: 1, maximum: 50, default: 5 }
+        min_score:
+          $ref: "#/components/schemas/Score"
+        filters:
+          type: object
+          description: |
+            Filtres facultatifs sur les métadonnées des documents (clés listées dans `GET /v1/health`,
+            `capabilities.filters`). Une clé inconnue est refusée en `422`.
+          additionalProperties:
+            oneOf:
+              - { type: string }
+              - { type: number }
+              - { type: boolean }
+        max_chars:
+          type: integer
+          minimum: 200
+          maximum: 20000
+          default: 4000
+          description: Taille maximale du texte de chaque passage, en caractères.
+
+    Passage:
+      type: object
+      required: [passage_id, collection_id, document_id, document_name, text, score]
+      properties:
+        passage_id: { type: string }
+        collection_id: { type: string }
+        document_id: { type: string }
+        document_name: { type: string }
+        page:
+          type: [integer, "null"]
+          minimum: 1
+          description: Page du passage, si le document en a.
+        text: { type: string }
+        score: { $ref: "#/components/schemas/Score" }
+        source_url:
+          type: [string, "null"]
+          format: uri
+          description: Lien pour ouvrir la source. Sans lui, la plateforme n'affiche pas « Voir la source ».
+        metadata:
+          type: object
+          additionalProperties: true
+
+    SkippedCollection:
+      type: object
+      required: [collection_id, reason]
+      properties:
+        collection_id: { type: string }
+        reason:
+          type: string
+          enum: [not_found, forbidden, unavailable]
+
+    Usage:
+      type: object
+      description: Consommation de la requête, affichée dans « Ma consommation » si le fournisseur la renseigne.
+      properties:
+        input_tokens: { type: integer, minimum: 0 }
+        total_tokens: { type: integer, minimum: 0 }
+
+    SearchResponse:
+      type: object
+      required: [items, skipped]
+      properties:
+        items:
+          type: array
+          description: Du plus au moins pertinent, toutes collections confondues.
+          items: { $ref: "#/components/schemas/Passage" }
+        skipped:
+          type: array
+          items: { $ref: "#/components/schemas/SkippedCollection" }
+        usage: { $ref: "#/components/schemas/Usage" }
+
+    DocumentContent:
+      type: object
+      required: [document_id, document_name, collection_id, passages]
+      properties:
+        document_id: { type: string }
+        document_name: { type: string }
+        collection_id: { type: string }
+        page_count: { type: [integer, "null"] }
+        passages:
+          type: array
+          items:
+            type: object
+            required: [passage_id, text]
+            properties:
+              passage_id: { type: string }
+              page: { type: [integer, "null"] }
+              text: { type: string }
+        truncated:
+          type: boolean
+          description: Vrai si le contenu a été coupé à `max_chars`.
+
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [unauthorized, forbidden, not_found, invalid_request, no_usable_collection, rate_limited, unavailable, not_implemented]
+          description: Code stable, minuscule, lisible par une machine.
+        message:
+          type: string
+          description: Message en français, lisible par la personne et par le modèle.
+
+  responses:
+    Unauthorized:
+      description: Jeton absent ou invalide.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: unauthorized, message: Jeton absent ou invalide. }
+    Forbidden:
+      description: La personne n'a pas accès à cette ressource.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: forbidden, message: Vous n'avez pas accès à cette collection. }
+    NotFound:
+      description: La ressource n'existe pas.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: not_found, message: Document introuvable. }
+    InvalidRequest:
+      description: Paramètres invalides, ou aucune collection utilisable.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: invalid_request, message: "`collection_ids` doit contenir entre 1 et 20 identifiants." }
+    NotImplemented:
+      description: Fonction facultative non disponible chez ce fournisseur.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: not_implemented, message: La recherche de collections n'est pas disponible. }
+    RateLimited:
+      description: Trop de requêtes ; `Retry-After` indique le délai en secondes.
+      headers:
+        Retry-After:
+          schema: { type: integer }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: rate_limited, message: Trop de requêtes, réessayez dans quelques secondes. }
+    Unavailable:
+      description: Le service est temporairement indisponible.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example: { code: unavailable, message: Le service est indisponible, réessayez plus tard. }
