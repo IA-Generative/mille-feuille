@@ -231,6 +231,7 @@ def deposit_assistant_message(
     content: str,
     sources: list[dict] | None = None,
     tool_calls: list[dict] | None = None,
+    external_sources: list[dict] | None = None,
 ) -> dict:
     """Dépose le message assistant final (avec sources) via l'API interne.
     Les sources référencent les documents/pages utilisés par l'agent pour
@@ -238,7 +239,12 @@ def deposit_assistant_message(
     de la personne."""
     response = client.post(
         f"/conversations/{conversation_id}/messages",
-        json={"content": content, "sources": sources or [], "tool_calls": tool_calls or []},
+        json={
+            "content": content,
+            "sources": sources or [],
+            "tool_calls": tool_calls or [],
+            "external_sources": external_sources or [],
+        },
     )
     response.raise_for_status()
     return response.json()

@@ -54,6 +54,8 @@ class ExtraTools:
     # Pour le journal de l'étape : ce qui n'a pas pu être donné à l'agent, et pourquoi.
     skipped: list[str] = field(default_factory=list)
     unavailable: list[str] = field(default_factory=list)
+    # Les sources de la base de connaissances que les recherches ont trouvées : déposées avec le message du chat.
+    _knowledge: KnowledgeTools | None = None
     # Les tools qui modifient des données, écartés parce que rien ne demande de confirmation (le chat, pour l'instant).
     withheld: list[str] = field(default_factory=list)
     # Les tools qui modifient des données et que la personne doit autoriser avant l'appel : nom de fonction -> tool.
@@ -61,6 +63,10 @@ class ExtraTools:
 
     def definitions(self) -> list[dict[str, Any]]:
         return list(self._definitions)
+
+    @property
+    def external_sources(self) -> list[dict[str, Any]]:
+        return list(self._knowledge.sources) if self._knowledge else []
 
     def owns(self, name: str) -> bool:
         return name in self._runners
@@ -145,8 +151,9 @@ def _add_knowledge_tool(
             client, knowledge.analyse_id, query, top_k, acting_user=acting_user, run_id=run_id
         )
 
+    extra._knowledge = KnowledgeTools(search)
     extra._definitions.append(knowledge_tools.DEFINITION)
-    extra._runners[knowledge_tools.FUNCTION_NAME] = KnowledgeTools(search).run
+    extra._runners[knowledge_tools.FUNCTION_NAME] = extra._knowledge.run
 
 
 def _add_mcp_tools(
