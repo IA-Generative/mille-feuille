@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.chat_tool_call import ChatToolCall, ChatToolCallStatus
 from app.repositories.chat_tool_call_repository import ChatToolCallRepository
-from app.schemas.chat_tool_call import ToolCallDecision
+from app.schemas.chat_tool_call import ASK_USER, ToolCallDecision
 
 
 class DecisionError(Exception):
@@ -35,7 +35,7 @@ async def decide_batch(
     if len(set(ids)) != len(ids):
         raise DecisionError("decision_en_double", "Une demande ne peut être décidée qu'une fois.")
     calls = await repository.for_ids(conversation_id, ids)
-    if len(calls) != len(ids):
+    if len(calls) != len(ids) or any(call.tool_id == ASK_USER for call in calls):
         raise DecisionError("demande_inconnue", "Cette demande n'existe pas dans cette conversation.")
     if any(call.status != ChatToolCallStatus.PENDING for call in calls):
         raise DecisionError(
