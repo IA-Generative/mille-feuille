@@ -15,6 +15,9 @@ MESSAGES = {
     "delai_depasse": "Le serveur n'a pas répondu à temps.",
     "serveur_indisponible": "Le serveur de cet outil est indisponible.",
     "outil_en_erreur": "L'outil a répondu par une erreur.",
+    "confirmation_requise": "Cet outil modifie des données : confirmez que vous voulez le tester pour de vrai.",
+    "modele_indisponible": "Le modèle n'a pas pu choisir les arguments.",
+    "aucun_appel": "Le modèle n'a pas appelé l'outil.",
 }
 
 

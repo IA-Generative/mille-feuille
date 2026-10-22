@@ -1,13 +1,16 @@
 """Aides partagées des tests des tools : faux client MCP, DNS public simulé, création d'un serveur."""
 
 import uuid
+from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.routers.internal_tools import get_tool_caller
 from app.routers.tool_servers import get_identity_tokens, get_tool_lister
 from app.services.tools.credentials_errors import CredentialsUnavailableError
+from app.services.tools.mcp_caller import RawToolResult
 from app.services.tools.mcp_discovery import DiscoveredTool
 
 LEGIFRANCE_TOOLS = [
@@ -64,6 +67,28 @@ def identity_tokens() -> FakeIdentityTokens:
     app.dependency_overrides[get_identity_tokens] = lambda: fake
     yield fake
     del app.dependency_overrides[get_identity_tokens]
+
+
+class FakeCaller:
+    """Remplace le client MCP : aucun réseau."""
+
+    def __init__(self, result: RawToolResult | Exception) -> None:
+        self.result = result
+        self.calls: list[tuple[str, dict[str, str], str, dict[str, Any]]] = []
+
+    async def call_tool(self, url, headers, name, arguments, timeout) -> RawToolResult:
+        self.calls.append((url, headers, name, arguments))
+        if isinstance(self.result, Exception):
+            raise self.result
+        return self.result
+
+
+@pytest.fixture
+def caller() -> FakeCaller:
+    fake = FakeCaller(RawToolResult(text="Article L1111-1 : …", is_error=False))
+    app.dependency_overrides[get_tool_caller] = lambda: fake
+    yield fake
+    del app.dependency_overrides[get_tool_caller]
 
 
 def create_server(

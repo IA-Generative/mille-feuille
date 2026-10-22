@@ -58,3 +58,23 @@ Table `tool_call_logs` : personne, serveur (nom conservé si le serveur est supp
 | `services/tools/call_limits.py` | les quotas (Redis) |
 | `services/tools/call_result.py` | le résultat, les messages, la borne de taille |
 | `repositories/tool_call_log_repository.py` | le journal |
+
+## Tester un tool (#339)
+
+`POST /api/tools/{tool_id}/test` (session de la personne). Le modèle n'a que ce tool, on le **force** à l'appeler (`tool_choice: required`) : il choisit les arguments à partir de la demande, puis l'appel passe par le même chemin qu'un agent (droits, quotas, journal, identité de la personne). On renvoie la sortie brute, le modèle utilisé et l'appel fait.
+
+```json
+// requête
+{ "prompt": "Cherche les textes sur les subventions", "model": "mistral-large", "confirmed": false }
+
+// réponse : celle du proxy, plus le modèle et l'appel
+{ "ok": true, "output": "…", "model": "mistral-large", "call": { "name": "rechercher_texte", "arguments": { "mots_cles": "subventions" } }, "duration_ms": 618 }
+```
+
+- **Choix du modèle** : `model` est un identifiant de `GET /api/models` ; absent, le premier modèle de chat du hub.
+- **Consommation** : les tokens du modèle sont comptés pour la personne (étape `test_tool`), comme l'aide à la rédaction. Les arguments de l'appel du tool ne sont pas comptés : ce ne sont pas des tokens.
+- **Un tool qui modifie des données** (`side_effect`) s'exécute pour de vrai : sans `confirmed: true`, réponse `confirmation_requise`, sans consulter le modèle ni appeler le tool.
+- **Codes en plus de ceux du proxy** : `confirmation_requise`, `modele_indisponible` (hub absent ou muet ; le détail n'est jamais renvoyé), `aucun_appel` (le modèle n'a pas appelé le tool : sa réponse est dans `output`).
+- **Seuls les tools MCP** se testent ici : un tool interne répond `outil_interne` (il est exécuté par le worker).
+
+Modules : `services/tools/model_chooser.py` (le hub, derrière une interface), `services/tools/tool_test.py` (le service), route dans `routers/tools.py`.
