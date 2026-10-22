@@ -21,11 +21,12 @@ import { parseAssistantSuggestion, parseMessageMarkers } from "@/utils/assistant
 import { setDocumentSource, useDossierSources } from "@/composables/useDocumentSources";
 import ChatToolsMenu from "@/components/tools/ChatToolsMenu.vue";
 import ToolCallCard from "@/components/tools/ToolCallCard.vue";
+import ToolQuestionCard from "@/components/tools/ToolQuestionCard.vue";
 import { useConversations } from "@/composables/useConversations";
 import { useDossiers } from "@/composables/useDossiers";
 import { useHelperAgent } from "@/composables/useHelperAgent";
 import { useMyConversations } from "@/composables/useMyConversations";
-import type { FeedbackReasonCode } from "@/types/conversation";
+import type { FeedbackReasonCode, QuestionAnswer } from "@/types/conversation";
 import {
   DOSSIER_STATUS_LABELS,
   SUGGESTION_STATUS_LABELS,
@@ -57,6 +58,7 @@ const {
   ensureConversation,
   sendMessage,
   decideToolCalls,
+  answerToolQuestion,
   refreshConversation,
   deleteConversation,
   setModel,
@@ -164,6 +166,19 @@ async function onToolCallsDecided(decisions: { id: string; allow: boolean; comme
     const current = await ensureConversation();
     chatEvents.value = [];
     await decideToolCalls(decisions);
+    startChatStream(`/api/dossiers/${dossierId}/conversations/${current.id}/stream`);
+  } finally {
+    isDeciding.value = false;
+  }
+}
+// Réponse à une question à choix de l'assistant : même suite qu'une décision d'outil, le chat est relancé.
+async function onQuestionAnswered(callId: string, answers: QuestionAnswer[]) {
+  if (isChatRunning.value || isDeciding.value) return;
+  isDeciding.value = true;
+  try {
+    const current = await ensureConversation();
+    chatEvents.value = [];
+    await answerToolQuestion(callId, answers);
     startChatStream(`/api/dossiers/${dossierId}/conversations/${current.id}/stream`);
   } finally {
     isDeciding.value = false;
@@ -545,6 +560,14 @@ async function onDeleteConversation() {
           :answerable="isLastMessage(message.id) && !isChatRunning"
           :busy="isDeciding"
           @decide="onToolCallsDecided"
+        />
+        <ToolQuestionCard
+          v-for="call in message.toolCalls?.filter((c) => c.toolId === 'ask_user') ?? []"
+          :key="call.id"
+          :call="call"
+          :answerable="isLastMessage(message.id) && !isChatRunning"
+          :busy="isDeciding"
+          @answer="(answers) => onQuestionAnswered(call.id, answers)"
         />
         <ChatProposals
           v-if="parseMessageMarkers(message.content).proposals"
