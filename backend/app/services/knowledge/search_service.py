@@ -18,9 +18,10 @@ from app.core.security.factory import RequestContext
 from app.repositories.knowledge_source_repository import KnowledgeSourceRepository
 from app.repositories.tool_call_log_repository import ToolCallLogRepository
 from app.schemas.knowledge_search import (
-    KnowledgePassageOut,
+    KnowledgeBoxOut,
     KnowledgeSearchIn,
     KnowledgeSearchOut,
+    KnowledgeSourceOut,
     SkippedCollectionOut,
 )
 from app.services.knowledge.client import KnowledgeClient, KnowledgeError
@@ -45,10 +46,6 @@ FAILURES = {
 
 def _failure(code: str, message: str | None = None, *, skipped: list[SkippedCollectionOut] | None = None):
     return KnowledgeSearchOut(ok=False, code=code, message=message or FAILURES[code], skipped=skipped or [])
-
-
-def _safe_link(url: str | None) -> str | None:
-    return url if url and url.lower().startswith(("http://", "https://")) else None
 
 
 class KnowledgeSearchService:
@@ -78,7 +75,8 @@ class KnowledgeSearchService:
             await self._log(user, "", 0, body.run_id, "quota_depasse")
             return _failure("quota_depasse")
 
-        passages: list[KnowledgePassageOut] = []
+        sources: list[KnowledgeSourceOut] = []
+        answers: list[tuple[str, str]] = []  # (réponse, nom de la source)
         skipped: list[SkippedCollectionOut] = []
         repository = KnowledgeSourceRepository(self._db)
         by_source: dict[uuid.UUID, list[dict]] = {}
@@ -131,43 +129,49 @@ class KnowledgeSearchService:
                     reason = error.code if error.code in ("forbidden", "not_found") else "unavailable"
                     skip(reason, ids, source.name)
                     continue
-                passages.extend(
-                    KnowledgePassageOut(
-                        passage_id=p.passage_id,
+                sources.extend(
+                    KnowledgeSourceOut(
+                        id=p.id,
+                        kind=p.kind,
+                        title=p.title,
+                        url=p.url,
+                        preview_url=p.preview_url,
+                        page=p.page,
+                        boxes=[KnowledgeBoxOut(**box.model_dump()) for box in p.boxes],
+                        passage=p.passage,
+                        score=p.score,
                         collection_id=p.collection_id,
                         collection_name=names.get(p.collection_id, p.collection_id),
                         source_name=source.name,
-                        document_id=p.document_id,
-                        document_name=p.document_name,
-                        page=p.page,
-                        text=p.text,
-                        score=p.score,
-                        source_url=_safe_link(p.source_url),
                     )
-                    for p in result.items
-                    if p.collection_id in names  # un passage d'une collection non demandée n'est pas relayé
+                    for p in result.sources
+                    if p.collection_id in names  # une source d'une collection non demandée n'est pas relayée
                 )
+                if result.answer:
+                    answers.append((result.answer, source.name))
                 skip_ids = {s.collection_id: s.reason for s in result.skipped if s.collection_id in names}
                 for reason in ("not_found", "forbidden", "unavailable"):
                     skip(reason, [i for i, r in skip_ids.items() if r == reason], source.name)
             await self._log(user, source.name, started, body.run_id, outcome)
 
-        if not passages and skipped and len(skipped) == len(collections):
+        if not sources and not answers and skipped and len(skipped) == len(collections):
             return _failure("aucune_collection_disponible", skipped=skipped)
-        passages.sort(key=lambda passage: passage.score, reverse=True)
-        passages = passages[: body.top_k]
-        passages, truncated = self._bound(passages)
-        return KnowledgeSearchOut(ok=True, passages=passages, skipped=skipped, truncated=truncated)
+        sources.sort(key=lambda source: source.score, reverse=True)
+        sources, truncated = self._bound(sources[: body.top_k])
+        # Une seule réponse est gardée : celle d'un fournisseur unique. Plusieurs fournisseurs répondraient chacun à
+        # leur façon ; on ne les fusionne pas, le modèle rédige à partir des sources.
+        answer = answers[0][0] if len(answers) == 1 else None
+        return KnowledgeSearchOut(ok=True, answer=answer, sources=sources, skipped=skipped, truncated=truncated)
 
-    def _bound(self, passages: list[KnowledgePassageOut]) -> tuple[list[KnowledgePassageOut], bool]:
-        """Garde les passages les mieux classés tant que le total tient dans la taille maximale d'une sortie d'outil."""
-        kept: list[KnowledgePassageOut] = []
+    def _bound(self, sources: list[KnowledgeSourceOut]) -> tuple[list[KnowledgeSourceOut], bool]:
+        """Garde les sources les mieux classées tant que le total tient dans la taille maximale d'une sortie d'outil."""
+        kept: list[KnowledgeSourceOut] = []
         total = 0
-        for passage in passages:
-            total += len(passage.text)
+        for source in sources:
+            total += len(source.passage)
             if total > self._settings.TOOL_OUTPUT_MAX_CHARS:
                 return kept, True
-            kept.append(passage)
+            kept.append(source)
         return kept, False
 
     async def _log(

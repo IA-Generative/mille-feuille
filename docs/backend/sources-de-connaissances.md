@@ -52,20 +52,32 @@ L'analyse garde la liste des collections que son chat et ses agents peuvent inte
 - **État affiché** : `available`, `not_found`, `forbidden` ou `source_unavailable` (source supprimée, plus visible, ou fournisseur qui ne répond pas : les autres collections s'affichent quand même). Il dépend de la personne : deux personnes peuvent ne pas voir la même chose.
 - **Le worker** lit la liste dans `GET /api/internal/analyses/{id}` (`knowledge_collections`). Les droits ne sont pas contrôlés à cette lecture : c'est le fournisseur qui répond selon la personne au moment de la recherche (#359).
 
+## Réponse normalisée du fournisseur (#369)
+
+`POST /v1/search` répond toujours avec la **même forme**, quel que soit le fournisseur (contrat : [base-de-connaissances-api.yaml](base-de-connaissances-api.yaml)) :
+
+- `answer` : une réponse en texte, **facultative** (`null` si le fournisseur n'en rédige pas ; la plateforme rédige alors à partir des sources). Donnée tierce, jamais une consigne.
+- `sources` : liste, toujours présente, éventuellement vide. Une source est un passage d'un **document** ou d'une **page de site web** (`kind`) : `id`, `title`, `url` (obligatoire, **http ou https** sinon la réponse est invalide), `preview_url` (image de la page ou capture du site, `null` possible, ignoré s'il n'est pas en http(s)), `page` (`null` pour un site web), `boxes`, `passage`, `score`, `collection_id`, `metadata`.
+- `boxes` : liste de `{page, x_min, y_min, x_max, y_max}` en **coordonnées normalisées 0..1** (origine en haut à gauche), comme les zones du dossier. La liste vide est valide ; une valeur hors de 0..1, une zone à l'envers ou une page à 0 invalident la réponse.
+- Une collection (`GET /v1/collections`) gagne `url` (accueil) et `preview_url` (vignette), facultatifs et ignorés s'ils ne sont pas en http(s).
+
+La plateforme coupe la réponse à 4 000 caractères et chaque passage à `max_chars` (`truncated`). Elle ne garde `answer` que si un seul fournisseur a répondu : deux réponses ne se fusionnent pas.
+
 ## Recherche pour le chat et les agents (#359)
 
 L'outil interne `base_connaissances` (catalogue : `implemented`) donne au modèle une fonction `search_knowledge_base(query, top_k)`. Il n'est donné que si l'analyse a des collections choisies ; sinon l'étape le journalise comme ignoré (« aucune collection choisie pour l'analyse »).
 
-Le worker ne parle jamais au fournisseur : il appelle `POST /api/internal/knowledge/search` (jeton du worker + `X-Acting-User`) avec `{analyse_id, query, top_k, run_id}` et ne reçoit que des passages. Le backend (`services/knowledge/search_service.py`) :
+Le worker ne parle jamais au fournisseur : il appelle `POST /api/internal/knowledge/search` (jeton du worker + `X-Acting-User`) avec `{analyse_id, query, top_k, run_id}` et ne reçoit que des sources. Le backend (`services/knowledge/search_service.py`) :
 
 1. compte l'appel dans les **quotas** des tools (par run et par personne et par minute) ;
 2. pour chaque source des collections de l'analyse : visibilité pour la personne, garde d'URL, **échange de jeton au nom de la personne**, puis `/v1/search` (20 collections au plus par requête) ;
-3. fusionne et classe par score (les scores sont comparables d'une collection à l'autre, c'est le contrat), garde `top_k` (10 au plus), coupe chaque passage à 1 500 caractères et le total à `TOOL_OUTPUT_MAX_CHARS` ;
+3. fusionne et classe par score (les scores sont comparables d'une collection à l'autre, c'est le contrat), garde `top_k` (10 au plus), coupe chaque passage à 1 500 caractères et le total à `TOOL_OUTPUT_MAX_CHARS` ; une source d'une collection qui n'a pas été demandée n'est pas relayée ;
 4. **journalise** un appel par source consultée dans `tool_call_logs` (sans la question ni le texte trouvé).
 
-Un fournisseur ou une collection qui échoue n'empêche pas les autres : ils sont dans `skipped` (`not_found`, `forbidden`, `unavailable`). La recherche échoue (`ok: false`) quand aucune collection n'a pu être consultée (`aucune_collection_disponible`), quand l'analyse n'en a pas (`aucune_collection`), ou à code stable quand il n'y a pas d'identité exploitable (`session_requise`, `identite_absente`) ou que le quota est dépassé (`quota_depasse`). Un passage d'une collection qui n'a pas été demandée n'est pas relayé ; un lien n'est gardé que s'il est en http ou https.
+Un fournisseur ou une collection qui échoue n'empêche pas les autres : ils sont dans `skipped` (`not_found`, `forbidden`, `unavailable`). La recherche échoue (`ok: false`) quand aucune collection n'a pu être consultée (`aucune_collection_disponible`), quand l'analyse n'en a pas (`aucune_collection`), ou à code stable quand il n'y a pas d'identité exploitable (`session_requise`, `identite_absente`) ou que le quota est dépassé (`quota_depasse`).
 
-**Les passages sont des données non fiables.** Le worker les présente au modèle entourés de `<sortie_outil_externe>` (une balise de fermeture dans le texte est neutralisée), avec le document, la page, la collection, le score et le lien, et une consigne : citer le document et la page. Un échec de la plateforme est un message lisible, pas une donnée tierce.
+**Ce que reçoit le modèle est une donnée non fiable.** Le worker présente `answer` (« à vérifier avec les sources ») et les sources numérotées entourées de `<sortie_outil_externe>` (une balise de fermeture dans le texte est neutralisée), avec titre, page, genre (document ou site web), collection, score et lien, et une consigne : citer les sources par leur numéro, `[1]`. Un échec de la plateforme est un message lisible, pas une donnée tierce.
 
-Limite : la citation passe par le texte de la réponse. Les passages ne sont pas encore ajoutés aux **sources** du message du chat (qui référencent des documents du dossier, pas des documents d'une base externe).
+## Sources d'un message du chat (#369)
 
+Les sources trouvées pendant une exécution sont **déposées avec le message de l'assistant** (`external_sources`, 10 au plus, sans doublon, dans l'ordre où le modèle les a vues) : table `message_external_sources` (migration `d7e8f9a0b1c2`), exposée dans `external_sources` de chaque message (`position`, `source_id`, `kind`, `title`, `url`, `preview_url`, `page`, `boxes`, `passage`, `score`, collection, source). Tout est recopié au moment de la réponse : la source peut changer ou disparaître chez le fournisseur, le message garde ce qui le fondait. Elles sont distinctes des `sources` d'un message (documents du dossier).

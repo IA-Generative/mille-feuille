@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from app.models.document_page import BoundingBox, DocumentPage
     from app.models.dossier import Dossier, DossierDocument, ExecutionStep
     from app.models.feedback import Feedback
+    from app.models.message_external_source import MessageExternalSource
 
 # Granularité d'une source, du plus large au plus précis : au minimum le
 # document (dossier_document_id ci-dessous), éventuellement affinée à un
@@ -131,6 +132,12 @@ class Message(UUIDMixin, TimestampMixin, Base):
         back_populates="message",
         cascade="all, delete-orphan",
         order_by="Feedback.created_at",
+    )
+    # Les sources d'une base de connaissances externe que ce message cite (passage, lien, aperçu, zones).
+    external_sources: Mapped[list["MessageExternalSource"]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+        order_by="MessageExternalSource.position",
     )
     # Les appels d'outils du modèle portés par ce message (un lot, jusqu'à 5), avec leur décision et leur résultat.
     tool_calls: Mapped[list["ChatToolCall"]] = relationship(

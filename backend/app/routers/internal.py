@@ -9,6 +9,7 @@ from app.db import get_db
 from app.models.conversation import MessageRole
 from app.models.dossier import DossierStatus, ExecutionStep
 from app.models.dossier_analysis import AnalysisUnitStatus, DossierAnalysisStatus
+from app.models.message_external_source import MessageExternalSource
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.analysis_proposal_repository import AnalysisProposalRepository, ProposalTargetError
 from app.repositories.chat_tool_call_repository import ChatToolCallRepository
@@ -566,6 +567,11 @@ async def add_assistant_message(
         sources=[s.model_dump() for s in body.sources],
     )
     message = conversation.messages[-1]
+    if body.external_sources:
+        for position, source in enumerate(body.external_sources):
+            message.external_sources.append(MessageExternalSource(position=position, **source.model_dump()))
+        await db.commit()
+        await db.refresh(message, attribute_names=["external_sources"])
     if body.tool_calls:
         await ChatToolCallRepository(db).add_batch(
             conversation_id=conversation_id,

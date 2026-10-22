@@ -82,6 +82,7 @@ from .feedback import Feedback, FeedbackReason, FeedbackReasonCode, FeedbackValu
 from .generated_document import VISIBILITY_INTERNAL, GeneratedDocument
 from .generation_prompt import GenerationPromptVersion
 from .knowledge_source import KnowledgeSource
+from .message_external_source import MessageExternalSource
 from .notification import Notification, NotificationCursor
 from .report import Report, ReportStatus, ReportType
 from .summary import DocumentSummary, DossierSummary, SummaryStatus
@@ -193,6 +194,7 @@ __all__ = [
     "ToolAuthMode",
     "ToolCallLog",
     "KnowledgeSource",
+    "MessageExternalSource",
     "ToolServer",
     "ToolVisibility",
     "UserPreference",
