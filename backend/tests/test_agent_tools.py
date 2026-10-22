@@ -2,7 +2,10 @@ import uuid
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import update
 
+from app.db import async_session_factory
+from app.models.analyse import Agent
 from tests.access_support import As
 from tests.tool_support import FakeLister, create_server, tool_id
 
@@ -27,19 +30,19 @@ def agent_of(client: TestClient, analyse_id: str, agent_id: str) -> dict:
     return next(a for a in client.get(f"/api/analyses/{analyse_id}").json()["agents"] if a["id"] == agent_id)
 
 
-def test_legacy_and_new_internal_ids_are_accepted_and_stored_as_given(client: TestClient) -> None:
+def test_executable_internal_ids_are_accepted_and_stored_as_given(client: TestClient) -> None:
     analyse_id = new_analyse(client)
-    response = add_agent(client, analyse_id, ["calculatrice", "base_connaissances", "calcul_dates", "notes_internes"])
+    response = add_agent(client, analyse_id, ["calculatrice", "calcul_dates"])
 
     assert response.status_code == 201
-    assert response.json()["tools"] == ["calculatrice", "base_connaissances", "calcul_dates", "notes_internes"]
+    assert response.json()["tools"] == ["calculatrice", "calcul_dates"]
 
 
 def test_duplicates_are_dropped_in_order(client: TestClient) -> None:
     analyse_id = new_analyse(client)
-    assert add_agent(client, analyse_id, ["calculatrice", "recherche_web", "calculatrice"]).json()["tools"] == [
+    assert add_agent(client, analyse_id, ["calculatrice", "calcul_dates", "calculatrice"]).json()["tools"] == [
         "calculatrice",
-        "recherche_web",
+        "calcul_dates",
     ]
 
 
@@ -115,7 +118,7 @@ def test_an_agent_keeps_a_tool_that_became_unavailable_and_can_still_be_edited(
 
     # L'agent le garde tant que la personne ne le retire pas : on peut modifier le reste.
     assert agent_of(client, analyse_id, agent_id)["tools"] == ["calculatrice", mcp_tool]
-    kept = set_tools(client, analyse_id, agent_id, ["calculatrice", mcp_tool, "recherche_web"])
+    kept = set_tools(client, analyse_id, agent_id, ["calculatrice", mcp_tool, "calcul_dates"])
     assert kept.status_code == 200
     # ... mais on ne peut pas le rajouter ailleurs.
     assert add_agent(client, analyse_id, [mcp_tool]).status_code == 422
@@ -123,12 +126,53 @@ def test_an_agent_keeps_a_tool_that_became_unavailable_and_can_still_be_edited(
     assert set_tools(client, analyse_id, agent_id, ["calculatrice"]).json()["tools"] == ["calculatrice"]
 
 
-def test_an_ephemeral_analysis_accepts_internal_tools_only(client: TestClient) -> None:
+def test_an_ephemeral_analysis_accepts_internal_tools_and_the_legacy_ids_of_the_api_contract(
+    client: TestClient,
+) -> None:
+    """Le contrat de l'API asynchrone liste les six anciens identifiants : un appelant conforme n'est pas rejeté."""
+
     def create(tools: list[str]):
         return client.post(
             "/api/ephemeral/analyses",
             json={"name": "E", "classification_prompt": "C", "agents": [{"name": "A", "prompt": "P", "tools": tools}]},
         )
 
-    assert create(["calculatrice"]).status_code == 201
+    assert create(["calculatrice", "calcul_dates"]).status_code == 201
+    contract_enum = ["lecture_document", "recherche_web", "base_connaissances", "appel_agent", "calculatrice"]
+    assert create([*contract_enum, "verification_coherence"]).status_code == 201
     assert create(["fantome"]).status_code == 422
+    assert create([str(uuid.uuid4())]).status_code == 422  # pas de tool MCP sans personne derrière
+
+
+def test_an_internal_tool_that_is_not_runnable_yet_is_refused_with_a_clear_reason(client: TestClient) -> None:
+    detail = add_agent(client, new_analyse(client), ["calculatrice", "base_connaissances"]).json()["detail"]
+
+    assert detail["tools"] == ["base_connaissances"]
+    assert "pas encore disponible" in detail["message"]
+
+
+def test_a_removed_tool_is_unknown_for_a_new_agent(client: TestClient) -> None:
+    detail = add_agent(client, new_analyse(client), ["recherche_web"]).json()["detail"]
+
+    assert "outil inconnu" in detail["message"]
+
+
+def test_an_agent_that_already_holds_a_tool_that_is_no_longer_offered_keeps_it(client: TestClient) -> None:
+    """Un agent créé avant le retrait de `recherche_web` garde l'identifiant : on le signale, on le retire."""
+    analyse_id = new_analyse(client)
+    agent_id = add_agent(client, analyse_id, ["calculatrice"]).json()["id"]
+
+    async def hold() -> None:
+        async with async_session_factory() as session:
+            await session.execute(
+                update(Agent).where(Agent.id == uuid.UUID(agent_id)).values(tools=["calculatrice", "recherche_web"])
+            )
+            await session.commit()
+
+    client.portal.call(hold)  # on simule un agent ancien : l'identifiant est déjà stocké
+
+    assert set_tools(client, analyse_id, agent_id, ["calculatrice", "recherche_web", "calcul_dates"]).status_code == 200
+    assert set_tools(client, analyse_id, agent_id, ["calculatrice", "calcul_dates"]).json()["tools"] == [
+        "calculatrice",
+        "calcul_dates",
+    ]

@@ -15,7 +15,7 @@ from app.services.tools.discovery import discover_tools
 from app.services.tools.identity_tokens import IdentityTokens
 from app.services.tools.mcp_discovery import DiscoveredTool, DiscoveryError, McpToolLister, ToolLister
 from app.services.tools.url_guard import UnsafeUrlError
-from app.services.tools.visibility import can_view
+from app.services.tools.visibility import can_view_server
 
 router = APIRouter(prefix="/tool-servers", tags=["Tools"], dependencies=[Depends(get_current_user)])
 
@@ -55,14 +55,7 @@ async def _discover(
 async def _visible_server(server_id: uuid.UUID, db: AsyncSession, user: RequestContext) -> ToolServer:
     """Un serveur que la personne ne voit pas répond 404, comme s'il n'existait pas."""
     server = await ToolServerRepository(db).get(server_id)
-    visible = server is not None and can_view(
-        user_id=user.user_id,
-        is_admin=user.is_admin,
-        groups=user.groups,
-        owner_id=server.created_by,
-        visibility=server.visibility,
-        server_groups=server.groups,
-    )
+    visible = server is not None and can_view_server(user, server)
     if not visible:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Serveur introuvable")
     return server

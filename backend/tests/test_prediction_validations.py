@@ -29,7 +29,7 @@ _spec.loader.exec_module(migration)
 @pytest.fixture(autouse=True)
 def _no_celery_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("dispatch_classification", "dispatch_entity_extraction", "dispatch_agent_execution"):
-        monkeypatch.setattr(f"app.routers.dossiers.{name}", lambda dossier_id: None)
+        monkeypatch.setattr(f"app.routers.dossiers.{name}", lambda dossier_id, *args, **kwargs: None)
 
 
 def _dossier(client: TestClient) -> tuple[str, str, dict[str, Any]]:

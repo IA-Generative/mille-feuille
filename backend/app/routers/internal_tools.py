@@ -10,9 +10,10 @@ from app.core.security.factory import RequestContext
 from app.core.security.internal import verify_app_token
 from app.db import get_db
 from app.routers.tool_servers import get_identity_tokens
-from app.schemas.tool_call import ToolCallIn, ToolCallOut
+from app.schemas.tool_call import ToolCallIn, ToolCallOut, ToolDefinitionOut, ToolResolveIn, ToolResolveOut
 from app.services.tools.call_limits import CallLimiter
 from app.services.tools.call_service import ToolCallService
+from app.services.tools.definitions import resolve_tool_definitions
 from app.services.tools.identity_tokens import IdentityTokens
 from app.services.tools.mcp_caller import McpToolCaller, ToolCaller
 
@@ -28,6 +29,20 @@ def get_call_limiter() -> CallLimiter:
     settings = ToolSettings()
     return CallLimiter(
         redis_connector.client, per_run=settings.TOOL_CALLS_PER_RUN, per_minute=settings.TOOL_CALLS_PER_MINUTE
+    )
+
+
+@router.post("/resolve", response_model=ToolResolveOut)
+async def resolve_tools(
+    body: ToolResolveIn,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(acting_user)],
+) -> ToolResolveOut:
+    """Les définitions des tools MCP qu'un agent peut utiliser, pour la personne transmise (`X-Acting-User`) : nom,
+    description, schéma des arguments. Ce que la personne ne peut pas utiliser n'est pas renvoyé, mais listé."""
+    definitions, unavailable = await resolve_tool_definitions(db, user, body.tool_ids)
+    return ToolResolveOut(
+        tools=[ToolDefinitionOut(**vars(definition)) for definition in definitions], unavailable=unavailable
     )
 
 

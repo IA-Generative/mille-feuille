@@ -137,12 +137,12 @@ def test_agent_lifecycle_and_output_versioning(client: TestClient) -> None:
         json={
             "name": "Synthèse",
             "prompt": "Rédige une synthèse.",
-            "tools": ["lecture_document"],
+            "tools": ["calculatrice"],
             "output": True,
         },
     ).json()
     assert agent["output"] is True
-    assert agent["tools"] == ["lecture_document"]
+    assert agent["tools"] == ["calculatrice"]
 
     agent = client.put(
         f"/api/analyses/{analyse_id}/agents/{agent['id']}/output",

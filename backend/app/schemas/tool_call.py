@@ -39,3 +39,22 @@ class ToolTestOut(ToolCallOut):
 
     model: str | None = None
     call: ToolTestCallOut | None = None
+
+
+class ToolResolveIn(BaseModel):
+    tool_ids: list[str] = Field(default_factory=list, max_length=100)
+
+
+class ToolDefinitionOut(BaseModel):
+    id: str
+    name: str
+    description: str
+    server_name: str
+    side_effect: bool
+    input_schema: dict[str, Any]
+
+
+class ToolResolveOut(BaseModel):
+    tools: list[ToolDefinitionOut]
+    # Les identifiants que la personne ne peut pas utiliser (inconnus, serveur invisible, tool non autorisé).
+    unavailable: list[str]

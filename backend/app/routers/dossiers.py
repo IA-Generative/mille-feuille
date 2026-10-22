@@ -44,7 +44,7 @@ from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.analysis_collaboration_repository import ElementLockedError
 from app.repositories.document_source_repository import DocumentSourceRepository, SourceNameTakenError
 from app.repositories.dossier_access_repository import DossierAccessRepository
-from app.repositories.dossier_event_repository import EventActor
+from app.repositories.dossier_event_repository import EventActor, actor_of
 from app.repositories.dossier_repository import DossierRepository
 from app.repositories.user_directory_repository import UserDirectoryRepository
 from app.schemas.document_source import DocumentSourceAssignIn, DocumentSourceIn, DocumentSourceOut
@@ -683,7 +683,8 @@ async def launch_dossier_for(
     # L'exécution des agents est déposée séparément : elle attend que la
     # classification et l'extraction soient terminées avant de lancer les
     # agents LangGraph (les agents utilisent les prédictions déposées).
-    dispatch_agent_execution(str(dossier.id))
+    acting_user, _ = actor_of(actor)
+    dispatch_agent_execution(str(dossier.id), acting_user)
     return dossier
 
 
