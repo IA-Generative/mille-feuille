@@ -3,6 +3,56 @@ name: Lint
 on:
   workflow_call:
     inputs:
+      RUN_ALL:
+        description: Lance tout, sans tenir compte des composants modifiés (changement de la CI, lancement à la main)
+        required: false
+        type: boolean
+        default: true
+      FRONTEND:
+        description: Le frontend a changé
+        required: false
+        type: boolean
+        default: false
+      EPHEMERAL_FRONTEND:
+        description: Le frontend éphémère a changé
+        required: false
+        type: boolean
+        default: false
+      BACKEND:
+        description: Le backend a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_DOCUMENT_PROCESS:
+        description: Le worker document_process a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_DOCUMENT_RENDER:
+        description: Le worker document_render a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_AGENT_EXECUTION:
+        description: Le worker agent_execution a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_CLASSIFICATION:
+        description: Le worker classification a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_EXTRACTION:
+        description: Le worker extraction a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_ASYNC_API:
+        description: Le worker async_api (ou le SDK Python) a changé
+        required: false
+        type: boolean
+        default: false
       NODE_VERSION:
         description: Node version used to run the frontend linter
         required: false
@@ -21,6 +71,56 @@ on:
         required: false
   workflow_dispatch:
     inputs:
+      RUN_ALL:
+        description: Lance tout, sans tenir compte des composants modifiés (changement de la CI, lancement à la main)
+        required: false
+        type: boolean
+        default: true
+      FRONTEND:
+        description: Le frontend a changé
+        required: false
+        type: boolean
+        default: false
+      EPHEMERAL_FRONTEND:
+        description: Le frontend éphémère a changé
+        required: false
+        type: boolean
+        default: false
+      BACKEND:
+        description: Le backend a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_DOCUMENT_PROCESS:
+        description: Le worker document_process a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_DOCUMENT_RENDER:
+        description: Le worker document_render a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_AGENT_EXECUTION:
+        description: Le worker agent_execution a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_CLASSIFICATION:
+        description: Le worker classification a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_EXTRACTION:
+        description: Le worker extraction a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_ASYNC_API:
+        description: Le worker async_api (ou le SDK Python) a changé
+        required: false
+        type: boolean
+        default: false
       NODE_VERSION:
         description: Node version used to run the frontend linter
         required: false
@@ -35,6 +135,7 @@ on:
 jobs:
   lint-frontend:
     name: Lint frontend
+    if: ${{ inputs.RUN_ALL || inputs.FRONTEND }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -64,6 +165,7 @@ jobs:
 
   lint-ephemeral-frontend:
     name: Lint ephemeral frontend
+    if: ${{ inputs.RUN_ALL || inputs.EPHEMERAL_FRONTEND }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -93,6 +195,7 @@ jobs:
 
   lint-backend:
     name: Lint backend
+    if: ${{ inputs.RUN_ALL || inputs.BACKEND }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -124,6 +227,7 @@ jobs:
 
   lint-worker-document-process:
     name: Lint worker/document_process
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_DOCUMENT_PROCESS }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -152,6 +256,7 @@ jobs:
 
   lint-worker-document-render:
     name: Lint worker/document_render
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_DOCUMENT_RENDER }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -180,6 +285,7 @@ jobs:
 
   lint-worker-agent-execution:
     name: Lint worker/agent_execution
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_AGENT_EXECUTION }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -208,6 +314,7 @@ jobs:
 
   lint-worker-classification:
     name: Lint worker/classification
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_CLASSIFICATION }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -236,6 +343,7 @@ jobs:
 
   lint-worker-extraction:
     name: Lint worker/extraction
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_EXTRACTION }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -264,6 +372,7 @@ jobs:
 
   lint-worker-async-api:
     name: Lint worker/async_api
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_ASYNC_API }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
