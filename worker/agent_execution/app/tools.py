@@ -77,6 +77,8 @@ class AgentTools:
                 self._pages_by_number[page["page_number"]] = page
         self._consulted_sources: list[ConsultedSource] = []
         self._assistant_question: str | None = None
+        # Les appels du tour qui attend la personne (voir chat_graph) ; vide si le chat a répondu.
+        self.confirmation_batch: list[dict] = []
 
     # --- Analyse de dossier : propositions (#115) ---
 
@@ -84,6 +86,15 @@ class AgentTools:
     def extra_notice(self) -> str:
         """Ce que le modèle doit savoir de ses outils choisis (sorties externes non fiables, outils absents)."""
         return self._extra.notice if self._extra else ""
+
+    def requires_confirmation(self, name: str) -> bool:
+        return bool(self._extra and self._extra.requires_confirmation(name))
+
+    def confirmation_info(self, name: str) -> dict[str, str]:
+        return self._extra.confirmation_info(name) if self._extra else {}
+
+    def has_extra(self, name: str) -> bool:
+        return bool(self._extra and self._extra.owns(name))
 
     @property
     def has_analysis(self) -> bool:
