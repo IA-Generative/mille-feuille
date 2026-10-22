@@ -11,6 +11,7 @@ from app.models.dossier import DossierStatus, ExecutionStep
 from app.models.dossier_analysis import AnalysisUnitStatus, DossierAnalysisStatus
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.analysis_proposal_repository import AnalysisProposalRepository, ProposalTargetError
+from app.repositories.chat_tool_call_repository import ChatToolCallRepository
 from app.repositories.document_draft_repository import (
     DocumentDraftRepository,
     DraftError,
@@ -564,6 +565,13 @@ async def add_assistant_message(
         sources=[s.model_dump() for s in body.sources],
     )
     message = conversation.messages[-1]
+    if body.tool_calls:
+        await ChatToolCallRepository(db).add_batch(
+            conversation_id=conversation_id,
+            message_id=message.id,
+            calls=[call.model_dump() for call in body.tool_calls],
+        )
+        await db.refresh(message, attribute_names=["tool_calls"])
     message.feedback = None
     return message
 
