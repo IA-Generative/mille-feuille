@@ -9,7 +9,8 @@ from app.core.dossier_guard import require_dossier_visible
 from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
 from app.repositories.dossier_repository import DossierRepository
-from app.schemas.chat_tool_call import ChatToolCallOut, ToolCallDecisions
+from app.schemas.chat_tool_call import ChatToolCallOut, QuestionAnswers, ToolCallDecisions
+from app.services.chat_questions import answer_question
 from app.services.chat_tool_calls import DecisionError, decide_batch
 
 # Même garde que les routes `/dossiers/{id}/…` : 404 pour qui ne voit pas le dossier.
@@ -43,3 +44,31 @@ async def decide_tool_calls(
     await repository.delete_chat_events(conversation_id)
     dispatch_chat_response(str(conversation_id), str(dossier_id))
     return [ChatToolCallOut.model_validate(call) for call in calls]
+
+
+@router.post(
+    "/{dossier_id}/conversations/{conversation_id}/tool-calls/{call_id}/answer", response_model=ChatToolCallOut
+)
+async def answer_tool_question(
+    dossier_id: uuid.UUID,
+    conversation_id: uuid.UUID,
+    call_id: uuid.UUID,
+    body: QuestionAnswers,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> ChatToolCallOut:
+    """La réponse à une question à choix de l'assistant : une réponse par question, validée contre les options
+    proposées. Elle relance le chat, qui la lit comme le résultat de sa question. Possible tant qu'aucun autre message
+    n'a été envoyé (409 ensuite)."""
+    repository = DossierRepository(db)
+    conversation = await repository.get_conversation(conversation_id)
+    if conversation is None or conversation.dossier_id != dossier_id or conversation.user_id != user.user_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Conversation introuvable")
+    try:
+        call = await answer_question(db, conversation_id, call_id, body.answers, user_id=user.user_id)
+    except DecisionError as error:
+        code = status.HTTP_409_CONFLICT if error.conflict else status.HTTP_422_UNPROCESSABLE_CONTENT
+        raise HTTPException(code, detail={"code": error.code, "message": error.message}) from error
+    await repository.delete_chat_events(conversation_id)
+    dispatch_chat_response(str(conversation_id), str(dossier_id))
+    return ChatToolCallOut.model_validate(call)
