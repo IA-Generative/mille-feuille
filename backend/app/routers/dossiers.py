@@ -42,6 +42,7 @@ from app.models.dossier_access import Visibility
 from app.models.dossier_event import DossierEventType
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.analysis_collaboration_repository import ElementLockedError
+from app.repositories.chat_tool_call_repository import ChatToolCallRepository
 from app.repositories.document_source_repository import DocumentSourceRepository, SourceNameTakenError
 from app.repositories.dossier_access_repository import DossierAccessRepository
 from app.repositories.dossier_event_repository import EventActor, actor_of
@@ -948,6 +949,8 @@ async def add_message(
     # frontend SSE ne doit voir que les événements de cette nouvelle
     # exécution, pas ceux d'un run précédent.
     await repository.delete_chat_events(conversation_id)
+    # Elle écrit autre chose au lieu de décider : les demandes d'outils en attente n'auront pas de suite.
+    await ChatToolCallRepository(db).supersede_pending(conversation_id)
     conversation = await repository.add_message(conversation, MessageRole.USER, body.content)
     # Déclenche la tâche Celery de réponse au chat : le worker charge
     # l'historique + les synthèses, exécute le graphe LangGraph, dépose

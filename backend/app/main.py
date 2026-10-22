@@ -25,6 +25,7 @@ from app.routers.assist import router as assist_router
 from app.routers.auth import router as auth_router
 from app.routers.cgu import admin_router as cgu_admin_router
 from app.routers.cgu import public_router as cgu_public_router
+from app.routers.chat_tool_calls import router as chat_tool_calls_router
 from app.routers.conversation_tools import router as conversation_tools_router
 from app.routers.conversations import router as conversations_router
 from app.routers.dashboard import router as dashboard_router
@@ -39,6 +40,7 @@ from app.routers.health import router as health_router
 from app.routers.internal import router as internal_router
 from app.routers.internal_agent import agent_conversations_router as internal_agent_conversations_router
 from app.routers.internal_agent import router as internal_agent_router
+from app.routers.internal_chat_tool_calls import router as internal_chat_tool_calls_router
 from app.routers.internal_tools import router as internal_tools_router
 from app.routers.models import router as models_router
 from app.routers.notifications import router as notifications_router
@@ -164,11 +166,13 @@ app.include_router(generated_documents_router, prefix="/api")
 app.include_router(analysis_proposals_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api")
 app.include_router(conversation_tools_router, prefix="/api")
+app.include_router(chat_tool_calls_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(assist_router, prefix="/api")
 app.include_router(internal_router, prefix="/api")
 app.include_router(internal_agent_router, prefix="/api")
 app.include_router(internal_tools_router, prefix="/api")
+app.include_router(internal_chat_tool_calls_router, prefix="/api")
 app.include_router(internal_agent_conversations_router, prefix="/api")
 app.include_router(app_tokens_router, prefix="/api")
 app.include_router(reports_router, prefix="/api")

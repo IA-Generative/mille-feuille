@@ -25,6 +25,7 @@ from .base import Base
 from .cgu import Cgu
 from .cgu_acceptance import CguAcceptance
 from .chat_event import ChatEvent, ChatEventKind
+from .chat_tool_call import ChatToolCall, ChatToolCallStatus
 from .conversation import Conversation, Message, MessageRole, MessageSource
 from .document_draft import (
     DocumentDraft,
@@ -144,6 +145,8 @@ __all__ = [
     "CguAcceptance",
     "ChatEvent",
     "ChatEventKind",
+    "ChatToolCall",
+    "ChatToolCallStatus",
     "Conversation",
     "DocumentPage",
     "DocumentPrediction",

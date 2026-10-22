@@ -40,7 +40,7 @@ async def _view(db: AsyncSession, user: RequestContext, conversation: Conversati
     view = await chat_tools_for(db, user, analyse) if analyse else None
     tools = view.tools if view else []
     return ConversationToolsOut(
-        tools=[ChatToolOut(**vars(tool), given_to_model=tool.given_to_model) for tool in tools],
+        tools=[ChatToolOut(**vars(tool)) for tool in tools],
         excluded=list(conversation.excluded_tools),
         unavailable=view.unavailable if view else [],
     )

@@ -2,7 +2,6 @@ import uuid
 
 from fastapi.testclient import TestClient
 
-from app.services.tools import conversation_tools
 from tests.access_support import As
 from tests.test_agent_tools import add_agent
 from tests.test_dossier_access import _create
@@ -45,7 +44,7 @@ def test_the_chat_offers_the_tools_of_the_analysis_agents_all_active_by_default(
     assert by_id[search]["kind"] == "mcp" and by_id[search]["server_name"] == server["name"]
 
 
-def test_a_tool_that_modifies_data_is_shown_but_never_given_to_the_model_without_confirmation(
+def test_a_tool_that_modifies_data_is_flagged_so_the_menu_can_say_it_asks_for_confirmation(
     client: TestClient, lister: FakeLister
 ) -> None:
     server = create_server(client, visibility="all", tools=["rechercher_texte", "envoyer_courriel"])
@@ -54,9 +53,9 @@ def test_a_tool_that_modifies_data_is_shown_but_never_given_to_the_model_without
 
     by_name = {t["name"]: t for t in client.get(tools_url(dossier_id, conversation_id)).json()["tools"]}
 
-    assert by_name["rechercher_texte"]["given_to_model"] is True
-    assert (by_name["envoyer_courriel"]["side_effect"], by_name["envoyer_courriel"]["given_to_model"]) == (True, False)
-    assert conversation_tools.CHAT_CONFIRMATION_AVAILABLE is False  # passe à vrai avec #342
+    assert by_name["rechercher_texte"]["side_effect"] is False
+    assert by_name["envoyer_courriel"]["side_effect"] is True
+    assert "given_to_model" not in by_name["envoyer_courriel"]  # plus de verrou : la personne confirme l'appel
 
 
 def test_the_person_can_remove_tools_for_the_conversation(client: TestClient, lister: FakeLister) -> None:

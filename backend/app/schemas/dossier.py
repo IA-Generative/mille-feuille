@@ -18,6 +18,12 @@ from app.models.execution_log import ExecutionLogLevel
 from app.models.feedback import FeedbackReasonCode, FeedbackValue
 from app.models.summary import SummaryStatus
 from app.schemas.analyse import StatusDefinitionOut
+from app.schemas.chat_tool_call import (
+    MAX_CALLS_PER_BATCH,
+    ChatToolCallIn,
+    ChatToolCallOut,
+    InternalChatToolCallOut,
+)
 from app.schemas.document_source import DocumentSourceOut
 
 
@@ -202,6 +208,8 @@ class MessageSourceIn(BaseModel):
 class InternalMessageIn(BaseModel):
     content: str
     sources: list[MessageSourceIn] = []
+    # Les appels d'outils de ce tour : en attente de décision, ou déjà exécutés (lecture seule).
+    tool_calls: list[ChatToolCallIn] = Field(default_factory=list, max_length=MAX_CALLS_PER_BATCH)
 
 
 class DocumentPageOut(BaseModel):
@@ -394,6 +402,8 @@ class MessageOut(BaseModel):
     created_at: datetime
     sources: list[MessageSourceOut]
     feedback: FeedbackOut | None
+    # Les appels d'outils du modèle portés par ce message (un lot) : la carte de confirmation s'en sert.
+    tool_calls: list[ChatToolCallOut] = []
 
 
 class ConversationOut(BaseModel):
@@ -613,6 +623,8 @@ class InternalMessageOut(BaseModel):
     role: MessageRole
     content: str
     created_at: datetime
+    # Les appels d'outils de ce message, pour rejouer l'historique tel que le modèle l'a vécu.
+    tool_calls: list[InternalChatToolCallOut] = []
 
 
 class InternalConversationOut(BaseModel):

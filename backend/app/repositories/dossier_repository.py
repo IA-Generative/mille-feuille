@@ -398,6 +398,7 @@ class DossierRepository:
                 sources_load.selectinload(MessageSource.pages),
                 sources_load.selectinload(MessageSource.bounding_boxes),
                 feedback_load,
+                selectinload(Conversation.messages).selectinload(Message.tool_calls),
             ]
         return select(Conversation).options(*options).execution_options(populate_existing=True)
 
@@ -415,6 +416,7 @@ class DossierRepository:
                 selectinload(Message.sources).selectinload(MessageSource.pages),
                 selectinload(Message.sources).selectinload(MessageSource.bounding_boxes),
                 selectinload(Message.feedbacks).selectinload(Feedback.reason_rows),
+                selectinload(Message.tool_calls),
             )
             .order_by(Message.created_at.desc(), Message.id.desc())
             .limit(limit + 1)
