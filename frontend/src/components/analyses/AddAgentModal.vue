@@ -7,8 +7,6 @@ import { suggestAgentPrompt } from "@/composables/useLlmAssist";
 import ModelPicker from "@/components/ModelPicker.vue";
 import ToolSelectionField from "@/components/tools/ToolSelectionField.vue";
 import { useTools } from "@/composables/useTools";
-import { AGENT_TOOL_LABELS, type AgentTool } from "@/types/analyse";
-import { TOOLS_PREVIEW } from "@/utils/featureFlags";
 
 const props = defineProps<{ analyseId: string }>();
 const opened = defineModel<boolean>("opened", { default: false });
@@ -17,30 +15,22 @@ const emit = defineEmits<{ created: [] }>();
 const { addAgent } = useAnalyses();
 const { defaultToolIds, fetchTools } = useTools();
 
-const toolOptions = (Object.keys(AGENT_TOOL_LABELS) as AgentTool[]).map((tool) => ({
-  name: tool,
-  value: tool,
-  label: AGENT_TOOL_LABELS[tool],
-}));
-
 const name = ref("");
 const prompt = ref("");
-const tools = ref<AgentTool[]>([]);
-// Aperçu (VITE_TOOLS_PREVIEW) : la sélection n'est pas encore transmise à l'API.
+// Les outils internes sont actifs par défaut pour un nouvel agent.
 const toolIds = ref<string[]>([]);
+const error = ref("");
 const output = ref(true);
 const model = ref("");
 const isSuggesting = ref(false);
 
 watch(opened, async (isOpened) => {
   if (isOpened) {
-    if (TOOLS_PREVIEW) {
-      await fetchTools();
-      toolIds.value = defaultToolIds();
-    }
+    await fetchTools();
+    toolIds.value = defaultToolIds();
+    error.value = "";
     name.value = "";
     prompt.value = "";
-    tools.value = [];
     output.value = true;
     model.value = "";
   }
@@ -59,14 +49,14 @@ async function applySuggestion(suggestionModel: string | null) {
 
 async function submit() {
   if (!name.value.trim() || !prompt.value.trim()) return;
-  await addAgent(
-    props.analyseId,
-    name.value.trim(),
-    prompt.value.trim(),
-    tools.value,
-    output.value,
-    model.value || null,
-  );
+  error.value = "";
+  try {
+    await addAgent(props.analyseId, name.value.trim(), prompt.value.trim(), toolIds.value, output.value, model.value || null);
+  } catch (e) {
+    // Un outil refusé (serveur inaccessible, tool désautorisé…) : on garde la fenêtre ouverte et on dit pourquoi.
+    error.value = e instanceof Error ? e.message : "La création a échoué.";
+    return;
+  }
   opened.value = false;
   emit("created");
 }
@@ -104,16 +94,8 @@ async function submit() {
       :loading="isSuggesting"
       @click="applySuggestion"
     />
-    <ToolSelectionField v-if="TOOLS_PREVIEW" v-model="toolIds" class="fr-mt-2w" />
-    <DsfrCheckboxSet
-      v-else
-      v-model="tools"
-      legend="Outils disponibles"
-      :options="toolOptions"
-      inline
-      small
-      class="fr-mt-2w"
-    />
+    <ToolSelectionField v-model="toolIds" class="fr-mt-2w" />
+    <DsfrAlert v-if="error" type="error" small :description="error" class="fr-mt-2w" />
     <DsfrToggleSwitch
       v-model="output"
       label="Présenter le résultat de cet agent dans la page de résultat du dossier"

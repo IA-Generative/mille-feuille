@@ -18,7 +18,7 @@ onMounted(() => fetchTools());
       <span class="tool-selection-field__legend">Outils de l'agent</span>
       <DsfrButton label="Choisir les outils" icon="ri-tools-line" secondary size="sm" @click="isPickerOpened = true" />
     </div>
-    <ToolSelectionSummary :tool-ids="toolIds" />
+    <ToolSelectionSummary :tool-ids="toolIds" @remove="toolIds = toolIds.filter((id) => id !== $event)" />
     <ToolPickerModal v-model:opened="isPickerOpened" :tool-ids="toolIds" @confirm="toolIds = $event" />
   </div>
 </template>
