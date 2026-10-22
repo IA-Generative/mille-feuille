@@ -136,6 +136,25 @@ const toolTestRoute = (route, path) => {
   return true;
 };
 
+let chatExcluded = [];
+const chatTool = (id, name, description, kind, server_name, side_effect = false) => ({ id, name, description, kind, server_name, side_effect, given_to_model: !side_effect });
+const CHAT_TOOLS = [
+  chatTool("calculatrice", "Calculatrice", "Effectue des calculs exacts : montants, taux, totaux, pourcentages.", "internal", null),
+  chatTool("calcul_dates", "Calcul de dates", "Jour de la semaine, ajout d'une durée, écart entre deux dates, bornes d'un mois ou d'un trimestre, date du jour.", "internal", null),
+  chatTool("srv-legifrance-rechercher_texte", "rechercher_texte", "Recherche un texte de loi ou de règlement par mots-clés.", "mcp", "Légifrance"),
+  chatTool("srv-annuaire-trouver_service", "trouver_service", "Trouve le service compétent pour une démarche.", "mcp", "Annuaire des services"),
+  chatTool("srv-annuaire-envoyer_courriel", "envoyer_courriel", "Envoie un courriel à un service.", "mcp", "Annuaire des services", true),
+];
+const conversationToolsRoute = (route, path) => {
+  if (path !== "/api/dossiers/dos-1/conversations/conv-1/tools") return false;
+  if (route.request().method() === "PUT") {
+    const known = new Set(CHAT_TOOLS.map((t) => t.id));
+    chatExcluded = [...new Set(route.request().postDataJSON().excluded)].filter((id) => known.has(id));
+  }
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ tools: CHAT_TOOLS, excluded: chatExcluded, unavailable: ["srv-supprime-ancien_tool"] }) });
+  return true;
+};
+
 const agentToolsRoute = (route, path) => {
   const json = (body) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   const agent = analyse.agents[0];
@@ -164,7 +183,7 @@ const handler = (route) => {
     SERVERS = [added, ...SERVERS];
     return json(added, 201);
   }
-  if (agentToolsRoute(route, path) || toolTestRoute(route, path)) return;
+  if (agentToolsRoute(route, path) || toolTestRoute(route, path) || conversationToolsRoute(route, path)) return;
   if (path === "/api/auth/me") return json(profile);
   if (path === "/api/cgu/acceptance") return json({ accepted: true, cgu: null });
   if (path === "/api/cgu") return json({}, 404);
@@ -203,7 +222,7 @@ if (process.argv.includes("--verifier-masque")) {
 
   await page.goto(`${baseUrl}/dossiers/dos-1`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
-  expect(await page.getByRole("button", { name: "Outils de la conversation" }).count() === 0, "Chat : pas de menu des outils");
+  expect(await page.getByRole("button", { name: "Outils de la conversation" }).count() === 1, "Chat : le menu des outils (réel) est visible");
 
   await browser.close();
   process.exit(failures.length ? 1 : 0);
