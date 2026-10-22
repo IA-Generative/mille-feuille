@@ -2,8 +2,8 @@
 ceux de ses agents, filtrés par les droits de la personne qui discute. Elle peut en **retirer** pour sa conversation,
 jamais en ajouter.
 
-Tant que la confirmation avant un outil qui modifie des données n'existe pas (#342), **le chat ne donne jamais** un tel
-outil au modèle : le menu le montre, désactivé, et le worker l'écarte."""
+Un outil qui **modifie des données** n'est jamais appelé sans l'accord de la personne : le modèle le demande, la demande
+reste dans la discussion, la personne décide quand elle veut (voir `services/chat_tool_calls.py`)."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -16,9 +16,6 @@ from app.services.tools.definitions import resolve_tool_definitions
 from app.services.tools.ids import unique
 from app.services.tools.internal_catalog import available_internal_tools
 
-# Passe à vrai avec #342 : le chat demande alors une confirmation avant d'appeler un outil qui modifie des données.
-CHAT_CONFIRMATION_AVAILABLE = False
-
 
 @dataclass(frozen=True)
 class ChatTool:
@@ -28,11 +25,6 @@ class ChatTool:
     kind: str  # "internal" | "mcp"
     server_name: str | None
     side_effect: bool
-
-    @property
-    def given_to_model(self) -> bool:
-        """Un outil qui modifie des données n'est donné au modèle que si une confirmation existe."""
-        return CHAT_CONFIRMATION_AVAILABLE or not self.side_effect
 
 
 @dataclass(frozen=True)

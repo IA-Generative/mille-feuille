@@ -12,6 +12,7 @@ from app.models.base import Base, TimestampMixin, UUIDMixin
 
 if TYPE_CHECKING:
     from app.models.chat_event import ChatEvent
+    from app.models.chat_tool_call import ChatToolCall
     from app.models.document_page import BoundingBox, DocumentPage
     from app.models.dossier import Dossier, DossierDocument, ExecutionStep
     from app.models.feedback import Feedback
@@ -130,6 +131,12 @@ class Message(UUIDMixin, TimestampMixin, Base):
         back_populates="message",
         cascade="all, delete-orphan",
         order_by="Feedback.created_at",
+    )
+    # Les appels d'outils du modèle portés par ce message (un lot, jusqu'à 5), avec leur décision et leur résultat.
+    tool_calls: Mapped[list["ChatToolCall"]] = relationship(
+        back_populates="message",
+        cascade="all, delete-orphan",
+        order_by="ChatToolCall.position",
     )
 
     @property

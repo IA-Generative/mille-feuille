@@ -66,10 +66,8 @@ class ChatToolOut(BaseModel):
     description: str
     kind: Literal["internal", "mcp"]
     server_name: str | None = None
+    # Il modifie des données : le modèle le demande, la personne confirme avant l'appel.
     side_effect: bool
-    # Le modèle peut-il l'appeler dans le chat ? Faux pour un outil qui modifie des données, tant qu'il n'y a pas de
-    # confirmation (#342) : le menu le montre désactivé.
-    given_to_model: bool
 
 
 class ConversationToolsOut(BaseModel):
