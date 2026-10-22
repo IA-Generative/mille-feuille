@@ -706,6 +706,15 @@ class InternalAgentOut(BaseModel):
     model: str | None
 
 
+class InternalKnowledgeCollectionOut(BaseModel):
+    """Une collection de la base de connaissances que l'analyse autorise. Les droits ne sont pas contrôlés ici : le
+    fournisseur répond selon la personne au moment de la recherche."""
+
+    source_id: uuid.UUID
+    collection_id: str
+    name: str
+
+
 class InternalAnalyseOut(BaseModel):
     """Définitions de l'analyse (labels, entités, prompts, agents) pour le
     worker. Les agents sont gérés par la tâche LangGraph qui les exécute
@@ -717,6 +726,7 @@ class InternalAnalyseOut(BaseModel):
     classification: InternalClassificationOut
     extraction: InternalExtractionOut
     agents: list[InternalAgentOut] = []
+    knowledge_collections: list[InternalKnowledgeCollectionOut] = []
 
 
 class WorkflowStatusUpdate(BaseModel):

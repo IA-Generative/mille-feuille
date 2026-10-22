@@ -556,6 +556,23 @@ class AnalyseRepository:
         )
         return True
 
+    # --- Collections de la base de connaissances (issue #358) ---
+
+    async def update_knowledge_collections(self, analyse: Analyse, collections: list[dict]) -> None:
+        """Remplace la liste ; l'état précédent est conservé dans l'historique (restaurable). Rien ne change : pas de
+        version inutile."""
+        if collections == analyse.knowledge_collections:
+            return
+        self._record_version(analyse, VersionedField.KNOWLEDGE_COLLECTIONS, list(analyse.knowledge_collections))
+        analyse.knowledge_collections = collections
+        await self.db.commit()
+        await self.db.refresh(analyse)
+
+    def knowledge_collections_version(self, analyse: Analyse, version_id: uuid.UUID):
+        return next(
+            (v for v in self.field_versions(analyse, VersionedField.KNOWLEDGE_COLLECTIONS) if v.id == version_id), None
+        )
+
     # --- Agents ---
 
     async def add_agent(

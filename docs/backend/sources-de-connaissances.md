@@ -37,3 +37,18 @@ Les quotas par run et par personne et le journal des appels de recherche viennen
 `GET {url}/v1/collections?page_size=1` avec les en-têtes d'authentification ; la réponse doit être un JSON avec une liste `items`. Erreurs à message affichable : `401/403` (authentification refusée), autre statut ou JSON invalide (« ne respecte pas le contrat »), fournisseur injoignable. Les redirections ne sont pas suivies (la garde d'URL n'a validé que l'adresse donnée). Le sondage passe par le client du contrat (`list_collections`, une page d'un élément) ; il est isolé derrière `SourceProbe` pour les tests.
 
 Stockage : table `knowledge_sources` (migration `b5c6d7e8f9a0`), qui réutilise les types `tool_auth_mode` et `tool_visibility`.
+
+## Collections autorisées par analyse (#358)
+
+L'analyse garde la liste des collections que son chat et ses agents peuvent interroger : `analyses.knowledge_collections` (migration `c6d7e8f9a0b1`), liste de `{source_id, collection_id, name}`, **versionnée** comme les autres champs d'une analyse (`VersionedField.KNOWLEDGE_COLLECTIONS` : chaque changement est une version, restaurable ; la liste restaurée devient elle-même une version).
+
+| Route | Rôle |
+| --- | --- |
+| `GET /api/analyses/{id}/knowledge-collections` | les collections et **leur état pour la personne qui demande**, le nom à jour, et l'historique |
+| `PUT /api/analyses/{id}/knowledge-collections` | remplace la liste (au plus 50) |
+| `POST /api/analyses/{id}/knowledge-collections/restore/{version_id}` | restaure une liste antérieure |
+
+- **Seules les collections ajoutées sont contrôlées** (comme les outils d'un agent) : source visible de la personne, collection retrouvée chez le fournisseur **avec son identité**, nom enregistré = celui du fournisseur. Une collection déjà choisie reste acceptée même devenue inaccessible, pour qu'on puisse modifier le reste de la liste. Refus : 422 `collections_refusees` avec la raison de chacune (`introuvable chez le fournisseur`, `accès refusé`, `source inaccessible ou qui ne répond pas`) ; rien n'est enregistré.
+- **État affiché** : `available`, `not_found`, `forbidden` ou `source_unavailable` (source supprimée, plus visible, ou fournisseur qui ne répond pas : les autres collections s'affichent quand même). Il dépend de la personne : deux personnes peuvent ne pas voir la même chose.
+- **Le worker** lit la liste dans `GET /api/internal/analyses/{id}` (`knowledge_collections`). Les droits ne sont pas contrôlés à cette lecture : c'est le fournisseur qui répond selon la personne au moment de la recherche (#359).
+
