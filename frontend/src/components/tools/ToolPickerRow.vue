@@ -2,6 +2,7 @@
 import { useKnowledgeCollections } from "@/composables/useKnowledgeCollections";
 import ToolTestButton from "@/components/tools/ToolTestButton.vue";
 import type { Tool } from "@/types/tool";
+import { TOOLS_PREVIEW } from "@/utils/featureFlags";
 
 defineProps<{ tool: Tool }>();
 const { selected: collections } = useKnowledgeCollections();
@@ -14,7 +15,7 @@ const selected = defineModel<string[]>({ required: true });
       <template #label>
         <span class="tool-picker-row__name">{{ tool.name }}</span>
         <span class="tool-picker-row__description">{{ tool.description }}</span>
-        <span v-if="tool.config === 'collections'" class="tool-picker-row__config">
+        <span v-if="TOOLS_PREVIEW && tool.config === 'collections'" class="tool-picker-row__config">
           <VIcon name="ri-book-2-line" scale="0.7" /> {{ collections.length }} collection{{ collections.length > 1 ? "s" : "" }} de l'analyse
         </span>
       </template>

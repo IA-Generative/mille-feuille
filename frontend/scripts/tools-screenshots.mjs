@@ -38,8 +38,8 @@ const analyse = {
       name: "Contrôle de conformité juridique",
       prompt: "Vérifie que la demande respecte les textes applicables et cite les articles pertinents.",
       prompt_versions: [],
-      tools: [],
-      tools_versions: [],
+      tools: ["calculatrice", "recherche_web", "base_connaissances", "srv-legifrance-rechercher_texte", "srv-supprime-ancien_tool"],
+      tools_versions: [{ id: "tv-1", created_at: iso(-4), content: ["calculatrice", "recherche_web"] }],
       output: true,
       output_versions: [],
       model: null,
@@ -128,6 +128,18 @@ const DISCOVERED = [
   { name: "creer_fiche", description: "Crée une nouvelle fiche.", side_effect: true },
 ];
 
+const agentToolsRoute = (route, path) => {
+  const json = (body) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  const agent = analyse.agents[0];
+  if (path === `/api/analyses/${ANALYSE_ID}/agents/ag-1/tools` && route.request().method() === "PUT") {
+    agent.tools_versions = [{ id: `tv-${Date.now()}`, created_at: new Date().toISOString(), content: agent.tools }, ...agent.tools_versions];
+    agent.tools = route.request().postDataJSON().tools;
+    json(agent);
+    return true;
+  }
+  return false;
+};
+
 const handler = (route) => {
   const path = new URL(route.request().url()).pathname;
   const json = (body, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
@@ -144,6 +156,7 @@ const handler = (route) => {
     SERVERS = [added, ...SERVERS];
     return json(added, 201);
   }
+  if (agentToolsRoute(route, path)) return;
   if (path === "/api/auth/me") return json(profile);
   if (path === "/api/cgu/acceptance") return json({ accepted: true, cgu: null });
   if (path === "/api/cgu") return json({}, 404);
@@ -175,8 +188,7 @@ if (process.argv.includes("--verifier-masque")) {
 
   await page.goto(`${baseUrl}/analyses/${ANALYSE_ID}/agents`, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
-  expect(await page.getByText("Outils disponibles").count() > 0, "Agents : les cases à cocher d'origine reviennent");
-  expect(await page.getByRole("button", { name: "Choisir les outils" }).count() === 0, "Agents : pas de sélecteur simulé");
+  expect(await page.getByRole("button", { name: "Choisir les outils" }).count() > 0, "Agents : le sélecteur d'outils (réel) est visible");
   // (la case « Base de connaissances » de l'éditeur d'origine existe : on vise le titre du bloc simulé)
   expect(await page.getByRole("heading", { name: "Base de connaissances" }).count() === 0, "Agents : pas de collections simulées");
 
@@ -262,6 +274,16 @@ await page.setViewportSize({ width: 1280, height: 800 });
 // 4. Sélecteur de tools dans l'onglet Agents de l'analyse
 await page.goto(`${baseUrl}/analyses/${ANALYSE_ID}/agents`, { waitUntil: "networkidle" });
 await shot("selecteur-agent.png");
+
+// 4 ter. Un outil devenu indisponible est signalé, la personne le retire et enregistre
+const editor = page.locator(".agent-tools-editor");
+await shot("agent-outil-indisponible.png", editor);
+await page.getByRole("button", { name: /Retirer l'outil indisponible/ }).click();
+await page.getByRole("button", { name: "Enregistrer", exact: true }).last().click();
+await settle(600);
+await page.getByText("Historique des versions").last().click();
+await settle(400);
+await shot("agent-outils-enregistres.png", editor);
 
 // 4 bis. Collections de la base de connaissances (analyse)
 await page.screenshot({ path: resolve(outDir, "collections-analyse.png"), fullPage: true });

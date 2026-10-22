@@ -7,7 +7,7 @@
 | Écran | État | Captures |
 | --- | --- | --- |
 | **Mes outils** (`/outils`) : liste, recherche, pagination, ajout d'un serveur MCP, import, actualiser, supprimer | **réel**, branché sur l'API (#333, #334, #335) | `page-outils*.png`, `ajout-serveur*.png`, `import-tools.png` |
-| Sélecteur d'outils d'un agent | simulé : la sélection n'est pas enregistrée (#336, #337) | `selecteur-*.png` |
+| **Outils d'un agent** : sélecteur (recherche, filtres, pagination), enregistrement, historique et restauration, outil devenu indisponible | **réel** (#336, #337) | `selecteur-*.png`, `agent-*.png` |
 | Bouton « Tester » d'un outil | simulé (#339) | `test-outil-*.png` |
 | Menu des outils du chat, confirmation avant un outil qui modifie des données | simulé (#341, #342) | `chat-*.png` |
 | Collections de la base de connaissances d'une analyse | simulé, épique « base de connaissances » à venir | `collections-*.png` |
@@ -16,7 +16,6 @@
 
 Une seule bascule, `VITE_TOOLS_PREVIEW` (`frontend/src/utils/featureFlags.ts`), les affiche. Sans elle :
 
-- l'éditeur d'un agent garde ses cases à cocher d'origine ;
 - le chat est inchangé ;
 - il n'y a ni bouton « Tester » ni bloc de collections.
 

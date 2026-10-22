@@ -1,23 +1,6 @@
 import type { CustomField } from "@/types/tracking";
 export type EntityType = "texte" | "date" | "nombre" | "booléen" | "identifiant";
 
-export type AgentTool =
-  | "lecture_document"
-  | "recherche_web"
-  | "base_connaissances"
-  | "appel_agent"
-  | "calculatrice"
-  | "verification_coherence";
-
-export const AGENT_TOOL_LABELS: Record<AgentTool, string> = {
-  lecture_document: "Lecture de document",
-  recherche_web: "Recherche web",
-  base_connaissances: "Base de connaissances",
-  appel_agent: "Appel à un autre agent",
-  calculatrice: "Calculatrice",
-  verification_coherence: "Vérification de cohérence",
-};
-
 /** Un instantané d'une valeur passée, horodaté, pour permettre une restauration. */
 export interface Version<T> {
   id: string;
@@ -74,8 +57,9 @@ export interface Agent {
   name: string;
   prompt: string;
   promptVersions: PromptVersion[];
-  tools: AgentTool[];
-  toolsVersions: Version<AgentTool[]>[];
+  /** Identifiants d'outils : un tool interne (`calculatrice`) ou un tool d'un serveur MCP (voir useTools). */
+  tools: string[];
+  toolsVersions: Version<string[]>[];
   /** Si vrai, le résultat de cet agent est présenté comme une sortie visible dans la page de résultat du dossier. */
   output: boolean;
   outputVersions: Version<boolean>[];
