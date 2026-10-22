@@ -8,6 +8,4 @@ export interface ChatTool {
   serverName: string | null;
   /** Il modifie des données : il demandera une confirmation. */
   sideEffect: boolean;
-  /** Le modèle peut-il l'appeler ? Faux pour un outil qui modifie des données, tant qu'il n'y a pas de confirmation. */
-  givenToModel: boolean;
 }

@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.chat_tool_call import ChatToolCallStatus
 
@@ -57,9 +57,19 @@ class InternalChatToolCallOut(BaseModel):
     result: str | None
 
 
+MAX_COMMENT_LENGTH = 500
+
+
 class ToolCallDecision(BaseModel):
     id: uuid.UUID
     allow: bool
+    # Pour un refus : ce que la personne veut que l'assistant fasse à la place. Ignoré pour une autorisation.
+    comment: str | None = Field(default=None, max_length=MAX_COMMENT_LENGTH)
+
+    @field_validator("comment")
+    @classmethod
+    def _blank_is_none(cls, value: str | None) -> str | None:
+        return (value or "").strip() or None
 
 
 class ToolCallDecisions(BaseModel):

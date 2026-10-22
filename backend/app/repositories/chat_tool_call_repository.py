@@ -70,9 +70,12 @@ class ChatToolCallRepository:
         await self.db.commit()
         return len(calls)
 
-    async def decide(self, call: ChatToolCall, *, allow: bool, user_id: str) -> None:
+    async def decide(self, call: ChatToolCall, *, allow: bool, user_id: str, comment: str | None = None) -> None:
+        """Un refus porte le texte de la personne s'il y en a un : le modèle le lit comme résultat de l'appel."""
         call.status = ChatToolCallStatus.APPROVED if allow else ChatToolCallStatus.REFUSED
-        call.result = None if allow else REFUSED_RESULT
+        call.result = (
+            None if allow else (f"{REFUSED_RESULT} Elle précise : « {comment} »" if comment else REFUSED_RESULT)
+        )
         call.decided_by = user_id
         call.decided_at = datetime.now(UTC)
 

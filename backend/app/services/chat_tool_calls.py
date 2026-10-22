@@ -48,8 +48,9 @@ async def decide_batch(
     if {call.id for call in still_pending} != set(ids):
         raise DecisionError("lot_incomplet", "Il faut répondre à toutes les demandes de ce message.")
 
-    allowed = {decision.id: decision.allow for decision in decisions}
+    by_id = {decision.id: decision for decision in decisions}
     for call in calls:
-        await repository.decide(call, allow=allowed[call.id], user_id=user_id)
+        decision = by_id[call.id]
+        await repository.decide(call, allow=decision.allow, user_id=user_id, comment=decision.comment)
     await db.commit()
     return sorted(calls, key=lambda call: call.position)
