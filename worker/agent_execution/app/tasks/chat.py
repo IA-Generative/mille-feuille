@@ -17,8 +17,10 @@ reconstruit le contexte à partir de l'historique de la conversation.
 """
 
 import logging
+import uuid
 
 from app import api_client, usage
+from app.agent_tool_set import build_extra_tools
 from app.analysis_tools import AnalysisProposer
 from app.celery_app import celery_app
 from app.chat_graph import run_chat as run_chat_graph
@@ -116,7 +118,17 @@ def run_chat(self, conversation_id: str, dossier_id: str) -> None:
                 source_message_id=_last_user_message_id(conversation),
             )
             note_writer = NoteWriter(client=client, dossier_id=dossier_id, user_id=conversation.get("user_id", ""))
-            tools = AgentTools(dossier, analysis=proposer, notes=note_writer)
+            # Les outils que l'analyse autorise (ses agents), moins ceux que la personne a retirés : calculatrice,
+            # dates, serveurs MCP, appelés en son nom. Un outil qui modifie des données n'est pas donné : pas de
+            # confirmation pour l'instant.
+            extra = build_extra_tools(
+                client,
+                conversation.get("tool_ids", []),
+                acting_user=conversation.get("user_id"),
+                run_id=f"chat-{conversation_id}-{uuid.uuid4().hex[:8]}",
+                allow_side_effects=False,
+            )
+            tools = AgentTools(dossier, analysis=proposer, notes=note_writer, extra=extra)
 
             # 3. Récupère les synthèses existantes et les notes internes du dossier.
             syntheses = _extract_syntheses(dossier)

@@ -81,6 +81,11 @@ class AgentTools:
     # --- Analyse de dossier : propositions (#115) ---
 
     @property
+    def extra_notice(self) -> str:
+        """Ce que le modèle doit savoir de ses outils choisis (sorties externes non fiables, outils absents)."""
+        return self._extra.notice if self._extra else ""
+
+    @property
     def has_analysis(self) -> bool:
         """Le chat peut-il proposer de modifier l'analyse de ce dossier ?"""
         return self._analysis is not None and self._analysis.available

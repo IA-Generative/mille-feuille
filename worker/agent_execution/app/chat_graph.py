@@ -67,6 +67,7 @@ def _build_system_prompt(
     can_propose_updates: bool = False,
     notes: list[str] | None = None,
     can_add_notes: bool = False,
+    tools_notice: str = "",
 ) -> str:
     """Construit le prompt système pour le chat : rôle de l'assistant,
     contexte du dossier (synthèses existantes), et consignes de réponse."""
@@ -137,6 +138,9 @@ def _build_system_prompt(
             output = s.get("output", "")
             if output:
                 parts.append(f"\n[{label}]\n{output}")
+
+    if tools_notice:
+        parts.extend(["", tools_notice])
 
     return "\n".join(parts)
 
@@ -279,6 +283,7 @@ def run_chat(
         can_propose_updates=tools.has_analysis,
         notes=notes,
         can_add_notes=tools.can_add_notes,
+        tools_notice=tools.extra_notice,
     )
 
     graph = build_chat_graph()
