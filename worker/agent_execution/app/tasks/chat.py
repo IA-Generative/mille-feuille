@@ -231,6 +231,7 @@ def run_chat(self, conversation_id: str, dossier_id: str) -> None:
                 content=answer,
                 sources=_sources_to_api(sources),
                 tool_calls=tools.confirmation_batch,
+                external_sources=tools.external_sources(),
             )
 
             # Émet l'événement done pour fermer le flux SSE côté frontend.

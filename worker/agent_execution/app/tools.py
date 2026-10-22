@@ -107,6 +107,10 @@ class AgentTools:
     def confirmation_info(self, name: str) -> dict[str, str]:
         return self._extra.confirmation_info(name) if self._extra else {}
 
+    def external_sources(self) -> list[dict]:
+        """Les sources de la base de connaissances que les recherches de cette exécution ont trouvées."""
+        return self._extra.external_sources if self._extra else []
+
     def has_extra(self, name: str) -> bool:
         return bool(self._extra and self._extra.owns(name))
 
