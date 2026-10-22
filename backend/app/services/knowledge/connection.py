@@ -6,10 +6,9 @@ Le client réseau est isolé derrière `SourceProbe` : les routes en dépendent,
 
 from typing import Protocol
 
-import httpx2
-
 from app.config import ToolSettings
 from app.models.tool import ToolAuthMode
+from app.services.knowledge.client import HttpKnowledgeClient, KnowledgeClient, KnowledgeError
 from app.services.tools.credentials import headers_for
 from app.services.tools.identity_tokens import IdentityTokens
 from app.services.tools.url_guard import ensure_safe_url
@@ -24,28 +23,31 @@ class SourceProbe(Protocol):
 
 
 class HttpSourceProbe:
-    """Client réel. `transport` sert aux tests (appel en mémoire)."""
+    """Vérifie la connexion avec le client du contrat (`list_collections`, une page d'un élément)."""
 
-    def __init__(self, transport: httpx2.AsyncBaseTransport | None = None) -> None:
-        self._transport = transport
+    def __init__(self, client: KnowledgeClient | None = None) -> None:
+        self._client = client or HttpKnowledgeClient()
 
     async def probe(self, url: str, headers: dict[str, str], timeout: float) -> None:
         try:
-            async with httpx2.AsyncClient(headers=headers, timeout=timeout, transport=self._transport) as client:
-                # Les redirections ne sont pas suivies : la garde d'URL n'a validé que l'adresse donnée.
-                response = await client.get(f"{url.rstrip('/')}/v1/collections", params={"page_size": 1})
-        except httpx2.HTTPError as error:
-            raise ProbeError("Le fournisseur ne répond pas.") from error
-        if response.status_code in (401, 403):
-            raise ProbeError("Le fournisseur a refusé l'authentification.")
-        if response.status_code != 200:
-            raise ProbeError("Le fournisseur ne répond pas comme le contrat de la base de connaissances.")
-        try:
-            body = response.json()
-        except ValueError as error:
-            raise ProbeError("La réponse du fournisseur n'est pas du JSON.") from error
-        if not isinstance(body, dict) or not isinstance(body.get("items"), list):
-            raise ProbeError("La réponse du fournisseur ne respecte pas le contrat (liste de collections attendue).")
+            await self._client.list_collections(url, headers, page=1, page_size=1, q=None)
+        except KnowledgeError as error:
+            raise ProbeError(error.message) from error
+
+
+async def prepare_call(
+    url: str,
+    auth_mode: ToolAuthMode,
+    *,
+    acting_user: str | None,
+    audience: str | None = None,
+    identity_tokens: IdentityTokens | None = None,
+) -> tuple[str, dict[str, str]]:
+    """L'URL vérifiée (garde anti-SSRF, refaite à chaque appel) et les en-têtes d'authentification, au nom de la
+    personne. Lève `UnsafeUrlError` ou `CredentialsUnavailableError` : la route les traduit en réponses."""
+    safe_url = await ensure_safe_url(url, ToolSettings())
+    headers = await headers_for(auth_mode, acting_user=acting_user, audience=audience, identity_tokens=identity_tokens)
+    return safe_url, headers
 
 
 async def check_source(
@@ -59,8 +61,8 @@ async def check_source(
 ) -> str:
     """Renvoie l'URL vérifiée. Lève `UnsafeUrlError`, `CredentialsUnavailableError` ou `ProbeError` : la route les
     traduit en réponses."""
-    settings = ToolSettings()
-    safe_url = await ensure_safe_url(url, settings)
-    headers = await headers_for(auth_mode, acting_user=acting_user, audience=audience, identity_tokens=identity_tokens)
-    await probe.probe(safe_url, headers, settings.TOOL_DISCOVERY_TIMEOUT_SECONDS)
+    safe_url, headers = await prepare_call(
+        url, auth_mode, acting_user=acting_user, audience=audience, identity_tokens=identity_tokens
+    )
+    await probe.probe(safe_url, headers, ToolSettings().TOOL_DISCOVERY_TIMEOUT_SECONDS)
     return safe_url

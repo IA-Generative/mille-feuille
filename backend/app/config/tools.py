@@ -20,6 +20,10 @@ class ToolSettings(BaseSettings):
     TOOL_CALLS_PER_RUN: int = 20
     TOOL_CALLS_PER_MINUTE: int = 60
 
+    # Fournisseur de collections (base de connaissances) : taille maximale d'une réponse lue, en octets. Le délai est
+    # celui d'un appel de tool.
+    KNOWLEDGE_RESPONSE_MAX_BYTES: int = 2_000_000
+
     model_config = SettingsConfigDict(case_sensitive=True, env_file=(".env", ".env.local"), extra="ignore")
 
     @property
