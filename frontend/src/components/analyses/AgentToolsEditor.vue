@@ -1,56 +1,56 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
+import ToolSelectionField from "@/components/tools/ToolSelectionField.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
-import { AGENT_TOOL_LABELS, type Agent, type AgentTool } from "@/types/analyse";
+import { useTools } from "@/composables/useTools";
+import type { Agent } from "@/types/analyse";
 
 const props = defineProps<{ analyseId: string; agent: Agent }>();
 
 const { updateAgentTools, restoreAgentToolsVersion } = useAnalyses();
+const { toolNames } = useTools();
 
-const toolOptions = (Object.keys(AGENT_TOOL_LABELS) as AgentTool[]).map((tool) => ({
-  name: tool,
-  value: tool,
-  label: AGENT_TOOL_LABELS[tool],
-}));
+const draftTools = ref<string[]>([...props.agent.tools]);
+const isSaving = ref(false);
+const error = ref("");
 
-const draftTools = ref<AgentTool[]>([...props.agent.tools]);
-const isDirty = ref(false);
-
+// Le brouillon suit l'agent quand il change (enregistrement, restauration d'une version).
 watch(
   () => props.agent.tools,
-  (tools) => {
-    draftTools.value = [...tools];
-    isDirty.value = false;
-  },
+  (tools) => (draftTools.value = [...tools]),
 );
 
-watch(
-  draftTools,
-  (tools) => {
-    isDirty.value = JSON.stringify([...tools].sort()) !== JSON.stringify([...props.agent.tools].sort());
-  },
-  { deep: true },
+const isDirty = computed(
+  () => JSON.stringify([...draftTools.value].sort()) !== JSON.stringify([...props.agent.tools].sort()),
 );
 
-function save() {
-  updateAgentTools(props.analyseId, props.agent.id, draftTools.value);
+// Une action qui échoue (outil refusé, droit retiré…) affiche le message de l'API plutôt que de ne rien faire.
+async function attempt(action: () => Promise<void>) {
+  isSaving.value = true;
+  error.value = "";
+  try {
+    await action();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : "L'action a échoué.";
+  } finally {
+    isSaving.value = false;
+  }
 }
 
-function restoreVersion(versionId: string) {
-  restoreAgentToolsVersion(props.analyseId, props.agent.id, versionId);
-}
+const save = () => attempt(() => updateAgentTools(props.analyseId, props.agent.id, draftTools.value));
+const restoreVersion = (versionId: string) =>
+  attempt(() => restoreAgentToolsVersion(props.analyseId, props.agent.id, versionId));
 
-function formatVersionContent(tools: AgentTool[]) {
-  return tools.length > 0 ? tools.map((tool) => AGENT_TOOL_LABELS[tool]).join(", ") : "(aucun outil)";
-}
+const formatVersionContent = (tools: string[]) => (tools.length > 0 ? toolNames(tools).join(", ") : "(aucun outil)");
 </script>
 
 <template>
   <div class="agent-tools-editor">
-    <DsfrCheckboxSet v-model="draftTools" legend="Outils disponibles" :options="toolOptions" inline small />
-    <DsfrButton label="Enregistrer" :disabled="!isDirty" size="sm" @click="save" />
+    <ToolSelectionField v-model="draftTools" />
+    <div v-if="error" class="fr-alert fr-alert--error fr-alert--sm" role="alert"><p>{{ error }}</p></div>
+    <DsfrButton :label="isSaving ? 'Enregistrement…' : 'Enregistrer'" :disabled="!isDirty || isSaving" size="sm" @click="save" />
     <VersionHistory :versions="agent.toolsVersions" :format-content="formatVersionContent" @restore="restoreVersion" />
   </div>
 </template>

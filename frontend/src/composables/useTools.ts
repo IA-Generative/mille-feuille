@@ -18,12 +18,14 @@ import {
 // Les serveurs sont chargés d'un coup (le maximum de l'API) : la recherche et la pagination de « Mes outils » se
 // font dans l'interface. Au-delà de 100 serveurs visibles, il faudra les piloter côté serveur (`q`, `page`).
 const SERVERS_PAGE_SIZE = 100;
+const UNAVAILABLE_LABEL = "outil indisponible";
 
 const internalTools = ref<Tool[]>([]);
 const servers = ref<ToolServer[]>([]);
 const loading = ref(false);
 const error = ref("");
-let loaded = false;
+// Vrai une fois la liste connue : avant, on ne peut pas dire qu'un outil est indisponible.
+const ready = ref(false);
 
 async function load() {
   loading.value = true;
@@ -35,7 +37,7 @@ async function load() {
     ]);
     internalTools.value = internal.map(toTool);
     servers.value = page.items.map(toToolServer);
-    loaded = true;
+    ready.value = true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : "Impossible de charger les outils.";
   } finally {
@@ -46,7 +48,7 @@ async function load() {
 export function useTools() {
   /** Charge le registre une fois ; `force` le recharge (après un ajout, une suppression…). */
   const fetchTools = async (force = false) => {
-    if (force || !loaded) await load();
+    if (force || !ready.value) await load();
   };
 
   /** Liste les tools qu'un serveur expose, sans rien enregistrer. Lève `ApiError` (adresse refusée, serveur muet…). */
@@ -58,7 +60,7 @@ export function useTools() {
     return result.tools.map(toPreviewTool);
   }
 
-  async function addServer(draft: ToolServerDraft, toolNames: string[]) {
+  async function addServer(draft: ToolServerDraft, selectedNames: string[]) {
     await apiFetch<ToolServerOut>("/api/tool-servers", {
       method: "POST",
       body: JSON.stringify({
@@ -67,7 +69,7 @@ export function useTools() {
         auth_mode: draft.authMode,
         audience: draft.audience.trim() || null,
         visibility: draft.visibility,
-        tool_names: toolNames,
+        tool_names: selectedNames,
       }),
     });
     await fetchTools(true);
@@ -89,9 +91,19 @@ export function useTools() {
   /** Les tools que l'on peut donner à un agent : les internes et ceux, autorisés, des serveurs MCP. */
   const allTools = () => [...internalTools.value, ...servers.value.flatMap((server) => server.tools.filter((tool) => tool.enabled))];
 
+  /** Le nom lisible de chaque identifiant ; un outil qui n'est plus dans le registre est dit indisponible. */
+  const toolNames = (ids: string[]) => {
+    const byId = new Map(allTools().map((tool) => [tool.id, tool.name]));
+    return ids.map((id) => byId.get(id) ?? (ready.value ? UNAVAILABLE_LABEL : id));
+  };
+
+  /** Un outil de l'agent que la personne ne peut plus utiliser (serveur supprimé, droit retiré, tool désautorisé). */
+  const isUnavailable = (id: string) => ready.value && !allTools().some((tool) => tool.id === id);
+
   return {
     internalTools,
     servers,
+    ready,
     loading,
     error,
     fetchTools,
@@ -101,5 +113,7 @@ export function useTools() {
     removeServer,
     defaultToolIds,
     allTools,
+    toolNames,
+    isUnavailable,
   };
 }

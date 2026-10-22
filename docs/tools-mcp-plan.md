@@ -11,8 +11,9 @@ Ordre retenu : **UI sur mocks d'abord**, puis backend, puis worker (design épur
 | Phase | État |
 | --- | --- |
 | 1. UI sur mocks | **fait** (captures dans [frontend/tools/](frontend/tools/)) |
-| 2. Modèle de données | **fait** pour le registre ; liaison agent ↔ tools et collections par analyse **à faire** |
+| 2. Modèle de données | **fait** pour le registre et pour les outils d'un agent (identifiants dans la colonne existante, aucune migration) ; collections par analyse **à faire** |
 | 3. Registre, API et import MCP | **fait** (CRUD, `discover`, `refresh`, garde SSRF, visibilité) ; frontend branché sur l'API |
+| 3 bis. Outils d'un agent (#336, #337) | **fait** : sélection enregistrée, contrôle des droits, historique et restauration, outil indisponible signalé |
 | 4. Identité et appel (token exchange) | à faire : le mode « identité de l'utilisateur » répond aujourd'hui « pas encore disponible » |
 | 5. Proxy d'appel et test unitaire | à faire : le test unitaire est simulé côté frontend |
 | 6. Worker | à faire |

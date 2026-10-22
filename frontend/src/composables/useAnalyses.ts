@@ -4,7 +4,6 @@ import type { CustomField } from "@/types/tracking";
 import { apiFetch } from "@/utils/api";
 import type {
   Agent,
-  AgentTool,
   Analyse,
   AnalyseSummary,
   EntityDefinition,
@@ -71,7 +70,7 @@ function mapAgent(api: any): Agent {
     prompt: api.prompt,
     promptVersions: api.prompt_versions.map((v: any) => mapVersion(v, identity<string>)),
     tools: api.tools,
-    toolsVersions: api.tools_versions.map((v: any) => mapVersion(v, identity<AgentTool[]>)),
+    toolsVersions: api.tools_versions.map((v: any) => mapVersion(v, identity<string[]>)),
     output: api.output,
     outputVersions: api.output_versions.map((v: any) => mapVersion(v, identity<boolean>)),
     model: api.model,
@@ -340,7 +339,7 @@ export function useAnalyses() {
     analyseId: string,
     name: string,
     prompt: string,
-    tools: AgentTool[] = [],
+    tools: string[] = [],
     output = true,
     model: string | null = null,
   ) => {
@@ -370,7 +369,7 @@ export function useAnalyses() {
     replaceAgent(analyseId, mapAgent(data));
   };
 
-  const updateAgentTools = async (analyseId: string, agentId: string, tools: AgentTool[]) => {
+  const updateAgentTools = async (analyseId: string, agentId: string, tools: string[]) => {
     const data = await apiFetch<any>(`/api/analyses/${analyseId}/agents/${agentId}/tools`, {
       method: "PUT",
       body: JSON.stringify({ tools }),
