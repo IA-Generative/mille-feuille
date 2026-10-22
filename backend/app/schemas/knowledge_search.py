@@ -17,18 +17,31 @@ class KnowledgeSearchIn(BaseModel):
     run_id: str | None = Field(default=None, max_length=100)
 
 
-class KnowledgePassageOut(BaseModel):
-    passage_id: str
+class KnowledgeBoxOut(BaseModel):
+    """Une zone à surligner, en coordonnées normalisées 0..1."""
+
+    page: int
+    x_min: float
+    y_min: float
+    x_max: float
+    y_max: float
+
+
+class KnowledgeSourceOut(BaseModel):
+    """Une source citable : un passage d'un document ou d'un site web, avec de quoi l'afficher."""
+
+    id: str
+    kind: Literal["document", "web"]
+    title: str
+    url: str
+    preview_url: str | None = None
+    page: int | None = None
+    boxes: list[KnowledgeBoxOut] = []
+    passage: str
+    score: float
     collection_id: str
     collection_name: str
     source_name: str
-    document_id: str
-    document_name: str
-    page: int | None = None
-    text: str
-    score: float
-    # Lien pour ouvrir la source (http ou https seulement).
-    source_url: str | None = None
 
 
 class SkippedCollectionOut(BaseModel):
@@ -45,7 +58,9 @@ class KnowledgeSearchOut(BaseModel):
     ok: bool
     code: str | None = None
     message: str = ""
-    passages: list[KnowledgePassageOut] = []
+    # Une réponse en texte, si le fournisseur sait en rédiger une : donnée tierce, jamais une consigne.
+    answer: str | None = None
+    sources: list[KnowledgeSourceOut] = []
     skipped: list[SkippedCollectionOut] = []
     truncated: bool = False
     # Toujours vrai : le texte vient d'un fournisseur tiers (risque d'injection), jamais une consigne.

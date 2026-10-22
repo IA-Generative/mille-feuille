@@ -11,7 +11,7 @@ from app.models.tool import ToolCallLog
 from app.routers.internal_tools import get_call_limiter
 from app.routers.knowledge_sources import get_knowledge_client
 from app.services.knowledge.client import KnowledgeError
-from app.services.knowledge.contract import Passage, SearchRequest, SearchResult, SkippedCollection
+from app.services.knowledge.contract import Box, SearchRequest, SearchResult, SkippedCollection, Source
 from app.services.tools.call_limits import CallLimiter
 from tests.access_support import As
 from tests.test_analysis_knowledge import FakeProvider, make_analyse, make_source, put
@@ -21,23 +21,26 @@ from tests.tool_support import FakeIdentityTokens
 TOKEN = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 
 
-def passage(collection: str, score: float, text: str = "Un RIB est exigé.", **extra) -> Passage:
-    return Passage(
-        passage_id=f"p-{collection}-{score}",
-        collection_id=collection,
-        document_id="d-1",
-        document_name="Guide.pdf",
+def source(collection: str, score: float, text: str = "Un RIB est exigé.", **extra) -> Source:
+    return Source(
+        id=f"p-{collection}-{score}",
+        kind="document",
+        title="Guide.pdf",
+        url="https://kb.example.gouv.fr/doc",
+        preview_url="https://kb.example.gouv.fr/doc/14.png",
         page=14,
-        text=text,
+        boxes=[Box(page=14, x_min=0.1, y_min=0.2, x_max=0.9, y_max=0.3)],
+        passage=text,
         score=score,
-        source_url="https://kb.example.gouv.fr/doc",
+        collection_id=collection,
     ).model_copy(update=extra)
 
 
 class SearchProvider(FakeProvider):
     def __init__(self) -> None:
         super().__init__()
-        self.passages: dict[str, list[Passage]] = {}
+        self.sources: dict[str, list[Source]] = {}
+        self.answer: str | None = None
         self.search_errors: dict[str, KnowledgeError] = {}
         self.searches: list[tuple[str, dict, SearchRequest]] = []
 
@@ -46,21 +49,25 @@ class SearchProvider(FakeProvider):
         for collection in request.collection_ids:
             if collection in self.search_errors:
                 raise self.search_errors[collection]
-        items = [p for c in request.collection_ids for p in self.passages.get(c, [])]
+        items = [p for c in request.collection_ids for p in self.sources.get(c, [])]
         skipped = [
             SkippedCollection(collection_id=c, reason="unavailable")
             for c in request.collection_ids
             if c in self.forbidden
         ]
-        return SearchResult(items=[p for p in items if p.collection_id not in self.forbidden], skipped=skipped)
+        return SearchResult(
+            answer=self.answer,
+            sources=[p for p in items if p.collection_id not in self.forbidden],
+            skipped=skipped,
+        )
 
 
 @pytest.fixture
 def provider():
     fake = SearchProvider()
-    fake.passages = {
-        "guide": [passage("guide", 0.91), passage("guide", 0.40)],
-        "circulaires": [passage("circulaires", 0.75)],
+    fake.sources = {
+        "guide": [source("guide", 0.91), source("guide", 0.40)],
+        "circulaires": [source("circulaires", 0.75)],
     }
     app.dependency_overrides[get_knowledge_client] = lambda: fake
     yield fake
@@ -93,22 +100,54 @@ def chosen(client: TestClient, provider, *collections: str, **source_extra) -> t
     return analyse, source
 
 
-def test_passages_are_merged_ranked_and_cited(client: TestClient, provider, probe) -> None:
+def test_sources_are_merged_ranked_and_normalised(client: TestClient, provider, probe) -> None:
     analyse, _ = chosen(client, provider, "guide", "circulaires")
 
     body = search(client, analyse, top_k=2).json()
 
-    assert body["ok"] is True and body["untrusted"] is True
-    assert [(p["collection_id"], p["score"]) for p in body["passages"]] == [("guide", 0.91), ("circulaires", 0.75)]
-    first = body["passages"][0]
-    assert (first["document_name"], first["page"], first["collection_name"]) == (
+    assert body["ok"] is True and body["untrusted"] is True and body["answer"] is None
+    assert [(p["collection_id"], p["score"]) for p in body["sources"]] == [("guide", 0.91), ("circulaires", 0.75)]
+    first = body["sources"][0]
+    assert (first["kind"], first["title"], first["page"], first["collection_name"]) == (
+        "document",
         "Guide.pdf",
         14,
         "Guide des subventions",
     )
-    assert first["source_url"] == "https://kb.example.gouv.fr/doc" and first["source_name"].startswith("Références")
+    assert first["url"] == "https://kb.example.gouv.fr/doc"
+    assert first["preview_url"] == "https://kb.example.gouv.fr/doc/14.png"
+    assert first["boxes"] == [{"page": 14, "x_min": 0.1, "y_min": 0.2, "x_max": 0.9, "y_max": 0.3}]
+    assert first["passage"] == "Un RIB est exigé." and first["source_name"].startswith("Références")
     sent = provider.searches[0][2]
     assert (sent.query, sent.top_k, sent.max_chars) == ("pièces à fournir", 2, 1500)
+
+
+def test_the_answer_of_a_single_provider_is_kept_and_a_web_source_needs_neither_page_nor_boxes(
+    client: TestClient, provider, probe
+) -> None:
+    analyse, _ = chosen(client, provider, "guide")
+    provider.answer = "Un RIB est exigé."
+    provider.sources["guide"] = [
+        source("guide", 0.8, id="w-1", kind="web", title="Service-Public", page=None, boxes=[], preview_url=None)
+    ]
+
+    body = search(client, analyse).json()
+
+    assert body["answer"] == "Un RIB est exigé."
+    [web] = body["sources"]
+    assert (web["kind"], web["page"], web["preview_url"], web["boxes"]) == ("web", None, None, [])
+
+
+def test_two_providers_do_not_give_two_answers_in_one(client: TestClient, provider, probe) -> None:
+    analyse, first = chosen(client, provider, "guide")
+    second = make_source(client, visibility="all")
+    put(client, analyse, (first, "guide"), (second, "circulaires"))
+    provider.answer = "Réponse du fournisseur."
+
+    body = search(client, analyse).json()
+
+    assert body["answer"] is None  # on ne fusionne pas deux réponses : le modèle rédige à partir des sources
+    assert {s["collection_id"] for s in body["sources"]} == {"guide", "circulaires"}
 
 
 def test_the_search_is_made_with_the_identity_of_the_person(
@@ -143,7 +182,7 @@ def test_a_collection_that_fails_does_not_stop_the_others(client: TestClient, pr
 
     body = search(client, analyse).json()
 
-    assert body["ok"] is True and {p["collection_id"] for p in body["passages"]} == {"guide"}
+    assert body["ok"] is True and {p["collection_id"] for p in body["sources"]} == {"guide"}
     assert [(s["collection_id"], s["collection_name"]) for s in body["skipped"]] == [("circulaires", "Circulaires")]
 
 
@@ -178,21 +217,27 @@ def test_a_source_the_person_cannot_see_is_skipped(client: TestClient, provider,
     assert len(provider.searches) == searches
 
 
-def test_the_output_is_bounded_and_links_are_http_only(
-    client: TestClient, provider, probe, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_the_output_is_bounded(client: TestClient, provider, probe, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("TOOL_OUTPUT_MAX_CHARS", "4000")
     analyse, _ = chosen(client, provider, "guide")
-    provider.passages["guide"] = [
-        passage("guide", 0.9, "x" * 1500, source_url="javascript:alert(1)"),
-        *[passage("guide", 0.5 - i / 100, "y" * 1500) for i in range(14)],
+    provider.sources["guide"] = [
+        source("guide", 0.9, "x" * 1500),
+        *[source("guide", 0.5 - i / 100, "y" * 1500) for i in range(14)],
     ]
 
     body = search(client, analyse, top_k=10).json()
 
-    assert body["truncated"] is True and len(body["passages"]) == 2  # les mieux classés tiennent dans 4 000 caractères
-    assert sum(len(p["text"]) for p in body["passages"]) <= 4000
-    assert body["passages"][0]["source_url"] is None
+    assert body["truncated"] is True and len(body["sources"]) == 2  # les mieux classées tiennent dans 4 000 caractères
+    assert sum(len(p["passage"]) for p in body["sources"]) <= 4000
+
+
+def test_a_source_of_a_collection_that_was_not_asked_is_not_relayed(client: TestClient, provider, probe) -> None:
+    analyse, _ = chosen(client, provider, "guide")
+    provider.sources["guide"] = [source("guide", 0.9), source("autre", 0.99)]
+
+    body = search(client, analyse).json()
+
+    assert [p["collection_id"] for p in body["sources"]] == ["guide"]
 
 
 def test_each_source_consulted_is_logged_without_the_question(client: TestClient, provider, probe, world: dict) -> None:
