@@ -21,6 +21,9 @@ import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from app.ask_user import ASK_USER, normalize_questions
+from app.ask_user import DEFINITION as ASK_USER_DEFINITION
+from app.ask_user import INVALID as ASK_USER_INVALID
 from app.bm25 import BM25Index, build_index_from_dossier, document_label
 
 if TYPE_CHECKING:
@@ -55,10 +58,13 @@ class AgentTools:
         analysis: "AnalysisProposer | None" = None,
         notes: "NoteWriter | None" = None,
         extra: "ExtraTools | None" = None,
+        ask_user: bool = False,
     ) -> None:
         self._dossier = dossier
         # Les outils choisis pour l'agent (calculatrice, dates, serveurs MCP) : ils s'ajoutent au socle ci-dessous.
         self._extra = extra
+        # Poser une question à choix à la personne (chat du dossier seulement : un agent tourne sans personne).
+        self._ask_user = ask_user
         # Propositions de modification de l'analyse (chat du dossier seulement).
         self._analysis = analysis
         # Ajout de notes internes (chat du dossier seulement).
@@ -86,6 +92,14 @@ class AgentTools:
     def extra_notice(self) -> str:
         """Ce que le modèle doit savoir de ses outils choisis (sorties externes non fiables, outils absents)."""
         return self._extra.notice if self._extra else ""
+
+    @property
+    def can_ask_user(self) -> bool:
+        return self._ask_user
+
+    def question_to_ask(self, name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
+        """Les questions valables de cet appel, si c'est un appel à `ask_user` ; vide sinon."""
+        return normalize_questions(arguments) if self._ask_user and name == ASK_USER else []
 
     def requires_confirmation(self, name: str) -> bool:
         return bool(self._extra and self._extra.requires_confirmation(name))
@@ -259,7 +273,8 @@ class AgentTools:
     def tool_definitions(self) -> list[dict[str, Any]]:
         """Renvoie les définitions d'outils au format attendu par l'API
         OpenAI (function calling)."""
-        return self._core_definitions() + (self._extra.definitions() if self._extra else [])
+        asking = [ASK_USER_DEFINITION] if self._ask_user else []
+        return self._core_definitions() + asking + (self._extra.definitions() if self._extra else [])
 
     def _core_definitions(self) -> list[dict[str, Any]]:
         """Le socle : les outils de lecture du dossier, toujours donnés (et ceux du chat quand il y a lieu)."""
@@ -446,6 +461,8 @@ class AgentTools:
         """Exécute un outil par son nom et renvoie le résultat."""
         if self._extra and self._extra.owns(name):
             return self._extra.dispatch(name, arguments)
+        if name == ASK_USER and self._ask_user:
+            return ASK_USER_INVALID  # un appel valable ne passe pas ici : le graphe l'enregistre et s'arrête
         if name == "search_documents":
             return self.search_documents(arguments.get("query", ""))
         if name == "read_page":
