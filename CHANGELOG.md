@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.28.0-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.27.0...v0.28.0-rc) (2026-10-22)
+
+
+### Features
+
+* **chat:** carte d'autorisation des outils à onglets, refus avec texte libre ([7fc1796](https://github.com/IA-Generative/mille-feuille/commit/7fc1796f419351550fcac4a1bc614ddcedf64c06))
+* **chat:** carte des questions à choix de l'assistant, choix multiple et texte libre ([cc2d423](https://github.com/IA-Generative/mille-feuille/commit/cc2d423ce50256afd5f6905919f5deb6cb907cf5))
+* **chat:** réponse à une question à choix posée par l'assistant ([113ba36](https://github.com/IA-Generative/mille-feuille/commit/113ba3692fbbb5ceb7325e413c73c702264f8fb4))
+* **tools:** demande de confirmation d'un outil du chat, décidée plus tard par la personne ([8745e6e](https://github.com/IA-Generative/mille-feuille/commit/8745e6e52b6ccd2c973baf497572364d1bbc0a09))
+* **tools:** enregistrer les outils d'un agent, internes ou de serveurs MCP ([6fa4f92](https://github.com/IA-Generative/mille-feuille/commit/6fa4f9255db2a31888a3a96dfc27cc397f640f50))
+* **tools:** masquer les écrans simulés derrière VITE_TOOLS_PREVIEW ([23dd7c9](https://github.com/IA-Generative/mille-feuille/commit/23dd7c9c1054eacf006abe5d70fabea751fda429))
+* **tools:** menu des outils du chat branché sur l'API, plus de données simulées ([89023b8](https://github.com/IA-Generative/mille-feuille/commit/89023b818d14ac64653d6146425674901f08c841))
+* **tools:** ne proposer que les outils exécutables et exposer leurs définitions au worker ([389bdd8](https://github.com/IA-Generative/mille-feuille/commit/389bdd8b3f2fc8794697b79913d31a1a86925376))
+* **tools:** outils d une conversation du chat : ceux de l analyse, moins ceux retirés ([4b94429](https://github.com/IA-Generative/mille-feuille/commit/4b94429fe61f2b34fbe4423764eafc18d1462b58))
+* **tools:** page Mes outils, sélecteur d'outils et maquettes du chat ([8e17802](https://github.com/IA-Generative/mille-feuille/commit/8e178028ec6c0aea9a1dee6d6bf32da61c781334))
+* **tools:** proxy d'appel d'un tool MCP au nom de la personne ([5f82082](https://github.com/IA-Generative/mille-feuille/commit/5f82082d02ee072c87686bcf5e68898c6ad68a65))
+* **tools:** registre des serveurs MCP avec échange de jeton Keycloak ([f8cbc2a](https://github.com/IA-Generative/mille-feuille/commit/f8cbc2a2be6712831422a1ab06c8f9b731929fc7))
+* **tools:** sélecteur d'outils d'un agent branché sur l'API, historique et restauration ([46d6e5f](https://github.com/IA-Generative/mille-feuille/commit/46d6e5f16215aefec5a857eef199aace262a4b30))
+* **tools:** tester un tool MCP avec un modèle au choix ([140f894](https://github.com/IA-Generative/mille-feuille/commit/140f8943dc89410da4678a51a4a04ec213789545))
+* **worker:** donner au chat les outils de la conversation, appelés au nom de son auteur ([6046a63](https://github.com/IA-Generative/mille-feuille/commit/6046a6394034460efc68a0fffbb8a9741a67f969))
+* **worker:** donner aux agents leurs outils choisis : calculatrice, dates et tools MCP ([006c95e](https://github.com/IA-Generative/mille-feuille/commit/006c95e16bd08665084ddbf644d77d24d89f0fbe))
+* **worker:** l'outil ask_user pose une question à choix, la réponse relance le chat ([b56e086](https://github.com/IA-Generative/mille-feuille/commit/b56e0867d5af95ecb5fc8a96fffed71e7934795c))
+* **worker:** le chat enregistre la demande, s'arrête, puis exécute les appels autorisés ([549678b](https://github.com/IA-Generative/mille-feuille/commit/549678b62f05cefbded565d8bbb65f63b785a7d2))
+
+
+### Bug Fixes
+
+* **sdk:** accepter n'importe quel identifiant d'outil d'agent ([67bddcb](https://github.com/IA-Generative/mille-feuille/commit/67bddcb5852f26ad293218998da8c70d6363ca86))
+
 ## [0.27.0](https://github.com/IA-Generative/mille-feuille/compare/v0.26.0...v0.27.0) (2026-10-21)
 
 
