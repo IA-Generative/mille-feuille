@@ -20,6 +20,7 @@ import DossierHistoryPage from "@/pages/DossierHistoryPage.vue";
 import DossierDetailPage from "@/pages/DossierDetailPage.vue";
 import DossiersPage from "@/pages/DossiersPage.vue";
 import ProfilePage from "@/pages/ProfilePage.vue";
+import ToolsPage from "@/pages/ToolsPage.vue";
 import TrackingPage from "@/pages/TrackingPage.vue";
 import UsagePage from "@/pages/UsagePage.vue";
 import WelcomePage from "@/pages/WelcomePage.vue";
@@ -92,6 +93,7 @@ export const router = createRouter({
     { path: "/suivi", name: "tracking", component: TrackingPage },
     { path: "/profile", name: "profile", component: ProfilePage },
     { path: "/consommation", name: "usage", component: UsagePage },
+    { path: "/outils", name: "tools", component: ToolsPage },
     {
       path: "/administration",
       name: "administration",

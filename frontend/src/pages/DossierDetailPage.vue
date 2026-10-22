@@ -19,7 +19,11 @@ import { useChatStream } from "@/composables/useChatStream";
 import ChatProposals from "@/components/analysis/ChatProposals.vue";
 import { parseAssistantSuggestion, parseMessageMarkers } from "@/utils/assistantSuggestion";
 import { setDocumentSource, useDossierSources } from "@/composables/useDocumentSources";
+import ChatToolsMenu from "@/components/tools/ChatToolsMenu.vue";
+import ToolConfirmCard from "@/components/tools/ToolConfirmCard.vue";
 import { useConversations } from "@/composables/useConversations";
+import { useToolConfirmation } from "@/composables/useToolConfirmation";
+import { useChatTools } from "@/composables/useChatTools";
 import { useDossiers } from "@/composables/useDossiers";
 import { useHelperAgent } from "@/composables/useHelperAgent";
 import { useMyConversations } from "@/composables/useMyConversations";
@@ -151,6 +155,12 @@ function submitDownFeedback(reasons: FeedbackReasonCode[], comment: string | nul
 function onModelChange(value: string) {
   setModel(value || null);
 }
+
+// Aperçu (phase 1, données simulées) : outils de l'analyse et confirmation avant un tool qui modifie des données.
+const { chatToolIds } = useChatTools();
+// Outils laissés actifs pour cette conversation : tout est actif par défaut, la personne ne peut que retirer.
+const activeChatToolIds = ref<string[]>(chatToolIds());
+const { pendingToolCall, resolveToolCall } = useToolConfirmation();
 
 const dossier = computed(() => dossiers.value.find((d) => d.id === dossierId));
 const analyse = computed(() =>
@@ -513,6 +523,19 @@ async function onDeleteConversation() {
           <VIcon name="ri-file-text-line" />
           <span>{{ source.pages && source.pages.length > 0 ? source.pages.map((p) => `p. ${p.pageNumber}`).join(", ") : "Document" }}</span>
         </button>
+      </template>
+
+      <template #composer-extra>
+        <ToolConfirmCard
+          v-if="pendingToolCall"
+          :call="pendingToolCall"
+          @allow="resolveToolCall(true)"
+          @deny="resolveToolCall(false)"
+        />
+      </template>
+
+      <template #composer-actions>
+        <ChatToolsMenu v-model:active-ids="activeChatToolIds" :tool-ids="chatToolIds()" />
       </template>
 
       <template #message-extra="{ message }">

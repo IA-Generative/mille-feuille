@@ -23,6 +23,7 @@
  * - `message-actions` : actions par message (ex: feedback), reçoit
  *   `{ message }` en slot props.
  * - `source` : rendu personnalisé d'une source, reçoit `{ source }`.
+ * - `composer-actions` : boutons ronds dans la zone d'envoi, après le trombone (ex: menu des outils).
  * - `composer-extra` : contenu supplémentaire avant le composer (ex: chips
  *   de fichiers en attente).
  *
@@ -375,6 +376,7 @@ defineExpose({ resizeTextarea });
           >
             <VIcon name="ri-attachment-2" />
           </button>
+          <slot name="composer-actions" />
           <textarea
             ref="textareaRef"
             v-model="draft"

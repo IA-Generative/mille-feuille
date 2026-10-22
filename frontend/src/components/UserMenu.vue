@@ -53,6 +53,11 @@ function closeMenu() {
   showUserMenu.value = false;
 }
 
+function goTools() {
+  closeMenu();
+  router.push("/outils");
+}
+
 function goProfile() {
   closeMenu();
   router.push("/profile");
@@ -180,6 +185,11 @@ onBeforeUnmount(() => {
       <button type="button" class="user-menu__item" role="menuitem" @click="goUsage">
         <VIcon name="ri-drop-line" />
         <span>Ma consommation</span>
+      </button>
+
+      <button type="button" class="user-menu__item" role="menuitem" @click="goTools">
+        <VIcon name="ri-tools-line" />
+        <span>Mes outils</span>
       </button>
 
       <button v-if="isAdmin" type="button" class="user-menu__item" role="menuitem" @click="goAdmin">

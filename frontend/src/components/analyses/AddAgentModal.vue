@@ -5,32 +5,30 @@ import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { suggestAgentPrompt } from "@/composables/useLlmAssist";
 import ModelPicker from "@/components/ModelPicker.vue";
-import { AGENT_TOOL_LABELS, type AgentTool } from "@/types/analyse";
+import { useTools } from "@/composables/useTools";
+import ToolSelectionField from "@/components/tools/ToolSelectionField.vue";
 
 const props = defineProps<{ analyseId: string }>();
 const opened = defineModel<boolean>("opened", { default: false });
 const emit = defineEmits<{ created: [] }>();
 
 const { addAgent } = useAnalyses();
-
-const toolOptions = (Object.keys(AGENT_TOOL_LABELS) as AgentTool[]).map((tool) => ({
-  name: tool,
-  value: tool,
-  label: AGENT_TOOL_LABELS[tool],
-}));
+const { defaultToolIds, fetchTools } = useTools();
 
 const name = ref("");
 const prompt = ref("");
-const tools = ref<AgentTool[]>([]);
+// Aperçu (phase 1) : la sélection n'est pas encore transmise à l'API.
+const toolIds = ref<string[]>([]);
 const output = ref(true);
 const model = ref("");
 const isSuggesting = ref(false);
 
-watch(opened, (isOpened) => {
+watch(opened, async (isOpened) => {
   if (isOpened) {
+    await fetchTools();
     name.value = "";
     prompt.value = "";
-    tools.value = [];
+    toolIds.value = defaultToolIds();
     output.value = true;
     model.value = "";
   }
@@ -53,7 +51,7 @@ async function submit() {
     props.analyseId,
     name.value.trim(),
     prompt.value.trim(),
-    tools.value,
+    [],
     output.value,
     model.value || null,
   );
@@ -94,14 +92,7 @@ async function submit() {
       :loading="isSuggesting"
       @click="applySuggestion"
     />
-    <DsfrCheckboxSet
-      v-model="tools"
-      legend="Outils disponibles"
-      :options="toolOptions"
-      inline
-      small
-      class="fr-mt-2w"
-    />
+    <ToolSelectionField v-model="toolIds" class="fr-mt-2w" />
     <DsfrToggleSwitch
       v-model="output"
       label="Présenter le résultat de cet agent dans la page de résultat du dossier"
