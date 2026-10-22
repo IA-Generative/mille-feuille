@@ -11,7 +11,7 @@ Ordre retenu : **UI sur mocks d'abord**, puis backend, puis worker (design épur
 | Phase | État |
 | --- | --- |
 | 1. UI sur mocks | **fait** (captures dans [frontend/tools/](frontend/tools/)) |
-| 2. Modèle de données | **fait** pour le registre et pour les outils d'un agent (identifiants dans la colonne existante, aucune migration) ; collections par analyse **à faire** |
+| 2. Modèle de données | **fait** pour le registre et pour les outils d'un agent (identifiants dans la colonne existante, aucune migration) ; collections par analyse **à faire** ; sources de connaissances (#356) **faites** |
 | 3. Registre, API et import MCP | **fait** (CRUD, `discover`, `refresh`, garde SSRF, visibilité) ; frontend branché sur l'API |
 | 3 bis. Outils d'un agent (#336, #337) | **fait** : sélection enregistrée, contrôle des droits, historique et restauration, outil indisponible signalé |
 | 4. Identité et appel (#334) | **fait** : échange de jeton Keycloak à partir de la session, vérifié contre un vrai Keycloak ; compte de service et jeton statique prévus, grisés |

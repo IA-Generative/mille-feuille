@@ -42,6 +42,7 @@ from app.routers.internal_agent import agent_conversations_router as internal_ag
 from app.routers.internal_agent import router as internal_agent_router
 from app.routers.internal_chat_tool_calls import router as internal_chat_tool_calls_router
 from app.routers.internal_tools import router as internal_tools_router
+from app.routers.knowledge_sources import router as knowledge_sources_router
 from app.routers.models import router as models_router
 from app.routers.notifications import router as notifications_router
 from app.routers.profile import router as profile_router
@@ -192,6 +193,7 @@ app.include_router(work_slots_router, prefix="/api")
 app.include_router(user_tasks_router, prefix="/api")
 app.include_router(ephemeral_router, prefix="/api")
 app.include_router(tool_servers_router, prefix="/api")
+app.include_router(knowledge_sources_router, prefix="/api")
 app.include_router(tools_router, prefix="/api")
 app.include_router(usage_router, prefix="/api")
 app.include_router(internal_usage_router, prefix="/api")
