@@ -94,3 +94,10 @@ Rien n'attend en mémoire ni dans une tâche : la demande est **enregistrée ave
 4. Décider reste possible **tant qu'aucun autre message n'a été envoyé** : envoyer un message passe les demandes en attente à `superseded` (« sans réponse », 409 si on décide ensuite).
 
 Limites : si le worker s'arrête entre l'appel et le dépôt du résultat, la relance de la tâche peut rejouer l'appel ; seul le dernier tour d'outils d'une exécution est rebâti dans l'historique.
+
+## Questions à choix posées par l'assistant (chat, #353)
+
+Le chat (jamais un agent d'analyse : personne n'est là pour répondre) dispose d'un outil `ask_user` : 1 à 4 questions, chacune avec 2 à 4 options, un indicateur « plusieurs réponses » et toujours un champ « Autre » en texte libre. Le worker nettoie les arguments du modèle avant de les montrer (questions sans intitulé ou avec moins de 2 options écartées) ; sans question valable, l'outil répond au modèle et la discussion continue.
+
+Même principe que la confirmation : la question est enregistrée avec le message de l'assistant (table `chat_tool_calls`, `tool_id = "ask_user"`, statut `pending`), la tâche se termine, et `POST /api/dossiers/{id}/conversations/{cid}/tool-calls/{call_id}/answer` donne une réponse par question (`selected` et/ou `other`), validée contre les options **enregistrées**. Elle devient le résultat de l'appel (`executed`) et relance le chat. Répondre reste possible tant qu'aucun autre message n'est envoyé (409 ensuite, « sans réponse »). Le texte libre est une donnée de la personne, présentée au modèle comme une réponse. Les autres appels d'un tour qui pose une question sont écartés : le modèle les redemandera.
+

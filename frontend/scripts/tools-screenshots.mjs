@@ -83,6 +83,22 @@ const MESSAGES = [
     ],
   },
 ];
+// Une question à choix de l'assistant, ajoutée à la conversation par la dernière étape des captures.
+const QUESTION_CALL = {
+  id: "tc-q", message_id: "m6", position: 0, tool_id: "ask_user", tool_name: "ask_user", server_name: "", side_effect: false, status: "pending", decided_at: null,
+  arguments: {
+    questions: [
+      { question: "À quel service faut-il écrire ?", header: "Service", multi_select: false, options: [{ label: "Subventions", description: "Le guichet qui instruit la demande" }, { label: "Finances", description: "Le bureau qui gère les versements" }] },
+      { question: "Quelles pièces joindre au courriel ?", header: "Pièces", multi_select: true, options: [{ label: "RIB", description: "Celui de l'association" }, { label: "Statuts", description: "La dernière version" }, { label: "Procès-verbal", description: "De la dernière assemblée" }] },
+    ],
+  },
+};
+const answerRoute = (route, path) => {
+  if (path !== "/api/dossiers/dos-1/conversations/conv-1/tool-calls/tc-q/answer") return false;
+  QUESTION_CALL.status = "executed";
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(QUESTION_CALL) });
+  return true;
+};
 // La décision d'un lot : tout le lot ensemble (comme POST .../tool-calls/decisions du backend).
 const decisionRoute = (route, path) => {
   if (path !== "/api/dossiers/dos-1/conversations/conv-1/tool-calls/decisions") return false;
@@ -199,7 +215,7 @@ const handler = (route) => {
     SERVERS = [added, ...SERVERS];
     return json(added, 201);
   }
-  if (agentToolsRoute(route, path) || toolTestRoute(route, path) || conversationToolsRoute(route, path) || decisionRoute(route, path)) return;
+  if (agentToolsRoute(route, path) || toolTestRoute(route, path) || conversationToolsRoute(route, path) || decisionRoute(route, path) || answerRoute(route, path)) return;
   if (path === "/api/auth/me") return json(profile);
   if (path === "/api/cgu/acceptance") return json({ accepted: true, cgu: null });
   if (path === "/api/cgu") return json({}, 404);
@@ -413,5 +429,30 @@ await cardShot("chat-confirmation-prete.png");
 await card.getByRole("button", { name: "Valider" }).click();
 await settle(800);
 await cardShot("chat-confirmation-decidee.png");
+
+// Question à choix de l'assistant : onglets, choix unique et multiple, « Autre », une validation
+MESSAGES.push(
+  { id: "m5", role: "user", content: "Écris au service concerné.", created_at: iso(-0.002), sources: [], feedback: null },
+  { id: "m6", role: "assistant", content: "J'ai besoin de deux précisions avant d'écrire.", created_at: iso(-0.001), sources: [], feedback: null, tool_calls: [QUESTION_CALL] },
+);
+await page.reload({ waitUntil: "networkidle" });
+await settle(800);
+const questionCard = page.locator(".tool-question");
+const questionShot = async (file) => {
+  await questionCard.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await settle(600);
+  await page.screenshot({ path: resolve(outDir, file) });
+  console.log(`✓ tools/${file}`);
+};
+await questionShot("chat-question.png");
+await questionCard.getByText("Finances").click();
+await settle(300);
+await questionCard.getByLabel("RIB").check({ force: true });
+await questionCard.getByLabel("Statuts").check({ force: true });
+await questionCard.getByPlaceholder("Autre…").fill("et le procès-verbal de mars");
+await questionShot("chat-question-multiple.png");
+await questionCard.getByRole("button", { name: "Valider" }).click();
+await settle(800);
+await questionShot("chat-question-repondue.png");
 
 await browser.close();

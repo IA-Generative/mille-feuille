@@ -45,12 +45,28 @@ export interface SourceBoundingBox {
   yMax: number;
 }
 
+/** Une question à choix de l'assistant (arguments de l'appel `ask_user`). */
+export interface ToolQuestion {
+  question: string;
+  header: string;
+  multiSelect: boolean;
+  options: { label: string; description: string }[];
+}
+
+/** La réponse à une question : des options proposées et/ou un texte libre. */
+export interface QuestionAnswer {
+  selected: string[];
+  other?: string;
+}
+
 /** Où en est la demande d'autorisation d'un outil qui modifie des données. */
 export type ToolCallStatus = "pending" | "approved" | "refused" | "executed" | "superseded";
 
 /** Un appel d'outil demandé par l'assistant dans un message, avec les arguments exacts qui seront exécutés. */
 export interface ChatToolCall {
   id: string;
+  /** « ask_user » pour une question à choix de l'assistant, sinon l'outil appelé. */
+  toolId: string;
   toolName: string;
   serverName: string;
   args: Record<string, unknown>;

@@ -10,6 +10,7 @@ import type {
   Message,
   MessageSource,
   ChatToolCall,
+  QuestionAnswer,
 } from "@/types/conversation";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -47,6 +48,7 @@ function mapSource(api: any): MessageSource {
 function mapToolCall(api: any): ChatToolCall {
   return {
     id: api.id,
+    toolId: api.tool_id,
     toolName: api.tool_name,
     serverName: api.server_name,
     args: api.arguments ?? {},
@@ -160,6 +162,20 @@ export function useConversations(dossierId: string) {
     }
   };
 
+  // Répond à une question à choix de l'assistant (une réponse par question) : le chat est relancé, il lit la réponse comme
+  // le résultat de sa question. L'appelant suit alors la nouvelle exécution (flux SSE).
+  const answerToolQuestion = async (callId: string, answers: QuestionAnswer[]) => {
+    const current = await ensureConversation();
+    const data = await apiFetch<any>(
+      `/api/dossiers/${dossierId}/conversations/${current.id}/tool-calls/${callId}/answer`,
+      { method: "POST", body: JSON.stringify({ answers }) },
+    );
+    const answered = mapToolCall(data);
+    for (const message of messages.value) {
+      message.toolCalls = message.toolCalls.map((call) => (call.id === answered.id ? answered : call));
+    }
+  };
+
   // Charge la page de messages plus anciens (défilement vers le haut).
   const loadOlderMessages = async () => {
     const current = conversation.value;
@@ -270,6 +286,7 @@ export function useConversations(dossierId: string) {
     ensureConversation,
     sendMessage,
     decideToolCalls,
+    answerToolQuestion,
     streamConversation,
     refreshConversation,
     deleteConversation,
