@@ -7,6 +7,7 @@ from .llm import LlmSettings
 from .redis import RedisSettings
 from .sharing import SharingSettings
 from .storage import StorageSettings
+from .tools import ToolSettings
 
 __all__ = [
     "CollaborationSettings",
@@ -18,4 +19,5 @@ __all__ = [
     "RedisSettings",
     "SharingSettings",
     "StorageSettings",
+    "ToolSettings",
 ]

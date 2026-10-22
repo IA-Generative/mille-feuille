@@ -31,10 +31,29 @@
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "attributes": {
-        "pkce.code.challenge.method": "S256"
+        "pkce.code.challenge.method": "S256",
+        "standard.token.exchange.enabled": "true"
       }
+    },
+    {
+      "clientId": "mille-feuille-mcp-demo",
+      "name": "Serveur MCP de démonstration (audience d'un échange de jeton)",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "dev-only-mcp-demo-secret-not-for-prod",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
     }
   ],
+  "roles": {
+    "client": {
+      "mille-feuille-mcp-demo": [
+        { "name": "use", "description": "Peut utiliser ce serveur MCP" }
+      ]
+    }
+  },
   "users": [
     {
       "username": "agent",
@@ -51,7 +70,8 @@
       ],
       "realmRoles": ["default-roles-mille-feuille"],
       "clientRoles": {
-        "mille-feuille-backend": ["agent"]
+        "mille-feuille-backend": ["agent"],
+        "mille-feuille-mcp-demo": ["use"]
       }
     },
     {
@@ -69,7 +89,8 @@
       ],
       "realmRoles": ["default-roles-mille-feuille"],
       "clientRoles": {
-        "mille-feuille-backend": ["admin"]
+        "mille-feuille-backend": ["admin"],
+        "mille-feuille-mcp-demo": ["use"]
       }
     }
   ]
