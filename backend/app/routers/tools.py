@@ -13,7 +13,7 @@ from app.schemas.tool_call import ToolTestCallOut, ToolTestIn, ToolTestOut
 from app.services.tools.call_limits import CallLimiter
 from app.services.tools.call_service import ToolCallService
 from app.services.tools.identity_tokens import IdentityTokens
-from app.services.tools.internal_catalog import INTERNAL_TOOLS
+from app.services.tools.internal_catalog import available_internal_tools
 from app.services.tools.mcp_caller import ToolCaller
 from app.services.tools.model_chooser import OpenAiToolChooser, ToolChooser
 from app.services.tools.tool_test import ToolTestService
@@ -28,8 +28,8 @@ def get_tool_chooser() -> ToolChooser:
 
 @router.get("/internal", response_model=list[ToolOut])
 async def list_internal_tools() -> list[ToolOut]:
-    """Les tools internes de la plateforme (toujours disponibles, non modifiables)."""
-    return [ToolOut.of_internal(tool) for tool in INTERNAL_TOOLS]
+    """Les tools internes que les agents peuvent utiliser (toujours disponibles, non modifiables)."""
+    return [ToolOut.of_internal(tool) for tool in available_internal_tools()]
 
 
 @router.post("/{tool_id}/test", response_model=ToolTestOut)

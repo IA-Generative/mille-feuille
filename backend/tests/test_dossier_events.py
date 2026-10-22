@@ -12,7 +12,7 @@ INTERNAL_HEADERS = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 @pytest.fixture(autouse=True)
 def _no_celery_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("dispatch_classification", "dispatch_entity_extraction", "dispatch_agent_execution"):
-        monkeypatch.setattr(f"app.routers.dossiers.{name}", lambda dossier_id: None)
+        monkeypatch.setattr(f"app.routers.dossiers.{name}", lambda dossier_id, *args, **kwargs: None)
 
 
 def _create_analyse(client: TestClient, name: str = "Journal du dossier") -> dict:
@@ -391,3 +391,15 @@ def test_event_actors_lists_distinct_authors_without_the_system(client: TestClie
 
 def test_event_actors_of_unknown_dossier_is_404(client: TestClient) -> None:
     assert client.get(f"/api/dossiers/{uuid.uuid4()}/events/actors").status_code == 404
+
+
+def test_launching_passes_the_person_to_the_agents(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Les agents appellent les serveurs MCP au nom de la personne qui a lancé l'analyse."""
+    dispatched: list[tuple] = []
+    monkeypatch.setattr("app.routers.dossiers.dispatch_agent_execution", lambda *args: dispatched.append(args))
+    analyse = _create_analyse(client)
+    dossier = _create_dossier(client, analyse["id"])
+
+    client.post(f"/api/dossiers/{dossier['id']}/launch")
+
+    assert dispatched == [(dossier["id"], ME)]

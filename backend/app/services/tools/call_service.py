@@ -21,7 +21,7 @@ from app.services.tools.identity_tokens import IdentityTokens
 from app.services.tools.internal_catalog import get_internal_tool
 from app.services.tools.mcp_caller import CallFailedError, CallTimeoutError, ToolCaller
 from app.services.tools.url_guard import UnsafeUrlError, ensure_safe_url
-from app.services.tools.visibility import can_view
+from app.services.tools.visibility import can_view_server
 
 MAX_ARGUMENTS_CHARS = 50_000
 
@@ -81,14 +81,7 @@ class ToolCallService:
         if not found:
             return ToolCallOutcome.failure("outil_inconnu")
         tool, server = found[0]
-        visible = can_view(
-            user_id=user.user_id,
-            is_admin=user.is_admin,
-            groups=user.groups,
-            owner_id=server.created_by,
-            visibility=server.visibility,
-            server_groups=server.groups,
-        )
+        visible = can_view_server(user, server)
         return (tool, server) if visible else ToolCallOutcome.failure("outil_inconnu")
 
     async def _execute(

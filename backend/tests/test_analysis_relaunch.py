@@ -24,7 +24,7 @@ FP_EXT_CHANGED = "4" * 64
 @pytest.fixture(autouse=True)
 def _no_celery_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("dispatch_classification", "dispatch_entity_extraction", "dispatch_agent_execution"):
-        monkeypatch.setattr(f"app.routers.dossiers.{name}", lambda dossier_id: None)
+        monkeypatch.setattr(f"app.routers.dossiers.{name}", lambda dossier_id, *args, **kwargs: None)
 
 
 class Dossier:

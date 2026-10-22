@@ -19,7 +19,7 @@ def dispatched(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     monkeypatch.setattr("app.routers.dossier_notes.dispatch_note_proposals", lambda note_id: calls.append(note_id))
     monkeypatch.setattr("app.routers.dossiers.dispatch_classification", lambda d: None)
     monkeypatch.setattr("app.routers.dossiers.dispatch_entity_extraction", lambda d: None)
-    monkeypatch.setattr("app.routers.dossiers.dispatch_agent_execution", lambda d: None)
+    monkeypatch.setattr("app.routers.dossiers.dispatch_agent_execution", lambda *args, **kwargs: None)
     return calls
 
 
