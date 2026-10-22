@@ -1,6 +1,7 @@
 import { ref } from "vue";
 
 import { apiFetch } from "@/utils/api";
+import { toExternalSource } from "@/utils/knowledgeMapping";
 import type {
   ChatEvent,
   Conversation,
@@ -66,6 +67,7 @@ function mapMessage(api: any): Message {
     sources: (api.sources ?? []).map(mapSource),
     feedback: mapFeedback(api.feedback),
     toolCalls: (api.tool_calls ?? []).map(mapToolCall),
+    externalSources: (api.external_sources ?? []).map(toExternalSource),
   };
 }
 

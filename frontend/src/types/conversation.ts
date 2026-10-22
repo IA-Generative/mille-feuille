@@ -1,3 +1,5 @@
+import type { ExternalSource } from "@/types/knowledge";
+
 export type MessageRole = "user" | "assistant";
 
 export type FeedbackValue = "up" | "down";
@@ -83,6 +85,8 @@ export interface Message {
   sources: MessageSource[];
   feedback: Feedback | null;
   toolCalls: ChatToolCall[];
+  /** Les sources d'une base de connaissances externe citées par le message (lien, aperçu, passage). */
+  externalSources: ExternalSource[];
 }
 
 /** Chat de la page dossier : une conversation par (dossier, utilisateur). */

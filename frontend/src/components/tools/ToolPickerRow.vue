@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { useKnowledgeCollections } from "@/composables/useKnowledgeCollections";
+import { computed, inject, ref } from "vue";
+
 import ToolTestButton from "@/components/tools/ToolTestButton.vue";
+import { useAnalyseKnowledge } from "@/composables/useAnalyseKnowledge";
 import type { Tool } from "@/types/tool";
-import { TOOLS_PREVIEW } from "@/utils/featureFlags";
 
 defineProps<{ tool: Tool }>();
-const { selected: collections } = useKnowledgeCollections();
+// L'analyse du sélecteur (fournie par la page de l'analyse) : on compte ses collections pour l'outil « Base de connaissances ».
+const analyseId = inject<string | undefined>("analyseId", undefined);
+const { collections } = useAnalyseKnowledge(ref(analyseId ?? ""));
+const collectionCount = computed(() => (analyseId ? collections.value.length : null));
 const selected = defineModel<string[]>({ required: true });
 </script>
 
@@ -15,8 +19,8 @@ const selected = defineModel<string[]>({ required: true });
       <template #label>
         <span class="tool-picker-row__name">{{ tool.name }}</span>
         <span class="tool-picker-row__description">{{ tool.description }}</span>
-        <span v-if="TOOLS_PREVIEW && tool.config === 'collections'" class="tool-picker-row__config">
-          <VIcon name="ri-book-2-line" scale="0.7" /> {{ collections.length }} collection{{ collections.length > 1 ? "s" : "" }} de l'analyse
+        <span v-if="tool.config === 'collections' && collectionCount !== null" class="tool-picker-row__config">
+          <VIcon name="ri-book-2-line" scale="0.7" /> {{ collectionCount }} collection{{ collectionCount > 1 ? "s" : "" }} de l'analyse
         </span>
       </template>
     </DsfrCheckbox>
