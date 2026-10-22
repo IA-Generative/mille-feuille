@@ -22,3 +22,17 @@ def test_dispatch_targets_the_dedicated_queue(monkeypatch: pytest.MonkeyPatch, d
 
     assert dispatch("dossier-1") == "task-1"
     assert sent == [(task, {"args": ["dossier-1"], "queue": queue})]
+
+
+def test_the_agents_run_in_the_name_of_the_person_who_launched_the_analysis(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[tuple[str, dict]] = []
+
+    def send_task(name: str, **kwargs):
+        sent.append((name, kwargs))
+        return type("Result", (), {"id": "task-1"})()
+
+    monkeypatch.setattr(celery_client.celery_client, "send_task", send_task)
+
+    celery_client.dispatch_agent_execution("dossier-1", "alice")
+
+    assert sent == [("app.tasks.run_agents", {"args": ["dossier-1", "alice"], "queue": "agent_execution"})]

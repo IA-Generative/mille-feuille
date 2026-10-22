@@ -197,3 +197,52 @@ def test_every_call_is_logged_without_its_arguments_or_output(
 def test_the_route_requires_the_worker_token(client: TestClient) -> None:
     assert client.post("/api/internal/tools/x/call", json={}).status_code == 422
     assert client.post("/api/internal/tools/x/call", json={}, headers={"X-App-Token": "nope"}).status_code == 401
+
+
+# --- La résolution des définitions, pour le worker ---
+
+
+def resolve(client: TestClient, ids: list[str], *, person=None):
+    headers = {**TOKEN, **({"X-Acting-User": person.user_id} if person else {})}
+    return client.post("/api/internal/tools/resolve", json={"tool_ids": ids}, headers=headers)
+
+
+def test_the_worker_gets_the_definitions_the_person_can_use(
+    client: TestClient, lister: FakeLister, server: dict, world: dict
+) -> None:
+    ids = [tool_id(server, "rechercher_texte"), tool_id(server, "lire_article")]
+
+    body = resolve(client, ids, person=world["bob"]).json()
+
+    assert [t["name"] for t in body["tools"]] == ["rechercher_texte", "lire_article"]
+    assert body["unavailable"] == []
+    assert body["tools"][0]["server_name"] == server["name"]
+    assert body["tools"][0]["input_schema"] == {}  # aucun schéma annoncé par le faux serveur
+    assert body["tools"][0]["side_effect"] is False
+
+
+def test_what_the_person_cannot_use_is_listed_not_returned(client: TestClient, lister: FakeLister, world: dict) -> None:
+    with As(world["alice"]):
+        shared = create_server(client, visibility="all", tools=["rechercher_texte"])
+        private = create_server(client, visibility="private")
+    ids = [
+        tool_id(shared, "rechercher_texte"),  # utilisable
+        tool_id(shared, "lire_article"),  # non autorisé par la personne qui a ajouté le serveur
+        tool_id(private, "rechercher_texte"),  # serveur invisible pour bob
+        str(uuid.uuid4()),  # inconnu
+        "calculatrice",  # interne : pas un tool MCP
+    ]
+
+    body = resolve(client, ids, person=world["bob"]).json()
+
+    assert [t["id"] for t in body["tools"]] == [ids[0]]
+    assert body["unavailable"] == ids[1:]
+
+
+def test_without_a_person_only_public_servers_are_resolved(client: TestClient, lister: FakeLister, world: dict) -> None:
+    with As(world["alice"]):
+        private = create_server(client, visibility="private")
+
+    body = resolve(client, [tool_id(private, "rechercher_texte")]).json()
+
+    assert body["tools"] == [] and len(body["unavailable"]) == 1

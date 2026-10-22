@@ -64,12 +64,16 @@ def dispatch_dossier_pipeline(document_ids: list[str], dossier_id: str) -> str:
     )
 
 
-def dispatch_agent_execution(dossier_id: str) -> str:
+def dispatch_agent_execution(dossier_id: str, acting_user: str | None = None) -> str:
     """Dépose la tâche d'exécution des agents sur la file agent_execution.
     Le worker attend que la classification et l'extraction soient terminées,
     puis exécute chaque agent via un graphe LangGraph avec des outils de
-    recherche (BM25), lecture de pages, et consultation des prédictions."""
-    return celery_client.send_task("app.tasks.run_agents", args=[dossier_id], queue="agent_execution").id
+    recherche (BM25), lecture de pages, et consultation des prédictions.
+
+    `acting_user` est la personne qui a lancé l'analyse : les agents appellent les serveurs MCP **en son nom**. Absente
+    (exécution sans personne), ils n'ont accès qu'aux outils internes."""
+    args = [dossier_id] if acting_user is None else [dossier_id, acting_user]
+    return celery_client.send_task("app.tasks.run_agents", args=args, queue="agent_execution").id
 
 
 def dispatch_chat_response(conversation_id: str, dossier_id: str) -> str:

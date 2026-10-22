@@ -7,11 +7,15 @@
 - un serveur privé n'est vu que de son propriétaire."""
 
 from collections.abc import Collection
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ColumnElement, and_, false, or_, true
 from sqlalchemy.dialects.postgresql import array
 
 from app.models.tool import ToolServer, ToolVisibility
+
+if TYPE_CHECKING:
+    from app.core.security.factory import RequestContext
 
 
 def can_view(
@@ -39,3 +43,15 @@ def visible_clause(user_id: str, is_admin: bool, groups: Collection[str]) -> Col
         else false()
     )
     return or_(ToolServer.created_by == user_id, ToolServer.visibility == ToolVisibility.ALL, by_group)
+
+
+def can_view_server(user: "RequestContext", server: ToolServer) -> bool:
+    """La même règle, pour une personne et un serveur chargés."""
+    return can_view(
+        user_id=user.user_id,
+        is_admin=user.is_admin,
+        groups=user.groups,
+        owner_id=server.created_by,
+        visibility=server.visibility,
+        server_groups=server.groups,
+    )

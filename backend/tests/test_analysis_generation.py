@@ -18,7 +18,7 @@ INTERNAL = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 def _no_celery_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     """Un lancement ne doit pas déposer de vraies tâches dans la file partagée."""
     for name in ("dispatch_classification", "dispatch_entity_extraction", "dispatch_agent_execution"):
-        monkeypatch.setattr(f"app.routers.dossiers.{name}", lambda dossier_id: None)
+        monkeypatch.setattr(f"app.routers.dossiers.{name}", lambda dossier_id, *args, **kwargs: None)
 
 
 def _create_dossier(client: TestClient, *, agent: str | None = None) -> str:
