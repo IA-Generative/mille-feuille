@@ -230,16 +230,23 @@ def deposit_assistant_message(
     *,
     content: str,
     sources: list[dict] | None = None,
+    tool_calls: list[dict] | None = None,
 ) -> dict:
     """Dépose le message assistant final (avec sources) via l'API interne.
     Les sources référencent les documents/pages utilisés par l'agent pour
-    construire sa réponse."""
+    construire sa réponse. `tool_calls` : les appels d'outils du dernier tour, dont ceux qui attendent l'accord
+    de la personne."""
     response = client.post(
         f"/conversations/{conversation_id}/messages",
-        json={"content": content, "sources": sources or []},
+        json={"content": content, "sources": sources or [], "tool_calls": tool_calls or []},
     )
     response.raise_for_status()
     return response.json()
+
+
+def record_chat_tool_result(client: httpx.Client, call_id: str, result: str) -> None:
+    """Dépose le résultat d'un appel autorisé par la personne : il passe de « autorisé » à « exécuté »."""
+    client.post(f"/chat-tool-calls/{call_id}/result", json={"result": result}).raise_for_status()
 
 
 # --- Agent helper : conversation + chat events (issue #50) ---
