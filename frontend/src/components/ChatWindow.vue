@@ -35,6 +35,7 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 import MarkdownText from "@/components/MarkdownText.vue";
 import type { StreamEvent } from "@/composables/useChatStream";
+import type { ChatToolCall } from "@/types/conversation";
 
 // Ajout de l'util et du component pour le tool_call / tool_result
 import { computed } from "vue";
@@ -50,6 +51,8 @@ export interface ChatWindowMessage {
   sources?: ChatWindowSource[];
   /** Feedback optionnel (thumbs up/down), utilisé par le chat de dossier. */
   feedback?: { value: "up" | "down" } | null;
+  /** Outils demandés par l'assistant dans ce message (chat de dossier) ; la page les montre sous la bulle. */
+  toolCalls?: ChatToolCall[];
 }
 
 export interface ChatWindowSource {

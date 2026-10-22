@@ -13,7 +13,6 @@ interface ChatToolOut {
   kind: "internal" | "mcp";
   server_name: string | null;
   side_effect: boolean;
-  given_to_model: boolean;
 }
 
 interface ConversationToolsOut {
@@ -29,7 +28,6 @@ const toChatTool = (raw: ChatToolOut): ChatTool => ({
   kind: raw.kind,
   serverName: raw.server_name,
   sideEffect: raw.side_effect,
-  givenToModel: raw.given_to_model,
 });
 
 export function useConversationTools(dossierId: string, conversationId: Ref<string | undefined>) {

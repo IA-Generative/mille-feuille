@@ -87,6 +87,33 @@ def test_a_batch_is_decided_all_at_once_and_the_chat_resumes_once(client: TestCl
     assert by_name["b"]["status"] == "refused" and "refusé" in by_name["b"]["result"]
 
 
+def test_a_refusal_carries_what_the_person_wants_instead(client: TestClient, dispatched: list) -> None:
+    dossier_id, conversation_id = chat(client)
+    first, second = deposit(client, conversation_id, [call_in("a"), call_in("b")])["tool_calls"]
+    decisions = [
+        {"id": first["id"], "allow": False, "comment": "  Écris plutôt au service des finances.  "},
+        {"id": second["id"], "allow": True, "comment": "ignoré pour une autorisation"},
+    ]
+
+    response = client.post(
+        f"/api/dossiers/{dossier_id}/conversations/{conversation_id}/tool-calls/decisions",
+        json={"decisions": decisions},
+    )
+
+    assert response.status_code == 200
+    by_name = {c["tool_name"]: c for c in internal_calls(client, conversation_id)}
+    assert by_name["a"]["result"].endswith("Elle précise : « Écris plutôt au service des finances. »")
+    assert by_name["b"]["status"] == "approved" and by_name["b"]["result"] is None
+    too_long = [{"id": first["id"], "allow": False, "comment": "x" * 501}]
+    assert (
+        client.post(
+            f"/api/dossiers/{dossier_id}/conversations/{conversation_id}/tool-calls/decisions",
+            json={"decisions": too_long},
+        ).status_code
+        == 422
+    )
+
+
 def test_every_pending_call_of_the_message_must_be_answered(client: TestClient, dispatched: list) -> None:
     dossier_id, conversation_id = chat(client)
     first, _second = deposit(client, conversation_id, [call_in("a"), call_in("b")])["tool_calls"]

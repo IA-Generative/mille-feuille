@@ -43,13 +43,11 @@ const sections = computed<Section[]>(() => {
   ].filter((section) => section.tools.length > 0);
 });
 
-// Seuls les outils que le modèle peut appeler comptent : un outil qui modifie des données est montré, désactivé.
-const callable = computed(() => tools.value.filter((tool) => tool.givenToModel));
-const activeCount = computed(() => callable.value.filter((tool) => !excluded.value.includes(tool.id)).length);
-const isRestricted = computed(() => activeCount.value < callable.value.length);
+const activeCount = computed(() => tools.value.filter((tool) => !excluded.value.includes(tool.id)).length);
+const isRestricted = computed(() => activeCount.value < tools.value.length);
 const hasAnything = computed(() => tools.value.length > 0 || unavailable.value.length > 0);
 
-const isActive = (tool: ChatTool) => tool.givenToModel && !excluded.value.includes(tool.id);
+const isActive = (tool: ChatTool) => !excluded.value.includes(tool.id);
 
 function setActive(id: string, active: boolean) {
   setExcluded(active ? excluded.value.filter((removed) => removed !== id) : [...excluded.value, id]);
@@ -120,7 +118,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="chat-tools-menu__footer">
-        <span>{{ activeCount }} sur {{ callable.length }} activés</span>
+        <span>{{ activeCount }} sur {{ tools.length }} activés</span>
         <button v-if="isRestricted" type="button" class="chat-tools-menu__link" @click="enableAll">Tout activer</button>
         <RouterLink to="/outils" class="chat-tools-menu__link">Gérer mes outils</RouterLink>
       </div>

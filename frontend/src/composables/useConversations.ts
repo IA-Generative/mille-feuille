@@ -9,6 +9,7 @@ import type {
   FeedbackValue,
   Message,
   MessageSource,
+  ChatToolCall,
 } from "@/types/conversation";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -43,6 +44,17 @@ function mapSource(api: any): MessageSource {
   };
 }
 
+function mapToolCall(api: any): ChatToolCall {
+  return {
+    id: api.id,
+    toolName: api.tool_name,
+    serverName: api.server_name,
+    args: api.arguments ?? {},
+    sideEffect: api.side_effect,
+    status: api.status,
+  };
+}
+
 function mapMessage(api: any): Message {
   return {
     id: api.id,
@@ -51,6 +63,7 @@ function mapMessage(api: any): Message {
     createdAt: api.created_at,
     sources: (api.sources ?? []).map(mapSource),
     feedback: mapFeedback(api.feedback),
+    toolCalls: (api.tool_calls ?? []).map(mapToolCall),
   };
 }
 
@@ -131,6 +144,20 @@ export function useConversations(dossierId: string) {
       body: JSON.stringify({ content }),
     });
     messages.value.push(mapMessage(data));
+  };
+
+  // Décide d'un lot de demandes d'outils (toutes ensemble) : le chat est relancé, il exécute ce qui est autorisé puis
+  // reprend là où il s'était arrêté. L'appelant suit alors la nouvelle exécution (flux SSE).
+  const decideToolCalls = async (decisions: { id: string; allow: boolean; comment?: string }[]) => {
+    const current = await ensureConversation();
+    const data = await apiFetch<any[]>(`/api/dossiers/${dossierId}/conversations/${current.id}/tool-calls/decisions`, {
+      method: "POST",
+      body: JSON.stringify({ decisions }),
+    });
+    const decided = data.map(mapToolCall);
+    for (const message of messages.value) {
+      message.toolCalls = message.toolCalls.map((call) => decided.find((d) => d.id === call.id) ?? call);
+    }
   };
 
   // Charge la page de messages plus anciens (défilement vers le haut).
@@ -242,6 +269,7 @@ export function useConversations(dossierId: string) {
     loadOlderMessages,
     ensureConversation,
     sendMessage,
+    decideToolCalls,
     streamConversation,
     refreshConversation,
     deleteConversation,

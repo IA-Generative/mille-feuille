@@ -74,7 +74,23 @@ const DOSSIER = {
 const MESSAGES = [
   { id: "m1", role: "user", content: "Le RIB de l'association est-il bien dans le dossier ?", created_at: iso(-0.01), sources: [], feedback: null },
   { id: "m2", role: "assistant", content: "Je ne trouve pas de RIB dans les pièces fournies : seuls les statuts et le dossier de demande sont présents.", created_at: iso(-0.01), sources: [], feedback: null },
+  { id: "m3", role: "user", content: "Préviens le service des subventions et l'association.", created_at: iso(-0.005), sources: [], feedback: null },
+  {
+    id: "m4", role: "assistant", content: "Je peux envoyer ces deux courriels. J'ai besoin de votre accord.", created_at: iso(-0.004), sources: [], feedback: null,
+    tool_calls: [
+      { id: "tc-1", message_id: "m4", position: 0, tool_name: "envoyer_courriel", server_name: "Annuaire des services", arguments: { destinataire: "service-subventions@culture.example.gouv.fr", objet: "Pièce manquante : RIB de l'association" }, side_effect: true, status: "pending", decided_at: null },
+      { id: "tc-2", message_id: "m4", position: 1, tool_name: "envoyer_courriel", server_name: "Annuaire des services", arguments: { destinataire: "contact@association.example.org", objet: "Votre dossier : un RIB est à fournir" }, side_effect: true, status: "pending", decided_at: null },
+    ],
+  },
 ];
+// La décision d'un lot : tout le lot ensemble (comme POST .../tool-calls/decisions du backend).
+const decisionRoute = (route, path) => {
+  if (path !== "/api/dossiers/dos-1/conversations/conv-1/tool-calls/decisions") return false;
+  const calls = MESSAGES.find((m) => m.id === "m4").tool_calls;
+  for (const { id, allow } of route.request().postDataJSON().decisions) calls.find((c) => c.id === id).status = allow ? "approved" : "refused";
+  route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(calls) });
+  return true;
+};
 
 // --- Registre des tools : réponses de l'API (mêmes formes que backend/app/schemas/tool.py) ---
 const internal = (id, name, description, side_effect = false, config = null) => ({ id, name, description, kind: "internal", server_id: null, side_effect, enabled: true, config });
@@ -137,7 +153,7 @@ const toolTestRoute = (route, path) => {
 };
 
 let chatExcluded = [];
-const chatTool = (id, name, description, kind, server_name, side_effect = false) => ({ id, name, description, kind, server_name, side_effect, given_to_model: !side_effect });
+const chatTool = (id, name, description, kind, server_name, side_effect = false) => ({ id, name, description, kind, server_name, side_effect });
 const CHAT_TOOLS = [
   chatTool("calculatrice", "Calculatrice", "Effectue des calculs exacts : montants, taux, totaux, pourcentages.", "internal", null),
   chatTool("calcul_dates", "Calcul de dates", "Jour de la semaine, ajout d'une durée, écart entre deux dates, bornes d'un mois ou d'un trimestre, date du jour.", "internal", null),
@@ -183,7 +199,7 @@ const handler = (route) => {
     SERVERS = [added, ...SERVERS];
     return json(added, 201);
   }
-  if (agentToolsRoute(route, path) || toolTestRoute(route, path) || conversationToolsRoute(route, path)) return;
+  if (agentToolsRoute(route, path) || toolTestRoute(route, path) || conversationToolsRoute(route, path) || decisionRoute(route, path)) return;
   if (path === "/api/auth/me") return json(profile);
   if (path === "/api/cgu/acceptance") return json({ accepted: true, cgu: null });
   if (path === "/api/cgu") return json({}, 404);
@@ -223,6 +239,7 @@ if (process.argv.includes("--verifier-masque")) {
   await page.goto(`${baseUrl}/dossiers/dos-1`, { waitUntil: "networkidle" });
   await page.waitForTimeout(800);
   expect(await page.getByRole("button", { name: "Outils de la conversation" }).count() === 1, "Chat : le menu des outils (réel) est visible");
+  expect(await page.locator(".tool-call-card").count() === 1, "Chat : la demande d'autorisation (réelle) est visible");
 
   await browser.close();
   process.exit(failures.length ? 1 : 0);
@@ -378,10 +395,23 @@ await settle(300);
 await page.screenshot({ path: resolve(outDir, "chat-outils-desactives.png") });
 console.log("✓ tools/chat-outils-desactives.png");
 
-// Confirmation avant un tool qui modifie des données
-await page.evaluate(() => window.__toolsMock.askConfirmation());
-await settle(500);
-await page.screenshot({ path: resolve(outDir, "chat-confirmation.png") });
-console.log("✓ tools/chat-confirmation.png");
+// Demande d'autorisation avant des tools qui modifient des données : une carte, un onglet par appel, une validation
+const card = page.locator(".tool-call-card");
+// La zone d'envoi colle au bas de l'écran : on centre la carte et on capture la fenêtre, pas l'élément.
+const cardShot = async (file) => {
+  await card.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await settle(600);
+  await page.screenshot({ path: resolve(outDir, file) });
+  console.log(`✓ tools/${file}`);
+};
+await cardShot("chat-confirmation.png");
+await card.getByRole("button", { name: "Autoriser", exact: true }).click();
+await cardShot("chat-confirmation-onglets.png");
+await card.getByPlaceholder("Refuser et dire quoi faire à la place…").fill("Écris plutôt à la cheffe de bureau.");
+await card.getByPlaceholder("Refuser et dire quoi faire à la place…").press("Enter");
+await cardShot("chat-confirmation-prete.png");
+await card.getByRole("button", { name: "Valider" }).click();
+await settle(800);
+await cardShot("chat-confirmation-decidee.png");
 
 await browser.close();
