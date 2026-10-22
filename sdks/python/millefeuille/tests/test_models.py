@@ -22,9 +22,15 @@ def test_inputs_reject_blank_and_unknown_fields() -> None:
     with pytest.raises(PydanticValidationError):
         m.EntityDefinitionIn(name="e", type="couleur")  # type: ignore[arg-type]
     with pytest.raises(PydanticValidationError):
-        m.AgentCreate(name="a", prompt="p", tools=["hack"])  # type: ignore[list-item]
+        m.AgentCreate(name="a", prompt="p", tools="calculatrice")  # type: ignore[arg-type]
     with pytest.raises(PydanticValidationError):
         m.DossierCreate(name="d", analyse_id="pas-un-uuid")  # type: ignore[arg-type]
+
+
+def test_any_tool_identifier_is_accepted_the_server_validates_it() -> None:
+    """Un outil d'agent est un identifiant (interne ou d'un serveur MCP) : le SDK ne peut pas connaître la liste."""
+    agent = m.AgentCreate(name="a", prompt="p", tools=["calculatrice", "calcul_dates", "0b6f3c2a-9d1e-4f5a-8c7b-1"])
+    assert agent.tools == ["calculatrice", "calcul_dates", "0b6f3c2a-9d1e-4f5a-8c7b-1"]
 
 
 def test_invalid_input_never_reaches_the_network(make_client) -> None:
@@ -46,7 +52,7 @@ def test_outputs_are_fully_typed() -> None:
     assert isinstance(page.predictions[0].validations[0].status, m.PredictionValidationStatus)
     analyse = m.Analyse.model_validate(analyse_json())
     assert isinstance(analyse.extraction.entities[0].type, m.EntityType)
-    assert isinstance(analyse.agents[0].tools[0], m.AgentTool)
+    assert isinstance(analyse.agents[0].tools[0], str)
 
 
 def test_unexpected_enum_value_from_server_is_rejected() -> None:

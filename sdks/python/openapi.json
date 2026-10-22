@@ -182,7 +182,9 @@
      "tools": {
       "default": [],
       "items": {
-       "$ref": "#/components/schemas/AgentTool"
+       "maxLength": 100,
+       "minLength": 1,
+       "type": "string"
       },
       "title": "Tools",
       "type": "array"
@@ -479,14 +481,14 @@
      },
      "tools": {
       "items": {
-       "$ref": "#/components/schemas/AgentTool"
+       "type": "string"
       },
       "title": "Tools",
       "type": "array"
      },
      "tools_versions": {
       "items": {
-       "$ref": "#/components/schemas/Version_list_AgentTool__"
+       "$ref": "#/components/schemas/Version_list_str__"
       },
       "title": "Tools Versions",
       "type": "array"
@@ -544,18 +546,6 @@
     ],
     "title": "AgentReuseOut",
     "type": "object"
-   },
-   "AgentTool": {
-    "enum": [
-     "lecture_document",
-     "recherche_web",
-     "base_connaissances",
-     "appel_agent",
-     "calculatrice",
-     "verification_coherence"
-    ],
-    "title": "AgentTool",
-    "type": "string"
    },
    "AgreementOut": {
     "description": "Accord entre la classification textuelle et la classification visuelle, page par page : sans vérité terrain,\nc'est un indicateur de fiabilité (deux méthodes indépendantes qui s'accordent sont plus sûres).",
@@ -12068,7 +12058,9 @@
     "properties": {
      "tools": {
       "items": {
-       "$ref": "#/components/schemas/AgentTool"
+       "maxLength": 100,
+       "minLength": 1,
+       "type": "string"
       },
       "title": "Tools",
       "type": "array"
@@ -12628,34 +12620,6 @@
     "title": "Version[bool]",
     "type": "object"
    },
-   "Version_list_AgentTool__": {
-    "properties": {
-     "content": {
-      "items": {
-       "$ref": "#/components/schemas/AgentTool"
-      },
-      "title": "Content",
-      "type": "array"
-     },
-     "created_at": {
-      "format": "date-time",
-      "title": "Created At",
-      "type": "string"
-     },
-     "id": {
-      "format": "uuid",
-      "title": "Id",
-      "type": "string"
-     }
-    },
-    "required": [
-     "id",
-     "content",
-     "created_at"
-    ],
-    "title": "Version[list[AgentTool]]",
-    "type": "object"
-   },
    "Version_list_CustomFieldOut__": {
     "properties": {
      "content": {
@@ -12766,6 +12730,34 @@
      "created_at"
     ],
     "title": "Version[list[StatusDefinitionOut]]",
+    "type": "object"
+   },
+   "Version_list_str__": {
+    "properties": {
+     "content": {
+      "items": {
+       "type": "string"
+      },
+      "title": "Content",
+      "type": "array"
+     },
+     "created_at": {
+      "format": "date-time",
+      "title": "Created At",
+      "type": "string"
+     },
+     "id": {
+      "format": "uuid",
+      "title": "Id",
+      "type": "string"
+     }
+    },
+    "required": [
+     "id",
+     "content",
+     "created_at"
+    ],
+    "title": "Version[list[str]]",
     "type": "object"
    },
    "Version_str_": {

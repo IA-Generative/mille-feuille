@@ -60,7 +60,6 @@ def test_model_matches_backend_schema(model: type[BaseModel], schema: str) -> No
         (m.PredictionKind, "PredictionKind"),
         (m.PredictionValidationStatus, "PredictionValidationStatus"),
         (m.EntityType, "EntityType"),
-        (m.AgentTool, "AgentTool"),
     ],
 )
 def test_enum_matches_backend(enum_cls: type, schema: str) -> None:
