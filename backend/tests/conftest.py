@@ -27,4 +27,4 @@ def _no_real_celery_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # Fixtures partagées des tests d'accès aux dossiers (issue #177) : `world` (personnes et groupes), `analyse`.
-pytest_plugins = ["tests.access_support"]
+pytest_plugins = ["tests.access_support", "tests.tool_support"]

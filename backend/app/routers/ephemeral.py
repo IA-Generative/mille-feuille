@@ -14,7 +14,7 @@ from app.celery_client import (
 from app.connectors import s3_connector
 from app.core.security.ephemeral import EphemeralIdentity, get_ephemeral_identity
 from app.db import get_db
-from app.models.analyse import AgentTool, Analyse, EntityDefinition, LabelDefinition
+from app.models.analyse import Analyse, EntityDefinition, LabelDefinition
 from app.models.analyse_ephemere import AnalyseEphemere
 from app.models.document_page import PredictionKind, PredictionSource
 from app.models.dossier import Dossier, DossierStatus
@@ -38,6 +38,7 @@ from app.schemas.ephemeral_metrics import FeedbackIn, FeedbackOut, GlobalMetrics
 from app.services import ephemeral_metrics
 from app.services.ephemeral_results import COMBINED_RUN_PREFIX, to_classification_out, to_extraction_out, to_run_summary
 from app.services.ephemeral_run_service import finalize_run, to_run_schema
+from app.services.tools.agent_tools import ToolsRefusedError, require_internal
 
 router = APIRouter(prefix="/ephemeral", tags=["Ephemeral"], dependencies=[Depends(get_ephemeral_identity)])
 
@@ -126,7 +127,7 @@ async def create_ephemeral_analyse(
             analyse,
             name=agent.name,
             prompt=agent.prompt,
-            tools=[AgentTool(t) for t in agent.tools],
+            tools=_internal_tools(agent.tools),
             output=agent.output,
             model=agent.model,
         )
@@ -201,6 +202,14 @@ async def delete_ephemeral_analyse(
             status_code=status.HTTP_409_CONFLICT,
             detail="Des dossiers référencent encore cette analyse - supprimez-les d'abord",
         ) from error
+
+
+def _internal_tools(tool_ids: list[str]) -> list[str]:
+    """Une analyse éphémère n'a personne derrière elle (clé d'API, jeton d'application) : tools internes seulement."""
+    try:
+        return require_internal(tool_ids)
+    except ToolsRefusedError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=error.message) from error
 
 
 def _validate_ttl_hours(ttl_hours: int | None) -> int:
