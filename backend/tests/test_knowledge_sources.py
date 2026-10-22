@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 from app.routers.knowledge_sources import get_source_probe
+from app.services.knowledge.client import HttpKnowledgeClient
 from app.services.knowledge.connection import HttpSourceProbe, ProbeError
 from tests.access_support import As
 from tests.tool_support import FakeIdentityTokens
@@ -142,7 +143,7 @@ def test_a_source_can_be_checked_again_with_the_identity_of_the_caller(
 
 
 def run_probe(handler) -> None:
-    probe = HttpSourceProbe(transport=httpx2.MockTransport(handler))
+    probe = HttpSourceProbe(HttpKnowledgeClient(transport=httpx2.MockTransport(handler)))
     asyncio.run(probe.probe("https://kb.example.gouv.fr/", {"Authorization": "Bearer t"}, 5))
 
 
@@ -155,7 +156,7 @@ def test_the_real_probe_calls_the_collections_route_of_the_contract() -> None:
 
     run_probe(handler)
 
-    assert str(seen[0].url) == "https://kb.example.gouv.fr/v1/collections?page_size=1"
+    assert str(seen[0].url) == "https://kb.example.gouv.fr/v1/collections?page=1&page_size=1"
     assert seen[0].headers["Authorization"] == "Bearer t"
 
 
@@ -163,8 +164,8 @@ def test_the_real_probe_calls_the_collections_route_of_the_contract() -> None:
     ("response", "message"),
     [
         (httpx2.Response(401), "refusé l'authentification"),
-        (httpx2.Response(403), "refusé l'authentification"),
-        (httpx2.Response(500), "contrat"),
+        (httpx2.Response(403), "pas accès"),
+        (httpx2.Response(500), "ne répond pas"),
         (httpx2.Response(200, text="<html>"), "pas du JSON"),
         (httpx2.Response(200, json={"collections": []}), "contrat"),
     ],

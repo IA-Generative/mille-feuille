@@ -12,7 +12,9 @@ from app.repositories.knowledge_source_repository import KnowledgeSourceReposito
 from app.routers.tool_servers import get_identity_tokens
 from app.schemas.knowledge_source import KnowledgeSourceCreate, KnowledgeSourceOut
 from app.schemas.pagination import Page
-from app.services.knowledge.connection import HttpSourceProbe, ProbeError, SourceProbe, check_source
+from app.services.knowledge.client import HttpKnowledgeClient, KnowledgeClient, KnowledgeError
+from app.services.knowledge.connection import HttpSourceProbe, ProbeError, SourceProbe, check_source, prepare_call
+from app.services.knowledge.contract import Collection
 from app.services.tools.credentials import CredentialsUnavailableError
 from app.services.tools.identity_tokens import IdentityTokens
 from app.services.tools.url_guard import UnsafeUrlError
@@ -21,9 +23,13 @@ from app.services.tools.visibility import can_view_server
 router = APIRouter(prefix="/knowledge-sources", tags=["Knowledge"], dependencies=[Depends(get_current_user)])
 
 
-def get_source_probe() -> SourceProbe:
+def get_knowledge_client() -> KnowledgeClient:
     """Le client réseau des fournisseurs de collections ; les tests le remplacent par un faux."""
-    return HttpSourceProbe()
+    return HttpKnowledgeClient()
+
+
+def get_source_probe(client: Annotated[KnowledgeClient, Depends(get_knowledge_client)]) -> SourceProbe:
+    return HttpSourceProbe(client)
 
 
 async def _check(
@@ -98,6 +104,41 @@ async def get_knowledge_source(
     user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> KnowledgeSourceOut:
     return KnowledgeSourceOut.of(await _visible_source(source_id, db, user), user_id=user.user_id)
+
+
+@router.get("/{source_id}/collections", response_model=Page[Collection])
+async def list_source_collections(
+    source_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+    client: Annotated[KnowledgeClient, Depends(get_knowledge_client)],
+    identity_tokens: Annotated[IdentityTokens, Depends(get_identity_tokens)],
+    q: Annotated[str | None, Query(max_length=200)] = None,
+    page: Annotated[int, Query(ge=1)] = 1,
+    page_size: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> Page[Collection]:
+    """Les collections que **cette personne** peut voir chez le fournisseur (ses droits, pas ceux de la plateforme),
+    paginées et filtrées côté fournisseur."""
+    source = await _visible_source(source_id, db, user)
+    try:
+        url, headers = await prepare_call(
+            source.url,
+            source.auth_mode,
+            acting_user=user.user_id,
+            audience=source.audience,
+            identity_tokens=identity_tokens,
+        )
+        result = await client.list_collections(url, headers, page=page, page_size=page_size, q=q)
+    except UnsafeUrlError as error:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
+    except CredentialsUnavailableError as error:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail={"code": error.code, "message": error.message}
+        ) from error
+    except KnowledgeError as error:
+        code = {"rate_limited": 429, "invalid_request": 422}.get(error.code, status.HTTP_502_BAD_GATEWAY)
+        raise HTTPException(code, detail={"code": error.code, "message": error.message}) from error
+    return Page.of(result.items, total=result.total, page=page, page_size=page_size)
 
 
 @router.post("/{source_id}/check", status_code=status.HTTP_204_NO_CONTENT)
