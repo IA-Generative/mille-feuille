@@ -629,6 +629,9 @@ class InternalConversationOut(BaseModel):
     user_id: str
     model: str | None
     messages: list[InternalMessageOut]
+    # Les outils à donner au modèle dans le chat : ceux que l'analyse autorise (ses agents), moins ceux que la
+    # personne a retirés pour cette conversation. Le worker les résout et les appelle en son nom.
+    tool_ids: list[str] = []
 
 
 class InternalDossierOut(BaseModel):
