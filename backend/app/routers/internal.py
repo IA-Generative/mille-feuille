@@ -55,6 +55,7 @@ from app.schemas.dossier import (
     InternalDossierOut,
     InternalEntityDefinitionOut,
     InternalExtractionOut,
+    InternalKnowledgeCollectionOut,
     InternalLabelDefinitionOut,
     InternalMessageIn,
     MessageOut,
@@ -647,6 +648,9 @@ async def get_internal_analyse(analyse_id: uuid.UUID, db: Annotated[AsyncSession
             entities=[InternalEntityDefinitionOut.model_validate(entity) for entity in analyse.entities],
         ),
         agents=[InternalAgentOut.model_validate(agent) for agent in analyse.agents],
+        knowledge_collections=[
+            InternalKnowledgeCollectionOut.model_validate(item) for item in analyse.knowledge_collections
+        ],
     )
 
 
