@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import ModelPicker from "@/components/ModelPicker.vue";
 import ToolAuthBadge from "@/components/tools/ToolAuthBadge.vue";
 import ToolTestPrompt from "@/components/tools/ToolTestPrompt.vue";
 import ToolTestResult from "@/components/tools/ToolTestResult.vue";
@@ -16,6 +17,9 @@ const { servers } = useTools();
 const server = computed(() => servers.value.find((candidate) => candidate.id === props.tool.serverId));
 
 const prompt = ref("");
+// "" = le modèle par défaut du hub.
+const model = ref("");
+const error = ref("");
 const run = ref<ToolTestRun | null>(null);
 const loading = ref(false);
 // Un tool qui modifie des données s'exécute pour de vrai : on demande une confirmation explicite.
@@ -25,6 +29,7 @@ watch(opened, (isOpened) => {
   if (!isOpened) return;
   prompt.value = examplePromptOf(props.tool);
   run.value = null;
+  error.value = "";
   confirmed.value = false;
 });
 
@@ -33,8 +38,12 @@ const canRun = computed(() => !loading.value && prompt.value.trim() !== "" && (!
 async function execute() {
   loading.value = true;
   run.value = null;
+  error.value = "";
   try {
-    run.value = await runToolTest(props.tool, prompt.value);
+    run.value = await runToolTest(props.tool, prompt.value, { model: model.value, confirmed: confirmed.value });
+  } catch (e) {
+    // Une erreur HTTP (session expirée, demande refusée…) : on la dit, plutôt que de laisser la fenêtre muette.
+    error.value = e instanceof Error ? e.message : "Le test a échoué.";
   } finally {
     loading.value = false;
   }
@@ -75,9 +84,11 @@ async function execute() {
         <section>
           <h3 class="tool-test-modal__heading">Demande</h3>
           <ToolTestPrompt v-model="prompt" />
+          <ModelPicker v-model="model" show-label label="Modèle qui choisit les arguments" class="fr-mt-2w" />
         </section>
         <section>
           <h3 class="tool-test-modal__heading">Sortie brute de l'outil</h3>
+          <DsfrAlert v-if="error" type="error" small :description="error" class="fr-mb-2w" />
           <ToolTestResult :run="run" :loading="loading" />
         </section>
       </div>

@@ -23,11 +23,16 @@ export const TOOL_VISIBILITY_LABELS: Record<ToolVisibility, string> = {
 /** Résultat d'un test unitaire : la sortie brute du tool, sa durée et son issue. */
 export interface ToolTestRun {
   ok: boolean;
+  /** Code d'échec stable (`delai_depasse`, `aucun_appel`…), absent en cas de succès. */
+  code: string | null;
+  /** La sortie du tool, ou le message d'erreur en français. */
+  output: string;
+  truncated: boolean;
   durationMs: number;
-  /** Appel que le modèle a fait (`tools/call`, avec les arguments qu'il a choisis), pour le diagnostic. */
-  request: Record<string, unknown>;
-  /** Réponse du tool, ou code d'erreur et message. */
-  output: unknown;
+  /** Le modèle qui a choisi les arguments. */
+  model: string | null;
+  /** L'appel que le modèle a fait : le nom du tool et les arguments qu'il a choisis. */
+  call: { name: string; arguments: Record<string, unknown> } | null;
 }
 
 export interface Tool {

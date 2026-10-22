@@ -128,6 +128,22 @@ const DISCOVERED = [
   { name: "creer_fiche", description: "Crée une nouvelle fiche.", side_effect: true },
 ];
 
+const toolTestRoute = (route, path) => {
+  const match = path.match(/^\/api\/tools\/(.+)\/test$/);
+  if (!match || route.request().method() !== "POST") return false;
+  const body = route.request().postDataJSON();
+  const toolName = match[1].replace(/^srv-[a-z]+-/, "");
+  const model = body.model || "mistral-medium";
+  const call = { name: toolName, arguments: { requete: body.prompt.slice(0, 60) } };
+  const send = (payload) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ truncated: false, model, call, ...payload }) });
+  if (body.prompt.includes("999")) {
+    send({ ok: false, code: "outil_en_erreur", output: "Article introuvable : 999", duration_ms: 214 });
+  } else {
+    send({ ok: true, code: null, output: JSON.stringify({ resultats: [{ titre: "Article L1111-1", extrait: "…" }, { titre: "Article L1111-2", extrait: "…" }], total: 2 }), duration_ms: 618 });
+  }
+  return true;
+};
+
 const agentToolsRoute = (route, path) => {
   const json = (body) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
   const agent = analyse.agents[0];
@@ -156,7 +172,7 @@ const handler = (route) => {
     SERVERS = [added, ...SERVERS];
     return json(added, 201);
   }
-  if (agentToolsRoute(route, path)) return;
+  if (agentToolsRoute(route, path) || toolTestRoute(route, path)) return;
   if (path === "/api/auth/me") return json(profile);
   if (path === "/api/cgu/acceptance") return json({ accepted: true, cgu: null });
   if (path === "/api/cgu") return json({}, 404);
@@ -184,7 +200,8 @@ if (process.argv.includes("--verifier-masque")) {
   await page.goto(`${baseUrl}/outils`, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
   expect(await page.getByRole("heading", { name: "Mes outils" }).count() === 1, "« Mes outils » (page réelle) reste visible");
-  expect(await page.getByRole("button", { name: "Tester" }).count() === 0, "« Mes outils » : aucun bouton Tester");
+  expect(await page.locator(".server-card__tool").getByRole("button", { name: "Tester" }).count() > 0, "« Mes outils » : « Tester » sur les tools MCP (réel)");
+  expect(await page.locator(".internal-tool").getByRole("button", { name: "Tester" }).count() === 0, "« Mes outils » : pas de « Tester » sur les outils internes");
 
   await page.goto(`${baseUrl}/analyses/${ANALYSE_ID}/agents`, { waitUntil: "networkidle" });
   await page.waitForTimeout(500);
@@ -307,7 +324,9 @@ await page.getByRole("button", { name: "Choisir les outils" }).click();
 await settle(1500);
 await page.screenshot({ path: resolve(outDir, "selecteur-modale.png") });
 console.log("✓ tools/selecteur-modale.png");
-await page.locator(".tool-picker-row", { hasText: "Calculatrice" }).getByRole("button", { name: "Tester" }).click();
+await page.getByPlaceholder("Rechercher un outil, un serveur…").fill("rechercher_texte");
+await settle(300);
+await page.locator(".tool-picker-row", { hasText: "rechercher_texte" }).getByRole("button", { name: "Tester" }).click();
 await settle(1200);
 await page.screenshot({ path: resolve(outDir, "test-outil-agent.png") });
 console.log("✓ tools/test-outil-agent.png");

@@ -1,5 +1,4 @@
 import uuid
-from typing import Any
 
 import fakeredis
 import pytest
@@ -9,35 +8,13 @@ from sqlalchemy import select
 from app.db import async_session_factory
 from app.main import app
 from app.models.tool import ToolCallLog
-from app.routers.internal_tools import get_call_limiter, get_tool_caller
+from app.routers.internal_tools import get_call_limiter
 from app.services.tools.call_limits import CallLimiter
 from app.services.tools.mcp_caller import CallFailedError, CallTimeoutError, RawToolResult
 from tests.access_support import As
-from tests.tool_support import FakeIdentityTokens, FakeLister, create_server, tool_id
+from tests.tool_support import FakeCaller, FakeIdentityTokens, FakeLister, create_server, tool_id
 
 TOKEN = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
-
-
-class FakeCaller:
-    """Remplace le client MCP : aucun réseau."""
-
-    def __init__(self, result: RawToolResult | Exception) -> None:
-        self.result = result
-        self.calls: list[tuple[str, dict[str, str], str, dict[str, Any]]] = []
-
-    async def call_tool(self, url, headers, name, arguments, timeout) -> RawToolResult:
-        self.calls.append((url, headers, name, arguments))
-        if isinstance(self.result, Exception):
-            raise self.result
-        return self.result
-
-
-@pytest.fixture
-def caller() -> FakeCaller:
-    fake = FakeCaller(RawToolResult(text="Article L1111-1 : …", is_error=False))
-    app.dependency_overrides[get_tool_caller] = lambda: fake
-    yield fake
-    del app.dependency_overrides[get_tool_caller]
 
 
 def call(client: TestClient, tool: str, *, person=None, arguments: dict | None = None, run_id: str | None = None):
