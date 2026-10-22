@@ -19,6 +19,7 @@ from app.routers.agent_conversations import router as agent_conversations_router
 from app.routers.analyses import public_router as analyses_public_router
 from app.routers.analyses import router as analyses_router
 from app.routers.analysis_collaboration import router as analysis_collaboration_router
+from app.routers.analysis_knowledge import router as analysis_knowledge_router
 from app.routers.analysis_proposals import router as analysis_proposals_router
 from app.routers.app_tokens import router as app_tokens_router
 from app.routers.assist import router as assist_router
@@ -194,6 +195,7 @@ app.include_router(user_tasks_router, prefix="/api")
 app.include_router(ephemeral_router, prefix="/api")
 app.include_router(tool_servers_router, prefix="/api")
 app.include_router(knowledge_sources_router, prefix="/api")
+app.include_router(analysis_knowledge_router, prefix="/api")
 app.include_router(tools_router, prefix="/api")
 app.include_router(usage_router, prefix="/api")
 app.include_router(internal_usage_router, prefix="/api")

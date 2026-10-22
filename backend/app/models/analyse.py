@@ -50,6 +50,9 @@ class VersionedField(enum.StrEnum):
     # Échéance des dossiers de l'analyse (issue #172) : durée par défaut et seuils de couleur.
     DUE_SETTINGS = "due_settings"
     CUSTOM_FIELDS = "custom_fields"
+    # Collections de la base de connaissances que l'analyse autorise (issue #358) : liste de
+    # {source_id, collection_id, name}, restaurée à l'identique.
+    KNOWLEDGE_COLLECTIONS = "knowledge_collections"
 
 
 class Analyse(UUIDMixin, TimestampMixin, Base):
@@ -70,6 +73,10 @@ class Analyse(UUIDMixin, TimestampMixin, Base):
     # Colonnes personnalisées du suivi (issue #173) : liste de définitions {id, name, definition, type, required,
     # default_value, choices, currency}, versionnée (`VersionedField.CUSTOM_FIELDS`). Les valeurs sont sur le dossier.
     custom_fields: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
+    # Collections de la base de connaissances que le chat et les agents de l'analyse peuvent interroger, versionnées
+    # (`VersionedField.KNOWLEDGE_COLLECTIONS`) : {source_id, collection_id, name}. Les droits restent ceux de la
+    # personne.
+    knowledge_collections: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
 
     classification_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # Classification multi-label : plusieurs labels possibles par page (sinon un seul). Fixé à la création
