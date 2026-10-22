@@ -84,7 +84,7 @@ from .notification import Notification, NotificationCursor
 from .report import Report, ReportStatus, ReportType
 from .summary import DocumentSummary, DossierSummary, SummaryStatus
 from .token_usage import TokenUsage, TokenUsageKind
-from .tool import Tool, ToolAuthMode, ToolServer, ToolVisibility
+from .tool import Tool, ToolAuthMode, ToolCallLog, ToolServer, ToolVisibility
 from .user_preference import UserPreference
 from .user_task import UserTask, UserTaskKind, UserTaskStatus
 from .work_slot import WorkSlot
@@ -187,6 +187,7 @@ __all__ = [
     "TokenUsageKind",
     "Tool",
     "ToolAuthMode",
+    "ToolCallLog",
     "ToolServer",
     "ToolVisibility",
     "UserPreference",

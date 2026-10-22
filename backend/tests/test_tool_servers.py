@@ -3,11 +3,9 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
-from app.routers.tool_servers import get_identity_tokens
 from app.services.tools.mcp_discovery import DiscoveredTool, DiscoveryError
 from tests.access_support import As
-from tests.tool_support import FakeLister
+from tests.tool_support import FakeIdentityTokens, FakeLister
 from tests.tool_support import create_server as create
 
 
@@ -37,25 +35,6 @@ def test_static_token_is_refused_for_now(client: TestClient, lister: FakeLister)
     )
     assert response.status_code == 422
     assert "jeton statique" in response.text.lower()
-
-
-class FakeIdentityTokens:
-    """Remplace session + échange Keycloak : aucune connexion à Keycloak ni à Redis."""
-
-    def __init__(self) -> None:
-        self.calls: list[tuple[str | None, str | None]] = []
-
-    async def token_for(self, user_id: str | None, audience: str | None) -> str:
-        self.calls.append((user_id, audience))
-        return f"exchanged-for-{audience}"
-
-
-@pytest.fixture
-def identity_tokens() -> FakeIdentityTokens:
-    fake = FakeIdentityTokens()
-    app.dependency_overrides[get_identity_tokens] = lambda: fake
-    yield fake
-    del app.dependency_overrides[get_identity_tokens]
 
 
 def test_token_exchange_sends_the_exchanged_token_for_the_servers_audience(
