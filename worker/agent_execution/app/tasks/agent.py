@@ -4,8 +4,10 @@ Cette tâche est déposée sur la file agent_execution en même temps que la
 classification et l'extraction, mais elle attend que ces deux étapes soient
 terminées avant de lancer les agents. Chaque agent reçoit :
 - Son prompt (défini dans l'analyse)
-- Un ensemble d'outils (recherche BM25, lecture de page, classifications,
-  entités) qui accèdent aux données du dossier
+- Un socle d'outils (recherche BM25, lecture de page, classifications,
+  entités) qui accèdent aux données du dossier, toujours donné
+- Les outils choisis pour l'agent : calculatrice, dates, serveurs MCP (appelés
+  au nom de la personne qui a lancé l'analyse, par le backend)
 - Le modèle LLM configuré pour l'agent (ou le modèle par défaut)
 
 Le résultat de chaque agent est déposé comme output de son execution_step.
@@ -15,9 +17,11 @@ du dossier.
 
 import logging
 import time
+import uuid
 
 from app import api_client, usage
 from app.agent_graph import run_agent
+from app.agent_tool_set import ExtraTools, build_extra_tools
 from app.celery_app import celery_app
 from app.tools import AgentTools
 
@@ -54,7 +58,23 @@ def _wait_for_steps(client, dossier: dict, step_kinds: list[str]) -> dict[str, s
     return result
 
 
-def _run_single_agent(client, dossier: dict, agent: dict, step_id: str | None) -> str:
+def _with_notice(prompt: str, extra: ExtraTools) -> str:
+    """Le prompt de l'agent, suivi de ce qu'il doit savoir de ses outils (sorties externes, outils absents)."""
+    return f"{prompt}\n\n{extra.notice}" if extra.notice else prompt
+
+
+def _log_missing_tools(client, step_id: str, extra: ExtraTools) -> None:
+    """Dit dans le journal de l'étape les outils qui n'ont pas été donnés à l'agent : l'exécution continue sans eux."""
+    if extra.skipped:
+        message = "Outils ignorés (retirés ou pas encore disponibles) : " + ", ".join(extra.skipped)
+        api_client.add_execution_log(client, step_id, level="warning", message=message)
+    if extra.unavailable:
+        count = len(extra.unavailable)
+        message = f"{count} outil(s) MCP non utilisables dans cette exécution (droits, session ou serveur)"
+        api_client.add_execution_log(client, step_id, level="warning", message=message)
+
+
+def _run_single_agent(client, dossier: dict, agent: dict, step_id: str | None, acting_user: str | None = None) -> str:
     """Exécute un agent unique et dépose son résultat sur son execution_step.
     Renvoie la réponse de l'agent."""
     if step_id:
@@ -67,10 +87,14 @@ def _run_single_agent(client, dossier: dict, agent: dict, step_id: str | None) -
     # Récupère le dossier à jour (avec les prédictions déposées par
     # classification + extraction) pour construire les outils.
     fresh_dossier = api_client.get_dossier(client, dossier["id"])
-    tools = AgentTools(fresh_dossier)
+    run_id = f"agent-{dossier['id']}-{agent.get('id', 'x')}-{uuid.uuid4().hex[:8]}"
+    extra = build_extra_tools(client, agent.get("tools", []), acting_user=acting_user, run_id=run_id)
+    if step_id:
+        _log_missing_tools(client, step_id, extra)
+    tools = AgentTools(fresh_dossier, extra=extra)
 
     answer = run_agent(
-        agent_prompt=agent["prompt"],
+        agent_prompt=_with_notice(agent["prompt"], extra),
         tools=tools,
         model=agent.get("model"),
     )
@@ -82,7 +106,9 @@ def _run_single_agent(client, dossier: dict, agent: dict, step_id: str | None) -
 
 
 @celery_app.task(name="app.tasks.run_agents", bind=True)
-def run_agents(self, dossier_id: str) -> None:
+def run_agents(self, dossier_id: str, acting_user: str | None = None) -> None:
+    """`acting_user` : la personne qui a lancé l'analyse ; les outils MCP sont appelés en son nom. Absente
+    (exécution sans personne), seuls les outils internes sont utilisables."""
     usage.bind("run_agents", dossier_id=dossier_id)
     with api_client.get_client() as client:
         dossier = api_client.get_dossier(client, dossier_id)
@@ -114,7 +140,7 @@ def run_agents(self, dossier_id: str) -> None:
                     logger.info("Agent '%s' reused for dossier %s", agent["name"], dossier_id)
                     continue
                 try:
-                    _run_single_agent(client, dossier, agent, step_id)
+                    _run_single_agent(client, dossier, agent, step_id, acting_user)
                 except Exception as agent_error:
                     logger.exception(
                         "Agent '%s' failed for dossier %s",
