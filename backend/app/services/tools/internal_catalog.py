@@ -37,13 +37,15 @@ INTERNAL_TOOLS: tuple[InternalTool, ...] = (
         "date du jour.",
         implemented=True,
     ),
-    # Pas encore exécutables : ils reviennent avec leur issue (base de connaissances, chat des dossiers…).
     InternalTool(
         "base_connaissances",
         "Base de connaissances",
-        "Interroge la base de connaissances de la plateforme.",
+        "Cherche dans les collections de la base de connaissances choisies pour l'analyse, avec les droits de la "
+        "personne.",
         config="collections",
+        implemented=True,
     ),
+    # Pas encore exécutables : ils reviennent avec leur issue (chat des dossiers…).
     InternalTool("appel_agent", "Appel à un autre agent", "Délègue une sous-tâche à un autre agent de l'analyse."),
     InternalTool(
         "verification_coherence",

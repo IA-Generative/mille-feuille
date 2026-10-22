@@ -145,9 +145,9 @@ def test_an_ephemeral_analysis_accepts_internal_tools_and_the_legacy_ids_of_the_
 
 
 def test_an_internal_tool_that_is_not_runnable_yet_is_refused_with_a_clear_reason(client: TestClient) -> None:
-    detail = add_agent(client, new_analyse(client), ["calculatrice", "base_connaissances"]).json()["detail"]
+    detail = add_agent(client, new_analyse(client), ["calculatrice", "appel_agent"]).json()["detail"]
 
-    assert detail["tools"] == ["base_connaissances"]
+    assert detail["tools"] == ["appel_agent"]
     assert "pas encore disponible" in detail["message"]
 
 
