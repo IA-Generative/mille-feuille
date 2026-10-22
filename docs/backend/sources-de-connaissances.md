@@ -52,3 +52,20 @@ L'analyse garde la liste des collections que son chat et ses agents peuvent inte
 - **État affiché** : `available`, `not_found`, `forbidden` ou `source_unavailable` (source supprimée, plus visible, ou fournisseur qui ne répond pas : les autres collections s'affichent quand même). Il dépend de la personne : deux personnes peuvent ne pas voir la même chose.
 - **Le worker** lit la liste dans `GET /api/internal/analyses/{id}` (`knowledge_collections`). Les droits ne sont pas contrôlés à cette lecture : c'est le fournisseur qui répond selon la personne au moment de la recherche (#359).
 
+## Recherche pour le chat et les agents (#359)
+
+L'outil interne `base_connaissances` (catalogue : `implemented`) donne au modèle une fonction `search_knowledge_base(query, top_k)`. Il n'est donné que si l'analyse a des collections choisies ; sinon l'étape le journalise comme ignoré (« aucune collection choisie pour l'analyse »).
+
+Le worker ne parle jamais au fournisseur : il appelle `POST /api/internal/knowledge/search` (jeton du worker + `X-Acting-User`) avec `{analyse_id, query, top_k, run_id}` et ne reçoit que des passages. Le backend (`services/knowledge/search_service.py`) :
+
+1. compte l'appel dans les **quotas** des tools (par run et par personne et par minute) ;
+2. pour chaque source des collections de l'analyse : visibilité pour la personne, garde d'URL, **échange de jeton au nom de la personne**, puis `/v1/search` (20 collections au plus par requête) ;
+3. fusionne et classe par score (les scores sont comparables d'une collection à l'autre, c'est le contrat), garde `top_k` (10 au plus), coupe chaque passage à 1 500 caractères et le total à `TOOL_OUTPUT_MAX_CHARS` ;
+4. **journalise** un appel par source consultée dans `tool_call_logs` (sans la question ni le texte trouvé).
+
+Un fournisseur ou une collection qui échoue n'empêche pas les autres : ils sont dans `skipped` (`not_found`, `forbidden`, `unavailable`). La recherche échoue (`ok: false`) quand aucune collection n'a pu être consultée (`aucune_collection_disponible`), quand l'analyse n'en a pas (`aucune_collection`), ou à code stable quand il n'y a pas d'identité exploitable (`session_requise`, `identite_absente`) ou que le quota est dépassé (`quota_depasse`). Un passage d'une collection qui n'a pas été demandée n'est pas relayé ; un lien n'est gardé que s'il est en http ou https.
+
+**Les passages sont des données non fiables.** Le worker les présente au modèle entourés de `<sortie_outil_externe>` (une balise de fermeture dans le texte est neutralisée), avec le document, la page, la collection, le score et le lien, et une consigne : citer le document et la page. Un échec de la plateforme est un message lisible, pas une donnée tierce.
+
+Limite : la citation passe par le texte de la réponse. Les passages ne sont pas encore ajoutés aux **sources** du message du chat (qui référencent des documents du dossier, pas des documents d'une base externe).
+

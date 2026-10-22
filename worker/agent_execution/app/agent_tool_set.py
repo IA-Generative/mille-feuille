@@ -15,8 +15,9 @@ from typing import Any
 
 import httpx
 
-from app import api_client
+from app import api_client, knowledge_tools
 from app.catalog.functions import FUNCTIONS_BY_TOOL
+from app.knowledge_tools import KnowledgeContext, KnowledgeTools
 from app.mcp_tools import McpTools, function_name_of
 
 logger = logging.getLogger(__name__)
@@ -83,6 +84,7 @@ def build_extra_tools(
     run_id: str,
     allow_side_effects: bool = True,
     confirm_side_effects: bool = False,
+    knowledge: KnowledgeContext | None = None,
 ) -> ExtraTools:
     """`allow_side_effects=False` : un tool MCP qui modifie des données n'est pas donné au modèle.
     `confirm_side_effects=True` : il est donné, mais l'appel attend l'autorisation de la personne (le chat ; un agent,
@@ -95,6 +97,8 @@ def build_extra_tools(
             for function in functions:
                 extra._definitions.append(function.definition())
                 extra._runners[function.definition()["function"]["name"]] = function.run
+        elif tool_id == knowledge_tools.TOOL_ID:
+            _add_knowledge_tool(extra, client, knowledge, acting_user=acting_user, run_id=run_id)
         elif _is_uuid(tool_id):
             mcp_ids.append(tool_id)
         else:
@@ -112,12 +116,37 @@ def build_extra_tools(
         )
 
     notices = []
-    if any(name.startswith("mcp_") for name in extra._runners):
+    if any(name.startswith("mcp_") or name == knowledge_tools.FUNCTION_NAME for name in extra._runners):
         notices.append(MCP_NOTICE)
+    if knowledge_tools.FUNCTION_NAME in extra._runners:
+        notices.append(knowledge_tools.NOTICE)
     if extra.unavailable:
         notices.append(_unavailable_notice(len(extra.unavailable)))
     extra.notice = "\n\n".join(notices)
     return extra
+
+
+def _add_knowledge_tool(
+    extra: ExtraTools,
+    client: httpx.Client,
+    knowledge: KnowledgeContext | None,
+    *,
+    acting_user: str | None,
+    run_id: str,
+) -> None:
+    """La recherche dans la base de connaissances : donnée seulement si l'analyse a des collections (sinon elle ne
+    pourrait rien trouver, et le modèle s'y essaierait pour rien)."""
+    if knowledge is None or not knowledge.collections:
+        extra.skipped.append(f"{knowledge_tools.TOOL_ID} (aucune collection choisie pour l'analyse)")
+        return
+
+    def search(query: str, top_k: int) -> dict[str, Any]:
+        return api_client.search_knowledge(
+            client, knowledge.analyse_id, query, top_k, acting_user=acting_user, run_id=run_id
+        )
+
+    extra._definitions.append(knowledge_tools.DEFINITION)
+    extra._runners[knowledge_tools.FUNCTION_NAME] = KnowledgeTools(search).run
 
 
 def _add_mcp_tools(
