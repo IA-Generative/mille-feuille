@@ -16,7 +16,8 @@ info:
       Une collection hors de ses droits se comporte comme si elle n'existait pas dans les listes, et est signalée
       `forbidden` quand on la demande explicitement.
     - **Les identifiants sont stables.** Une collection garde son `id` quand on la renomme.
-    - **Le résultat est citable.** Chaque passage porte de quoi afficher la source dans le chat.
+    - **Le résultat est citable.** Une réponse porte une liste de `sources` normalisée : un lien, un aperçu et les zones
+      du passage, de quoi afficher la source dans le chat, qu'elle vienne d'un document ou d'un site web.
     - **Un échec partiel n'est pas un échec.** Si une collection demandée est indisponible, on renvoie les résultats
       des autres et on signale celle qui manque (`skipped`).
     - **Les sorties sont bornées**, parce qu'elles sont ensuite données à un modèle de langage.
@@ -199,8 +200,12 @@ paths:
       operationId: search
       summary: Chercher dans un ensemble de collections
       description: |
-        Cherche `query` dans les collections `collection_ids` et renvoie les passages les plus pertinents, toutes
-        collections confondues.
+        Cherche `query` dans les collections `collection_ids` et renvoie les sources les plus pertinentes, toutes
+        collections confondues, et si le fournisseur sait en produire une, une réponse en texte (`answer`).
+
+        **La forme de la réponse est la même pour tous les fournisseurs** : `answer` (texte ou `null`) et `sources`
+        (liste, éventuellement vide). Une source est un document ou une page d'un site web : elle a toujours une `url`,
+        et facultativement un aperçu (`preview_url`), une page et des zones surlignables (`boxes`, liste vide possible).
 
         **Prérequis** :
         - `collection_ids` contient de 1 à 20 identifiants ;
@@ -226,24 +231,48 @@ paths:
               max_chars: 4000
       responses:
         "200":
-          description: Les passages classés, et les collections ignorées.
+          description: La réponse éventuelle, les sources classées, et les collections ignorées.
           content:
             application/json:
               schema: { $ref: "#/components/schemas/SearchResponse" }
-              example:
-                items:
-                  - passage_id: p-8f2c
-                    collection_id: subv-guide
-                    document_id: d-120
-                    document_name: Guide de l'instruction des subventions 2026.pdf
-                    page: 14
-                    text: Toute demande de subvention comporte les statuts de l'association, un RIB, le budget prévisionnel…
-                    score: 0.91
-                    source_url: https://base-de-connaissances.example.gouv.fr/v1/documents/d-120?page=14
-                    metadata: { type_document: guide, annee: 2026 }
-                skipped:
-                  - { collection_id: circulaires, reason: unavailable }
-                usage: { input_tokens: 18, total_tokens: 18 }
+              examples:
+                avec_documents:
+                  summary: Des documents, avec page, aperçu et zones
+                  value:
+                    answer: Une demande de subvention comporte les statuts de l'association, un RIB et le budget prévisionnel.
+                    sources:
+                      - id: p-8f2c
+                        kind: document
+                        title: Guide de l'instruction des subventions 2026.pdf
+                        url: https://base-de-connaissances.example.gouv.fr/v1/documents/d-120?page=14
+                        preview_url: https://base-de-connaissances.example.gouv.fr/v1/documents/d-120/pages/14.png
+                        page: 14
+                        boxes:
+                          - { page: 14, x_min: 0.12, y_min: 0.31, x_max: 0.88, y_max: 0.39 }
+                        passage: Toute demande de subvention comporte les statuts de l'association, un RIB, le budget prévisionnel…
+                        score: 0.91
+                        collection_id: subv-guide
+                        metadata: { type_document: guide, annee: 2026 }
+                    skipped:
+                      - { collection_id: circulaires, reason: unavailable }
+                    usage: { input_tokens: 18, total_tokens: 18 }
+                site_web_sans_reponse:
+                  summary: Une page de site web, sans réponse rédigée, sans page ni zones
+                  value:
+                    answer: null
+                    sources:
+                      - id: w-31
+                        kind: web
+                        title: Service-Public.fr — Subvention aux associations
+                        url: https://www.service-public.example.fr/associations/subvention
+                        preview_url: null
+                        page: null
+                        boxes: []
+                        passage: Les pièces à joindre varient selon le montant demandé…
+                        score: 0.77
+                        collection_id: sites-officiels
+                        metadata: {}
+                    skipped: []
         "401": { $ref: "#/components/responses/Unauthorized" }
         "422": { $ref: "#/components/responses/InvalidRequest" }
         "429": { $ref: "#/components/responses/RateLimited" }
@@ -358,6 +387,14 @@ components:
         tags:
           type: array
           items: { type: string }
+        url:
+          type: [string, "null"]
+          format: uri
+          description: Page d'accueil de la collection (http ou https), pour l'ouvrir chez le fournisseur.
+        preview_url:
+          type: [string, "null"]
+          format: uri
+          description: Vignette de la collection (http ou https), si le fournisseur en a une.
 
     CollectionPage:
       type: object
@@ -420,24 +457,53 @@ components:
           default: 4000
           description: Taille maximale du texte de chaque passage, en caractères.
 
-    Passage:
+    Box:
       type: object
-      required: [passage_id, collection_id, document_id, document_name, text, score]
+      required: [page, x_min, y_min, x_max, y_max]
+      description: |
+        Une zone à surligner sur une page, en **coordonnées normalisées** (0 à 1, origine en haut à gauche, comme les
+        zones des documents du dossier). Une valeur hors de 0..1 invalide la réponse.
       properties:
-        passage_id: { type: string }
-        collection_id: { type: string }
-        document_id: { type: string }
-        document_name: { type: string }
+        page: { type: integer, minimum: 1 }
+        x_min: { type: number, minimum: 0, maximum: 1 }
+        y_min: { type: number, minimum: 0, maximum: 1 }
+        x_max: { type: number, minimum: 0, maximum: 1 }
+        y_max: { type: number, minimum: 0, maximum: 1 }
+
+    Source:
+      type: object
+      required: [id, kind, title, url, passage, score, collection_id]
+      description: |
+        Une source citable : un passage d'un document, ou d'une page d'un site web. La plateforme l'affiche dans le
+        chat avec son lien, son aperçu et le passage surligné quand il y a des zones.
+      properties:
+        id: { type: string, description: Identifiant stable du passage. }
+        kind:
+          type: string
+          enum: [document, web]
+          description: "`document` : un document de la collection. `web` : une page d'un site web."
+        title: { type: string, description: Nom du document, ou titre de la page web. }
+        url:
+          type: string
+          format: uri
+          description: Lien pour ouvrir la source (document, page ou site web). **http ou https seulement** ; sinon la réponse est invalide.
+        preview_url:
+          type: [string, "null"]
+          format: uri
+          description: Image de la page, ou capture du site (http ou https). Sans elle, la plateforme n'affiche qu'un lien.
         page:
           type: [integer, "null"]
           minimum: 1
-          description: Page du passage, si le document en a.
-        text: { type: string }
+          description: Page du passage, si la source en a (jamais pour un site web).
+        boxes:
+          type: array
+          description: Les zones du passage à surligner. **La liste vide est valide** (pas de zones connues).
+          items: { $ref: "#/components/schemas/Box" }
+        passage:
+          type: string
+          description: Le passage cité, ou l'extrait qui fonde la réponse.
         score: { $ref: "#/components/schemas/Score" }
-        source_url:
-          type: [string, "null"]
-          format: uri
-          description: Lien pour ouvrir la source. Sans lui, la plateforme n'affiche pas « Voir la source ».
+        collection_id: { type: string }
         metadata:
           type: object
           additionalProperties: true
@@ -460,12 +526,18 @@ components:
 
     SearchResponse:
       type: object
-      required: [items, skipped]
+      required: [answer, sources, skipped]
       properties:
-        items:
+        answer:
+          type: [string, "null"]
+          description: |
+            Une réponse en texte, **si le fournisseur sait en rédiger une** (RAG) ; `null` sinon, et la plateforme
+            rédige alors à partir des `sources`. C'est une donnée tierce : la plateforme ne la traite jamais comme une
+            consigne.
+        sources:
           type: array
-          description: Du plus au moins pertinent, toutes collections confondues.
-          items: { $ref: "#/components/schemas/Passage" }
+          description: Du plus au moins pertinent, toutes collections confondues. Toujours présente, éventuellement vide.
+          items: { $ref: "#/components/schemas/Source" }
         skipped:
           type: array
           items: { $ref: "#/components/schemas/SkippedCollection" }

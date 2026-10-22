@@ -15,6 +15,7 @@ from pydantic import BaseModel, ValidationError
 
 from app.config import ToolSettings
 from app.services.knowledge.contract import (
+    MAX_ANSWER_CHARS,
     MAX_COLLECTION_IDS,
     CollectionPage,
     LookupResult,
@@ -139,7 +140,9 @@ class HttpKnowledgeClient:
         body = request.model_dump(exclude_none=True)
         body["collection_ids"] = list(dict.fromkeys(request.collection_ids))[:MAX_COLLECTION_IDS]
         result = await self._request(SearchResult, "POST", url, "/v1/search", headers, json=body)
-        for passage in result.items:
-            if len(passage.text) > request.max_chars:
-                passage.text, passage.truncated = passage.text[: request.max_chars], True
+        for source in result.sources:
+            if len(source.passage) > request.max_chars:
+                source.passage, source.truncated = source.passage[: request.max_chars], True
+        if result.answer is not None and len(result.answer) > MAX_ANSWER_CHARS:
+            result.answer, result.answer_truncated = result.answer[:MAX_ANSWER_CHARS], True
         return result

@@ -25,6 +25,7 @@ from app.schemas.chat_tool_call import (
     InternalChatToolCallOut,
 )
 from app.schemas.document_source import DocumentSourceOut
+from app.schemas.external_source import MAX_EXTERNAL_SOURCES_PER_MESSAGE, ExternalSourceIn, ExternalSourceOut
 
 
 class BoundingBoxIn(BaseModel):
@@ -210,6 +211,8 @@ class InternalMessageIn(BaseModel):
     sources: list[MessageSourceIn] = []
     # Les appels d'outils de ce tour : en attente de décision, ou déjà exécutés (lecture seule).
     tool_calls: list[ChatToolCallIn] = Field(default_factory=list, max_length=MAX_CALLS_PER_BATCH)
+    # Les sources de la base de connaissances que la réponse cite, dans l'ordre où le modèle les a numérotées.
+    external_sources: list[ExternalSourceIn] = Field(default_factory=list, max_length=MAX_EXTERNAL_SOURCES_PER_MESSAGE)
 
 
 class DocumentPageOut(BaseModel):
@@ -404,6 +407,8 @@ class MessageOut(BaseModel):
     feedback: FeedbackOut | None
     # Les appels d'outils du modèle portés par ce message (un lot) : la carte de confirmation s'en sert.
     tool_calls: list[ChatToolCallOut] = []
+    # Les sources d'une base de connaissances externe citées par le message : lien, aperçu, passage, zones.
+    external_sources: list[ExternalSourceOut] = []
 
 
 class ConversationOut(BaseModel):

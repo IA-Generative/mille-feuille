@@ -21,15 +21,18 @@ def collection(id: str = "subv-guide") -> dict:
     return {"id": id, "name": "Guide des subventions", "description": "", "document_count": 85, "extension": "ignorée"}
 
 
-def passage(text: str = "Un RIB est exigé.", **extra) -> dict:
+def source(passage: str = "Un RIB est exigé.", **extra) -> dict:
     return {
-        "passage_id": "p-1",
-        "collection_id": "subv-guide",
-        "document_id": "d-1",
-        "document_name": "Guide.pdf",
+        "id": "p-1",
+        "kind": "document",
+        "title": "Guide.pdf",
+        "url": "https://kb.example.gouv.fr/doc/d-1?page=14",
+        "preview_url": "https://kb.example.gouv.fr/doc/d-1/14.png",
         "page": 14,
-        "text": text,
+        "boxes": [{"page": 14, "x_min": 0.1, "y_min": 0.2, "x_max": 0.9, "y_max": 0.3}],
+        "passage": passage,
         "score": 0.91,
+        "collection_id": "subv-guide",
     } | extra
 
 
@@ -80,7 +83,8 @@ def test_a_search_keeps_the_results_of_the_collections_that_answer() -> None:
         return httpx2.Response(
             200,
             json={
-                "items": [passage()],
+                "answer": "Un RIB est exigé.",
+                "sources": [source()],
                 "skipped": [{"collection_id": "circulaires", "reason": "unavailable"}],
                 "usage": {"input_tokens": 18, "total_tokens": 18},
             },
@@ -91,7 +95,7 @@ def test_a_search_keeps_the_results_of_the_collections_that_answer() -> None:
     )
     result = run(client_for(handler).search(URL, HEADERS, request))
 
-    assert isinstance(result, SearchResult) and result.items[0].page == 14
+    assert isinstance(result, SearchResult) and result.sources[0].page == 14 and result.answer == "Un RIB est exigé."
     assert [(s.collection_id, s.reason) for s in result.skipped] == [("circulaires", "unavailable")]
     assert result.usage.total_tokens == 18
     assert sent == [
@@ -109,13 +113,13 @@ def test_the_text_of_a_passage_is_cut_to_the_size_asked() -> None:
     long = "x" * 1000
 
     def handler(request: httpx2.Request) -> httpx2.Response:
-        return httpx2.Response(200, json={"items": [passage(long), passage("court")], "skipped": []})
+        return httpx2.Response(200, json={"sources": [source(long), source("court")], "skipped": []})
 
     request = SearchRequest(query="pièces", collection_ids=["subv-guide"], max_chars=200)
-    long_one, short_one = run(client_for(handler).search(URL, HEADERS, request)).items
+    long_one, short_one = run(client_for(handler).search(URL, HEADERS, request)).sources
 
-    assert len(long_one.text) == 200 and long_one.truncated is True
-    assert short_one.text == "court" and short_one.truncated is False
+    assert len(long_one.passage) == 200 and long_one.truncated is True
+    assert short_one.passage == "court" and short_one.truncated is False
 
 
 def test_a_search_request_is_bounded_like_the_contract_before_any_call() -> None:
@@ -139,8 +143,8 @@ def test_a_search_request_is_bounded_like_the_contract_before_any_call() -> None
         (httpx2.Response(429, headers={"Retry-After": "3"}), "rate_limited"),
         (httpx2.Response(503), "unavailable"),
         (httpx2.Response(200, text="<html>"), "not_json"),
-        (httpx2.Response(200, json={"items": [{"id": "x"}], "skipped": []}), "invalid_response"),
-        (httpx2.Response(200, json={"items": [passage(score=3)], "skipped": []}), "invalid_response"),
+        (httpx2.Response(200, json={"sources": [{"id": "x"}], "skipped": []}), "invalid_response"),
+        (httpx2.Response(200, json={"sources": [source(score=3)], "skipped": []}), "invalid_response"),
     ],
 )
 def test_errors_have_a_stable_code_and_a_fixed_message(response, code) -> None:
@@ -154,7 +158,7 @@ def test_errors_have_a_stable_code_and_a_fixed_message(response, code) -> None:
 
 
 def test_a_response_that_is_too_large_is_refused() -> None:
-    big = {"items": [passage("x" * 5000) for _ in range(20)], "skipped": []}
+    big = {"sources": [source("x" * 5000) for _ in range(20)], "skipped": []}
     small_limit = HttpKnowledgeClient(
         transport=httpx2.MockTransport(lambda r: httpx2.Response(200, json=big)),
         settings=type("S", (), {"KNOWLEDGE_RESPONSE_MAX_BYTES": 1000, "TOOL_CALL_TIMEOUT_SECONDS": 5})(),
@@ -246,3 +250,83 @@ def test_provider_errors_become_stable_responses(
     response = client.get(f"/api/knowledge-sources/{source}/collections")
 
     assert response.status_code == status and response.json()["detail"]["code"] == code
+
+
+# --- La forme normalisée d'une réponse (#369) ---
+
+
+def search_with(body: dict) -> SearchResult:
+    request = SearchRequest(query="pièces", collection_ids=["subv-guide"])
+    return run(client_for(lambda r: httpx2.Response(200, json=body)).search(URL, HEADERS, request))
+
+
+def test_a_web_source_has_a_link_and_no_page_no_preview_no_boxes() -> None:
+    web = source(id="w-1", kind="web", title="Service-Public", url="https://www.service-public.example.fr/x", page=None)
+    web |= {"preview_url": None, "boxes": []}
+
+    result = search_with({"answer": None, "sources": [web], "skipped": []})
+
+    assert result.answer is None
+    [found] = result.sources
+    assert (found.kind, found.page, found.preview_url, found.boxes) == ("web", None, None, [])
+
+
+def test_a_response_without_boxes_or_preview_keys_is_still_valid() -> None:
+    bare = {k: v for k, v in source().items() if k not in ("preview_url", "boxes", "page")}
+
+    [found] = search_with({"sources": [bare]}).sources
+
+    assert (found.boxes, found.preview_url, found.page) == ([], None, None)
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [
+        {"url": "javascript:alert(1)"},
+        {"url": "ftp://kb.example.gouv.fr/doc"},
+        {"url": ""},
+        {"boxes": [{"page": 1, "x_min": 0.1, "y_min": 0.1, "x_max": 1.5, "y_max": 0.3}]},  # hors de 0..1
+        {"boxes": [{"page": 1, "x_min": 0.9, "y_min": 0.1, "x_max": 0.1, "y_max": 0.3}]},  # pas un rectangle
+        {"boxes": [{"page": 0, "x_min": 0.1, "y_min": 0.1, "x_max": 0.2, "y_max": 0.3}]},
+        {"kind": "pdf"},
+    ],
+)
+def test_a_source_that_breaks_the_contract_invalidates_the_response(bad: dict) -> None:
+    with pytest.raises(KnowledgeError) as error:
+        search_with({"sources": [source(**bad)]})
+    assert error.value.code == "invalid_response"
+
+
+def test_a_preview_that_is_not_http_is_ignored_without_invalidating_the_response() -> None:
+    [found] = search_with({"sources": [source(preview_url="data:image/png;base64,AAAA")]}).sources
+
+    assert found.preview_url is None and found.url.startswith("https://")
+
+
+def test_the_answer_of_the_provider_is_bounded() -> None:
+    result = search_with({"answer": "a" * 9000, "sources": [], "skipped": []})
+
+    assert len(result.answer) == 4000 and result.answer_truncated is True
+
+
+def test_a_collection_may_have_a_link_and_a_thumbnail_that_are_checked() -> None:
+    page = run(
+        client_for(
+            lambda r: httpx2.Response(
+                200,
+                json={
+                    "items": [
+                        collection() | {"url": "https://kb.example.gouv.fr/c/guide", "preview_url": "javascript:x"},
+                        collection("autre"),
+                    ],
+                    "total": 2,
+                    "page": 1,
+                    "page_size": 20,
+                },
+            )
+        ).list_collections(URL, HEADERS, page=1, page_size=20, q=None)
+    )
+
+    first, second = page.items
+    assert (first.url, first.preview_url) == ("https://kb.example.gouv.fr/c/guide", None)
+    assert (second.url, second.preview_url) == (None, None)
