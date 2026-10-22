@@ -5,8 +5,10 @@ import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { suggestAgentPrompt } from "@/composables/useLlmAssist";
 import ModelPicker from "@/components/ModelPicker.vue";
-import { useTools } from "@/composables/useTools";
 import ToolSelectionField from "@/components/tools/ToolSelectionField.vue";
+import { useTools } from "@/composables/useTools";
+import { AGENT_TOOL_LABELS, type AgentTool } from "@/types/analyse";
+import { TOOLS_PREVIEW } from "@/utils/featureFlags";
 
 const props = defineProps<{ analyseId: string }>();
 const opened = defineModel<boolean>("opened", { default: false });
@@ -15,9 +17,16 @@ const emit = defineEmits<{ created: [] }>();
 const { addAgent } = useAnalyses();
 const { defaultToolIds, fetchTools } = useTools();
 
+const toolOptions = (Object.keys(AGENT_TOOL_LABELS) as AgentTool[]).map((tool) => ({
+  name: tool,
+  value: tool,
+  label: AGENT_TOOL_LABELS[tool],
+}));
+
 const name = ref("");
 const prompt = ref("");
-// Aperçu (phase 1) : la sélection n'est pas encore transmise à l'API.
+const tools = ref<AgentTool[]>([]);
+// Aperçu (VITE_TOOLS_PREVIEW) : la sélection n'est pas encore transmise à l'API.
 const toolIds = ref<string[]>([]);
 const output = ref(true);
 const model = ref("");
@@ -25,10 +34,13 @@ const isSuggesting = ref(false);
 
 watch(opened, async (isOpened) => {
   if (isOpened) {
-    await fetchTools();
+    if (TOOLS_PREVIEW) {
+      await fetchTools();
+      toolIds.value = defaultToolIds();
+    }
     name.value = "";
     prompt.value = "";
-    toolIds.value = defaultToolIds();
+    tools.value = [];
     output.value = true;
     model.value = "";
   }
@@ -51,7 +63,7 @@ async function submit() {
     props.analyseId,
     name.value.trim(),
     prompt.value.trim(),
-    [],
+    tools.value,
     output.value,
     model.value || null,
   );
@@ -92,7 +104,16 @@ async function submit() {
       :loading="isSuggesting"
       @click="applySuggestion"
     />
-    <ToolSelectionField v-model="toolIds" class="fr-mt-2w" />
+    <ToolSelectionField v-if="TOOLS_PREVIEW" v-model="toolIds" class="fr-mt-2w" />
+    <DsfrCheckboxSet
+      v-else
+      v-model="tools"
+      legend="Outils disponibles"
+      :options="toolOptions"
+      inline
+      small
+      class="fr-mt-2w"
+    />
     <DsfrToggleSwitch
       v-model="output"
       label="Présenter le résultat de cet agent dans la page de résultat du dossier"

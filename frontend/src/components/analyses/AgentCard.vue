@@ -2,12 +2,14 @@
 import { computed, onMounted } from "vue";
 
 import AgentToolsEditor from "@/components/analyses/AgentToolsEditor.vue";
+import AgentToolsPreview from "@/components/analyses/AgentToolsPreview.vue";
 import PromptEditor from "@/components/analyses/PromptEditor.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { suggestAgentPrompt } from "@/composables/useLlmAssist";
 import ModelPicker from "@/components/ModelPicker.vue";
 import type { Agent } from "@/types/analyse";
+import { TOOLS_PREVIEW } from "@/utils/featureFlags";
 
 const props = defineProps<{ analyseId: string; agent: Agent }>();
 
@@ -97,7 +99,8 @@ function formatOutputVersionContent(output: boolean) {
     </div>
 
     <hr class="agent-card__divider" />
-    <AgentToolsEditor :analyse-id="analyseId" :agent="agent" />
+    <AgentToolsPreview v-if="TOOLS_PREVIEW" :analyse-id="analyseId" :agent="agent" />
+    <AgentToolsEditor v-else :analyse-id="analyseId" :agent="agent" />
   </div>
 </template>
 

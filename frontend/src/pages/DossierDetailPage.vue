@@ -24,6 +24,7 @@ import ToolConfirmCard from "@/components/tools/ToolConfirmCard.vue";
 import { useConversations } from "@/composables/useConversations";
 import { useToolConfirmation } from "@/composables/useToolConfirmation";
 import { useChatTools } from "@/composables/useChatTools";
+import { TOOLS_PREVIEW } from "@/utils/featureFlags";
 import { useDossiers } from "@/composables/useDossiers";
 import { useHelperAgent } from "@/composables/useHelperAgent";
 import { useMyConversations } from "@/composables/useMyConversations";
@@ -525,7 +526,7 @@ async function onDeleteConversation() {
         </button>
       </template>
 
-      <template #composer-extra>
+      <template v-if="TOOLS_PREVIEW" #composer-extra>
         <ToolConfirmCard
           v-if="pendingToolCall"
           :call="pendingToolCall"
@@ -534,7 +535,7 @@ async function onDeleteConversation() {
         />
       </template>
 
-      <template #composer-actions>
+      <template v-if="TOOLS_PREVIEW" #composer-actions>
         <ChatToolsMenu v-model:active-ids="activeChatToolIds" :tool-ids="chatToolIds()" />
       </template>
 
