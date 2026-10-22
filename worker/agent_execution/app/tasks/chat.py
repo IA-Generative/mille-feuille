@@ -169,7 +169,7 @@ def run_chat(self, conversation_id: str, dossier_id: str) -> None:
                 run_id=f"chat-{conversation_id}-{uuid.uuid4().hex[:8]}",
                 confirm_side_effects=True,
             )
-            tools = AgentTools(dossier, analysis=proposer, notes=note_writer, extra=extra)
+            tools = AgentTools(dossier, analysis=proposer, notes=note_writer, extra=extra, ask_user=True)
 
             # 3. Récupère les synthèses existantes et les notes internes du dossier.
             syntheses = _extract_syntheses(dossier)
