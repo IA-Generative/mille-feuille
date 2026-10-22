@@ -3,6 +3,46 @@ name: Unit Tests
 on:
   workflow_call:
     inputs:
+      RUN_ALL:
+        description: Lance tout, sans tenir compte des composants modifiés (changement de la CI, lancement à la main)
+        required: false
+        type: boolean
+        default: true
+      BACKEND:
+        description: Le backend a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_DOCUMENT_PROCESS:
+        description: Le worker document_process a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_DOCUMENT_RENDER:
+        description: Le worker document_render a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_AGENT_EXECUTION:
+        description: Le worker agent_execution a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_CLASSIFICATION:
+        description: Le worker classification a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_EXTRACTION:
+        description: Le worker extraction a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_ASYNC_API:
+        description: Le worker async_api (ou le SDK Python) a changé
+        required: false
+        type: boolean
+        default: false
       PYTHON_VERSION:
         description: Python version used to run tests
         required: false
@@ -16,6 +56,46 @@ on:
         required: false
   workflow_dispatch:
     inputs:
+      RUN_ALL:
+        description: Lance tout, sans tenir compte des composants modifiés (changement de la CI, lancement à la main)
+        required: false
+        type: boolean
+        default: true
+      BACKEND:
+        description: Le backend a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_DOCUMENT_PROCESS:
+        description: Le worker document_process a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_DOCUMENT_RENDER:
+        description: Le worker document_render a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_AGENT_EXECUTION:
+        description: Le worker agent_execution a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_CLASSIFICATION:
+        description: Le worker classification a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_EXTRACTION:
+        description: Le worker extraction a changé
+        required: false
+        type: boolean
+        default: false
+      WORKER_ASYNC_API:
+        description: Le worker async_api (ou le SDK Python) a changé
+        required: false
+        type: boolean
+        default: false
       PYTHON_VERSION:
         description: Python version used to run tests
         required: false
@@ -25,6 +105,7 @@ on:
 jobs:
   unit-tests-backend:
     name: Backend
+    if: ${{ inputs.RUN_ALL || inputs.BACKEND }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -99,6 +180,7 @@ jobs:
 
   unit-tests-worker-document-process:
     name: worker/document_process
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_DOCUMENT_PROCESS }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -123,6 +205,7 @@ jobs:
 
   unit-tests-worker-document-render:
     name: worker/document_render
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_DOCUMENT_RENDER }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -166,6 +249,7 @@ jobs:
 
   unit-tests-worker-agent-execution:
     name: worker/agent_execution
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_AGENT_EXECUTION }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -190,6 +274,7 @@ jobs:
 
   unit-tests-worker-classification:
     name: worker/classification
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_CLASSIFICATION }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -214,6 +299,7 @@ jobs:
 
   unit-tests-worker-extraction:
     name: worker/extraction
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_EXTRACTION }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -238,6 +324,7 @@ jobs:
 
   unit-tests-worker-async-api:
     name: worker/async_api
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_ASYNC_API }}
     runs-on: ubuntu-latest
     permissions:
       contents: read

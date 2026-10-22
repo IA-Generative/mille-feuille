@@ -180,7 +180,18 @@ jobs:
     uses: ./.github/workflows/lint.yml
     needs:
       - path-filter
-    if: ${{ needs.path-filter.outputs.frontend == 'true' || needs.path-filter.outputs.ephemeral_frontend == 'true' || needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_agent_execution == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.ci == 'true' }}
+    if: ${{ needs.path-filter.outputs.frontend == 'true' || needs.path-filter.outputs.ephemeral_frontend == 'true' || needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_agent_execution == 'true' || needs.path-filter.outputs.worker_classification == 'true' || needs.path-filter.outputs.worker_extraction == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.ci == 'true' }}
+    with:
+      RUN_ALL: ${{ needs.path-filter.outputs.ci == 'true' }}
+      FRONTEND: ${{ needs.path-filter.outputs.frontend == 'true' }}
+      EPHEMERAL_FRONTEND: ${{ needs.path-filter.outputs.ephemeral_frontend == 'true' }}
+      BACKEND: ${{ needs.path-filter.outputs.backend == 'true' }}
+      WORKER_DOCUMENT_PROCESS: ${{ needs.path-filter.outputs.worker_document_process == 'true' }}
+      WORKER_DOCUMENT_RENDER: ${{ needs.path-filter.outputs.worker_document_render == 'true' }}
+      WORKER_AGENT_EXECUTION: ${{ needs.path-filter.outputs.worker_agent_execution == 'true' }}
+      WORKER_CLASSIFICATION: ${{ needs.path-filter.outputs.worker_classification == 'true' }}
+      WORKER_EXTRACTION: ${{ needs.path-filter.outputs.worker_extraction == 'true' }}
+      WORKER_ASYNC_API: ${{ needs.path-filter.outputs.worker_async_api == 'true' }}
     permissions:
       contents: read
     secrets:
@@ -190,7 +201,16 @@ jobs:
     uses: ./.github/workflows/unit-tests.yml
     needs:
       - path-filter
-    if: ${{ needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_agent_execution == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.ci == 'true' }}
+    if: ${{ needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_agent_execution == 'true' || needs.path-filter.outputs.worker_classification == 'true' || needs.path-filter.outputs.worker_extraction == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.ci == 'true' }}
+    with:
+      RUN_ALL: ${{ needs.path-filter.outputs.ci == 'true' }}
+      BACKEND: ${{ needs.path-filter.outputs.backend == 'true' }}
+      WORKER_DOCUMENT_PROCESS: ${{ needs.path-filter.outputs.worker_document_process == 'true' }}
+      WORKER_DOCUMENT_RENDER: ${{ needs.path-filter.outputs.worker_document_render == 'true' }}
+      WORKER_AGENT_EXECUTION: ${{ needs.path-filter.outputs.worker_agent_execution == 'true' }}
+      WORKER_CLASSIFICATION: ${{ needs.path-filter.outputs.worker_classification == 'true' }}
+      WORKER_EXTRACTION: ${{ needs.path-filter.outputs.worker_extraction == 'true' }}
+      WORKER_ASYNC_API: ${{ needs.path-filter.outputs.worker_async_api == 'true' }}
     permissions:
       contents: read
     secrets:
