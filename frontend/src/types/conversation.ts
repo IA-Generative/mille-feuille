@@ -45,6 +45,20 @@ export interface SourceBoundingBox {
   yMax: number;
 }
 
+/** Où en est la demande d'autorisation d'un outil qui modifie des données. */
+export type ToolCallStatus = "pending" | "approved" | "refused" | "executed" | "superseded";
+
+/** Un appel d'outil demandé par l'assistant dans un message, avec les arguments exacts qui seront exécutés. */
+export interface ChatToolCall {
+  id: string;
+  toolName: string;
+  serverName: string;
+  args: Record<string, unknown>;
+  /** Il modifie des données : l'assistant attend l'accord de la personne. */
+  sideEffect: boolean;
+  status: ToolCallStatus;
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
@@ -52,6 +66,7 @@ export interface Message {
   createdAt: string;
   sources: MessageSource[];
   feedback: Feedback | null;
+  toolCalls: ChatToolCall[];
 }
 
 /** Chat de la page dossier : une conversation par (dossier, utilisateur). */

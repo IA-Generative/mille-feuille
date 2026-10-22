@@ -20,10 +20,8 @@ import ChatProposals from "@/components/analysis/ChatProposals.vue";
 import { parseAssistantSuggestion, parseMessageMarkers } from "@/utils/assistantSuggestion";
 import { setDocumentSource, useDossierSources } from "@/composables/useDocumentSources";
 import ChatToolsMenu from "@/components/tools/ChatToolsMenu.vue";
-import ToolConfirmCard from "@/components/tools/ToolConfirmCard.vue";
+import ToolCallCard from "@/components/tools/ToolCallCard.vue";
 import { useConversations } from "@/composables/useConversations";
-import { useToolConfirmation } from "@/composables/useToolConfirmation";
-import { TOOLS_PREVIEW } from "@/utils/featureFlags";
 import { useDossiers } from "@/composables/useDossiers";
 import { useHelperAgent } from "@/composables/useHelperAgent";
 import { useMyConversations } from "@/composables/useMyConversations";
@@ -58,6 +56,7 @@ const {
   loadOlderMessages,
   ensureConversation,
   sendMessage,
+  decideToolCalls,
   refreshConversation,
   deleteConversation,
   setModel,
@@ -156,8 +155,21 @@ function onModelChange(value: string) {
   setModel(value || null);
 }
 
-// Confirmation avant un outil qui modifie des données : aperçu simulé (#342), masqué par défaut.
-const { pendingToolCall, resolveToolCall } = useToolConfirmation();
+// Autorisation d'un outil qui modifie des données : la décision relance le chat, dont on suit la nouvelle exécution.
+const isDeciding = ref(false);
+async function onToolCallsDecided(decisions: { id: string; allow: boolean; comment?: string }[]) {
+  if (isChatRunning.value || isDeciding.value) return;
+  isDeciding.value = true;
+  try {
+    const current = await ensureConversation();
+    chatEvents.value = [];
+    await decideToolCalls(decisions);
+    startChatStream(`/api/dossiers/${dossierId}/conversations/${current.id}/stream`);
+  } finally {
+    isDeciding.value = false;
+  }
+}
+const isLastMessage = (messageId: string) => messages.value[messages.value.length - 1]?.id === messageId;
 
 const dossier = computed(() => dossiers.value.find((d) => d.id === dossierId));
 const analyse = computed(() =>
@@ -522,20 +534,18 @@ async function onDeleteConversation() {
         </button>
       </template>
 
-      <template v-if="TOOLS_PREVIEW" #composer-extra>
-        <ToolConfirmCard
-          v-if="pendingToolCall"
-          :call="pendingToolCall"
-          @allow="resolveToolCall(true)"
-          @deny="resolveToolCall(false)"
-        />
-      </template>
-
       <template #composer-actions>
         <ChatToolsMenu :dossier-id="dossierId" :conversation-id="conversation?.id" />
       </template>
 
       <template #message-extra="{ message }">
+        <ToolCallCard
+          v-if="message.toolCalls?.length"
+          :calls="message.toolCalls"
+          :answerable="isLastMessage(message.id) && !isChatRunning"
+          :busy="isDeciding"
+          @decide="onToolCallsDecided"
+        />
         <ChatProposals
           v-if="parseMessageMarkers(message.content).proposals"
           :dossier-id="dossierId"

@@ -81,5 +81,16 @@ Dans le chat d'un dossier, **le modèle choisit lui-même** parmi les outils que
 - **Accès** : même garde que toutes les routes `/dossiers/{id}/…` (404 pour qui ne voit pas le dossier) ; une conversation est **personnelle** (404 pour une autre personne).
 - **Stockage** : `conversations.excluded_tools` (migration `f3a4b5c6d7e8`). Les outils retirés ne sont pas donnés au modèle.
 - **Le worker** reçoit `tool_ids` dans la conversation interne (outils de l'analyse moins ceux retirés), résout les tools MCP au nom de l'auteur de la conversation, et garde le socle de lecture du dossier ainsi que les outils propres au chat (notes, propositions de modification de l'analyse).
-- **Un outil qui modifie des données n'est jamais donné au modèle dans le chat**, tant que la confirmation (#342) n'existe pas : le menu le montre, désactivé, avec la raison. `CHAT_CONFIRMATION_AVAILABLE` passera à vrai avec #342.
+- **Un outil qui modifie des données est donné au modèle, mais son appel attend l'accord de la personne** (#342), voir ci-dessous.
 - Un dossier sans analyse, ou une analyse sans outil, n'a pas de menu.
+
+## Confirmation avant un outil qui modifie des données (chat, #342)
+
+Rien n'attend en mémoire ni dans une tâche : la demande est **enregistrée avec le message de l'assistant**, la tâche se termine, et la personne décide quand elle veut.
+
+1. Le modèle appelle un tool MCP qui modifie des données. Le worker ne l'exécute pas : il dépose le message avec ses appels (`tool_calls`, au plus 5 ; les outils en lecture seule du même tour sont exécutés et déposés `executed`) et s'arrête. Table `chat_tool_calls` (migration `a4b5c6d7e8f9`), statuts `pending`, `approved`, `refused`, `executed`, `superseded`.
+2. `POST /api/dossiers/{id}/conversations/{cid}/tool-calls/decisions` : la décision de **tout le lot** d'un message (une carte à onglets, une validation ; une seule demande se décide d'un clic). Un refus peut porter un `comment` (500 caractères) : ce que la personne veut à la place, donné au modèle avec le refus. Mêmes gardes que les autres routes du dossier, conversation personnelle. Elle relance le chat.
+3. Le chat relancé exécute les appels `approved` **avec exactement les arguments enregistrés (ceux que la personne a vus)** via le proxy habituel (`/tools/{id}/call`, au nom de la personne, quotas et journal compris), dépose le résultat (`POST /api/internal/chat-tool-calls/{id}/result`, 409 si la demande n'est pas `approved`), reconstruit l'historique (message assistant avec `tool_calls`, puis un message `tool` par appel : résultat, refus ou « sans réponse ») et reprend.
+4. Décider reste possible **tant qu'aucun autre message n'a été envoyé** : envoyer un message passe les demandes en attente à `superseded` (« sans réponse », 409 si on décide ensuite).
+
+Limites : si le worker s'arrête entre l'appel et le dépôt du résultat, la relance de la tâche peut rejouer l'appel ; seul le dernier tour d'outils d'une exécution est rebâti dans l'historique.
