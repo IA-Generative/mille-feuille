@@ -48,6 +48,7 @@ class ChatState(TypedDict, total=False):
     tools: AgentTools
     iteration: int
     final_answer: str
+    awaiting_confirmation: bool
     on_event: EventCallback | None
 
 
@@ -204,6 +205,50 @@ def _should_continue(state: ChatState) -> str:
     return "end"
 
 
+MAX_CALLS_PER_BATCH = 5  # le plafond du backend (schemas/chat_tool_call.py)
+CONFIRMATION_TEXT = "J'ai besoin de votre accord avant d'utiliser un outil qui modifie des données."
+
+
+def _arguments_of(tc: dict[str, Any]) -> dict[str, Any]:
+    try:
+        arguments = json.loads(tc["function"]["arguments"])
+    except json.JSONDecodeError:
+        return {}
+    return arguments if isinstance(arguments, dict) else {}
+
+
+def _ask_confirmation(state: ChatState, calls: list[dict[str, Any]]) -> ChatState:
+    """Un des appels modifie des données : rien n'est exécuté pour lui. Les appels de ce tour sont enregistrés (les
+    outils en lecture seule sont exécutés, leur résultat sert à rebâtir l'historique) et le graphe s'arrête : la tâche
+    se termine, la personne décide quand elle veut, la décision relance le chat."""
+    tools = state["tools"]
+    on_event = state.get("on_event")
+    batch: list[dict[str, Any]] = []
+    for tc in calls[:MAX_CALLS_PER_BATCH]:
+        name = tc["function"]["name"]
+        arguments = _arguments_of(tc)
+        record: dict[str, Any] = {"llm_call_id": tc["id"], "function_name": name, "arguments": arguments}
+        if tools.requires_confirmation(name):
+            record |= tools.confirmation_info(name) | {"side_effect": True, "status": "pending"}
+        else:
+            if on_event:
+                on_event("tool_call", {"tool_name": name, "arguments": arguments})
+            record |= {
+                "tool_id": name,
+                "tool_name": name,
+                "side_effect": False,
+                "status": "executed",
+                "result": tools.dispatch_tool(name, arguments),
+            }
+        batch.append(record)
+    if len(calls) > MAX_CALLS_PER_BATCH:
+        logger.warning("Chat: %d appels d'outils demandés, %d gardés", len(calls), MAX_CALLS_PER_BATCH)
+    tools.confirmation_batch = batch
+    state["awaiting_confirmation"] = True
+    state["final_answer"] = state["messages"][-1].get("content") or CONFIRMATION_TEXT
+    return state
+
+
 def _tools_node(state: ChatState) -> ChatState:
     """Nœud outils : exécute les tool_calls et émet des événements pour
     le streaming (tool_call avant exécution, tool_result après)."""
@@ -212,12 +257,13 @@ def _tools_node(state: ChatState) -> ChatState:
     last_msg = state["messages"][-1]
     new_messages: list[dict[str, Any]] = []
 
-    for tc in last_msg.get("tool_calls", []):
+    calls = last_msg.get("tool_calls", [])
+    if any(tools.requires_confirmation(tc["function"]["name"]) for tc in calls):
+        return _ask_confirmation(state, calls)
+
+    for tc in calls:
         name = tc["function"]["name"]
-        try:
-            arguments = json.loads(tc["function"]["arguments"])
-        except json.JSONDecodeError:
-            arguments = {}
+        arguments = _arguments_of(tc)
 
         # Émet l'événement tool_call avant l'exécution (le frontend peut
         # afficher "Recherche en cours..." pendant l'exécution).
@@ -257,7 +303,11 @@ def build_chat_graph() -> Any:
         _should_continue,
         {"tools": "tools", "end": END},
     )
-    graph.add_edge("tools", "agent")
+    graph.add_conditional_edges(
+        "tools",
+        lambda state: "end" if state.get("awaiting_confirmation") else "agent",
+        {"agent": "agent", "end": END},
+    )
     return graph.compile()
 
 

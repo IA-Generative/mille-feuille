@@ -16,6 +16,7 @@ dossier, cette tâche s'exécute à chaque message utilisateur : le graphe
 reconstruit le contexte à partir de l'historique de la conversation.
 """
 
+import json
 import logging
 import uuid
 
@@ -31,14 +32,55 @@ from app.tools import AgentTools
 logger = logging.getLogger(__name__)
 
 
+NO_DECISION = "La personne n'a pas pris de décision pour cet appel."
+TOOL_GONE = "Cet outil n'est plus disponible : l'appel n'a pas été exécuté."
+
+
 def _build_conversation_history(conversation: dict) -> list[dict]:
     """Construit l'historique des messages au format OpenAI (role + content)
     à partir de la conversation. Le dernier message est celui de
-    l'utilisateur qui vient d'être envoyé."""
+    l'utilisateur qui vient d'être envoyé. Un message qui a demandé des outils est rebâti tel que le modèle l'a émis,
+    suivi d'un message `tool` par appel : résultat, refus ou « sans réponse »."""
     history: list[dict] = []
     for msg in conversation.get("messages", []):
-        history.append({"role": msg["role"], "content": msg["content"]})
+        calls = msg.get("tool_calls") or []
+        if msg["role"] != "assistant" or not calls:
+            history.append({"role": msg["role"], "content": msg["content"]})
+            continue
+        history.append(
+            {
+                "role": "assistant",
+                "content": msg["content"],
+                "tool_calls": [
+                    {
+                        "id": call["llm_call_id"],
+                        "type": "function",
+                        "function": {"name": call["function_name"], "arguments": json.dumps(call["arguments"])},
+                    }
+                    for call in calls
+                ],
+            }
+        )
+        history.extend(
+            {"role": "tool", "tool_call_id": call["llm_call_id"], "content": call.get("result") or NO_DECISION}
+            for call in calls
+        )
     return history
+
+
+def _run_approved_calls(client, conversation: dict, tools: AgentTools, on_event) -> None:
+    """Exécute les appels que la personne a autorisés, avec les arguments qu'elle a vus, et dépose leur résultat.
+    Les appels du conversation sont mis à jour pour que l'historique les porte."""
+    for msg in conversation.get("messages", []):
+        for call in msg.get("tool_calls") or []:
+            if call["status"] != "approved" or call.get("result"):
+                continue
+            name = call["function_name"]
+            on_event("tool_call", {"tool_name": call["tool_name"], "arguments": call["arguments"]})
+            result = tools.dispatch_tool(name, call["arguments"]) if tools.has_extra(name) else TOOL_GONE
+            api_client.record_chat_tool_result(client, call["id"], result)
+            on_event("tool_result", {"tool_name": call["tool_name"], "preview": result[:200]})
+            call["status"], call["result"] = "executed", result
 
 
 def _last_user_message_id(conversation: dict) -> str | None:
@@ -104,7 +146,6 @@ def run_chat(self, conversation_id: str, dossier_id: str) -> None:
         try:
             # 1. Charge la conversation (historique + modèle LLM).
             conversation = api_client.get_conversation(client, conversation_id)
-            history = _build_conversation_history(conversation)
             model = conversation.get("model")
             usage.bind("run_chat", user_id=conversation.get("user_id"), dossier_id=dossier_id)
 
@@ -119,14 +160,14 @@ def run_chat(self, conversation_id: str, dossier_id: str) -> None:
             )
             note_writer = NoteWriter(client=client, dossier_id=dossier_id, user_id=conversation.get("user_id", ""))
             # Les outils que l'analyse autorise (ses agents), moins ceux que la personne a retirés : calculatrice,
-            # dates, serveurs MCP, appelés en son nom. Un outil qui modifie des données n'est pas donné : pas de
-            # confirmation pour l'instant.
+            # dates, serveurs MCP, appelés en son nom. Un outil qui modifie des données est donné, mais son appel
+            # attend l'accord de la personne (la tâche se termine, la décision relance le chat).
             extra = build_extra_tools(
                 client,
                 conversation.get("tool_ids", []),
                 acting_user=conversation.get("user_id"),
                 run_id=f"chat-{conversation_id}-{uuid.uuid4().hex[:8]}",
-                allow_side_effects=False,
+                confirm_side_effects=True,
             )
             tools = AgentTools(dossier, analysis=proposer, notes=note_writer, extra=extra)
 
@@ -147,6 +188,10 @@ def run_chat(self, conversation_id: str, dossier_id: str) -> None:
                         conversation_id,
                         exc_info=True,
                     )
+
+            # Les appels que la personne vient d'autoriser s'exécutent avant que le modèle ne reprenne.
+            _run_approved_calls(client, conversation, tools, on_event)
+            history = _build_conversation_history(conversation)
 
             logger.info(
                 "Starting chat for conversation %s (dossier %s, %d messages, %d syntheses)",
@@ -172,6 +217,7 @@ def run_chat(self, conversation_id: str, dossier_id: str) -> None:
                 conversation_id,
                 content=answer,
                 sources=_sources_to_api(sources),
+                tool_calls=tools.confirmation_batch,
             )
 
             # Émet l'événement done pour fermer le flux SSE côté frontend.
