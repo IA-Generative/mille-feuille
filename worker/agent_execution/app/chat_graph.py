@@ -27,6 +27,7 @@ from langgraph.graph import END, StateGraph
 from typing_extensions import TypedDict
 
 from app.analysis_tools import proposals_marker
+from app.ask_user import ASK_USER
 from app.config import settings
 from app.llm import _client
 from app.tools import AgentTools, ConsultedSource
@@ -69,6 +70,7 @@ def _build_system_prompt(
     notes: list[str] | None = None,
     can_add_notes: bool = False,
     tools_notice: str = "",
+    can_ask_user: bool = False,
 ) -> str:
     """Construit le prompt système pour le chat : rôle de l'assistant,
     contexte du dossier (synthèses existantes), et consignes de réponse."""
@@ -115,6 +117,16 @@ def _build_system_prompt(
                 "Une note n'est pas une proposition de modification de l'analyse : n'utilise propose_update que si "
                 "l'utilisateur veut corriger ou compléter un élément de l'analyse, et ne parle pas de « mettre à "
                 "jour les notes » pour une proposition.",
+            ]
+        )
+
+    if can_ask_user:
+        parts.extend(
+            [
+                "",
+                "Quand une précision de l'utilisateur change vraiment ta réponse ou l'outil à utiliser, et qu'elle ne "
+                "se trouve pas dans le dossier, appelle ask_user avec des options claires plutôt que de deviner. "
+                "Ne pose pas de question pour une information déjà présente dans le dossier ou dans la conversation.",
             ]
         )
 
@@ -249,6 +261,28 @@ def _ask_confirmation(state: ChatState, calls: list[dict[str, Any]]) -> ChatStat
     return state
 
 
+QUESTION_TEXT = "J'ai une question avant de continuer."
+
+
+def _ask_question(state: ChatState, call: dict[str, Any], questions: list[dict[str, Any]]) -> ChatState:
+    """Le modèle pose une question à choix : elle est enregistrée avec le message et le graphe s'arrête, la réponse de
+    la personne sera le résultat de l'appel. Les autres appels de ce tour sont écartés (le modèle les redemandera)."""
+    state["tools"].confirmation_batch = [
+        {
+            "llm_call_id": call["id"],
+            "function_name": ASK_USER,
+            "tool_id": ASK_USER,
+            "tool_name": ASK_USER,
+            "arguments": {"questions": questions},
+            "side_effect": False,
+            "status": "pending",
+        }
+    ]
+    state["awaiting_confirmation"] = True
+    state["final_answer"] = state["messages"][-1].get("content") or QUESTION_TEXT
+    return state
+
+
 def _tools_node(state: ChatState) -> ChatState:
     """Nœud outils : exécute les tool_calls et émet des événements pour
     le streaming (tool_call avant exécution, tool_result après)."""
@@ -258,6 +292,10 @@ def _tools_node(state: ChatState) -> ChatState:
     new_messages: list[dict[str, Any]] = []
 
     calls = last_msg.get("tool_calls", [])
+    for tc in calls:
+        questions = tools.question_to_ask(tc["function"]["name"], _arguments_of(tc))
+        if questions:
+            return _ask_question(state, tc, questions)
     if any(tools.requires_confirmation(tc["function"]["name"]) for tc in calls):
         return _ask_confirmation(state, calls)
 
@@ -334,6 +372,7 @@ def run_chat(
         notes=notes,
         can_add_notes=tools.can_add_notes,
         tools_notice=tools.extra_notice,
+        can_ask_user=tools.can_ask_user,
     )
 
     graph = build_chat_graph()
