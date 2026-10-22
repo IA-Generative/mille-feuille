@@ -4,6 +4,7 @@ import { useRoute } from "vue-router";
 
 import AddAgentModal from "@/components/analyses/AddAgentModal.vue";
 import AgentCard from "@/components/analyses/AgentCard.vue";
+import KnowledgeCollectionsField from "@/components/tools/KnowledgeCollectionsField.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 
 const route = useRoute();
@@ -20,6 +21,8 @@ const isAddAgentModalOpened = ref(false);
 
 <template>
   <div v-if="analyse" class="analyse-agents-tab">
+    <KnowledgeCollectionsField />
+
     <div class="analyse-agents-tab__header">
       <p class="fr-text--sm">
         Agents créés pour un but métier propre à cette analyse (cohérence, rédaction, timeline...).
