@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.analyse import AgentTool, EntityType
+from app.models.analyse import EntityType
 from app.models.analyse_share import AnalyseShareKind
 from app.services.custom_fields import MAX_FIELDS_PER_ANALYSE, validate_value
 
@@ -187,12 +187,16 @@ class ExtractionOut(BaseModel):
     entities_versions: list[Version[list[EntityDefinitionOut]]]
 
 
+# Identifiant d'un outil d'agent : un tool interne (ex. « calculatrice ») ou l'identifiant d'un tool d'un serveur MCP.
+ToolId = Annotated[str, Field(min_length=1, max_length=100)]
+
+
 class AgentCreate(BaseModel):
     name: str
     # La description est obligatoire : elle décrit précisément le but métier
     # de l'agent et sert de prompt au modèle de langage lors de l'exécution.
     prompt: str = Field(min_length=1)
-    tools: list[AgentTool] = []
+    tools: list[ToolId] = []
     output: bool = True
     # Identifiant de modèle tel que renvoyé par GET /models ; None = pas de
     # préférence, le hub par défaut sera utilisé.
@@ -213,8 +217,8 @@ class AgentOut(BaseModel):
     name: str
     prompt: str
     prompt_versions: list[Version[str]]
-    tools: list[AgentTool]
-    tools_versions: list[Version[list[AgentTool]]]
+    tools: list[str]
+    tools_versions: list[Version[list[str]]]
     output: bool
     output_versions: list[Version[bool]]
     model: str | None
@@ -302,7 +306,7 @@ class StatusesRestore(BaseModel):
 
 
 class ToolsUpdate(BaseModel):
-    tools: list[AgentTool]
+    tools: list[ToolId]
 
 
 class OutputUpdate(BaseModel):

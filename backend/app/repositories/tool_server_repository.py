@@ -60,6 +60,15 @@ class ToolServerRepository:
         result = await self.db.execute(select(ToolServer).where(ToolServer.id == server_id))
         return result.scalar_one_or_none()
 
+    async def tools_with_servers(self, tool_ids: Sequence[uuid.UUID]) -> Sequence[tuple[Tool, ToolServer]]:
+        """Les tools MCP demandés, chacun avec son serveur (pour vérifier les droits sans chargement paresseux)."""
+        if not tool_ids:
+            return []
+        result = await self.db.execute(
+            select(Tool, ToolServer).join(ToolServer, Tool.server_id == ToolServer.id).where(Tool.id.in_(tool_ids))
+        )
+        return [(tool, server) for tool, server in result.all()]
+
     async def list_visible(
         self, user: RequestContext, *, query: str | None, page: int, page_size: int
     ) -> tuple[Sequence[ToolServer], int]:

@@ -41,6 +41,7 @@ from app.schemas.analyse import (
 )
 from app.schemas.document_source import DocumentSourceIn, DocumentSourceOut
 from app.schemas.pagination import Page
+from app.services.tools.agent_tools import ToolsRefusedError, validate_agent_tools
 
 router = APIRouter(prefix="/analyses", tags=["Analyses"], dependencies=[Depends(get_current_user)])
 
@@ -57,6 +58,17 @@ async def _get_or_404(repository: AnalyseRepository, analyse_id: uuid.UUID) -> A
     if analyse is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analyse introuvable")
     return analyse
+
+
+async def _validated_tools(
+    db: AsyncSession, user: RequestContext, tool_ids: list[str], *, already: list[str] | None = None
+) -> list[str]:
+    """Les outils demandés pour un agent, sans doublon ; 422 `tools_refuses` si la personne ne peut pas les donner."""
+    try:
+        return await validate_agent_tools(db, user, tool_ids, already=already or [])
+    except ToolsRefusedError as error:
+        detail = {"code": "tools_refuses", "message": error.message, "tools": [r.id for r in error.refused]}
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, detail=detail) from error
 
 
 def _get_agent_or_404(repository: AnalyseRepository, analyse: Analyse, agent_id: uuid.UUID) -> Agent:
@@ -245,14 +257,16 @@ async def add_agent(
     analyse_id: uuid.UUID,
     body: AgentCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> AgentOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
+    tools = await _validated_tools(db, user, body.tools)
     agent = await repository.add_agent(
         analyse,
         name=body.name,
         prompt=body.prompt,
-        tools=body.tools,
+        tools=tools,
         output=body.output,
         model=body.model,
     )
@@ -429,11 +443,13 @@ async def update_agent_tools(
     agent_id: uuid.UUID,
     body: ToolsUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> AgentOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
     agent = _get_agent_or_404(repository, analyse, agent_id)
-    await repository.update_agent_tools(analyse, agent, body.tools)
+    tools = await _validated_tools(db, user, body.tools, already=agent.tools)
+    await repository.update_agent_tools(analyse, agent, tools)
     return repository.to_agent_schema(analyse, agent)
 
 
