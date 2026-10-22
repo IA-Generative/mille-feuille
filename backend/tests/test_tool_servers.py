@@ -15,7 +15,7 @@ def ids(client: TestClient, q: str) -> set[str]:
 
 def test_internal_tools_are_listed(client: TestClient) -> None:
     tools = client.get("/api/tools/internal").json()
-    assert {t["id"] for t in tools} == {"calculatrice", "calcul_dates"}
+    assert {t["id"] for t in tools} == {"calculatrice", "calcul_dates", "base_connaissances"}
     assert all(t["kind"] == "internal" for t in tools)
 
 

@@ -26,7 +26,13 @@ def call(client: TestClient, tool: str, *, person=None, arguments: dict | None =
 def logs_of(client: TestClient, user_id: str) -> list[ToolCallLog]:
     async def read() -> list[ToolCallLog]:
         async with async_session_factory() as session:
-            return list((await session.execute(select(ToolCallLog).where(ToolCallLog.user_id == user_id))).scalars())
+            return list(
+                (
+                    await session.execute(
+                        select(ToolCallLog).where(ToolCallLog.user_id == user_id).order_by(ToolCallLog.created_at)
+                    )
+                ).scalars()
+            )
 
     return client.portal.call(read)
 
