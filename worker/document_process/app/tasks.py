@@ -5,7 +5,9 @@ de mise en page et une capture par page (liteparse), puis écrit chaque page
 côté backend. Pas de NER/relations ici (issue #4, prochaine étape) - juste
 le texte et sa localisation, comme convenu. Le statut d'extraction du
 document (en_attente -> en_cours -> terminé/échec) est reporté au backend à
-chaque étape, pour que le frontend puisse le suivre.
+chaque étape, pour que le frontend puisse le suivre. Une fois les pages écrites,
+le résumé du document et son indexation dans la recherche du dossier partent
+sur la file agent_execution.
 """
 
 import hashlib
@@ -153,6 +155,13 @@ def extract_document_text(self, document_id: str) -> None:
             if dossier_id:
                 celery_app.send_task(
                     "app.tasks.run_document_summary",
+                    args=[str(dossier_id), document_id],
+                    queue="agent_execution",
+                )
+                # Les pages sont écrites : on les indexe dans la recherche du dossier (découpage, embeddings,
+                # Qdrant). L'indexation est du ressort d'agent_execution, qui a les modèles et le client Qdrant.
+                celery_app.send_task(
+                    "app.tasks.index_document",
                     args=[str(dossier_id), document_id],
                     queue="agent_execution",
                 )
