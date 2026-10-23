@@ -67,14 +67,14 @@ class DossierSearcher:
             raise NotIndexedError("Le dossier n'est pas encore indexé")
         return index_settings
 
-    def search(self, query: str, top_k: int | None = None) -> list[SearchHit]:
+    def search(self, query: str, top_k: int | None = None, mode: str = "hybrid") -> list[SearchHit]:
         if not self._dossier_id or not (query or "").strip():
             return []
         index = self._index_settings()
         qdrant = self._qdrant or store.get_client()
         dense = embeddings.embed_dense([query], index["embedding_model"])[0]
         points = store.hybrid_search(
-            qdrant, self._dossier_id, dense=dense, sparse=embeddings.encode_sparse_query(query), limit=top_k
+            qdrant, self._dossier_id, dense=dense, sparse=embeddings.encode_sparse_query(query), limit=top_k, mode=mode
         )
         window = int(index.get("window") or 0)
         hits: list[SearchHit] = []
