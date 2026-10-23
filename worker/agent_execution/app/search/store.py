@@ -185,6 +185,22 @@ def drop_dossier(client: QdrantClient, dossier_id: str) -> None:
             client.delete_collection(collection.name)
 
 
+def neighbors(client: QdrantClient, dossier_id: str, page_id: str, first: int, last: int) -> list[m.Record]:
+    """Les passages `first` à `last` d'une page, dans l'ordre (fenêtre glissante autour d'un passage trouvé)."""
+    records, _ = client.scroll(
+        alias_name(dossier_id),
+        scroll_filter=m.Filter(
+            must=[
+                m.FieldCondition(key="page_id", match=m.MatchValue(value=page_id)),
+                m.FieldCondition(key="chunk_index", range=m.Range(gte=first, lte=last)),
+            ]
+        ),
+        limit=last - first + 1,
+        with_payload=True,
+    )
+    return sorted(records, key=lambda record: record.payload["chunk_index"])
+
+
 def hybrid_search(
     client: QdrantClient,
     dossier_id: str,

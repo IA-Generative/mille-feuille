@@ -1,7 +1,25 @@
-"""Tests pour la recherche BM25 et les outils de l'agent."""
+"""Tests des outils de l'agent : recherche dans le dossier, lecture de page, classifications et entités."""
 
-from app.bm25 import BM25Index, _tokenize, build_index_from_dossier
+from app.search.retrieval import NotIndexedError, SearchHit
 from app.tools import AgentTools
+
+
+class FakeSearcher:
+    """La recherche du dossier vue par les outils : des résultats donnés, ou une erreur."""
+
+    def __init__(self, hits: list[SearchHit] | Exception | None = None) -> None:
+        self.hits = hits if hits is not None else []
+        self.queries: list[str] = []
+
+    def search(self, query: str, top_k: int | None = None) -> list[SearchHit]:
+        self.queries.append(query)
+        if isinstance(self.hits, Exception):
+            raise self.hits
+        return self.hits
+
+
+def hit(page_id: str = "page-1", number: int = 1, name: str = "CNI.pdf", excerpt: str = "Nom: Dupont", score=0.5):
+    return SearchHit(page_id, number, "doc-1", name, score, excerpt)
 
 
 def _make_dossier() -> dict:
@@ -64,53 +82,59 @@ def _make_dossier() -> dict:
     }
 
 
-# --- BM25 tests ---
-
-
-def test_tokenize_basic() -> None:
-    tokens = _tokenize("Hello World 123")
-    assert tokens == ["hello", "world", "123"]
-
-
-def test_tokenize_empty() -> None:
-    assert _tokenize("") == []
-    assert _tokenize(None) == []
-
-
-def test_bm25_search_finds_relevant_page() -> None:
-    index = build_index_from_dossier(_make_dossier())
-    results = index.search("Dupont")
-    assert len(results) > 0
-    assert results[0].page_id == "page-1"
-    assert "Dupont" in results[0].excerpt
-
-
-def test_bm25_search_no_results() -> None:
-    index = build_index_from_dossier(_make_dossier())
-    results = index.search("zzznonexistent")
-    assert results == []
-
-
-def test_bm25_search_empty_index() -> None:
-    index = BM25Index()
-    index.build()
-    assert index.search("test") == []
-
-
-def test_bm25_search_empty_query() -> None:
-    index = build_index_from_dossier(_make_dossier())
-    assert index.search("") == []
-
-
 # --- AgentTools tests ---
 
 
 def test_tools_search_documents() -> None:
-    tools = AgentTools(_make_dossier())
-    result = tools.search_documents("Dupont")
+    searcher = FakeSearcher([hit(excerpt="Nom: Dupont. Prénom: Jean.")])
+    result = AgentTools(_make_dossier(), searcher=searcher).search_documents("Dupont")
+
+    assert searcher.queries == ["Dupont"]
     assert "page-1" not in result  # Should show page number, not ID
-    assert "Page 1" in result
-    assert "Dupont" in result
+    assert "Page 1 (CNI.pdf)" in result
+    assert "Dupont" in result and "[score: 0.50]" in result
+
+
+def test_search_documents_numbers_the_page_found_and_records_it_as_a_source() -> None:
+    tools = AgentTools(_make_dossier(), searcher=FakeSearcher([hit()]))
+    result = tools.search_documents("Dupont")
+
+    assert "[1] 📄 Page 1" in result
+    source = tools.consulted_sources()[0]
+    assert source.page_ids == ["page-1"] and source.number == 1 and "Dupont" in source.excerpt
+
+
+def test_several_passages_of_one_page_share_one_number_and_one_result() -> None:
+    hits = [hit(excerpt="Premier passage", score=0.9), hit(excerpt="Second passage", score=0.4), hit("page-2", 2)]
+    tools = AgentTools(_make_dossier(), searcher=FakeSearcher(hits))
+
+    result = tools.search_documents("x")
+
+    assert result.startswith("2 résultat(s) trouvé(s)")
+    assert "Premier passage […] Second passage" in result
+    assert [s.page_ids for s in tools.consulted_sources()] == [["page-1"], ["page-2"]]
+
+
+def test_search_documents_without_result() -> None:
+    assert "Aucun résultat" in AgentTools(_make_dossier(), searcher=FakeSearcher([])).search_documents("zzz")
+
+
+def test_search_documents_tells_the_model_when_the_dossier_is_not_indexed() -> None:
+    tools = AgentTools(_make_dossier(), searcher=FakeSearcher(NotIndexedError("non indexé")))
+    result = tools.search_documents("Dupont")
+    assert "pas encore indexé" in result and "read_page" in result
+    assert tools.consulted_sources() == []
+
+
+def test_search_documents_survives_an_unavailable_index() -> None:
+    tools = AgentTools(_make_dossier(), searcher=FakeSearcher(RuntimeError("qdrant injoignable")))
+    result = tools.search_documents("Dupont")
+    assert "indisponible" in result and "qdrant" not in result  # le détail technique reste dans les journaux
+
+
+def test_search_documents_is_a_tool_the_model_can_call() -> None:
+    tools = AgentTools(_make_dossier(), searcher=FakeSearcher([hit()]))
+    assert "Dupont" in tools.dispatch_tool("search_documents", {"query": "Dupont"})
 
 
 def test_tools_read_page() -> None:
@@ -123,7 +147,7 @@ def test_tools_read_page() -> None:
 def test_tools_give_the_source_of_a_document_in_context() -> None:
     dossier = _make_dossier()
     dossier["documents"][0]["source"] = {"name": "Guichet", "description": "Remis en main propre"}
-    tools = AgentTools(dossier)
+    tools = AgentTools(dossier, searcher=FakeSearcher([hit(name="CNI.pdf — source : Guichet")]))
 
     page = tools.read_page(1)
     assert "source : Guichet" in page
