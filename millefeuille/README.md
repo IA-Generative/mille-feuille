@@ -11,6 +11,7 @@ Kubernetes: `>=1.25.0-0`
 | Repository | Name | Version |
 |------------|------|---------|
 | https://cloudnative-pg.github.io/charts | cnpg(cluster) | 0.8.1 |
+| https://qdrant.github.io/qdrant-helm | qdrant(qdrant) | 1.19.2 |
 | oci://registry-1.docker.io/cloudpirates | redis(redis) | 0.27.9 |
 
 ## Values
