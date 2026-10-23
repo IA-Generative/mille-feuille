@@ -130,11 +130,15 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-}
       LLM_MODEL: ${LLM_MODEL:-llama-3.3-70b-instruct}
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-dev-only-qdrant-key-not-for-prod}
     depends_on:
       redis:
         condition: service_healthy
       backend:
         condition: service_started
+      qdrant:
+        condition: service_healthy
     restart: unless-stopped
 
   # Classification des pages (file `classification`) : lit les captures de pages sur S3, les décrit avec un VLM
@@ -338,6 +342,20 @@ services:
       retries: 15
       start_period: 10s
 
+  # Index de recherche des dossiers (hybride dense + creux) : un alias `dossier_<id>` par dossier.
+  qdrant:
+    image: qdrant/qdrant:v1.15.3
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-dev-only-qdrant-key-not-for-prod}
+    volumes:
+      - qdrant-data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 5s
+
   keycloak:
     image: quay.io/keycloak/keycloak:26.2
     # Importe le realm mille-feuille (client + utilisateurs de dev) au premier
@@ -404,4 +422,5 @@ secrets:
 volumes:
   postgres-data:
   meilisearch-data:
+  qdrant-data:
   rustfs-data:
