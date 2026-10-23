@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import uuid
 from collections.abc import Collection, Sequence
 from datetime import UTC, date, datetime, timedelta
@@ -8,6 +9,7 @@ from sqlalchemy import delete, func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.celery_client import dispatch_drop_index
 from app.connectors import s3_connector
 from app.models.analyse import Analyse, StatusDefinition
 from app.models.app_user import AppUser
@@ -65,6 +67,8 @@ from app.services.custom_fields import default_values
 from app.services.dossier_access import visible_clause
 from app.services.due_date import today_in_paris
 from app.services.prediction_validation import record_validation
+
+logger = logging.getLogger(__name__)
 
 
 def _validations_load(parent, *, chained: bool = False):
@@ -1133,8 +1137,15 @@ class DossierRepository:
                     await asyncio.to_thread(s3_connector.delete, key)
         # Aperçus PDF des brouillons de document (#142) : des objets S3 sans ligne en base.
         await asyncio.to_thread(s3_connector.delete_prefix, f"previews/{dossier.id}/")
+        dossier_id = str(dossier.id)
         await self.db.delete(dossier)
         await self.db.commit()
+        # L'index de recherche du dossier (Qdrant) est une donnée dérivée : il part avec le dossier. Le dossier est
+        # déjà supprimé ; une file indisponible ne doit pas défaire une suppression réussie.
+        try:
+            dispatch_drop_index(dossier_id)
+        except Exception:
+            logger.warning("Impossible de déposer la suppression de l'index du dossier %s", dossier_id, exc_info=True)
 
     # --- Hash de fichier et résumés (issue #52) ---
 

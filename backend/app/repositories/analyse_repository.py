@@ -573,6 +573,36 @@ class AnalyseRepository:
             (v for v in self.field_versions(analyse, VersionedField.KNOWLEDGE_COLLECTIONS) if v.id == version_id), None
         )
 
+    # --- Réglages de recherche (découpage des pages et modèle d'embeddings) ---
+
+    async def update_search_settings(self, analyse: Analyse, settings: dict) -> None:
+        """Remplace les réglages ; l'état précédent est conservé dans l'historique (restaurable). Rien ne change : pas
+        de version inutile."""
+        if settings == analyse.search_settings:
+            return
+        self._record_version(analyse, VersionedField.SEARCH_SETTINGS, dict(analyse.search_settings))
+        analyse.search_settings = settings
+        await self.db.commit()
+        await self.db.refresh(analyse)
+
+    def search_settings_version(self, analyse: Analyse, version_id: uuid.UUID):
+        return next(
+            (v for v in self.field_versions(analyse, VersionedField.SEARCH_SETTINGS) if v.id == version_id), None
+        )
+
+    async def has_indexed_dossier(self, analyse_id: uuid.UUID) -> bool:
+        """Un dossier de l'analyse a-t-il déjà un index de recherche ?"""
+        from app.models.dossier import Dossier
+        from app.models.search_index import DossierSearchIndex
+
+        result = await self.db.execute(
+            select(DossierSearchIndex.dossier_id)
+            .join(Dossier, Dossier.id == DossierSearchIndex.dossier_id)
+            .where(Dossier.analyse_id == analyse_id)
+            .limit(1)
+        )
+        return result.first() is not None
+
     # --- Agents ---
 
     async def add_agent(
