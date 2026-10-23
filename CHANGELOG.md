@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.1](https://github.com/IA-Generative/mille-feuille/compare/v0.30.0...v0.30.1) (2026-10-23)
+
+
+### Bug Fixes
+
+* **chart:** retire le conteneur d'init de qdrant, refusé par le quota du namespace ([828d587](https://github.com/IA-Generative/mille-feuille/commit/828d5877a91e5c18923044701f7847efac7a8d2a))
+
 ## [0.30.0](https://github.com/IA-Generative/mille-feuille/compare/v0.29.0...v0.30.0) (2026-10-23)
 
 
