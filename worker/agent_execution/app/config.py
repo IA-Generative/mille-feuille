@@ -31,8 +31,24 @@ class WorkerSettings(BaseSettings):
     # Nombre maximum d'itérations du graphe LangGraph (pour éviter les
     # boucles infinies).
     AGENT_MAX_ITERATIONS: int = 10
-    # Nombre de résultats retournés par la recherche BM25.
+    # Qdrant : l'index de recherche des dossiers (un alias `dossier_<id>` par dossier). Vide = non configuré ;
+    # `:memory:` sert aux tests et au développement sans service.
+    QDRANT_URL: str = ""
+    QDRANT_API_KEY: str = ""
+    # Recherche hybride (dense + creux) fusionnée par RRF : `k` de la fusion, nombre de candidats gardés par branche
+    # avant fusion, et nombre de passages renvoyés à l'agent.
+    SEARCH_TOP_K: int = 5
+    # Recherche BM25 en mémoire, retirée avec le passage à Qdrant.
     BM25_TOP_K: int = 5
+    SEARCH_RRF_K: int = 60
+    SEARCH_BRANCH_LIMIT: int = 30
+    # Embeddings (API compatible OpenAI, `/embeddings`) : taille des lots envoyés au modèle.
+    EMBEDDING_BATCH_SIZE: int = 32
+    # Vecteur creux lexical (BM25) : saturation de la fréquence des termes, normalisation par la longueur et
+    # longueur moyenne d'un passage (en termes) servant de référence.
+    SPARSE_BM25_K1: float = 1.2
+    SPARSE_BM25_B: float = 0.75
+    SPARSE_AVG_LENGTH: float = 120.0
 
     model_config = SettingsConfigDict(case_sensitive=True, env_file=(".env", ".env.local"), extra="ignore")
 
@@ -43,6 +59,10 @@ class WorkerSettings(BaseSettings):
     @property
     def celery_result_backend(self) -> str:
         return self.CELERY_RESULT_BACKEND or self.REDIS_URL or DEFAULT_REDIS_URL
+
+    @property
+    def search_configured(self) -> bool:
+        return bool(self.QDRANT_URL)
 
     @property
     def is_configured(self) -> bool:
