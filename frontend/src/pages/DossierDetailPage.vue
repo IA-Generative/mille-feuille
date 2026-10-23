@@ -11,6 +11,7 @@ import SourceViewerModal from "@/components/SourceViewerModal.vue";
 import DueDatePicker from "@/components/dossiers/DueDatePicker.vue";
 import AddDocumentsModal from "@/components/dossiers/AddDocumentsModal.vue";
 import DossierDocuments from "@/components/dossiers/DossierDocuments.vue";
+import DossierSearchIndexCard from "@/components/dossiers/DossierSearchIndexCard.vue";
 import DossierResults from "@/components/dossiers/DossierResults.vue";
 import RelaunchBanner from "@/components/dossiers/RelaunchBanner.vue";
 import FeedbackReasonsModal from "@/components/dossiers/FeedbackReasonsModal.vue";
@@ -690,6 +691,7 @@ async function onDeleteConversation() {
         @add="openAddDocuments()"
         @change-source="onChangeDocumentSource"
       />
+      <DossierSearchIndexCard :dossier-id="dossier.id" />
     </DsfrModal>
 
     <FeedbackReasonsModal v-model:opened="feedbackReasonsModalOpened" @submit="submitDownFeedback" />
