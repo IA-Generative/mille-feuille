@@ -12,13 +12,13 @@ import re
 import unicodedata
 from collections import Counter
 
-import snowballstemmer
+from py_rust_stemmers import SnowballStemmer
 
 from app.config import settings
 from app.llm import _client
 
 _WORD_RE = re.compile(r"\w+", re.UNICODE)
-_STEMMER = snowballstemmer.stemmer("french")
+_STEMMER = SnowballStemmer("french")
 
 # Mots vides du français : sans accents, comme les termes qu'ils filtrent.
 _STOP_WORDS = frozenset(
@@ -35,7 +35,7 @@ def _strip_accents(text: str) -> str:
 def tokenize(text: str) -> list[str]:
     """Les termes d'un texte : sans accents, en minuscules, sans mots vides, ramenés à leur racine."""
     words = [_strip_accents(word.lower()) for word in _WORD_RE.findall(text or "")]
-    return [_STEMMER.stemWord(word) for word in words if word not in _STOP_WORDS]
+    return _STEMMER.stem_words([word for word in words if word not in _STOP_WORDS])
 
 
 def term_index(term: str) -> int:
