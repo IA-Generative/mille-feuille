@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.2](https://github.com/IA-Generative/mille-feuille/compare/v0.30.1...v0.30.2) (2026-10-23)
+
+
+### Bug Fixes
+
+* **frontend:** simplifie la création d'analyse ([3be5bd4](https://github.com/IA-Generative/mille-feuille/commit/3be5bd4b889bd87f8bb22310523059a7c67e9599))
+
 ## [0.30.1](https://github.com/IA-Generative/mille-feuille/compare/v0.30.0...v0.30.1) (2026-10-23)
 
 
