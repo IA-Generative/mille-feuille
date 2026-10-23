@@ -463,6 +463,11 @@ qdrant:
     limits:
       cpu: "1"
       memory: "2Gi"
+  # Le quota du namespace (`dso-quota`) exige des requests et des limits sur **chaque** conteneur, init containers
+  # compris. Le conteneur d'init `ensure-dir-ownership` du sous-chart (un `chown` des volumes) n'accepte aucune
+  # ressource : sans elles le StatefulSet ne peut pas créer son pod. On le retire ; les volumes restent accessibles en
+  # écriture par le `fsGroup` du pod (3000, `fsGroupChangePolicy: Always`) que Kubernetes applique au montage.
+  updateVolumeFsOwnership: false
 
 redis:
   # RediSearch is required by the agent_execution worker's Redis-backed LangGraph checkpointer
