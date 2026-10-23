@@ -74,3 +74,26 @@ class RebuildReport(BaseModel):
     total_pages: int | None = None
     done_pages: int | None = None
     error: str | None = None
+
+
+class AnalyseIndexOverview(BaseModel):
+    """Les index de recherche des dossiers d'une analyse, comptés."""
+
+    dossiers: int
+    indexed: int
+    # À jour avec les réglages, ou construits avec d'autres réglages (obsolètes).
+    current: int
+    obsolete: int
+    errors: int
+    rebuilding: int
+    queued: int
+    # Reconstructions basculées qui attendent la validation de la personne.
+    to_validate: int
+
+
+class AnalyseRebuildOut(BaseModel):
+    """Résultat d'une reconstruction en lot : ce qui démarre tout de suite et ce qui attend son tour."""
+
+    started: int
+    queued: int
+    overview: AnalyseIndexOverview

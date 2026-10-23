@@ -41,6 +41,8 @@ class DossierSearchIndex(TimestampMixin, Base):
 
 
 class IndexRebuildStatus(enum.StrEnum):
+    # En attente d'une place : les reconstructions simultanées d'une analyse sont plafonnées (reconstruction en lot).
+    QUEUED = "queued"
     # Le nouvel index se construit à côté de l'actif, qui continue de répondre à toutes les recherches.
     BUILDING = "building"
     # Le nouvel index a remplacé l'ancien, atomiquement ; l'ancien est gardé jusqu'à validation ou retour arrière.
@@ -51,7 +53,7 @@ class IndexRebuildStatus(enum.StrEnum):
 
 
 # Un dossier a au plus une reconstruction dans ces états : elle détient son second index.
-ACTIVE_REBUILD_STATUSES = (IndexRebuildStatus.BUILDING, IndexRebuildStatus.SWAPPED)
+ACTIVE_REBUILD_STATUSES = (IndexRebuildStatus.QUEUED, IndexRebuildStatus.BUILDING, IndexRebuildStatus.SWAPPED)
 
 
 class IndexRebuild(UUIDMixin, TimestampMixin, Base):
@@ -81,6 +83,6 @@ class IndexRebuild(UUIDMixin, TimestampMixin, Base):
             "uq_index_rebuilds_active_per_dossier",
             "dossier_id",
             unique=True,
-            postgresql_where=text("status IN ('BUILDING', 'SWAPPED')"),
+            postgresql_where=text("status IN ('QUEUED', 'BUILDING', 'SWAPPED')"),
         ),
     )

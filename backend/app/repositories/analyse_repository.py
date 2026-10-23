@@ -590,19 +590,6 @@ class AnalyseRepository:
             (v for v in self.field_versions(analyse, VersionedField.SEARCH_SETTINGS) if v.id == version_id), None
         )
 
-    async def has_indexed_dossier(self, analyse_id: uuid.UUID) -> bool:
-        """Un dossier de l'analyse a-t-il déjà un index de recherche ?"""
-        from app.models.dossier import Dossier
-        from app.models.search_index import DossierSearchIndex
-
-        result = await self.db.execute(
-            select(DossierSearchIndex.dossier_id)
-            .join(Dossier, Dossier.id == DossierSearchIndex.dossier_id)
-            .where(Dossier.analyse_id == analyse_id)
-            .limit(1)
-        )
-        return result.first() is not None
-
     # --- Agents ---
 
     async def add_agent(

@@ -336,3 +336,177 @@ def test_deleting_a_dossier_deletes_its_index_state(client: TestClient, dispatch
 
     run(client, delete)
     assert run(client, count) == 0
+
+
+# --- Reconstruction en lot d'une analyse ---
+
+
+def analyse_url(analyse: str, suffix: str = "") -> str:
+    return f"/api/analyses/{analyse}/search-index{suffix}"
+
+
+def indexed_dossiers(client: TestClient, analyse: str, count: int) -> list[str]:
+    dossiers = []
+    for _ in range(count):
+        dossier = client.post("/api/dossiers", json={"name": "Dossier", "analyse_id": analyse}).json()["id"]
+        first_index(client, analyse, dossier)
+        dossiers.append(dossier)
+    return dossiers
+
+
+@pytest.fixture
+def dispatched_ids(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    ids: list[str] = []
+    monkeypatch.setattr("app.celery_client.dispatch_rebuild_index", ids.append)
+    monkeypatch.setattr("app.celery_client.dispatch_rollback_rebuild", lambda rebuild_id: None)
+    monkeypatch.setattr("app.celery_client.dispatch_finalize_rebuild", lambda rebuild_id: None)
+    return ids
+
+
+def make_obsolete(client: TestClient, analyse: str) -> None:
+    assert (
+        client.put(
+            f"/api/analyses/{analyse}/search-settings", json={"strategy": "classique", "embedding_model": "nouveau"}
+        ).status_code
+        == 200
+    )
+
+
+def rebuild_of(client: TestClient, dossier: str) -> dict | None:
+    return client.get(f"/api/dossiers/{dossier}/search-index").json()["rebuild"]
+
+
+def test_the_batch_rebuilds_only_the_obsolete_dossiers(client: TestClient, dispatched_ids, monkeypatch) -> None:
+    monkeypatch.setenv("SEARCH_MAX_PARALLEL_REBUILDS", "10")
+    analyse, _ = make_dossier(client, strategy="classique", embedding_model="e5")
+    old = indexed_dossiers(client, analyse, 2)
+    make_obsolete(client, analyse)
+    fresh = indexed_dossiers(client, analyse, 1)[0]  # indexé avec les nouveaux réglages
+
+    response = client.post(analyse_url(analyse, "/rebuild"))
+
+    assert response.status_code == 202, response.text
+    body = response.json()
+    assert (body["started"], body["queued"]) == (2, 0)
+    assert all(rebuild_of(client, dossier)["status"] == "building" for dossier in old)
+    assert rebuild_of(client, fresh) is None
+    assert len(dispatched_ids) == 2
+
+
+def test_the_batch_is_capped_and_the_rest_waits_its_turn(client: TestClient, dispatched_ids, monkeypatch) -> None:
+    monkeypatch.setenv("SEARCH_MAX_PARALLEL_REBUILDS", "2")
+    analyse, _ = make_dossier(client, strategy="classique", embedding_model="e5")
+    dossiers = indexed_dossiers(client, analyse, 5)
+    make_obsolete(client, analyse)
+
+    body = client.post(analyse_url(analyse, "/rebuild")).json()
+
+    assert (body["started"], body["queued"]) == (2, 3)
+    assert (body["overview"]["rebuilding"], body["overview"]["queued"]) == (2, 3)
+    assert sorted(rebuild_of(client, d)["status"] for d in dossiers) == ["building"] * 2 + ["queued"] * 3
+    assert len(dispatched_ids) == 2
+
+
+def test_a_finished_build_frees_a_place_for_the_oldest_queued_one(
+    client: TestClient, dispatched_ids, monkeypatch
+) -> None:
+    monkeypatch.setenv("SEARCH_MAX_PARALLEL_REBUILDS", "1")
+    analyse, _ = make_dossier(client, strategy="classique", embedding_model="e5")
+    dossiers = indexed_dossiers(client, analyse, 3)
+    make_obsolete(client, analyse)
+    client.post(analyse_url(analyse, "/rebuild"))
+    first = next(d for d in dossiers if rebuild_of(client, d)["status"] == "building")
+    queued = sorted((d for d in dossiers if d != first), key=lambda d: rebuild_of(client, d)["created_at"])
+
+    client.put(
+        f"/api/internal/index-rebuilds/{rebuild_of(client, first)['id']}", json={"status": "swapped"}, headers=INTERNAL
+    )
+
+    assert rebuild_of(client, queued[0])["status"] == "building"
+    assert rebuild_of(client, queued[1])["status"] == "queued"
+    assert dispatched_ids[-1] == rebuild_of(client, queued[0])["id"]
+
+
+def test_a_failed_build_also_frees_its_place(client: TestClient, dispatched_ids, monkeypatch) -> None:
+    monkeypatch.setenv("SEARCH_MAX_PARALLEL_REBUILDS", "1")
+    analyse, _ = make_dossier(client, strategy="classique", embedding_model="e5")
+    dossiers = indexed_dossiers(client, analyse, 2)
+    make_obsolete(client, analyse)
+    client.post(analyse_url(analyse, "/rebuild"))
+    first = next(d for d in dossiers if rebuild_of(client, d)["status"] == "building")
+    second = next(d for d in dossiers if d != first)
+
+    client.put(
+        f"/api/internal/index-rebuilds/{rebuild_of(client, first)['id']}",
+        json={"status": "failed", "error": "x"},
+        headers=INTERNAL,
+    )
+
+    assert rebuild_of(client, second)["status"] == "building"
+
+
+def test_cancelling_a_running_build_frees_its_place_and_a_queued_one_can_be_cancelled(
+    client: TestClient, dispatched_ids, monkeypatch
+) -> None:
+    monkeypatch.setenv("SEARCH_MAX_PARALLEL_REBUILDS", "1")
+    analyse, _ = make_dossier(client, strategy="classique", embedding_model="e5")
+    dossiers = indexed_dossiers(client, analyse, 3)
+    make_obsolete(client, analyse)
+    client.post(analyse_url(analyse, "/rebuild"))
+    running = next(d for d in dossiers if rebuild_of(client, d)["status"] == "building")
+    waiting = [d for d in dossiers if d != running]
+
+    cancel = client.post(f"/api/dossiers/{running}/search-index/rebuilds/{rebuild_of(client, running)['id']}/rollback")
+    assert cancel.json()["status"] == "rolled_back"
+    promoted = [d for d in waiting if rebuild_of(client, d)["status"] == "building"]
+    assert len(promoted) == 1
+
+    queued = next(d for d in waiting if d not in promoted)
+    client.post(f"/api/dossiers/{queued}/search-index/rebuilds/{rebuild_of(client, queued)['id']}/rollback")
+    assert rebuild_of(client, queued)["status"] == "rolled_back"
+
+
+def test_the_batch_skips_dossiers_already_being_rebuilt_and_is_repeatable(
+    client: TestClient, dispatched_ids, monkeypatch
+) -> None:
+    monkeypatch.setenv("SEARCH_MAX_PARALLEL_REBUILDS", "10")
+    analyse, _ = make_dossier(client, strategy="classique", embedding_model="e5")
+    indexed_dossiers(client, analyse, 2)
+    make_obsolete(client, analyse)
+
+    assert client.post(analyse_url(analyse, "/rebuild")).json()["started"] == 2
+    again = client.post(analyse_url(analyse, "/rebuild")).json()
+
+    assert (again["started"], again["queued"]) == (0, 0)
+    assert len(dispatched_ids) == 2
+
+
+def test_an_index_in_error_is_rebuilt_even_with_unchanged_settings(
+    client: TestClient, dispatched_ids, monkeypatch
+) -> None:
+    monkeypatch.setenv("SEARCH_MAX_PARALLEL_REBUILDS", "10")
+    analyse, dossier = make_dossier(client, strategy="classique", embedding_model="e5")
+    first_index(client, analyse, dossier, status="error", error="boom")
+
+    assert client.post(analyse_url(analyse, "/rebuild")).json()["started"] == 1
+
+
+def test_the_batch_needs_resolvable_settings(client: TestClient, dispatched_ids, monkeypatch) -> None:
+    monkeypatch.setenv("SEARCH_EMBEDDING_MODEL", "")
+    analyse, _ = make_dossier(client)
+    response = client.post(analyse_url(analyse, "/rebuild"))
+    assert response.status_code == 422 and response.json()["detail"]["code"] == "reglages_incomplets"
+
+
+def test_the_overview_counts_every_state(client: TestClient, dispatched_ids, monkeypatch) -> None:
+    monkeypatch.setenv("SEARCH_MAX_PARALLEL_REBUILDS", "1")
+    analyse, _ = make_dossier(client, strategy="classique", embedding_model="e5")
+    indexed_dossiers(client, analyse, 3)
+    client.post("/api/dossiers", json={"name": "Jamais indexé", "analyse_id": analyse})
+    make_obsolete(client, analyse)
+    client.post(analyse_url(analyse, "/rebuild"))
+
+    overview = client.get(analyse_url(analyse)).json()
+
+    assert overview["dossiers"] == 5 and overview["indexed"] == 3 and overview["obsolete"] == 3
+    assert (overview["rebuilding"], overview["queued"], overview["to_validate"]) == (1, 2, 0)
