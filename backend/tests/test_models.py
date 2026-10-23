@@ -153,3 +153,64 @@ def test_clear_cache_then_list_reprobes(client, monkeypatch):
 
     assert response.status_code == 200
     fake_client.models.list.assert_called_once()
+
+
+def _fake_embedding_client(dimensions: dict[str, int], all_ids: list[str]) -> SimpleNamespace:
+    async def create_embedding(model: str, **_kwargs):
+        if model not in dimensions:
+            raise RuntimeError(f"model '{model}' does not support embeddings")
+        return SimpleNamespace(data=[SimpleNamespace(embedding=[0.0] * dimensions[model])])
+
+    return SimpleNamespace(
+        models=SimpleNamespace(
+            list=AsyncMock(return_value=SimpleNamespace(data=[SimpleNamespace(id=i) for i in all_ids]))
+        ),
+        embeddings=SimpleNamespace(create=AsyncMock(side_effect=create_embedding)),
+    )
+
+
+def test_list_embedding_models_probes_the_hub_and_reports_dimensions(client, monkeypatch):
+    fake_client = _fake_embedding_client({"bge-m3": 1024, "e5": 768}, ["gpt-4o", "bge-m3", "e5"])
+    monkeypatch.setattr(models_router, "_openai_client", fake_client)
+
+    with patch("app.routers.models.redis_connector") as mock_redis:
+        mock_redis.client.get.return_value = None
+
+        response = client.get("/api/models/embeddings")
+
+    assert response.status_code == 200
+    assert response.json()["models"] == [{"id": "bge-m3", "dimension": 1024}, {"id": "e5", "dimension": 768}]
+    cached_key, cached_value = mock_redis.client.set.call_args[0]
+    assert cached_key == models_router._EMBEDDING_MODELS_CACHE_KEY
+    assert json.loads(cached_value) == response.json()["models"]
+
+
+def test_list_embedding_models_uses_cache_without_calling_the_hub(client, monkeypatch):
+    fake_client = _fake_embedding_client({}, [])
+    monkeypatch.setattr(models_router, "_openai_client", fake_client)
+
+    with patch("app.routers.models.redis_connector") as mock_redis:
+        mock_redis.client.get.return_value = json.dumps([{"id": "bge-m3", "dimension": 1024}])
+
+        response = client.get("/api/models/embeddings")
+
+    assert response.json()["models"] == [{"id": "bge-m3", "dimension": 1024}]
+    fake_client.models.list.assert_not_called()
+
+
+def test_list_embedding_models_returns_503_when_llm_hub_is_not_configured(client, monkeypatch):
+    monkeypatch.setattr(models_router, "_openai_client", None)
+    assert client.get("/api/models/embeddings").status_code == 503
+
+
+def test_refresh_embedding_models_ignores_existing_cache(client, monkeypatch):
+    fake_client = _fake_embedding_client({"bge-m3": 1024}, ["bge-m3"])
+    monkeypatch.setattr(models_router, "_openai_client", fake_client)
+
+    with patch("app.routers.models.redis_connector") as mock_redis:
+        mock_redis.client.get.return_value = json.dumps([{"id": "stale", "dimension": 1}])
+
+        response = client.post("/api/models/embeddings/refresh")
+
+    assert response.json()["models"] == [{"id": "bge-m3", "dimension": 1024}]
+    fake_client.models.list.assert_called_once()

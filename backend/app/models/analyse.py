@@ -53,6 +53,8 @@ class VersionedField(enum.StrEnum):
     # Collections de la base de connaissances que l'analyse autorise (issue #358) : liste de
     # {source_id, collection_id, name}, restaurée à l'identique.
     KNOWLEDGE_COLLECTIONS = "knowledge_collections"
+    # Recherche dans les dossiers de l'analyse : découpage des pages en passages et modèle d'embeddings.
+    SEARCH_SETTINGS = "search_settings"
 
 
 class Analyse(UUIDMixin, TimestampMixin, Base):
@@ -77,6 +79,10 @@ class Analyse(UUIDMixin, TimestampMixin, Base):
     # (`VersionedField.KNOWLEDGE_COLLECTIONS`) : {source_id, collection_id, name}. Les droits restent ceux de la
     # personne.
     knowledge_collections: Mapped[list[dict]] = mapped_column(JSONB, nullable=False, default=list)
+
+    # Réglages de la recherche dans les dossiers (stratégie et paramètres de découpage, modèles), versionnés
+    # (`VersionedField.SEARCH_SETTINGS`). Un champ absent prend la valeur par défaut de la plateforme.
+    search_settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     classification_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # Classification multi-label : plusieurs labels possibles par page (sinon un seul). Fixé à la création

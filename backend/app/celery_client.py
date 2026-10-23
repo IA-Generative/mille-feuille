@@ -219,3 +219,34 @@ def render_preview(template_key: str, values: dict, output_key: str, timeout: in
         raise RenderWorkerUnavailableError() from error
     except Exception as error:  # noqa: BLE001 - l'exception du worker revient sous un type générique
         raise RenderFailedError(str(error)) from error
+
+
+# --- Index de recherche des dossiers (worker agent_execution) ---
+
+
+def dispatch_index_document(dossier_id: str, document_id: str) -> str:
+    """Indexe les pages d'un document dans l'index de recherche du dossier (déposée aussi par le worker
+    document_process, une fois l'OCR terminé)."""
+    return celery_client.send_task(
+        "app.tasks.index_document", args=[dossier_id, document_id], queue="agent_execution"
+    ).id
+
+
+def dispatch_rebuild_index(rebuild_id: str) -> str:
+    """Construit le nouvel index d'un dossier à côté de l'actif, puis fait basculer l'alias (blue/green)."""
+    return celery_client.send_task("app.tasks.rebuild_index", args=[rebuild_id], queue="agent_execution").id
+
+
+def dispatch_finalize_rebuild(rebuild_id: str) -> str:
+    """Supprime l'ancien index une fois la bascule validée."""
+    return celery_client.send_task("app.tasks.finalize_rebuild", args=[rebuild_id], queue="agent_execution").id
+
+
+def dispatch_rollback_rebuild(rebuild_id: str) -> str:
+    """Remet l'alias sur l'ancien index et supprime celui qu'on abandonne."""
+    return celery_client.send_task("app.tasks.rollback_rebuild", args=[rebuild_id], queue="agent_execution").id
+
+
+def dispatch_drop_index(dossier_id: str) -> str:
+    """Supprime l'index de recherche d'un dossier (alias et collections)."""
+    return celery_client.send_task("app.tasks.drop_dossier_index", args=[dossier_id], queue="agent_execution").id

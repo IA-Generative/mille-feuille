@@ -85,6 +85,13 @@ from .knowledge_source import KnowledgeSource
 from .message_external_source import MessageExternalSource
 from .notification import Notification, NotificationCursor
 from .report import Report, ReportStatus, ReportType
+from .search_index import (
+    ACTIVE_REBUILD_STATUSES,
+    DossierSearchIndex,
+    IndexRebuild,
+    IndexRebuildStatus,
+    SearchIndexStatus,
+)
 from .summary import DocumentSummary, DossierSummary, SummaryStatus
 from .token_usage import TokenUsage, TokenUsageKind
 from .tool import Tool, ToolAuthMode, ToolCallLog, ToolServer, ToolVisibility
@@ -182,6 +189,11 @@ __all__ = [
     "PredictionKind",
     "PredictionValidation",
     "PredictionValidationStatus",
+    "ACTIVE_REBUILD_STATUSES",
+    "DossierSearchIndex",
+    "IndexRebuild",
+    "IndexRebuildStatus",
+    "SearchIndexStatus",
     "Report",
     "ReportStatus",
     "ReportType",
