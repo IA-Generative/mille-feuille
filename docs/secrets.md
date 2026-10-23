@@ -34,6 +34,7 @@ Le chemin suit toujours le même schéma : **`<mount>/<env>/millefeuille/<secret
 | `millefeuille-worker`        | `worker`             | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_extraction |
 | `millefeuille-redis`         | `redis`              | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_extraction, worker_render, redis sub-chart, KEDA |
 | `millefeuille-meilisearch`   | `meilisearch`        | Opaque                      | backend (envFrom)                     |
+| `millefeuille-qdrant`        | `qdrant`             | Opaque                      | worker_agent, qdrant sub-chart        |
 | `millefeuille-db-superuser`  | `db-superuser`       | kubernetes.io/basic-auth    | CNPG (superuserSecret)                |
 | `millefeuille-db-appuser`    | `db-appuser`         | kubernetes.io/basic-auth    | CNPG (initdb.secret)                  |
 | `millefeuille-db-infos`      | `db-appuser`         | Opaque (transformé)         | backend, job de migration             |
@@ -184,6 +185,21 @@ Variables attendues dans Vault :
 > Il est probablement réservé pour une fonctionnalité future.
 
 **Consommateurs** : backend (envFrom).
+
+---
+
+## 6 bis. `millefeuille-qdrant` — Qdrant (index de recherche des dossiers)
+
+Variables attendues dans Vault :
+
+| Variable         | Description                                                                   | Exemple                     |
+| ---------------- | ----------------------------------------------------------------------------- | --------------------------- |
+| `QDRANT_API_KEY` | Clé d'API de Qdrant : exigée par le serveur, envoyée par les workers          | (aléatoire, 32+ caractères) |
+
+L'adresse du service (`QDRANT_URL`, `http://millefeuille-qdrant:6333`) n'est pas un secret : elle est dans les `env` du worker.
+
+**Consommateurs** : le sous-chart `qdrant` (`apiKey.valueFrom.secretKeyRef`) et worker_agent (`envFrom`), qui indexe les pages
+des dossiers et y cherche. Le backend ne parle pas à Qdrant : il tient l'état des index et dépose les tâches.
 
 ---
 
