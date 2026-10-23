@@ -18,9 +18,10 @@ import { useAnalyses } from "@/composables/useAnalyses";
 import { useChatStream } from "@/composables/useChatStream";
 import ChatProposals from "@/components/analysis/ChatProposals.vue";
 import { parseAssistantSuggestion, parseMessageMarkers } from "@/utils/assistantSuggestion";
+import { chatSourcesOf } from "@/utils/chatSources";
 import { setDocumentSource, useDossierSources } from "@/composables/useDocumentSources";
 import ChatToolsMenu from "@/components/tools/ChatToolsMenu.vue";
-import ChatExternalSources from "@/components/tools/ChatExternalSources.vue";
+import SourceCarousel from "@/components/tools/SourceCarousel.vue";
 import ToolCallCard from "@/components/tools/ToolCallCard.vue";
 import ToolQuestionCard from "@/components/tools/ToolQuestionCard.vue";
 import { useConversations } from "@/composables/useConversations";
@@ -188,6 +189,8 @@ async function onQuestionAnswered(callId: string, answers: QuestionAnswer[]) {
 const isLastMessage = (messageId: string) => messages.value[messages.value.length - 1]?.id === messageId;
 
 const dossier = computed(() => dossiers.value.find((d) => d.id === dossierId));
+// Le nom d'un document du dossier, pour le titre d'une source citée.
+const documentName = (documentId: string) => dossier.value?.documents.find((d) => d.id === documentId)?.name;
 const analyse = computed(() =>
   dossier.value?.analyseId ? getAnalyseById(dossier.value.analyseId) : undefined,
 );
@@ -538,16 +541,13 @@ async function onDeleteConversation() {
       @attach-files="openAddDocuments"
       @submit="onChatSubmit"
     >
-      <template #source="{ source }">
-        <button
-          type="button"
-          class="chat-source-chip"
-          :title="source.excerpt ? `« ${source.excerpt} »` : 'Voir la source'"
-          @click="openSource(source)"
-        >
-          <VIcon name="ri-file-text-line" />
-          <span>{{ source.pages && source.pages.length > 0 ? source.pages.map((p) => `p. ${p.pageNumber}`).join(", ") : "Document" }}</span>
-        </button>
+      <template #message-sources="{ message }">
+        <SourceCarousel
+          :sources="chatSourcesOf(message, documentName)"
+          :dossier-id="dossierId"
+          :message-id="message.id"
+          @open="(source) => source.dossier && openSource(source.dossier.source)"
+        />
       </template>
 
       <template #composer-actions>
@@ -555,7 +555,6 @@ async function onDeleteConversation() {
       </template>
 
       <template #message-extra="{ message }">
-        <ChatExternalSources v-if="message.externalSources?.length" :sources="message.externalSources" />
         <ToolCallCard
           v-if="message.toolCalls?.length"
           :calls="message.toolCalls"
@@ -739,25 +738,7 @@ async function onDeleteConversation() {
 }
 
 /* Source citée dans une réponse : pastille compacte, ouvre la page dans une modale. */
-.chat-source-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  max-width: 100%;
-  padding: 0.125rem 0.625rem;
-  border: 1px solid var(--border-default-grey);
-  border-radius: 1rem;
-  background: transparent;
-  color: var(--text-action-high-blue-france);
-  font: inherit;
-  font-size: 0.75rem;
-  line-height: 1.5;
-  cursor: pointer;
-}
 
-.chat-source-chip:hover {
-  background: var(--background-default-grey-hover);
-}
 
 .dossier-detail__assistant-suggestion {
   display: inline-flex;

@@ -30,6 +30,8 @@ export interface Feedback {
 
 export interface MessageSource {
   id: string;
+  /** Le numéro cité dans la réponse ([2]) : une seule suite avec les sources externes. Vide avant la numérotation. */
+  number: number | null;
   dossierDocumentId: string | null;
   executionStepId: string | null;
   excerpt: string | null;

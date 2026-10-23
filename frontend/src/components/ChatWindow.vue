@@ -23,6 +23,9 @@
  * - `message-actions` : actions par message (ex: feedback), reçoit
  *   `{ message }` en slot props.
  * - `source` : rendu personnalisé d'une source, reçoit `{ source }`.
+ * - `message-sources` : remplace le bloc des sources d'un message (par exemple un carrousel), sous la bulle ; reçoit
+ *   `{ message }`. Les numéros cités dans le texte ([2]) deviennent cliquables et envoient `goto-source` (événement
+ *   DOM, `detail` : le numéro) à l'élément d'id `sources-{message.id}`.
  * - `composer-actions` : boutons ronds dans la zone d'envoi, après le trombone (ex: menu des outils).
  * - `composer-extra` : contenu supplémentaire avant le composer (ex: chips
  *   de fichiers en attente).
@@ -42,6 +45,7 @@ import type { ExternalSource } from "@/types/knowledge";
 import { computed } from "vue";
 import ToolSteps from "@/components/ToolSteps.vue";
 import { parseAssistantSuggestion } from "@/utils/assistantSuggestion";
+import { linkCitations } from "@/utils/chatSources";
 import { groupToolEvents } from "@/utils/groupToolEvents";
 
 
@@ -60,6 +64,8 @@ export interface ChatWindowMessage {
 
 export interface ChatWindowSource {
   id: string;
+  /** Le numéro cité dans la réponse ([2]). */
+  number?: number | null;
   excerpt?: string | null;
   pages?: { id: string; pageNumber: number }[];
   dossierDocumentId?: string | null;
@@ -100,6 +106,28 @@ const props = withDefaults(
     prefill: "",
   },
 );
+
+// Les numéros que le texte d'une réponse peut citer ([2]) : ceux de ses sources, du dossier ou d'une base externe.
+const citableOf = (message: ChatWindowMessage) =>
+  new Set(
+    [...(message.sources ?? []).map((s) => s.number), ...(message.externalSources ?? []).map((s) => s.number)].filter(
+      (n): n is number => typeof n === "number",
+    ),
+  );
+const hasSources = (message: ChatWindowMessage) => (message.sources?.length ?? 0) + (message.externalSources?.length ?? 0) > 0;
+const textOf = (message: ChatWindowMessage) => {
+  const text = parseAssistantSuggestion(message.content).text;
+  return message.role === "assistant" ? linkCitations(text, citableOf(message)) : text;
+};
+
+// Un clic sur un numéro cité place le bloc des sources du message sur la bonne carte.
+function onTextClick(event: MouseEvent, message: ChatWindowMessage) {
+  const link = (event.target as HTMLElement).closest<HTMLAnchorElement>('a[href^="#source-"]');
+  if (!link) return;
+  event.preventDefault();
+  const number = Number(link.getAttribute("href")?.slice("#source-".length));
+  document.getElementById(`sources-${message.id}`)?.dispatchEvent(new CustomEvent("goto-source", { detail: number }));
+}
 
 const toolSteps = computed(() => groupToolEvents(props.streamEvents));
 
@@ -284,9 +312,16 @@ defineExpose({ resizeTextarea });
           :class="{ 'chat-message--assistant': message.role === 'assistant' }"
         >
           <div class="chat-message__bubble">
-            <MarkdownText :content="parseAssistantSuggestion(message.content).text" class="chat-message__text" />
+            <MarkdownText
+              :content="textOf(message)"
+              class="chat-message__text"
+              @click="onTextClick($event, message)"
+            />
             <!-- Sources citées par l'assistant (repliées par défaut) -->
-            <details v-if="message.sources && message.sources.length > 0" class="chat-message__sources">
+            <details
+              v-if="message.sources && message.sources.length > 0 && !$slots['message-sources']"
+              class="chat-message__sources"
+            >
               <summary class="chat-message__sources-title">
                 Sources ({{ message.sources.length }})
               </summary>
@@ -301,6 +336,13 @@ defineExpose({ resizeTextarea });
                 </li>
               </ul>
             </details>
+          </div>
+          <!-- Les sources sous la bulle, en carrousel quand la page le fournit -->
+          <div
+            v-if="message.role === 'assistant' && $slots['message-sources'] && hasSources(message)"
+            class="chat-message__extra"
+          >
+            <slot name="message-sources" :message="message" />
           </div>
           <!-- Contenu supplémentaire sous la bulle (ex : propositions de modification de l'analyse). -->
           <div v-if="message.role === 'assistant' && $slots['message-extra']" class="chat-message__extra">
