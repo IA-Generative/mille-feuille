@@ -344,11 +344,13 @@ services:
 
   # Index de recherche des dossiers (hybride dense + creux) : un alias `dossier_<id>` par dossier.
   qdrant:
-    image: qdrant/qdrant:v1.15.3
+    image: qdrant/qdrant:v1.19.2
     environment:
       QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-dev-only-qdrant-key-not-for-prod}
     volumes:
       - qdrant-data:/qdrant/storage
+    ports:
+      - "6333:6333"
     healthcheck:
       test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
       interval: 10s
