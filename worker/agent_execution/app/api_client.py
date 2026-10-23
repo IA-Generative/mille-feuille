@@ -445,3 +445,32 @@ def search_knowledge(
     )
     response.raise_for_status()
     return response.json()
+
+
+# --- Index de recherche des dossiers ---
+
+
+def get_search_config(client: httpx.Client, dossier_id: str) -> dict:
+    """Réglages à appliquer au dossier, index actif et reconstruction en cours."""
+    response = client.get(f"/dossiers/{dossier_id}/search-config")
+    response.raise_for_status()
+    return response.json()
+
+
+def report_search_index(client: httpx.Client, dossier_id: str, **body) -> None:
+    """Dit au backend où en est l'indexation du dossier (`status`, `chunk_count`, `error`, et à la création ou à la
+    bascule `fingerprint`, `settings`, `replace_settings`)."""
+    response = client.put(f"/dossiers/{dossier_id}/search-index", json=body)
+    response.raise_for_status()
+
+
+def get_index_rebuild(client: httpx.Client, rebuild_id: str) -> dict:
+    response = client.get(f"/index-rebuilds/{rebuild_id}")
+    response.raise_for_status()
+    return response.json()
+
+
+def report_index_rebuild(client: httpx.Client, rebuild_id: str, **body) -> dict:
+    response = client.put(f"/index-rebuilds/{rebuild_id}", json=body)
+    response.raise_for_status()
+    return response.json()
