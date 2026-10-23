@@ -31,6 +31,7 @@ function mapFeedback(api: any): Feedback | null {
 function mapSource(api: any): MessageSource {
   return {
     id: api.id,
+    number: api.number ?? null,
     dossierDocumentId: api.dossier_document_id,
     executionStepId: api.execution_step_id,
     excerpt: api.excerpt,

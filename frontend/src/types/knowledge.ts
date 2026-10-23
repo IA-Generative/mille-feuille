@@ -68,6 +68,8 @@ export interface ExternalBox {
 
 /** Une source d'une base de connaissances citée par un message de l'assistant : un document ou une page web. */
 export interface ExternalSource {
+  /** Le numéro cité dans la réponse ([2]) : une seule suite avec les sources du dossier. Vide avant la numérotation. */
+  number: number | null;
   sourceId: string;
   kind: "document" | "web";
   title: string;
