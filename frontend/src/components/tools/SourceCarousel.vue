@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 
 import SourceCard from "@/components/tools/SourceCard.vue";
 import type { ChatSource } from "@/types/chatSource";
@@ -7,13 +7,29 @@ import type { ChatSource } from "@/types/chatSource";
 // Les sources d'une réponse : une carte, ou un carrousel quand il y en a plusieurs (défilement au toucher et à la
 // molette, flèches, clavier). Un clic sur un numéro du texte ([2]) envoie `goto-source` à ce bloc, qui se place sur la
 // bonne carte.
-const props = defineProps<{ sources: ChatSource[]; dossierId: string; messageId: string }>();
+const props = defineProps<{
+  sources: ChatSource[];
+  dossierId: string;
+  messageId: string;
+  /** Ouvert d'emblée : la dernière réponse montre ses sources, les plus anciennes sont repliées. */
+  defaultExpanded?: boolean;
+}>();
 const emit = defineEmits<{ open: [source: ChatSource] }>();
 
 const root = ref<HTMLElement>();
 const track = ref<HTMLElement>();
 const current = ref(0);
 const flash = ref(false);
+// Les sources se replient pour ne pas allonger la discussion. Les cartes ne sont montées (et les captures chargées)
+// qu'à la première ouverture ; ensuite on les garde, la position du carrousel ne se perd pas.
+const expanded = ref(props.defaultExpanded ?? false);
+const everExpanded = ref(expanded.value);
+const bodyId = computed(() => `sources-body-${props.messageId}`);
+
+function setExpanded(value: boolean) {
+  expanded.value = value;
+  if (value) everExpanded.value = true;
+}
 
 const many = computed(() => props.sources.length > 1);
 const prefersReducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
@@ -41,10 +57,13 @@ function onScroll() {
   });
 }
 
-function onGoto(event: Event) {
+async function onGoto(event: Event) {
   const number = (event as CustomEvent<number>).detail;
   const index = props.sources.findIndex((source) => source.number === number);
   if (index === -1) return;
+  // Un numéro cliqué dans le texte ouvre les sources s'il le faut, puis place le carrousel sur sa carte.
+  setExpanded(true);
+  await nextTick();
   root.value?.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
   goTo(index);
   flash.value = true;
@@ -52,7 +71,7 @@ function onGoto(event: Event) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (!many.value || (event.target as HTMLElement).closest("input, textarea")) return;
+  if (!many.value || !expanded.value || (event.target as HTMLElement).closest("input, textarea")) return;
   if (event.key === "ArrowRight") goTo(current.value + 1);
   else if (event.key === "ArrowLeft") goTo(current.value - 1);
   else return;
@@ -78,8 +97,18 @@ onBeforeUnmount(() => {
     @keydown="onKeydown"
   >
     <header class="source-carousel__header">
-      <span class="source-carousel__title"><VIcon name="ri-book-2-line" scale="0.85" /> {{ many ? `Sources (${sources.length})` : "Source" }}</span>
-      <div v-if="many" class="source-carousel__nav">
+      <button
+        type="button"
+        class="source-carousel__toggle"
+        :aria-expanded="expanded"
+        :aria-controls="bodyId"
+        @click="setExpanded(!expanded)"
+      >
+        <VIcon name="ri-book-2-line" scale="0.85" />
+        {{ many ? `Sources (${sources.length})` : "Source" }}
+        <VIcon :name="expanded ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'" scale="0.85" />
+      </button>
+      <div v-if="many && expanded" class="source-carousel__nav">
         <span class="source-carousel__count" aria-live="polite">{{ current + 1 }} / {{ sources.length }}</span>
         <button type="button" class="source-carousel__button" aria-label="Source précédente" :disabled="current === 0" @click="goTo(current - 1)">
           <VIcon name="ri-arrow-left-s-line" />
@@ -95,7 +124,15 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </header>
-    <ul ref="track" class="source-carousel__track" :class="{ 'source-carousel__track--many': many }" @scroll.passive="onScroll">
+    <ul
+      v-if="everExpanded"
+      v-show="expanded"
+      :id="bodyId"
+      ref="track"
+      class="source-carousel__track"
+      :class="{ 'source-carousel__track--many': many }"
+      @scroll.passive="onScroll"
+    >
       <li
         v-for="(source, index) in sources"
         :key="source.key"
@@ -130,12 +167,26 @@ onBeforeUnmount(() => {
   margin-bottom: 0.375rem;
 }
 
-.source-carousel__title {
+.source-carousel__toggle {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
+  padding: 0.125rem 0.25rem;
+  border: 0;
+  border-radius: 0.375rem;
+  background: none;
   font-size: 0.8125rem;
   color: var(--text-mention-grey);
+  cursor: pointer;
+}
+
+.source-carousel__toggle:hover {
+  background: var(--background-alt-grey);
+}
+
+.source-carousel__toggle:focus-visible {
+  outline: 2px solid #6a5cff;
+  outline-offset: 2px;
 }
 
 .source-carousel__nav {

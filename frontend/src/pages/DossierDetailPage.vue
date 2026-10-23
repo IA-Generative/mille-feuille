@@ -546,6 +546,7 @@ async function onDeleteConversation() {
           :sources="chatSourcesOf(message, documentName)"
           :dossier-id="dossierId"
           :message-id="message.id"
+          :default-expanded="message.id === messages[messages.length - 1]?.id"
           @open="(source) => source.dossier && openSource(source.dossier.source)"
         />
       </template>
