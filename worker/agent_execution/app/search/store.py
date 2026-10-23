@@ -208,19 +208,25 @@ def hybrid_search(
     dense: list[float],
     sparse: dict,
     limit: int | None = None,
+    mode: str = "hybrid",
 ) -> list[m.ScoredPoint]:
     """Recherche hybride sur l'alias du dossier : deux branches (dense et creuse) fusionnées par RRF. Ne cherche que
-    dans ce dossier, quoi que contienne la requête."""
+    dans ce dossier, quoi que contienne la requête. `mode` (`dense` ou `sparse`) n'interroge qu'une branche : c'est
+    ce qui permet de mesurer l'apport de l'hybride (voir app.search.evaluation)."""
     if active_collection(client, dossier_id) is None:
         return []
     branch = settings.SEARCH_BRANCH_LIMIT
-    prefetch = [m.Prefetch(query=dense, using=DENSE, limit=branch)]
-    if sparse["indices"]:
+    prefetch = []
+    if mode in ("hybrid", "dense"):
+        prefetch.append(m.Prefetch(query=dense, using=DENSE, limit=branch))
+    if mode in ("hybrid", "sparse") and sparse["indices"]:
         prefetch.append(
             m.Prefetch(
                 query=m.SparseVector(indices=sparse["indices"], values=sparse["values"]), using=SPARSE, limit=branch
             )
         )
+    if not prefetch:
+        return []
     result = client.query_points(
         alias_name(dossier_id),
         prefetch=prefetch,
