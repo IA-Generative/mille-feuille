@@ -9,11 +9,18 @@ from openai import AsyncOpenAI
 from app.config import LlmSettings
 from app.connectors import redis_connector
 from app.core.security.factory import RequestContext, get_current_user
-from app.schemas.models import LlmModel, LlmModelsCacheCleared, LlmModelsResponse
+from app.schemas.models import (
+    LlmEmbeddingModel,
+    LlmEmbeddingModelsResponse,
+    LlmModel,
+    LlmModelsCacheCleared,
+    LlmModelsResponse,
+)
 
 router = APIRouter(prefix="/models", tags=["Models"])
 
 _CHAT_MODELS_CACHE_KEY = "llm:chat_models"
+_EMBEDDING_MODELS_CACHE_KEY = "llm:embedding_models"
 
 # Module attributes (not closed over) so tests can swap them out with
 # monkeypatch.setattr without a live LLM hub or Redis.
@@ -47,6 +54,50 @@ async def _discover_models(probe: Callable[[str], Awaitable[bool]]) -> list[str]
     return sorted(model_id for model_id, ok in zip(candidate_ids, supported, strict=True) if ok)
 
 
+async def _embedding_dimension(model_id: str) -> int | None:
+    """La dimension des vecteurs d'un modèle, ou None s'il ne sait pas faire d'embeddings : comme pour le chat, la seule
+    façon fiable de le savoir est d'essayer."""
+    try:
+        response = await _openai_client.embeddings.create(model=model_id, input="ping")
+        return len(response.data[0].embedding)
+    except Exception:
+        return None
+
+
+async def _discover_embedding_models() -> list[LlmEmbeddingModel]:
+    available = await _openai_client.models.list()
+    candidate_ids = [model.id for model in available.data]
+    dimensions = await asyncio.gather(*(_embedding_dimension(model_id) for model_id in candidate_ids))
+    return sorted(
+        (
+            LlmEmbeddingModel(id=model_id, dimension=dimension)
+            for model_id, dimension in zip(candidate_ids, dimensions, strict=True)
+            if dimension
+        ),
+        key=lambda model: model.id,
+    )
+
+
+def _cache_embedding_models(models: list[LlmEmbeddingModel]) -> None:
+    redis_connector.client.set(
+        _EMBEDDING_MODELS_CACHE_KEY,
+        json.dumps([model.model_dump() for model in models]),
+        ex=_llm_settings.CHAT_MODELS_CACHE_TTL_SECONDS,
+    )
+
+
+async def embedding_models() -> list[LlmEmbeddingModel]:
+    """Les modèles d'embeddings du hub, avec leur dimension (cache Redis, comme les modèles de chat)."""
+    if _openai_client is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="LLM hub is not configured")
+    cached = redis_connector.client.get(_EMBEDDING_MODELS_CACHE_KEY)
+    if cached is not None:
+        return [LlmEmbeddingModel(**item) for item in json.loads(cached)]
+    models = await _discover_embedding_models()
+    _cache_embedding_models(models)
+    return models
+
+
 def _cache_models(model_ids: list[str]) -> None:
     redis_connector.client.set(
         _CHAT_MODELS_CACHE_KEY, json.dumps(model_ids), ex=_llm_settings.CHAT_MODELS_CACHE_TTL_SECONDS
@@ -66,6 +117,30 @@ async def list_models(_: Annotated[RequestContext, Depends(get_current_user)]) -
         _cache_models(model_ids)
 
     return LlmModelsResponse(models=[LlmModel(id=model_id) for model_id in model_ids])
+
+
+@router.get(
+    "/embeddings",
+    summary="List the LLM hub's models that produce embeddings, with their vector size",
+    response_model=LlmEmbeddingModelsResponse,
+)
+async def list_embedding_models(_: Annotated[RequestContext, Depends(get_current_user)]) -> LlmEmbeddingModelsResponse:
+    return LlmEmbeddingModelsResponse(models=await embedding_models())
+
+
+@router.post(
+    "/embeddings/refresh",
+    summary="Force a fresh probe of the LLM hub and refresh the embedding-models cache",
+    response_model=LlmEmbeddingModelsResponse,
+)
+async def refresh_embedding_models(
+    _: Annotated[RequestContext, Depends(get_current_user)],
+) -> LlmEmbeddingModelsResponse:
+    if _openai_client is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="LLM hub is not configured")
+    models = await _discover_embedding_models()
+    _cache_embedding_models(models)
+    return LlmEmbeddingModelsResponse(models=models)
 
 
 @router.post(
