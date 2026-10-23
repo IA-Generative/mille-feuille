@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, Enum, ForeignKey, String, Table, Text, UniqueConstraint
+from sqlalchemy import Column, Enum, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -181,6 +181,9 @@ class MessageSource(UUIDMixin, TimestampMixin, Base):
         ForeignKey("execution_steps.id", ondelete="SET NULL"),
         nullable=True,
     )
+    # Le numéro que le modèle a cité dans sa réponse ([2]) : une seule suite avec les sources d'une base de
+    # connaissances externe (`MessageExternalSource.number`). Vide pour les messages d'avant.
+    number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     excerpt: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     message: Mapped["Message"] = relationship(back_populates="sources")
