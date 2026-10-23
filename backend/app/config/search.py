@@ -10,4 +10,7 @@ class SearchSettings(BaseSettings):
     # Modèle qui découpe les pages quand la stratégie est « ia ». Vide : l'analyse doit en choisir un.
     SEARCH_CHUNK_MODEL: str = ""
 
+    # Reconstructions d'index qui tournent en même temps pour une analyse (les autres attendent leur tour).
+    SEARCH_MAX_PARALLEL_REBUILDS: int = 3
+
     model_config = SettingsConfigDict(case_sensitive=True, env_file=(".env", ".env.local"), extra="ignore")

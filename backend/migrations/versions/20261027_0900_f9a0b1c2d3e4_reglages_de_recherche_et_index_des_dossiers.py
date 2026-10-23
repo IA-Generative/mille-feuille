@@ -46,7 +46,7 @@ def upgrade() -> None:
     )
 
     rebuild_status = postgresql.ENUM(
-        "BUILDING", "SWAPPED", "FINALIZED", "ROLLED_BACK", "FAILED", name="index_rebuild_status"
+        "QUEUED", "BUILDING", "SWAPPED", "FINALIZED", "ROLLED_BACK", "FAILED", name="index_rebuild_status"
     )
     op.create_table(
         "index_rebuilds",
@@ -73,7 +73,7 @@ def upgrade() -> None:
         "index_rebuilds",
         ["dossier_id"],
         unique=True,
-        postgresql_where=sa.text("status IN ('BUILDING', 'SWAPPED')"),
+        postgresql_where=sa.text("status IN ('QUEUED', 'BUILDING', 'SWAPPED')"),
     )
 
 
