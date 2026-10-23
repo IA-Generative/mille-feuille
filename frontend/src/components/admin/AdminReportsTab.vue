@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import MarkdownText from "@/components/MarkdownText.vue";
+import PagerNav from "@/components/PagerNav.vue";
 import { useReportsAdmin } from "@/composables/useReportsAdmin";
 import { REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportStatus, type ReportType } from "@/types/report";
 import { API_BASE_URL } from "@/utils/api";
@@ -35,9 +36,6 @@ watch([statusFilter, typeFilter], () => {
   reload();
 });
 
-const pages = computed(() =>
-  Array.from({ length: pageCount.value }, (_, i) => ({ label: String(i + 1), title: `Page ${i + 1}` })),
-);
 
 const statusBadgeType: Record<ReportStatus, "new" | "info" | "success" | "warning" | "error"> = {
   new: "new",
@@ -136,12 +134,7 @@ defineExpose({ reload });
       </li>
     </ul>
 
-    <DsfrPagination
-      v-if="pageCount > 1"
-      :pages="pages"
-      v-model:current-page="currentPage"
-      class="admin-reports__pagination"
-    />
+    <PagerNav v-model:page="currentPage" :page-count="pageCount" class="admin-reports__pagination" />
   </section>
 </template>
 

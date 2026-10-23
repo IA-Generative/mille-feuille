@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { ref, watch } from "vue";
 
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
@@ -9,11 +9,9 @@ import type { LabelDefinition, Version } from "@/types/analyse";
 const props = defineProps<{ labels: LabelDefinition[]; versions: Version<LabelDefinition[]>[] }>();
 const emit = defineEmits<{ save: [LabelDefinition[]]; restore: [string] }>();
 
-const pageSize = 3;
-
 const draftLabels = ref<LabelDefinition[]>(cloneLabels(props.labels));
 const isDirty = ref(false);
-const currentPage = ref(1);
+const editingId = ref<string | null>(null);
 const isSuggestingList = ref(false);
 const suggestingDefinitionId = ref<string | null>(null);
 
@@ -26,7 +24,7 @@ watch(
   (labels) => {
     draftLabels.value = cloneLabels(labels);
     isDirty.value = false;
-    currentPage.value = 1;
+    editingId.value = null;
   },
 );
 
@@ -38,25 +36,14 @@ watch(
   { deep: true },
 );
 
-const pageCount = computed(() => Math.max(1, Math.ceil(draftLabels.value.length / pageSize)));
-
-const paginatedLabels = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return draftLabels.value.slice(start, start + pageSize);
-});
-
-const pages = computed(() =>
-  Array.from({ length: pageCount.value }, (_, i) => ({ label: String(i + 1), title: `Page ${i + 1}` })),
-);
-
 function addLabel() {
   draftLabels.value.push({ id: `label-${Date.now()}`, name: "", definition: "" });
-  nextTick(() => (currentPage.value = pageCount.value));
+  editingId.value = draftLabels.value[draftLabels.value.length - 1].id;
 }
 
 function removeLabel(id: string) {
   draftLabels.value = draftLabels.value.filter((label) => label.id !== id);
-  nextTick(() => (currentPage.value = Math.min(currentPage.value, pageCount.value)));
+  if (editingId.value === id) editingId.value = null;
 }
 
 async function applySuggestions(model: string | null) {
@@ -64,7 +51,7 @@ async function applySuggestions(model: string | null) {
   try {
     const suggestions = await suggestLabels(model);
     draftLabels.value = suggestions.map((label, index) => ({ ...label, id: `label-suggestion-${index}` }));
-    nextTick(() => (currentPage.value = 1));
+    editingId.value = null;
   } catch (error) {
     alert(error instanceof Error ? error.message : "Échec de l'aide LLM.");
   } finally {
@@ -98,39 +85,53 @@ function formatVersionContent(labels: LabelDefinition[]) {
 
     <p v-if="draftLabels.length === 0" class="fr-text--sm">Aucun label défini.</p>
 
-    <template v-else>
-      <ul class="labels-editor__list">
-        <li v-for="label in paginatedLabels" :key="label.id" class="labels-editor__row">
-          <div class="labels-editor__row-header">
-            <DsfrInput v-model="label.name" label="Label" label-visible class="labels-editor__name" />
+    <ul v-else class="labels-editor__list">
+      <li
+        v-for="item in draftLabels"
+        :key="item.id"
+        class="labels-editor__item"
+        :class="{ 'labels-editor__item--editing': editingId === item.id }"
+      >
+        <div v-if="editingId !== item.id" class="labels-editor__summary">
+          <div class="labels-editor__text">
+            <p class="labels-editor__name">
+              <span>{{ item.name || "(sans nom)" }}</span>
+              
+            </p>
+            <p v-if="item.definition" class="fr-text--sm labels-editor__definition">{{ item.definition }}</p>
+          </div>
+          <div class="labels-editor__buttons">
+            <DsfrButton label="Modifier" icon-only tertiary no-outline icon="ri-edit-line" size="sm" @click="editingId = item.id" />
             <DsfrButton
               label="Supprimer le label"
               icon-only
               tertiary
+              no-outline
               icon="ri-delete-bin-line"
               size="sm"
-              @click="removeLabel(label.id)"
+              @click="removeLabel(item.id)"
             />
           </div>
-          <div class="labels-editor__definition-row">
-            <DsfrInput v-model="label.definition" label="Définition" label-visible class="labels-editor__definition" />
+        </div>
+
+        <div v-else class="labels-editor__form">
+          <div class="labels-editor__fields">
+            <DsfrInput v-model="item.name" label="Label" label-visible />
+            
+          </div>
+          <DsfrInput v-model="item.definition" label="Définition" label-visible is-textarea rows="3" />
+          <div class="labels-editor__form-actions">
             <LlmAssistButton
               compact
               label="Suggérer une définition"
-              :loading="suggestingDefinitionId === label.id"
-              @click="(model) => applyDefinitionSuggestion(label, model)"
+              :loading="suggestingDefinitionId === item.id"
+              @click="(model) => applyDefinitionSuggestion(item, model)"
             />
+            <DsfrButton label="Terminer" secondary size="sm" class="fr-ml-auto" @click="editingId = null" />
           </div>
-        </li>
-      </ul>
-
-      <DsfrPagination
-        v-if="pageCount > 1"
-        :pages="pages"
-        v-model:current-page="currentPage"
-        class="labels-editor__pagination"
-      />
-    </template>
+        </div>
+      </li>
+    </ul>
 
     <div class="labels-editor__actions">
       <DsfrButton label="Ajouter un label" tertiary icon="ri-add-line" size="sm" @click="addLabel" />
@@ -159,52 +160,80 @@ function formatVersionContent(labels: LabelDefinition[]) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
-.labels-editor__row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 1.25rem;
-  background: var(--background-default-grey);
+.labels-editor__item {
   border: 1px solid var(--border-default-grey);
   border-left: 3px solid #6a5cff;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  transition:
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
+  border-radius: 0.5rem;
+  background: var(--background-default-grey);
 }
 
-.labels-editor__row:hover {
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
+.labels-editor__item--editing {
+  border-color: #6a5cff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.labels-editor__row-header {
+.labels-editor__summary {
   display: flex;
-  align-items: end;
+  align-items: flex-start;
   gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.labels-editor__text {
+  flex: 1;
+  min-width: 0;
 }
 
 .labels-editor__name {
-  flex: 1;
-}
-
-.labels-editor__definition-row {
   display: flex;
-  align-items: end;
+  align-items: center;
   gap: 0.5rem;
+  margin: 0;
+  font-weight: 600;
 }
 
 .labels-editor__definition {
-  flex: 1;
+  margin: 0.25rem 0 0;
+  color: var(--text-mention-grey);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.labels-editor__pagination {
+.labels-editor__buttons {
   display: flex;
-  justify-content: center;
+  flex-shrink: 0;
+}
+
+.labels-editor__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.labels-editor__fields {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.labels-editor__fields > :first-child {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.labels-editor__form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .labels-editor__actions {
