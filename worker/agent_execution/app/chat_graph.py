@@ -83,8 +83,9 @@ def _build_system_prompt(
         "entités extraites. Utilise-les pour fonder tes réponses sur les "
         "documents réels du dossier.",
         "",
-        "Quand tu cites une information, indique sa source (page, document). "
-        "Sois précis et concis. Si tu ne trouves pas l'information, dis-le "
+        "Les pages et les passages que tes outils te renvoient portent un numéro entre crochets, par exemple [2]. "
+        "Quand tu cites une information, indique sa source par ce numéro (« … [2] »), en plus du document et de la "
+        "page. N'invente jamais un numéro. Sois précis et concis. Si tu ne trouves pas l'information, dis-le "
         "clairement plutôt que d'inventer.",
         "",
         "Tu ne peux pas agir sur l'application (créer ou configurer une analyse, "
