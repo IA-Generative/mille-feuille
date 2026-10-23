@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.29.0](https://github.com/IA-Generative/mille-feuille/compare/v0.28.0...v0.29.0) (2026-10-23)
+
+
+### Features
+
+* **chat:** cartes de sources unifiées en carrousel, numéros du texte cliquables ([c98dbb7](https://github.com/IA-Generative/mille-feuille/commit/c98dbb70569c3348d91ee87aaf2b70cd479dbbd9))
+* **chat:** numéro cité des sources, une seule suite pour le dossier et la base externe ([ac283dd](https://github.com/IA-Generative/mille-feuille/commit/ac283ddbe2b7eaca2c0d2f1bfe90fa1910281c1a))
+* **chat:** sources repliables, la dernière réponse montre les siennes ([74b51f2](https://github.com/IA-Generative/mille-feuille/commit/74b51f215d6f226bba6581d879e94e4fff25fa85))
+* **kb:** client du contrat de la base de connaissances et collections d'une source ([f227d03](https://github.com/IA-Generative/mille-feuille/commit/f227d03dababab132a5d078a01d21613e2526812))
+* **kb:** collections de la base de connaissances autorisées par analyse, versionnées ([7c32134](https://github.com/IA-Generative/mille-feuille/commit/7c321340592047d0e280e4dd7f6a91b0f58a8517))
+* **kb:** écrans des sources, des collections et des sources citées par le chat ([452c77a](https://github.com/IA-Generative/mille-feuille/commit/452c77a2894fff96744c2b703b6cdb13fe10e9f2))
+* **kb:** recherche dans la base de connaissances d'une analyse, au nom de la personne ([99c04b4](https://github.com/IA-Generative/mille-feuille/commit/99c04b44978e89207646709c5ea1e2cca6b57433))
+* **kb:** réponse normalisée du fournisseur et sources externes d'un message ([85e0f96](https://github.com/IA-Generative/mille-feuille/commit/85e0f9651cef9b5d045e2582ec7bbb2cb16f0b95))
+* **kb:** sources de connaissances avec URL, authentification et visibilité ([f8c6305](https://github.com/IA-Generative/mille-feuille/commit/f8c63057e888a58c126adb4b2cdf7750e3e1e73c))
+* **worker:** l'outil base de connaissances pour le chat et les agents, passages non fiables ([f4dcd88](https://github.com/IA-Generative/mille-feuille/commit/f4dcd8894133f01ae23eb49b05aa263e0bdee14f))
+* **worker:** sources numérotées du fournisseur, déposées avec le message du chat ([e60d0a9](https://github.com/IA-Generative/mille-feuille/commit/e60d0a988d45a45c3ab04d110f96c02fd0a3ae96))
+* **worker:** une seule suite de numéros pour les pages du dossier et les sources externes ([89f0ea0](https://github.com/IA-Generative/mille-feuille/commit/89f0ea0f644f970ed8ca8d23832623b07bcf1c1c))
+
 ## [0.29.0-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.28.0...v0.29.0-rc) (2026-10-23)
 
 
