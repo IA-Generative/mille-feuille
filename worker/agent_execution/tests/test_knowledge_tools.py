@@ -224,3 +224,25 @@ def test_the_chat_deposits_the_sources_with_its_answer(monkeypatch) -> None:
     [body] = deposited
     assert [s["source_id"] for s in body["external_sources"]] == ["p-1"]
     assert body["external_sources"][0]["url"] == "https://kb.example.gouv.fr/doc/d-1?page=14"
+
+
+# --- Une seule suite de numéros pour le dossier et la base de connaissances (#372) ---
+
+
+def test_the_numbers_of_a_search_continue_the_ones_already_given_to_the_model() -> None:
+    from app.source_numbering import SourceNumbering
+
+    numbering = SourceNumbering()
+    numbering.number("page:p-9")  # une page du dossier déjà lue : [1]
+    results = [
+        {"ok": True, "sources": [source(id="a"), source(id="b")], "skipped": []},
+        {"ok": True, "sources": [source(id="b"), source(id="c")], "skipped": []},
+    ]
+    tools = KnowledgeTools(lambda query, top_k: results.pop(0), numbering)
+
+    first = tools.run({"query": "pièces"})
+    second = tools.run({"query": "autres pièces"})
+
+    assert "[2] Guide.pdf" in first and "[3] Guide.pdf" in first and "[1]" not in first
+    assert "[3] Guide.pdf" in second and "[4] Guide.pdf" in second  # « b » garde son numéro, « c » prend le suivant
+    assert [(s["source_id"], s["number"]) for s in tools.sources] == [("a", 2), ("b", 3), ("c", 4)]

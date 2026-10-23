@@ -19,6 +19,7 @@ from app import api_client, knowledge_tools
 from app.catalog.functions import FUNCTIONS_BY_TOOL
 from app.knowledge_tools import KnowledgeContext, KnowledgeTools
 from app.mcp_tools import McpTools, function_name_of
+from app.source_numbering import SourceNumbering
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +55,8 @@ class ExtraTools:
     # Pour le journal de l'étape : ce qui n'a pas pu être donné à l'agent, et pourquoi.
     skipped: list[str] = field(default_factory=list)
     unavailable: list[str] = field(default_factory=list)
+    # La suite de numéros des sources citées : partagée avec les outils de lecture du dossier (`AgentTools`).
+    numbering: SourceNumbering = field(default_factory=SourceNumbering)
     # Les sources de la base de connaissances que les recherches ont trouvées : déposées avec le message du chat.
     _knowledge: KnowledgeTools | None = None
     # Les tools qui modifient des données, écartés parce que rien ne demande de confirmation (le chat, pour l'instant).
@@ -151,7 +154,7 @@ def _add_knowledge_tool(
             client, knowledge.analyse_id, query, top_k, acting_user=acting_user, run_id=run_id
         )
 
-    extra._knowledge = KnowledgeTools(search)
+    extra._knowledge = KnowledgeTools(search, extra.numbering)
     extra._definitions.append(knowledge_tools.DEFINITION)
     extra._runners[knowledge_tools.FUNCTION_NAME] = extra._knowledge.run
 
