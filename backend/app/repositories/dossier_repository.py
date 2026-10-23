@@ -636,6 +636,7 @@ class DossierRepository:
                 dossier_document_id=source.get("dossier_document_id"),
                 execution_step_id=source.get("execution_step_id"),
                 excerpt=source.get("excerpt"),
+                number=source.get("number"),
             )
             self.db.add(message_source)
             await self.db.flush()

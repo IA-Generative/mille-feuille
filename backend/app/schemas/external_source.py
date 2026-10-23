@@ -19,6 +19,8 @@ class ExternalSourceIn(BaseModel):
     """Une source consultée par l'assistant, déposée par le worker avec le message."""
 
     source_id: str
+    # Le numéro cité dans la réponse (suite commune avec les sources du dossier).
+    number: int | None = Field(default=None, ge=1)
     kind: Literal["document", "web"]
     title: str
     url: str

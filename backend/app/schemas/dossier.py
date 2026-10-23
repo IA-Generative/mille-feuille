@@ -196,6 +196,8 @@ class DocumentPredictionIn(BaseModel):
 
 
 class MessageSourceIn(BaseModel):
+    # Le numéro que le modèle a cité dans sa réponse ([2]).
+    number: int | None = Field(default=None, ge=1)
     dossier_document_id: uuid.UUID | None = None
     execution_step_id: uuid.UUID | None = None
     excerpt: str | None = None
@@ -360,6 +362,7 @@ class MessageSourceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    number: int | None = None
     dossier_document_id: uuid.UUID | None
     execution_step_id: uuid.UUID | None
     excerpt: str | None
