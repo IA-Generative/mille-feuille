@@ -2,11 +2,11 @@
 
 Chaque outil est une fonction qui prend des paramètres simples et renvoie
 une chaîne de texte (ou un dict sérialisable) que le LLM peut interpréter.
-Les outils accèdent aux données du dossier via l'index BM25 et les
+Les outils accèdent aux données du dossier via l'index de recherche (Qdrant) et les
 prédictions déjà déposées (classification + extraction).
 
 Outils :
-- search_documents : recherche BM25 dans le contenu des pages
+- search_documents : recherche hybride (sémantique et lexicale) dans les passages des pages
 - read_page : contenu complet d'une page spécifique
 - view_classifications : toutes les classifications de pages (labels)
 - view_entities : toutes les entités extraites
@@ -24,7 +24,8 @@ from typing import TYPE_CHECKING, Any
 from app.ask_user import ASK_USER, normalize_questions
 from app.ask_user import DEFINITION as ASK_USER_DEFINITION
 from app.ask_user import INVALID as ASK_USER_INVALID
-from app.bm25 import BM25Index, build_index_from_dossier, document_label
+from app.search.indexer import document_label
+from app.search.retrieval import DossierSearcher, NotIndexedError
 from app.source_numbering import SourceNumbering
 
 if TYPE_CHECKING:
@@ -62,6 +63,7 @@ class AgentTools:
         notes: "NoteWriter | None" = None,
         extra: "ExtraTools | None" = None,
         ask_user: bool = False,
+        searcher: DossierSearcher | None = None,
     ) -> None:
         self._dossier = dossier
         # Les outils choisis pour l'agent (calculatrice, dates, serveurs MCP) : ils s'ajoutent au socle ci-dessous.
@@ -74,7 +76,8 @@ class AgentTools:
         self._analysis = analysis
         # Ajout de notes internes (chat du dossier seulement).
         self._notes = notes
-        self._index: BM25Index = build_index_from_dossier(dossier)
+        # La recherche dans le dossier : l'index Qdrant du dossier, ses réglages lus au backend à la première requête.
+        self._searcher = searcher or DossierSearcher(dossier.get("id"))
         self._pages_by_id: dict[str, dict] = {}
         self._pages_by_number: dict[int, dict] = {}
         self._documents_by_id: dict[str, dict] = {}
@@ -207,17 +210,31 @@ class AgentTools:
     # --- Outils exposés au LLM ---
 
     def search_documents(self, query: str) -> str:
-        """Recherche dans le contenu des pages du dossier. Renvoie les
-        pages les plus pertinentes avec un extrait du texte."""
-        results = self._index.search(query)
-        if not results:
+        """Recherche dans les passages du dossier (sémantique et lexicale). Renvoie les pages les plus pertinentes,
+        avec le passage trouvé et son contexte."""
+        try:
+            hits = self._searcher.search(query)
+        except NotIndexedError:
+            return "La recherche n'est pas disponible : le dossier n'est pas encore indexé. Utilise read_page."
+        except Exception:
+            logger.exception("Recherche dans le dossier impossible")
+            return "La recherche est momentanément indisponible. Utilise read_page pour lire les pages."
+        if not hits:
             return "Aucun résultat trouvé pour cette recherche."
-        lines = [f"{len(results)} résultat(s) trouvé(s) :\n"]
-        for r in results:
+        # Un résultat par page : plusieurs passages d'une même page se regroupent sous un seul numéro de source.
+        pages: dict[str, list] = {}
+        for hit in hits:
+            pages.setdefault(hit.page_id, []).append(hit)
+        lines = [f"{len(pages)} résultat(s) trouvé(s) :\n"]
+        for page_id, page_hits in pages.items():
+            best = page_hits[0]
+            excerpt = " […] ".join(dict.fromkeys(hit.excerpt for hit in page_hits))
             # Enregistre chaque page trouvée comme source consultée ; son numéro est celui à citer.
-            number = self._record_source(page_id=r.page_id, excerpt=r.excerpt)
+            number = self._record_source(page_id=page_id, excerpt=excerpt)
             label = f"[{number}] " if number else ""
-            lines.append(f"{label}📄 Page {r.page_number} ({r.document_name}) [score: {r.score:.2f}]\n   {r.excerpt}\n")
+            lines.append(
+                f"{label}📄 Page {best.page_number} ({best.document_name}) [score: {best.score:.2f}]\n   {excerpt}\n"
+            )
         return "\n".join(lines)
 
     def read_page(self, page_number: int) -> str:

@@ -11,10 +11,10 @@ l'API interne (append-only : chaque génération crée une nouvelle ligne).
 import logging
 
 from app import api_client, usage
-from app.bm25 import document_label
 from app.celery_app import celery_app
 from app.config import settings
 from app.llm import summarize_text
+from app.search.indexer import document_label
 
 logger = logging.getLogger(__name__)
 

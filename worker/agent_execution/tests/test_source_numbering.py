@@ -1,5 +1,6 @@
 """Les pages du dossier et les sources de la base de connaissances partagent une seule suite de numéros."""
 
+from app.search.retrieval import SearchHit
 from app.source_numbering import SourceNumbering
 from app.tools import AgentTools
 
@@ -18,8 +19,15 @@ DOSSIER = {
 }
 
 
+class _Found:
+    """Une recherche qui trouve toujours la page 2."""
+
+    def search(self, query: str, top_k: int | None = None) -> list[SearchHit]:
+        return [SearchHit("pg-2", 2, "doc-1", "Statuts.pdf", 0.5, "le RIB de l'association")]
+
+
 def test_a_page_read_or_found_keeps_one_number_for_the_whole_answer() -> None:
-    tools = AgentTools(DOSSIER)
+    tools = AgentTools(DOSSIER, searcher=_Found())
 
     read = tools.read_page(2)
     found = tools.search_documents("RIB")

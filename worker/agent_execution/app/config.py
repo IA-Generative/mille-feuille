@@ -38,8 +38,6 @@ class WorkerSettings(BaseSettings):
     # Recherche hybride (dense + creux) fusionnée par RRF : `k` de la fusion, nombre de candidats gardés par branche
     # avant fusion, et nombre de passages renvoyés à l'agent.
     SEARCH_TOP_K: int = 5
-    # Recherche BM25 en mémoire, retirée avec le passage à Qdrant.
-    BM25_TOP_K: int = 5
     SEARCH_RRF_K: int = 60
     SEARCH_BRANCH_LIMIT: int = 30
     # Embeddings (API compatible OpenAI, `/embeddings`) : taille des lots envoyés au modèle.
