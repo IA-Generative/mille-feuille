@@ -23,8 +23,10 @@ class MessageExternalSource(UUIDMixin, TimestampMixin, Base):
     message_id: Mapped[uuid.UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # L'ordre dans la réponse (le numéro que le modèle a cité).
+    # L'ordre de dépôt, et le numéro que le modèle a cité dans sa réponse ([2]) : une seule suite avec les sources du
+    # dossier (`MessageSource.number`). Le numéro est vide pour les messages d'avant.
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    number: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # L'identifiant du passage chez le fournisseur.
     source_id: Mapped[str] = mapped_column(String, nullable=False)
     kind: Mapped[str] = mapped_column(String, nullable=False)

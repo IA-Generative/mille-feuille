@@ -4,9 +4,9 @@ from tests.test_chat_tool_calls import INTERNAL, chat, messages
 from tests.test_chat_tool_calls import dispatched as dispatched  # noqa: F401  (fixture autouse du module d'origine)
 
 
-def external(number: int, **extra) -> dict:
+def external(index: int, **extra) -> dict:
     return {
-        "source_id": f"p-{number}",
+        "source_id": f"p-{index}",
         "kind": "document",
         "title": "Guide.pdf",
         "url": "https://kb.example.gouv.fr/doc/d-1?page=14",
@@ -62,3 +62,37 @@ def test_a_deposit_is_checked_like_the_contract(client: TestClient) -> None:
     assert deposit(client, conversation_id, [external(1, kind="pdf")]).status_code == 422
     assert deposit(client, conversation_id, [external(1, score=2)]).status_code == 422
     assert deposit(client, conversation_id, [external(n) for n in range(11)]).status_code == 422  # 10 au plus
+
+
+def test_the_numbers_cited_in_the_answer_are_kept_for_both_kinds_of_source(client: TestClient) -> None:
+    dossier_id, conversation_id = chat(client)
+
+    response = client.post(
+        f"/api/internal/conversations/{conversation_id}/messages",
+        json={
+            "content": "Un RIB est exigé [2], voir aussi la page 3 [1].",
+            "sources": [{"number": 1, "excerpt": "Page 3 : le RIB est joint."}],
+            "external_sources": [external(1, number=2), external(2, number=3)],
+        },
+        headers=INTERNAL,
+    )
+
+    assert response.status_code == 200, response.text
+    [message] = [m for m in messages(client, dossier_id, conversation_id) if m["role"] == "assistant"]
+    assert [s["number"] for s in message["sources"]] == [1]
+    assert [(s["source_id"], s["number"]) for s in message["external_sources"]] == [("p-1", 2), ("p-2", 3)]
+
+
+def test_a_message_from_before_the_numbering_has_no_number(client: TestClient) -> None:
+    dossier_id, conversation_id = chat(client)
+
+    deposit(client, conversation_id, [external(1)])
+
+    [message] = [m for m in messages(client, dossier_id, conversation_id) if m["role"] == "assistant"]
+    assert message["external_sources"][0]["number"] is None
+
+
+def test_a_number_must_be_positive(client: TestClient) -> None:
+    _, conversation_id = chat(client)
+
+    assert deposit(client, conversation_id, [external(1, number=0)]).status_code == 422

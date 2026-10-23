@@ -14,7 +14,7 @@
 | **Questions à choix de l'assistant** : onglets, choix unique ou multiple, « Autre », une validation | **réel** (#353) | `chat-question*.png` |
 | **Sources de connaissances** dans « Mes outils » : liste, recherche, ajout avec vérification de la connexion, revérifier, supprimer | **réel** (#356, #360) | `page-outils.png`, `ajout-source*.png` |
 | **Collections de la base de connaissances d'une analyse** : état propre à la personne (indisponible signalé, à retirer), choix par source avec recherche et pagination chez le fournisseur, aperçu et lien, historique et restauration | **réel** (#358, #360) | `collections-*.png`, `selecteur-agent.png` |
-| **Sources d'une base de connaissances citées par une réponse** : numérotées comme dans le texte, lien, aperçu de la page avec le passage surligné (zones normalisées), site web sans aperçu | **réel** (#369, #360) | `chat-sources-externes.png` |
+| **Sources d'une réponse** : une même carte pour une page du dossier et pour une base de connaissances externe (titre, page, passage, aperçu avec zones surlignées), numérotées sur une seule suite ([1], [2]…), en carrousel quand il y en a plusieurs ; un clic sur un numéro du texte place le carrousel sur sa carte | **réel** (#369, #360, #372) | `chat-sources-*.png`, `chat-source-unique.png` |
 
 ## Régénérer les captures
 
