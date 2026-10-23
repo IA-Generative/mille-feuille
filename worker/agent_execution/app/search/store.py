@@ -111,6 +111,16 @@ def delete_points(client: QdrantClient, collection: str, ids: list[str]) -> None
         client.delete(collection, points_selector=m.PointIdsList(points=ids), wait=True)
 
 
+def delete_page(client: QdrantClient, collection: str, page_id: str) -> None:
+    client.delete(
+        collection,
+        points_selector=m.FilterSelector(
+            filter=m.Filter(must=[m.FieldCondition(key="page_id", match=m.MatchValue(value=page_id))])
+        ),
+        wait=True,
+    )
+
+
 def delete_document(client: QdrantClient, collection: str, document_id: str) -> None:
     client.delete(
         collection,
