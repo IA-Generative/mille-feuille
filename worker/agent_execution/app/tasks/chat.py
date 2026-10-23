@@ -136,6 +136,7 @@ def _sources_to_api(sources: list) -> list[dict]:
                 "dossier_document_id": src.dossier_document_id,
                 "page_ids": src.page_ids,
                 "excerpt": src.excerpt,
+                "number": src.number,
             }
         )
     return result

@@ -25,6 +25,7 @@ from app.ask_user import ASK_USER, normalize_questions
 from app.ask_user import DEFINITION as ASK_USER_DEFINITION
 from app.ask_user import INVALID as ASK_USER_INVALID
 from app.bm25 import BM25Index, build_index_from_dossier, document_label
+from app.source_numbering import SourceNumbering
 
 if TYPE_CHECKING:
     from app.agent_tool_set import ExtraTools
@@ -42,6 +43,8 @@ class ConsultedSource:
     dossier_document_id: str | None = None
     page_ids: list[str] = field(default_factory=list)
     excerpt: str | None = None
+    # Le numéro que le modèle a vu pour cette source (suite commune avec la base de connaissances externe).
+    number: int | None = None
 
 
 class AgentTools:
@@ -63,6 +66,8 @@ class AgentTools:
         self._dossier = dossier
         # Les outils choisis pour l'agent (calculatrice, dates, serveurs MCP) : ils s'ajoutent au socle ci-dessous.
         self._extra = extra
+        # Une seule suite de numéros pour les pages du dossier et les sources de la base de connaissances.
+        self.numbering = extra.numbering if extra else SourceNumbering()
         # Poser une question à choix à la personne (chat du dossier seulement : un agent tourne sans personne).
         self._ask_user = ask_user
         # Propositions de modification de l'analyse (chat du dossier seulement).
@@ -181,20 +186,23 @@ class AgentTools:
                 result.append(src)
         return result
 
-    def _record_source(self, *, page_id: str | None = None, excerpt: str | None = None) -> None:
-        """Enregistre une source consultée (page d'un document)."""
+    def _record_source(self, *, page_id: str | None = None, excerpt: str | None = None) -> int | None:
+        """Enregistre une source consultée (page d'un document) et renvoie son numéro, celui que le modèle citera."""
         if page_id is None:
-            return
+            return None
         page = self._pages_by_id.get(page_id)
         if page is None:
-            return
+            return None
+        number = self.numbering.number(f"page:{page_id}")
         self._consulted_sources.append(
             ConsultedSource(
                 dossier_document_id=page.get("_document_id"),
                 page_ids=[page_id],
                 excerpt=excerpt,
+                number=number,
             )
         )
+        return number
 
     # --- Outils exposés au LLM ---
 
@@ -206,9 +214,10 @@ class AgentTools:
             return "Aucun résultat trouvé pour cette recherche."
         lines = [f"{len(results)} résultat(s) trouvé(s) :\n"]
         for r in results:
-            lines.append(f"📄 Page {r.page_number} ({r.document_name}) [score: {r.score:.2f}]\n   {r.excerpt}\n")
-            # Enregistre chaque page trouvée comme source consultée.
-            self._record_source(page_id=r.page_id, excerpt=r.excerpt)
+            # Enregistre chaque page trouvée comme source consultée ; son numéro est celui à citer.
+            number = self._record_source(page_id=r.page_id, excerpt=r.excerpt)
+            label = f"[{number}] " if number else ""
+            lines.append(f"{label}📄 Page {r.page_number} ({r.document_name}) [score: {r.score:.2f}]\n   {r.excerpt}\n")
         return "\n".join(lines)
 
     def read_page(self, page_number: int) -> str:
@@ -221,8 +230,8 @@ class AgentTools:
         # Enregistre la page lue comme source consultée, avec un extrait
         # (les 200 premiers caractères) pour le contexte.
         excerpt = (content[:200] + "...") if len(content) > 200 else content
-        self._record_source(page_id=page["id"], excerpt=excerpt)
-        header = f"📄 Page {page_number} ({doc_name})"
+        number = self._record_source(page_id=page["id"], excerpt=excerpt)
+        header = f"{f'[{number}] ' if number else ''}📄 Page {page_number} ({doc_name})"
         source = page.get("_document_source") or {}
         if not source.get("name"):
             return f"{header}\n\n{content}"

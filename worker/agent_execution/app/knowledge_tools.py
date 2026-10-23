@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 
 from app.mcp_tools import wrap_untrusted
+from app.source_numbering import SourceNumbering
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,8 @@ class KnowledgeContext:
     collections: list[dict[str, Any]] = field(default_factory=list)
 
 
-def format_result(outcome: dict[str, Any]) -> str:
+def format_result(outcome: dict[str, Any], numbers: dict[str, int] | None = None) -> str:
+    """`numbers` : le numéro de chaque source (par son `id`) dans la suite de la réponse ; sans lui, l'ordre."""
     skipped = outcome.get("skipped") or []
     skipped_note = ""
     if skipped:
@@ -84,7 +86,8 @@ def format_result(outcome: dict[str, Any]) -> str:
     blocks = []
     if answer:
         blocks.append(f"Réponse du fournisseur (à vérifier avec les sources) :\n{answer}")
-    for number, source in enumerate(sources, start=1):
+    for position, source in enumerate(sources, start=1):
+        number = (numbers or {}).get(source["id"], position)
         page = f", p. {source['page']}" if source.get("page") else ""
         kind = "site web" if source.get("kind") == "web" else "document"
         header = (
@@ -100,8 +103,9 @@ class KnowledgeTools:
     """La fonction de recherche donnée au modèle. Elle garde les sources qu'elle a trouvées (`sources`) : la tâche les
     dépose avec le message pour que la personne les voie (lien, aperçu, passage surligné)."""
 
-    def __init__(self, search: Search) -> None:
+    def __init__(self, search: Search, numbering: SourceNumbering | None = None) -> None:
         self._search = search
+        self._numbering = numbering or SourceNumbering()
         self.sources: list[dict[str, Any]] = []
 
     def run(self, arguments: dict[str, Any]) -> str:
@@ -115,19 +119,21 @@ class KnowledgeTools:
         except httpx.HTTPError:
             logger.exception("Recherche dans la base de connaissances impossible")
             return "La base de connaissances est indisponible pour le moment."
-        self._keep(outcome.get("sources") or [])
-        return format_result(outcome)
+        numbers = self._keep(outcome.get("sources") or [])
+        return format_result(outcome, numbers)
 
-    def _keep(self, found: list[dict[str, Any]]) -> None:
-        """Garde chaque source une fois (même passage trouvé deux fois), dans l'ordre où le modèle les a vues, jusqu'à
-        la limite d'un message."""
+    def _keep(self, found: list[dict[str, Any]]) -> dict[str, int]:
+        """Numérote chaque source (une seule suite pour toute la réponse : un même passage trouvé deux fois garde son
+        numéro) et la garde une fois, jusqu'à la limite d'un message. Renvoie le numéro de chaque source trouvée."""
         known = {source["source_id"] for source in self.sources}
+        numbers = {source["id"]: self._numbering.number(f"kb:{source['id']}") for source in found}
         for source in found:
             if source["id"] in known or len(self.sources) >= MAX_EXTERNAL_SOURCES:
                 continue
             known.add(source["id"])
             self.sources.append(
                 {
+                    "number": numbers[source["id"]],
                     "source_id": source["id"],
                     "kind": source["kind"],
                     "title": source["title"],
@@ -142,3 +148,4 @@ class KnowledgeTools:
                     "source_name": source.get("source_name", ""),
                 }
             )
+        return numbers
