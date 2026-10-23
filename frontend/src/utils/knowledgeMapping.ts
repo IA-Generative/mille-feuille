@@ -45,6 +45,7 @@ export interface StoredCollectionOut {
 }
 
 export interface ExternalSourceOut {
+  number: number | null;
   source_id: string;
   kind: "document" | "web";
   title: string;
@@ -88,6 +89,7 @@ export const toAnalyseCollection = (raw: AnalyseCollectionOut): AnalyseCollectio
 });
 
 export const toExternalSource = (raw: ExternalSourceOut): ExternalSource => ({
+  number: raw.number ?? null,
   sourceId: raw.source_id,
   kind: raw.kind,
   title: raw.title,

@@ -1,43 +1,36 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { ref, watch } from "vue";
 
-import type { ExternalSource } from "@/types/knowledge";
+import type { ExternalBox } from "@/types/knowledge";
 
-// L'aperçu d'une source : l'image de la page (ou la capture du site) fournie par la base de connaissances, avec le
-// passage surligné quand le fournisseur donne des zones. Les zones sont en coordonnées normalisées 0..1.
-const props = defineProps<{ source: ExternalSource }>();
+// L'aperçu d'une source : l'image de la page (ou la capture du site), avec le passage surligné quand on connaît ses
+// zones (coordonnées normalisées 0..1). C'est un lien (source externe) ou un bouton (page du dossier, qui ouvre la modale).
+const props = defineProps<{ src: string; boxes: ExternalBox[]; label: string; href?: string | null }>();
+const emit = defineEmits<{ open: [] }>();
 
 const failed = ref(false);
-
-// Les zones d'une autre page que celle de l'aperçu ne se superposent pas à l'image.
-const boxes = computed(() =>
-  props.source.boxes.filter((box) => props.source.page === null || box.page === props.source.page),
-);
+watch(() => props.src, () => (failed.value = false));
 
 const percent = (value: number) => `${(value * 100).toFixed(2)}%`;
 </script>
 
 <template>
-  <a
-    v-if="source.previewUrl && !failed"
-    class="external-preview"
-    :href="source.url"
-    target="_blank"
-    rel="noopener noreferrer"
-    :aria-label="`Ouvrir la source « ${source.title} »`"
+  <component
+    :is="href ? 'a' : 'button'"
+    v-if="!failed"
+    class="source-preview"
+    :href="href || undefined"
+    :target="href ? '_blank' : undefined"
+    :rel="href ? 'noopener noreferrer' : undefined"
+    :type="href ? undefined : 'button'"
+    :aria-label="label"
+    @click="!href && emit('open')"
   >
-    <img
-      class="external-preview__image"
-      :src="source.previewUrl"
-      alt=""
-      loading="lazy"
-      referrerpolicy="no-referrer"
-      @error="failed = true"
-    />
+    <img class="source-preview__image" :src="src" alt="" loading="lazy" referrerpolicy="no-referrer" @error="failed = true" />
     <span
       v-for="(box, index) in boxes"
       :key="index"
-      class="external-preview__box"
+      class="source-preview__box"
       :style="{
         left: percent(box.xMin),
         top: percent(box.yMin),
@@ -45,36 +38,43 @@ const percent = (value: number) => `${(value * 100).toFixed(2)}%`;
         height: percent(box.yMax - box.yMin),
       }"
     />
-  </a>
+  </component>
 </template>
 
 <style scoped>
-.external-preview {
+.source-preview {
   position: relative;
   display: block;
   flex-shrink: 0;
   width: 7rem;
   align-self: flex-start;
+  padding: 0;
   border: 1px solid var(--border-default-grey);
   border-radius: 0.5rem;
   overflow: hidden;
   background: var(--background-alt-grey);
   background-image: none;
+  cursor: pointer;
+}
+
+.source-preview:focus-visible {
+  outline: 2px solid #6a5cff;
+  outline-offset: 2px;
 }
 
 /* L'icône de lien externe que le thème ajoute aux liens qui s'ouvrent dans un autre onglet n'a rien à faire ici. */
-.external-preview::after {
+.source-preview::after {
   content: none;
   display: none;
 }
 
-.external-preview__image {
+.source-preview__image {
   display: block;
   width: 100%;
   height: auto;
 }
 
-.external-preview__box {
+.source-preview__box {
   position: absolute;
   background: #ffd60a59;
   outline: 1px solid #ffd60a;

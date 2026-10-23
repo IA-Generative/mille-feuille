@@ -55,7 +55,7 @@ const DOSSIER = {
   started_at: iso(-3),
   ended_at: iso(-3),
   execution_steps: [],
-  documents: [],
+  documents: [{ id: "doc-statuts", name: "Statuts de l'association.pdf", size: 120000, s3_key: "k", mimetype: "application/pdf", label: null, text_extraction_status: "terminé", text_extraction_error: null, file_hash: null, created_at: iso(-3), source: null, summary_status: "terminé", summary_error: null, summary: null }],
   summary_status: "terminé",
   summary_error: null,
   summary: null,
@@ -297,6 +297,7 @@ const handler = (route) => {
   if (/^\/api\/dossiers\/dos-1\/conversations$/.test(path)) return json({ items: [{ id: "conv-1", dossier_id: "dos-1", created_by: "u1", title: null, model: null, created_at: iso(-1), updated_at: iso(0) }], total: 1, page: 1, page_size: 100 });
   if (/^\/api\/dossiers\/dos-1\/conversations\/conv-1\/messages/.test(path)) return json({ items: MESSAGES, has_more: false });
   if (/^\/api\/dossiers\/dos-1\/conversations\/conv-1$/.test(path)) return json({ id: "conv-1", dossier_id: "dos-1", created_by: "u1", title: null, model: null, created_at: iso(-1), updated_at: iso(0), messages: MESSAGES });
+  if (/^\/api\/dossiers\/dos-1\/documents\/doc-statuts\/pages\/[^/]+\/screenshot$/.test(path)) return route.fulfill({ status: 200, contentType: "image/svg+xml", body: decodeURIComponent(PAGE_PREVIEW.split(",")[1]) });
   if (path.startsWith("/api/dossiers/dos-1/")) { console.log("non simulé :", path); return json([]); }
   if (path === "/api/models") return json({ models: [{ id: "mistral-medium" }] });
   if (path.startsWith("/api/reports") || path.startsWith("/api/me/tasks")) return json([]);
@@ -524,24 +525,49 @@ await questionCard.getByRole("button", { name: "Valider" }).click();
 await settle(800);
 await questionShot("chat-question-repondue.png");
 
-// Sources de la base de connaissances citées par la réponse : lien, aperçu de la page et passage surligné
+// Sources de la réponse : pages du dossier et base de connaissances sur une même suite numérotée, en carrousel
+const DOSSIER_SOURCE = { id: "src-1", number: 1, dossier_document_id: "doc-statuts", execution_step_id: null, excerpt: "Article 3 : le RIB de l'association est joint à toute demande de subvention.", pages: [{ id: "pg-2", page_number: 2 }], bounding_boxes: [{ id: "bb-1", document_page_id: "pg-2", x_min: 0.12, y_min: 0.22, x_max: 0.86, y_max: 0.3 }] };
+const EXTERNAL_SOURCES = [
+  { number: 2, source_id: "p-8f2c", kind: "document", title: "Guide de l'instruction des subventions 2026.pdf", url: "https://base-de-connaissances.example.gouv.fr/v1/documents/d-120?page=14", preview_url: PAGE_PREVIEW, page: 14, boxes: [{ page: 14, x_min: 0.1, y_min: 0.34, x_max: 0.9, y_max: 0.46 }], passage: "Toute demande de subvention comporte les statuts de l'association, un RIB, le budget prévisionnel de l'exercice et le dernier rapport d'activité.", score: 0.91, collection_name: "Guide de l'instruction des subventions", source_name: "Textes de référence" },
+  { number: 3, source_id: "w-31", kind: "web", title: "Service-Public.fr — Subvention aux associations", url: "https://www.service-public.example.fr/associations/subvention", preview_url: null, page: null, boxes: [], passage: "Les pièces à joindre varient selon le montant demandé et la collectivité qui instruit la demande.", score: 0.77, collection_name: "Fiches pratiques Service-Public", source_name: "Sites officiels" },
+];
 MESSAGES.push(
   { id: "m7", role: "user", content: "Quelles pièces faut-il exiger pour une subvention ?", created_at: iso(-0.0005), sources: [], feedback: null },
   {
-    id: "m8", role: "assistant", created_at: iso(-0.0004), sources: [], feedback: null,
-    content: "Une demande de subvention comporte les statuts de l'association, un RIB et le budget prévisionnel [1]. Les pièces peuvent varier selon le montant demandé [2].",
-    external_sources: [
-      { source_id: "p-8f2c", kind: "document", title: "Guide de l'instruction des subventions 2026.pdf", url: "https://base-de-connaissances.example.gouv.fr/v1/documents/d-120?page=14", preview_url: PAGE_PREVIEW, page: 14, boxes: [{ page: 14, x_min: 0.1, y_min: 0.34, x_max: 0.9, y_max: 0.46 }], passage: "Toute demande de subvention comporte les statuts de l'association, un RIB, le budget prévisionnel de l'exercice et le dernier rapport d'activité.", score: 0.91, collection_name: "Guide de l'instruction des subventions", source_name: "Textes de référence" },
-      { source_id: "w-31", kind: "web", title: "Service-Public.fr — Subvention aux associations", url: "https://www.service-public.example.fr/associations/subvention", preview_url: null, page: null, boxes: [], passage: "Les pièces à joindre varient selon le montant demandé et la collectivité qui instruit la demande.", score: 0.77, collection_name: "Fiches pratiques Service-Public", source_name: "Sites officiels" },
-    ],
+    id: "m8", role: "assistant", created_at: iso(-0.0004), feedback: null,
+    content: "Le RIB de l'association doit être joint à la demande [1]. Une demande comporte aussi les statuts et le budget prévisionnel [2], et les pièces varient selon le montant demandé [3].",
+    sources: [DOSSIER_SOURCE],
+    external_sources: EXTERNAL_SOURCES,
   },
 );
 await page.reload({ waitUntil: "networkidle" });
-await settle(800);
-const external = page.locator(".chat-external-sources");
-await external.evaluate((el) => el.scrollIntoView({ block: "center" }));
-await settle(600);
-await page.screenshot({ path: resolve(outDir, "chat-sources-externes.png") });
-console.log("✓ tools/chat-sources-externes.png");
+await settle(1000);
+const carousel = page.locator(".source-carousel").last();
+const carouselShot = async (file) => {
+  await carousel.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await settle(700);
+  await page.screenshot({ path: resolve(outDir, file) });
+  console.log(`✓ tools/${file}`);
+};
+await carouselShot("chat-sources-carrousel.png");
+// Un clic sur un numéro du texte place le carrousel sur la bonne carte
+await page.getByRole("link", { name: "[2]" }).last().click();
+await settle(900);
+await carouselShot("chat-sources-numero.png");
+await carousel.getByRole("button", { name: "Source suivante" }).click();
+await settle(900);
+await carouselShot("chat-sources-carrousel-suite.png");
+
+// Une seule source : pas de carrousel
+MESSAGES.push(
+  { id: "m9", role: "user", content: "Qui est le président de l'association ?", created_at: iso(-0.0003), sources: [], feedback: null },
+  { id: "m10", role: "assistant", created_at: iso(-0.0002), feedback: null, content: "D'après les statuts, le président est élu pour trois ans [1].", sources: [{ ...DOSSIER_SOURCE, id: "src-2", excerpt: "Le président est élu par l'assemblée générale pour une durée de trois ans." }], external_sources: [] },
+);
+await page.reload({ waitUntil: "networkidle" });
+await settle(1000);
+await page.locator(".source-carousel").last().evaluate((el) => el.scrollIntoView({ block: "center" }));
+await settle(700);
+await page.screenshot({ path: resolve(outDir, "chat-source-unique.png") });
+console.log("✓ tools/chat-source-unique.png");
 
 await browser.close();
