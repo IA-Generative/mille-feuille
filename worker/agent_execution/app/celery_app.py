@@ -20,6 +20,7 @@ celery_app = Celery(
         "app.tasks.suggestion",
         "app.tasks.note_proposals",
         "app.tasks.document_fields",
+        "app.tasks.search_index",
     ],
 )
 celery_app.conf.task_default_queue = "agent_execution"
