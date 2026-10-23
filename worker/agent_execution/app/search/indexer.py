@@ -108,9 +108,11 @@ def reconcile(
     settings: dict,
     fingerprint: str,
     on_page: Callable[[int], None] | None = None,
+    prune: bool = True,
 ) -> Reconciliation:
     """Met la collection d'accord avec le dossier : n'écrit que les pages manquantes ou modifiées, et retire les
-    passages des pages qui n'existent plus. `on_page` reçoit le nombre de passages après chaque page écrite."""
+    passages des pages qui n'existent plus (sauf si `prune` est faux : on n'a regardé qu'une partie du dossier).
+    `on_page` reçoit le nombre de passages après chaque page écrite."""
     result = Reconciliation()
     indexed: dict[str, tuple[str, str]] = {}
     if client.collection_exists(collection):
@@ -123,7 +125,7 @@ def reconcile(
             if (page.get("content") or "").strip():
                 wanted[page["id"]] = (document, page)
 
-    gone = [page_id for page_id in indexed if page_id not in wanted]
+    gone = [page_id for page_id in indexed if page_id not in wanted] if prune else []
     for page_id in gone:
         store.delete_page(client, collection, page_id)
         result.points_removed += 1
