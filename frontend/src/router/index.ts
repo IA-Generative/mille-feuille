@@ -8,6 +8,7 @@ import AnalyseClassificationTab from "@/pages/analyse/AnalyseClassificationTab.v
 import AnalyseDetailPage from "@/pages/AnalyseDetailPage.vue";
 import AnalyseDocumentsTab from "@/pages/analyse/AnalyseDocumentsTab.vue";
 import AnalyseExtractionTab from "@/pages/analyse/AnalyseExtractionTab.vue";
+import AnalyseSearchTab from "@/pages/analyse/AnalyseSearchTab.vue";
 import AnalyseSourcesTab from "@/pages/analyse/AnalyseSourcesTab.vue";
 import AnalyseStatusesTab from "@/pages/analyse/AnalyseStatusesTab.vue";
 import AnalyseTrackingTab from "@/pages/analyse/AnalyseTrackingTab.vue";
@@ -62,6 +63,11 @@ export const router = createRouter({
           path: "sources",
           name: "analyse-sources",
           component: AnalyseSourcesTab,
+        },
+        {
+          path: "recherche",
+          name: "analyse-search",
+          component: AnalyseSearchTab,
         },
         {
           path: "suivi",
