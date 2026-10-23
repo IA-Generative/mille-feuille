@@ -23,7 +23,7 @@ def page_hash(content: str | None) -> str:
     return hashlib.sha256((content or "").encode()).hexdigest()[:16]
 
 
-def document_name(document: dict) -> str:
+def document_label(document: dict) -> str:
     """Nom du document, suivi de sa source s'il en a une (« passeport.pdf — source : Guichet »)."""
     name = document.get("name", "")
     source = (document.get("source") or {}).get("name")
@@ -63,7 +63,7 @@ def index_page(
     dense = embeddings.embed_dense([chunk.text for chunk in chunks], settings["embedding_model"])
     store.create_collection(client, collection, len(dense[0]))
     digest = page_hash(content)
-    name = document_name(document)
+    name = document_label(document)
     points = [
         {
             "id": store.point_id(page["id"], index),

@@ -4,7 +4,7 @@ Cette tâche est déposée sur la file agent_execution en même temps que la
 classification et l'extraction, mais elle attend que ces deux étapes soient
 terminées avant de lancer les agents. Chaque agent reçoit :
 - Son prompt (défini dans l'analyse)
-- Un socle d'outils (recherche BM25, lecture de page, classifications,
+- Un socle d'outils (recherche hybride, lecture de page, classifications,
   entités) qui accèdent aux données du dossier, toujours donné
 - Les outils choisis pour l'agent : calculatrice, dates, serveurs MCP (appelés
   au nom de la personne qui a lancé l'analyse, par le backend)
