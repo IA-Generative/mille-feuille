@@ -4,11 +4,16 @@ import { computed, onMounted } from "vue";
 import ModelPicker from "@/components/ModelPicker.vue";
 import { useModels } from "@/composables/useModels";
 
-withDefaults(defineProps<{ label?: string; compact?: boolean; loading?: boolean }>(), {
-  label: "Aide LLM",
-  compact: false,
-  loading: false,
-});
+withDefaults(
+  defineProps<{ label?: string; compact?: boolean; loading?: boolean; disabled?: boolean; disabledHint?: string }>(),
+  {
+    label: "Aide LLM",
+    compact: false,
+    loading: false,
+    disabled: false,
+    disabledHint: "",
+  },
+);
 const emit = defineEmits<{ click: [model: string | null] }>();
 
 // Préférence de modèle partagée par toute l'application (voir useModels.ts) :
@@ -28,8 +33,8 @@ function onClick() {
       type="button"
       class="llm-assist-button"
       :class="{ 'llm-assist-button--compact': compact }"
-      :title="compact ? label : undefined"
-      :disabled="loading"
+      :title="disabled && disabledHint ? disabledHint : compact ? label : undefined"
+      :disabled="loading || disabled"
       @click="onClick"
     >
       <VIcon

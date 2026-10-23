@@ -5,6 +5,15 @@
 import { completeChat, parseJsonFromCompletion } from "@/composables/useLlmComplete";
 import type { EntityDefinition, EntityType, LabelDefinition } from "@/types/analyse";
 
+export const MIN_ASSIST_WORDS = 3;
+
+/** L'aide LLM n'est utile qu'à partir de quelques mots : en dessous, elle invente plus qu'elle n'améliore. */
+export function hasEnoughWords(text: string): boolean {
+  return text.trim().split(/\s+/).filter(Boolean).length >= MIN_ASSIST_WORDS;
+}
+
+export const ASSIST_MIN_WORDS_HINT = `Saisissez au moins ${MIN_ASSIST_WORDS} mots pour utiliser l'aide LLM.`;
+
 export async function suggestClassificationPrompt(draft: string = "", model: string | null = null): Promise<string> {
   const context = draft.trim()
     ? `L'utilisateur a déjà commencé à rédiger ce prompt ou décrit son besoin : "${draft.trim()}". Prends-le en ` +

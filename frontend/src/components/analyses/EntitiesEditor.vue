@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import { ref, watch } from "vue";
 
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
@@ -10,11 +10,10 @@ const props = defineProps<{ entities: EntityDefinition[]; versions: Version<Enti
 const emit = defineEmits<{ save: [EntityDefinition[]]; restore: [string] }>();
 
 const entityTypes: EntityType[] = ["texte", "date", "nombre", "booléen", "identifiant"];
-const pageSize = 3;
 
 const draftEntities = ref<EntityDefinition[]>(cloneEntities(props.entities));
 const isDirty = ref(false);
-const currentPage = ref(1);
+const editingId = ref<string | null>(null);
 const isSuggestingList = ref(false);
 const suggestingDefinitionId = ref<string | null>(null);
 
@@ -27,7 +26,7 @@ watch(
   (entities) => {
     draftEntities.value = cloneEntities(entities);
     isDirty.value = false;
-    currentPage.value = 1;
+    editingId.value = null;
   },
 );
 
@@ -39,25 +38,14 @@ watch(
   { deep: true },
 );
 
-const pageCount = computed(() => Math.max(1, Math.ceil(draftEntities.value.length / pageSize)));
-
-const paginatedEntities = computed(() => {
-  const start = (currentPage.value - 1) * pageSize;
-  return draftEntities.value.slice(start, start + pageSize);
-});
-
-const pages = computed(() =>
-  Array.from({ length: pageCount.value }, (_, i) => ({ label: String(i + 1), title: `Page ${i + 1}` })),
-);
-
 function addEntity() {
   draftEntities.value.push({ id: `entity-${Date.now()}`, name: "", definition: "", type: "texte" });
-  nextTick(() => (currentPage.value = pageCount.value));
+  editingId.value = draftEntities.value[draftEntities.value.length - 1].id;
 }
 
 function removeEntity(id: string) {
   draftEntities.value = draftEntities.value.filter((entity) => entity.id !== id);
-  nextTick(() => (currentPage.value = Math.min(currentPage.value, pageCount.value)));
+  if (editingId.value === id) editingId.value = null;
 }
 
 async function applySuggestions(model: string | null) {
@@ -65,7 +53,7 @@ async function applySuggestions(model: string | null) {
   try {
     const suggestions = await suggestEntities(model);
     draftEntities.value = suggestions.map((entity, index) => ({ ...entity, id: `entity-suggestion-${index}` }));
-    nextTick(() => (currentPage.value = 1));
+    editingId.value = null;
   } catch (error) {
     alert(error instanceof Error ? error.message : "Échec de l'aide LLM.");
   } finally {
@@ -103,45 +91,53 @@ function formatVersionContent(entities: EntityDefinition[]) {
 
     <p v-if="draftEntities.length === 0" class="fr-text--sm">Aucune entité définie.</p>
 
-    <template v-else>
-      <ul class="entities-editor__list">
-        <li v-for="entity in paginatedEntities" :key="entity.id" class="entities-editor__row">
-          <div class="entities-editor__row-header">
-            <DsfrInput v-model="entity.name" label="Entité" label-visible class="entities-editor__name" />
-            <DsfrSelect v-model="entity.type" label="Type" :options="entityTypes" class="entities-editor__type" />
+    <ul v-else class="entities-editor__list">
+      <li
+        v-for="item in draftEntities"
+        :key="item.id"
+        class="entities-editor__item"
+        :class="{ 'entities-editor__item--editing': editingId === item.id }"
+      >
+        <div v-if="editingId !== item.id" class="entities-editor__summary">
+          <div class="entities-editor__text">
+            <p class="entities-editor__name">
+              <span>{{ item.name || "(sans nom)" }}</span>
+              <span class="fr-badge fr-badge--sm fr-badge--blue-ecume">{{ item.type }}</span>
+            </p>
+            <p v-if="item.definition" class="fr-text--sm entities-editor__definition">{{ item.definition }}</p>
+          </div>
+          <div class="entities-editor__buttons">
+            <DsfrButton label="Modifier" icon-only tertiary no-outline icon="ri-edit-line" size="sm" @click="editingId = item.id" />
             <DsfrButton
               label="Supprimer l'entité"
               icon-only
               tertiary
+              no-outline
               icon="ri-delete-bin-line"
               size="sm"
-              @click="removeEntity(entity.id)"
+              @click="removeEntity(item.id)"
             />
           </div>
-          <div class="entities-editor__definition-row">
-            <DsfrInput
-              v-model="entity.definition"
-              label="Définition"
-              label-visible
-              class="entities-editor__definition"
-            />
+        </div>
+
+        <div v-else class="entities-editor__form">
+          <div class="entities-editor__fields">
+            <DsfrInput v-model="item.name" label="Entité" label-visible />
+            <DsfrSelect v-model="item.type" label="Type" :options="entityTypes" />
+          </div>
+          <DsfrInput v-model="item.definition" label="Définition" label-visible is-textarea rows="3" />
+          <div class="entities-editor__form-actions">
             <LlmAssistButton
               compact
               label="Suggérer une définition"
-              :loading="suggestingDefinitionId === entity.id"
-              @click="(model) => applyDefinitionSuggestion(entity, model)"
+              :loading="suggestingDefinitionId === item.id"
+              @click="(model) => applyDefinitionSuggestion(item, model)"
             />
+            <DsfrButton label="Terminer" secondary size="sm" class="fr-ml-auto" @click="editingId = null" />
           </div>
-        </li>
-      </ul>
-
-      <DsfrPagination
-        v-if="pageCount > 1"
-        :pages="pages"
-        v-model:current-page="currentPage"
-        class="entities-editor__pagination"
-      />
-    </template>
+        </div>
+      </li>
+    </ul>
 
     <div class="entities-editor__actions">
       <DsfrButton label="Ajouter une entité" tertiary icon="ri-add-line" size="sm" @click="addEntity" />
@@ -170,56 +166,80 @@ function formatVersionContent(entities: EntityDefinition[]) {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
-.entities-editor__row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  padding: 1.25rem;
-  background: var(--background-default-grey);
+.entities-editor__item {
   border: 1px solid var(--border-default-grey);
   border-left: 3px solid #9d6cff;
-  border-radius: 0.75rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  transition:
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
+  border-radius: 0.5rem;
+  background: var(--background-default-grey);
 }
 
-.entities-editor__row:hover {
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
+.entities-editor__item--editing {
+  border-color: #9d6cff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.entities-editor__row-header {
+.entities-editor__summary {
   display: flex;
-  align-items: end;
+  align-items: flex-start;
   gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.entities-editor__text {
+  flex: 1;
+  min-width: 0;
 }
 
 .entities-editor__name {
-  flex: 1;
-}
-
-.entities-editor__type {
-  min-width: 9rem;
-}
-
-.entities-editor__definition-row {
   display: flex;
-  align-items: end;
+  align-items: center;
   gap: 0.5rem;
+  margin: 0;
+  font-weight: 600;
 }
 
 .entities-editor__definition {
-  flex: 1;
+  margin: 0.25rem 0 0;
+  color: var(--text-mention-grey);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
-.entities-editor__pagination {
+.entities-editor__buttons {
   display: flex;
-  justify-content: center;
+  flex-shrink: 0;
+}
+
+.entities-editor__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+}
+
+.entities-editor__fields {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.entities-editor__fields > :first-child {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.entities-editor__form-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .entities-editor__actions {

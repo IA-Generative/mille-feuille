@@ -2,6 +2,7 @@
 import { ref } from "vue";
 
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
+import { ASSIST_MIN_WORDS_HINT, hasEnoughWords } from "@/composables/useLlmAssist";
 import { errorMessage } from "@/composables/useDocumentTemplates";
 
 // Zone de texte avec un bouton d'aide à la rédaction (LLM). Le texte déjà saisi est transmis à l'aide pour être
@@ -45,7 +46,15 @@ async function applySuggestion(model: string | null) {
         @update:model-value="emit('update:modelValue', String($event))"
       />
     </div>
-    <LlmAssistButton compact :label="assistLabel" :loading="loading" class="assisted-textarea__assist" @click="applySuggestion" />
+    <LlmAssistButton
+      compact
+      :label="assistLabel"
+      :loading="loading"
+      :disabled="!hasEnoughWords(modelValue)"
+      :disabled-hint="ASSIST_MIN_WORDS_HINT"
+      class="assisted-textarea__assist"
+      @click="applySuggestion"
+    />
     <p v-if="error" class="fr-error-text assisted-textarea__error">{{ error }}</p>
   </div>
 </template>

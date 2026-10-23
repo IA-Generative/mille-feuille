@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import AccessBadge from "@/components/access/AccessBadge.vue";
+import PagerNav from "@/components/PagerNav.vue";
 import DossierDueBadge from "@/components/dossiers/DossierDueBadge.vue";
 import CreateDossierModal from "@/components/dossiers/CreateDossierModal.vue";
 import WorkflowStatusBadge from "@/components/statuses/WorkflowStatusBadge.vue";
@@ -25,10 +26,6 @@ const isCreateModalOpened = ref(false);
 
 const PAGE_SIZE = 10;
 const currentPage = ref(1);
-
-const pages = computed(() =>
-  Array.from({ length: pageCount.value }, (_, i) => ({ label: String(i + 1), title: `Page ${i + 1}` })),
-);
 
 // Filtre par statut de dossier et tri (#170) ; le filtre se lit dans l'URL (?status=<id>) pour que le
 // tableau de bord et le suivi puissent y renvoyer.
@@ -260,12 +257,7 @@ function isUnassigned(dossier: Dossier) {
       </div>
     </div>
 
-    <DsfrPagination
-      v-if="pageCount > 1"
-      :pages="pages"
-      v-model:current-page="currentPage"
-      class="dossiers-page__pagination"
-    />
+    <PagerNav v-model:page="currentPage" :page-count="pageCount" class="dossiers-page__pagination" />
 
     <CreateDossierModal v-model:opened="isCreateModalOpened" />
   </div>

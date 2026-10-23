@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import CreateAnalyseModal from "@/components/analyses/CreateAnalyseModal.vue";
+import PagerNav from "@/components/PagerNav.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 
 const BROWSE_PAGE_SIZE = 6;
@@ -34,13 +35,6 @@ const paginatedAnalyses = computed(() => {
   const start = (currentPage.value - 1) * BROWSE_PAGE_SIZE;
   return filteredAnalyses.value.slice(start, start + BROWSE_PAGE_SIZE);
 });
-
-const pages = computed(() =>
-  Array.from({ length: pageCount.value }, (_, i) => ({
-    label: String(i + 1),
-    title: `Page ${i + 1}`,
-  })),
-);
 
 watch(
   [currentPage, isSearching],
@@ -100,12 +94,7 @@ function onAnalyseCreated() {
       />
     </div>
 
-    <DsfrPagination
-      v-if="pageCount > 1"
-      :pages="pages"
-      v-model:current-page="currentPage"
-      class="analyses-page__pagination"
-    />
+    <PagerNav v-model:page="currentPage" :page-count="pageCount" class="analyses-page__pagination" />
 
     <CreateAnalyseModal v-model:opened="isCreateModalOpened" @created="onAnalyseCreated" />
   </div>

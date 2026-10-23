@@ -57,7 +57,10 @@ function toggle() {
   else open();
 }
 
-function select(value: string) {
+function select(value: string, event?: Event) {
+  // Le clic ne doit pas remonter : l'option est retirée du DOM dès la fermeture, et une modale (DsfrModal) qui
+  // reçoit un clic dont la cible n'est plus dans son corps se ferme, pensant à un clic à l'extérieur.
+  event?.stopPropagation();
   close();
   if (value !== props.modelValue) emit("update:modelValue", value);
 }
@@ -67,7 +70,9 @@ function onDocumentClick(event: MouseEvent) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (event.key === "Escape") {
+  if (event.key === "Escape" && isOpen.value) {
+    // Échap ne ferme que la liste, pas la modale qui la contient.
+    event.stopPropagation();
     close();
     triggerRef.value?.focus();
   }
@@ -112,9 +117,9 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocumentClick));
         class="model-picker__option"
         :class="{ 'model-picker__option--selected': option.value === modelValue }"
         tabindex="0"
-        @click="select(option.value)"
-        @keydown.enter.prevent="select(option.value)"
-        @keydown.space.prevent="select(option.value)"
+        @click="select(option.value, $event)"
+        @keydown.enter.prevent="select(option.value, $event)"
+        @keydown.space.prevent="select(option.value, $event)"
       >
         <span class="model-picker__option-text">{{ option.text }}</span>
         <VIcon v-if="option.value === modelValue" name="ri-check-line" />

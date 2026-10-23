@@ -3,7 +3,7 @@ import { computed, ref, watch } from "vue";
 
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
-import { suggestAgentPrompt } from "@/composables/useLlmAssist";
+import { ASSIST_MIN_WORDS_HINT, hasEnoughWords, suggestAgentPrompt } from "@/composables/useLlmAssist";
 import ModelPicker from "@/components/ModelPicker.vue";
 import ToolSelectionField from "@/components/tools/ToolSelectionField.vue";
 import { useTools } from "@/composables/useTools";
@@ -84,6 +84,7 @@ async function submit() {
       label="Description (prompt)"
       label-visible
       is-textarea
+      rows="10"
       required
       hint="Décris précisément le but de l'agent et le résultat attendu. Cette description sert de prompt au modèle de langage."
       class="fr-mt-2w"
@@ -92,6 +93,8 @@ async function submit() {
       label="Structurer la description avec le LLM"
       class="fr-mt-2w"
       :loading="isSuggesting"
+      :disabled="!hasEnoughWords(prompt)"
+      :disabled-hint="ASSIST_MIN_WORDS_HINT"
       @click="applySuggestion"
     />
     <ToolSelectionField v-model="toolIds" class="fr-mt-2w" />

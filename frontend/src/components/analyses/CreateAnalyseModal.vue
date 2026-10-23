@@ -3,7 +3,7 @@ import { ref, watch } from "vue";
 
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
-import { suggestAnalyseDescription } from "@/composables/useLlmAssist";
+import { ASSIST_MIN_WORDS_HINT, hasEnoughWords, suggestAnalyseDescription } from "@/composables/useLlmAssist";
 
 const opened = defineModel<boolean>("opened", { default: false });
 const emit = defineEmits<{ created: [] }>();
@@ -64,6 +64,8 @@ async function submit() {
       label="Structurer la description avec le LLM"
       class="fr-mt-2w"
       :loading="isSuggesting"
+      :disabled="!hasEnoughWords(description)"
+      :disabled-hint="ASSIST_MIN_WORDS_HINT"
       @click="applySuggestion"
     />
   </DsfrModal>
