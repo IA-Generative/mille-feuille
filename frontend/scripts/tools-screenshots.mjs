@@ -570,4 +570,10 @@ await settle(700);
 await page.screenshot({ path: resolve(outDir, "chat-source-unique.png") });
 console.log("✓ tools/chat-source-unique.png");
 
+// Les sources des réponses plus anciennes sont repliées ; la dernière réponse montre les siennes
+await page.locator(".source-carousel").first().evaluate((el) => el.scrollIntoView({ block: "center" }));
+await settle(700);
+await page.screenshot({ path: resolve(outDir, "chat-sources-repliees.png") });
+console.log("✓ tools/chat-sources-repliees.png");
+
 await browser.close();
