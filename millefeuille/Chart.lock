@@ -5,5 +5,8 @@ dependencies:
 - name: cluster
   repository: https://cloudnative-pg.github.io/charts
   version: 0.8.1
-digest: sha256:fa890ff2d403605340221e97974fb4aef2988aef400231d69bc8298e35174646
-generated: "2026-09-25T22:46:24.357371322+02:00"
+- name: qdrant
+  repository: https://qdrant.github.io/qdrant-helm
+  version: 1.19.2
+digest: sha256:57dbf91539c8a746e93c2b692b4accca2930469c9f5d9dfe3fb6bdc9ecab6e8d
+generated: "2026-10-23T09:08:34.690156067+02:00"

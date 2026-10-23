@@ -189,9 +189,14 @@ worker_agent:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"
+  # Clé d'API de Qdrant (index de recherche des dossiers) : QDRANT_API_KEY.
+  - secretRef:
+      name: "millefeuille-qdrant"
   env:
     CELERY_QUEUE_NAME: "agent_execution"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
+    # Index de recherche des dossiers (un alias `dossier_<id>` par dossier), service interne du sous-chart `qdrant`.
+    QDRANT_URL: "http://millefeuille-qdrant:6333"
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
     # Internal ClusterIP service (sub-chart `searxng`). Web search is opt-in per run (off by
     # default - see worker/agent_execution/app/config.py SEARXNG_URL).
@@ -433,6 +438,32 @@ ephemeral_frontend:
     enabled: true
     create: true
 
+# Index de recherche des dossiers (worker/agent_execution) : recherche hybride, dense + lexicale, fusionnée par RRF.
+# Service interne uniquement (ClusterIP, pas d'ingress) : seuls les workers le joignent. Les vecteurs et les passages
+# sont des données dérivées des dossiers d'usagers, supprimées avec eux.
+qdrant:
+  enabled: true
+  fullnameOverride: millefeuille-qdrant
+  replicaCount: 1
+  # Clé d'API lue dans le secret `millefeuille-qdrant` (Vault), la même que celle que reçoivent les workers. Passée par
+  # la variable d'environnement de Qdrant plutôt que par `apiKey.valueFrom` du chart : celui-ci lit le secret avec
+  # `lookup` au moment du rendu, ce qui ne donne rien sous Argo CD (le rendu se fait hors du cluster).
+  env:
+    - name: QDRANT__SERVICE__API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: millefeuille-qdrant
+          key: QDRANT_API_KEY
+  persistence:
+    size: 10Gi
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "1"
+      memory: "2Gi"
+
 redis:
   # RediSearch is required by the agent_execution worker's Redis-backed LangGraph checkpointer
   # (see worker/agent_execution - a HITL pause must survive being resumed by a different Celery
@@ -557,6 +588,19 @@ extraObjects:
           templates:
             REDIS_URL:
               text: 'redis://:{{ "{{" }} get .Secrets "REDIS_PASSWORD" {{ "}}" }}@millefeuille-redis:6379/0'
+  millefeuille-qdrant:
+    apiVersion: secrets.hashicorp.com/v1beta1
+    kind: VaultStaticSecret
+    metadata:
+      name: millefeuille-qdrant
+    spec:
+      vaultAuthRef: vault-auth
+      mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "qdrant") }}'
+      type: kv-v2
+      destination:
+        name: millefeuille-qdrant
+        create: true
   millefeuille-db-superuser:
     apiVersion: secrets.hashicorp.com/v1beta1
     kind: VaultStaticSecret

@@ -29,6 +29,11 @@ dependencies:
     version: 0.8.1
     repository: https://cloudnative-pg.github.io/charts
     condition: cnpg.enabled
+  - name: qdrant
+    alias: qdrant
+    version: 1.19.2
+    repository: https://qdrant.github.io/qdrant-helm
+    condition: qdrant.enabled
 sources:
   - https://github.com/IA-Generative/mille-feuille
 maintainers: []
