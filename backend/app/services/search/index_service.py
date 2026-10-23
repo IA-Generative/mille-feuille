@@ -9,11 +9,12 @@ Un dossier a au plus une reconstruction dans les états `building` et `swapped`.
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import celery_client
+from app.config import SearchSettings as PlatformSearchSettings
 from app.models.analyse import Analyse
 from app.models.dossier import Dossier
 from app.models.search_index import (
@@ -24,6 +25,7 @@ from app.models.search_index import (
     SearchIndexStatus,
 )
 from app.schemas.search_index import (
+    AnalyseIndexOverview,
     IndexRebuildOut,
     IndexStateOut,
     RebuildReport,
@@ -58,6 +60,13 @@ def _resolve(analyse: Analyse | None) -> tuple[search_settings.EffectiveSearchSe
         return None, "Le dossier n'a pas d'analyse"
     try:
         return search_settings.resolve(analyse.search_settings), None
+    except ValueError as error:
+        return None, str(error)
+
+
+def _resolve_stored(stored: dict) -> tuple[search_settings.EffectiveSearchSettings | None, str | None]:
+    try:
+        return search_settings.resolve(stored), None
     except ValueError as error:
         return None, str(error)
 
@@ -171,6 +180,7 @@ class SearchIndexService:
             rebuild.done_pages = report.done_pages
         if report.error is not None:
             rebuild.error = report.error
+        was_building = rebuild.status == IndexRebuildStatus.BUILDING
         if report.status is not None and report.status != rebuild.status:
             rebuild.status = report.status
             now = datetime.now(UTC)
@@ -179,6 +189,8 @@ class SearchIndexService:
             elif report.status in (IndexRebuildStatus.FAILED, IndexRebuildStatus.ROLLED_BACK):
                 rebuild.finished_at = now
         await self.db.commit()
+        if was_building and rebuild.status != IndexRebuildStatus.BUILDING:
+            await self._promote_queued(rebuild.dossier_id)
         return rebuild
 
     # -- reconstruction ---------------------------------------------------------------------------------------------
@@ -241,8 +253,133 @@ class SearchIndexService:
             index = await self.index(dossier_id)
             if index is not None and rebuild.previous_fingerprint and rebuild.previous_settings:
                 index.fingerprint, index.settings = rebuild.previous_fingerprint, rebuild.previous_settings
+        was_building = rebuild.status == IndexRebuildStatus.BUILDING
         rebuild.status = IndexRebuildStatus.ROLLED_BACK
         rebuild.finished_at = datetime.now(UTC)
         await self.db.commit()
         celery_client.dispatch_rollback_rebuild(str(rebuild.id))
+        if was_building:
+            await self._promote_queued(dossier_id)
         return rebuild
+
+    # -- reconstruction en lot d'une analyse --------------------------------------------------------------------------
+
+    async def _analyse_of(self, dossier_id: uuid.UUID) -> uuid.UUID | None:
+        dossier = await self.db.get(Dossier, dossier_id)
+        return dossier.analyse_id if dossier else None
+
+    async def _building_count(self, analyse_id: uuid.UUID) -> int:
+        result = await self.db.execute(
+            select(func.count())
+            .select_from(IndexRebuild)
+            .join(Dossier, Dossier.id == IndexRebuild.dossier_id)
+            .where(Dossier.analyse_id == analyse_id, IndexRebuild.status == IndexRebuildStatus.BUILDING)
+        )
+        return result.scalar_one()
+
+    async def _promote_queued(self, dossier_id: uuid.UUID) -> None:
+        """Une place s'est libérée dans l'analyse du dossier : les reconstructions en attente démarrent, de la plus
+        ancienne à la plus récente, tant qu'il reste de la place."""
+        analyse_id = await self._analyse_of(dossier_id)
+        if analyse_id is None:
+            return
+        room = PlatformSearchSettings().SEARCH_MAX_PARALLEL_REBUILDS - await self._building_count(analyse_id)
+        if room <= 0:
+            return
+        result = await self.db.execute(
+            select(IndexRebuild)
+            .join(Dossier, Dossier.id == IndexRebuild.dossier_id)
+            .where(Dossier.analyse_id == analyse_id, IndexRebuild.status == IndexRebuildStatus.QUEUED)
+            .order_by(IndexRebuild.created_at)
+            .limit(room)
+        )
+        started = list(result.scalars())
+        for rebuild in started:
+            rebuild.status = IndexRebuildStatus.BUILDING
+        await self.db.commit()
+        for rebuild in started:
+            celery_client.dispatch_rebuild_index(str(rebuild.id))
+
+    async def _indexed_dossiers(self, analyse_id: uuid.UUID) -> list[tuple[uuid.UUID, DossierSearchIndex]]:
+        result = await self.db.execute(
+            select(Dossier.id, DossierSearchIndex)
+            .join(DossierSearchIndex, DossierSearchIndex.dossier_id == Dossier.id)
+            .where(Dossier.analyse_id == analyse_id)
+        )
+        return [(row[0], row[1]) for row in result.all()]
+
+    async def overview(self, analyse: Analyse, settings: dict | None = None) -> AnalyseIndexOverview:
+        """Où en sont les index des dossiers de l'analyse, pour les réglages donnés (par défaut ceux de l'analyse) :
+        c'est aussi ce qui dit combien de dossiers un changement de réglages rendrait obsolètes."""
+        effective, _ = _resolve(analyse) if settings is None else _resolve_stored(settings)
+        expected = effective.fingerprint if effective else None
+        indexed = await self._indexed_dossiers(analyse.id)
+        active = {
+            row.dossier_id: row.status
+            for row in (
+                await self.db.execute(
+                    select(IndexRebuild.dossier_id, IndexRebuild.status)
+                    .join(Dossier, Dossier.id == IndexRebuild.dossier_id)
+                    .where(Dossier.analyse_id == analyse.id, IndexRebuild.status.in_(ACTIVE_REBUILD_STATUSES))
+                )
+            ).all()
+        }
+        total = (
+            await self.db.execute(select(func.count()).select_from(Dossier).where(Dossier.analyse_id == analyse.id))
+        ).scalar_one()
+        obsolete = sum(1 for _, index in indexed if expected is None or index.fingerprint != expected)
+        return AnalyseIndexOverview(
+            dossiers=total,
+            indexed=len(indexed),
+            current=len(indexed) - obsolete,
+            obsolete=obsolete,
+            errors=sum(1 for _, index in indexed if index.status == SearchIndexStatus.ERROR),
+            rebuilding=sum(1 for status in active.values() if status == IndexRebuildStatus.BUILDING),
+            queued=sum(1 for status in active.values() if status == IndexRebuildStatus.QUEUED),
+            to_validate=sum(1 for status in active.values() if status == IndexRebuildStatus.SWAPPED),
+        )
+
+    async def rebuild_analyse(self, analyse: Analyse, user_id: str) -> list[IndexRebuild]:
+        """Reconstruit l'index de chaque dossier indexé de l'analyse dont l'empreinte n'est plus celle des réglages (ou
+        dont l'index est en erreur). Le nombre de reconstructions simultanées est plafonné : les autres attendent leur
+        tour et démarrent à mesure que des places se libèrent."""
+        effective, problem = _resolve(analyse)
+        if effective is None:
+            raise SettingsUnresolvedError(problem)
+        busy = {
+            row[0]
+            for row in (
+                await self.db.execute(
+                    select(IndexRebuild.dossier_id)
+                    .join(Dossier, Dossier.id == IndexRebuild.dossier_id)
+                    .where(Dossier.analyse_id == analyse.id, IndexRebuild.status.in_(ACTIVE_REBUILD_STATUSES))
+                )
+            ).all()
+        }
+        room = PlatformSearchSettings().SEARCH_MAX_PARALLEL_REBUILDS - await self._building_count(analyse.id)
+        created: list[IndexRebuild] = []
+        for dossier_id, index in await self._indexed_dossiers(analyse.id):
+            if dossier_id in busy:
+                continue
+            if index.fingerprint == effective.fingerprint and index.status == SearchIndexStatus.READY:
+                continue
+            status = IndexRebuildStatus.BUILDING if room > 0 else IndexRebuildStatus.QUEUED
+            room -= 1
+            rebuild = IndexRebuild(
+                dossier_id=dossier_id,
+                status=status,
+                target_fingerprint=effective.fingerprint,
+                target_settings=effective.model_dump(),
+                previous_fingerprint=index.fingerprint,
+                previous_settings=index.settings,
+                total_pages=0,
+                done_pages=0,
+                requested_by=user_id,
+            )
+            self.db.add(rebuild)
+            created.append(rebuild)
+        await self.db.commit()
+        for rebuild in created:
+            if rebuild.status == IndexRebuildStatus.BUILDING:
+                celery_client.dispatch_rebuild_index(str(rebuild.id))
+        return created
