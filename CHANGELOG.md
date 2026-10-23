@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.30.0](https://github.com/IA-Generative/mille-feuille/compare/v0.29.0...v0.30.0) (2026-10-23)
+
+
+### Features
+
+* **search:** découpage des pages en passages, classique et par modèle d'IA avec repli ([ca44f5c](https://github.com/IA-Generative/mille-feuille/commit/ca44f5cb3e8a64125870ba6b9e9b06d2a4095fc6))
+* **search:** déploiement de Qdrant dans le chart Helm et documentation ([5516219](https://github.com/IA-Generative/mille-feuille/commit/55162194896462115585f67c750eee897af1e9d0))
+* **search:** document_process dépose l'indexation du document une fois l'OCR terminé ([81fe881](https://github.com/IA-Generative/mille-feuille/commit/81fe88171584de4aea24787321392776f8a635be))
+* **search:** embeddings denses par lots et vecteur creux BM25 français ([84ae02b](https://github.com/IA-Generative/mille-feuille/commit/84ae02b23c24a290cb64420f6ccec4d77b8c4fd8))
+* **search:** indexation par page et réconciliation avec le dossier, reprenable ([976bc7b](https://github.com/IA-Generative/mille-feuille/commit/976bc7b8d548527d9f5dff8fde7847b0847957b2))
+* **search:** mesure du retrieval (lexical, sémantique, hybride) sur un jeu de questions ([f1db9db](https://github.com/IA-Generative/mille-feuille/commit/f1db9dbb5696479274cd1b3fd70d3c953e7eb234))
+* **search:** onglet Recherche de l'analyse et état de l'index d'un dossier ([f33e28f](https://github.com/IA-Generative/mille-feuille/commit/f33e28f39456b026ff7361811bec45e8fbe5f2de))
+* **search:** réglages de recherche par analyse, état et reconstruction blue/green de l'index ([d1c6113](https://github.com/IA-Generative/mille-feuille/commit/d1c6113c0a393508da3ac84c58f4df4f4c3dad2d))
+* **search:** réglages modifiables après indexation, reconstruction en lot plafonnée ([90e609f](https://github.com/IA-Generative/mille-feuille/commit/90e609fd319a766130c990a4b977f567ed5f90c9))
+* **search:** search_documents en recherche hybride Qdrant, retrait du BM25 en mémoire ([66b6c0c](https://github.com/IA-Generative/mille-feuille/commit/66b6c0c073c76bd273059261747dcba21100ab2f))
+* **search:** service Qdrant et magasin d'index par dossier (alias, hybride RRF, bascule atomique) ([1a62264](https://github.com/IA-Generative/mille-feuille/commit/1a622645a24214891113970d91de90cc25a5f22e))
+* **search:** tâches d'indexation d'un document et de reconstruction blue/green ([8e51846](https://github.com/IA-Generative/mille-feuille/commit/8e51846178b44aef8b61f45560439a1c71426ccd))
+
+
+### Bug Fixes
+
+* **release:** release-please bumpe aussi la version des uv.lock du backend et des workers ([5d51621](https://github.com/IA-Generative/mille-feuille/commit/5d5162134e62e9bc3f6ecb2b36d526c58342f12b))
+* **release:** versions des uv.lock alignées sur 0.29.0 ([b401e56](https://github.com/IA-Generative/mille-feuille/commit/b401e56f8d67baa934fbe3a8378cd46bae2f0385))
+
+
+### Performance Improvements
+
+* **search:** py-rust-stemmers à la place de snowballstemmer pour le vecteur creux ([e0b66bd](https://github.com/IA-Generative/mille-feuille/commit/e0b66bd635c5b414992abdb2b4bd8333e041916f))
+
 ## [0.30.0-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.29.0...v0.30.0-rc) (2026-10-23)
 
 
