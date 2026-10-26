@@ -98,16 +98,16 @@ worker_classification:
   image:
     registry: ghcr.io
     repository: ia-generative/mille-feuille/worker-classification
-    # Construite depuis la branche feat/async-api-worker-plateforme (commit 3be4c742, délai explicite
-    # des appels au hub) et poussée à la main ; remplacée par le tag de la release.
-    tag: "beta-3be4c742"
+    # Construite depuis la branche feat/async-api-worker-plateforme (commit 76a13d7f : délai explicite du hub,
+    # sortie structurée bornée et repli json_object) et poussée à la main ; remplacée par le tag de la release.
+    tag: "beta-76a13d7f"
 worker_extraction:
   image:
     registry: ghcr.io
     repository: ia-generative/mille-feuille/worker-extraction
-    # Construite depuis la branche feat/async-api-worker-plateforme (commit 3be4c742, délai explicite
-    # des appels au hub) et poussée à la main ; remplacée par le tag de la release.
-    tag: "beta-3be4c742"
+    # Construite depuis la branche feat/async-api-worker-plateforme (commit 76a13d7f : délai explicite du hub,
+    # sortie structurée bornée et repli json_object) et poussée à la main ; remplacée par le tag de la release.
+    tag: "beta-76a13d7f"
 worker_render:
   replicaCount: 0
   image:
