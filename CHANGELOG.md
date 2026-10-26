@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.30.3](https://github.com/IA-Generative/mille-feuille/compare/v0.30.2...v0.30.3) (2026-10-26)
+
+
+### Bug Fixes
+
+* **helm:** allow KEDA to reach Redis ([03003d6](https://github.com/IA-Generative/mille-feuille/commit/03003d6e5f80eecd09869b910422b47bad5f2a0d))
+
 ## [0.30.2](https://github.com/IA-Generative/mille-feuille/compare/v0.30.1...v0.30.2) (2026-10-23)
 
 
