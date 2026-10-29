@@ -27,6 +27,7 @@ const allTabs = [
   { title: "Agents", icon: "ri-robot-line", tabId: "tab-agents", panelId: "panel-agents", routeName: "analyse-agents" },
   { title: "Statuts et échéance", icon: "ri-flag-line", tabId: "tab-statuses", panelId: "panel-statuses", routeName: "analyse-statuses" },
   { title: "Sources", icon: "ri-inbox-archive-line", tabId: "tab-sources", panelId: "panel-sources", routeName: "analyse-sources" },
+  { title: "Lecture", icon: "ri-scan-2-line", tabId: "tab-ocr", panelId: "panel-ocr", routeName: "analyse-ocr" },
   { title: "Recherche", icon: "ri-search-eye-line", tabId: "tab-search", panelId: "panel-search", routeName: "analyse-search" },
   { title: "Suivi", icon: "ri-table-line", tabId: "tab-tracking", panelId: "panel-tracking", routeName: "analyse-tracking" },
   // Modèles de document de l'analyse : réservés aux administrateurs, comme leur API (backend issue #138).
