@@ -1,0 +1,27 @@
+{{- if and .Values.enabled .Values.worker_ocr_layout.enabled }}
+{{- if .Values.worker_ocr_layout.networkPolicy.create }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_ocr_layout") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_ocr_layout")) | nindent 4 }}
+  {{- if .Values.worker_ocr_layout.networkPolicy.labels }}
+    {{- toYaml .Values.worker_ocr_layout.networkPolicy.labels | nindent 4 }}
+  {{- end }}
+  {{- if .Values.worker_ocr_layout.networkPolicy.annotations }}
+  annotations: {{- toYaml .Values.worker_ocr_layout.networkPolicy.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  {{- /* Required: an omitted podSelector defaults to `{}`, which would apply these rules to EVERY
+  pod in the release namespace instead of just this component's pods. */}}
+  podSelector:
+    matchLabels: {{- include "helper.selectorLabels" (dict "root" . "componentName" "worker_ocr_layout") | nindent 6 }}
+  policyTypes: {{- toYaml .Values.worker_ocr_layout.networkPolicy.policyTypes | nindent 2 }}
+  {{- with .Values.worker_ocr_layout.networkPolicy.ingress }}
+  ingress: {{- toYaml . | nindent 2 }}
+  {{- end }}
+  {{- with .Values.worker_ocr_layout.networkPolicy.egress }}
+  egress: {{- toYaml . | nindent 2 }}
+  {{- end }}
+{{- end }}
+{{- end }}

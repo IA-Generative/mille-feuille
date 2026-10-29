@@ -1,0 +1,23 @@
+{{- if and .Values.enabled .Values.worker_ocr_layout.enabled }}
+{{- if .Values.worker_ocr_layout.metrics.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_ocr_layout-metrics") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_ocr_layout-metrics")) | nindent 4 }}
+  {{- if .Values.worker_ocr_layout.metrics.service.labels }}
+    {{- toYaml .Values.worker_ocr_layout.metrics.service.labels | nindent 4 }}
+  {{- end }}
+  {{- if .Values.worker_ocr_layout.metrics.service.annotations }}
+  annotations: {{- toYaml .Values.worker_ocr_layout.metrics.service.annotations | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.worker_ocr_layout.metrics.service.type | default "ClusterIP" }}
+  ports:
+  - port: {{ .Values.worker_ocr_layout.metrics.service.port }}
+    targetPort: {{ .Values.worker_ocr_layout.metrics.service.targetPort }}
+    protocol: TCP
+    name: {{ .Values.worker_ocr_layout.metrics.service.portName | default "metrics" }}
+  selector: {{- include "helper.selectorLabels" (dict "root" . "componentName" "worker_ocr_layout") | nindent 4 }}
+{{- end }}
+{{- end }}
