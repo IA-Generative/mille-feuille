@@ -123,6 +123,10 @@ worker_document:
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
     OCR_LANGUAGE: "fra"
+    # `tesseract` : l'OCR de liteparse. `layout` : les pods PaddleOCR (`worker_ocr_*`, à activer aussi), qui rendent le
+    # layout, le texte, les tableaux et, avec VISION_POD_ENABLED, la description des images et tableaux.
+    OCR_ENGINE: "tesseract"
+    VISION_POD_ENABLED: "false"
 
 # Celery worker - fills ODT document templates and converts them to PDF with LibreOffice
 # (worker/document_render). The image is large (~800 MB: LibreOffice Writer + fonts) and LibreOffice
@@ -274,6 +278,152 @@ worker_extraction:
   env:
     CELERY_QUEUE_NAME: "entity_extraction"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
+
+# Celery worker - layout des pages scannées, PP-DocLayoutV3 (worker/layout).
+# Pod d'OCR de la lecture par layout (`OCR_ENGINE: layout` de `worker_document`). Opt-in : à activer avec les trois autres
+# (`worker_ocr_layout`, `worker_ocr`, `worker_ocr_table`, `worker_ocr_vision`) ; `worker_document` leur envoie les pages
+# par S3 + Redis (file `document_layout`). Pas de KEDA : la file d'un pod ne contient jamais plus de OCR_PAGE_WINDOW pages par
+# document, le nombre de réplicas se règle ici.
+worker_ocr_layout:
+  enabled: false
+  image:
+    registry: "harbor.sdid.cpin.numerique-interieur.com"
+    repository: "mille-feuille-worker-ocr-layout"
+    pullPolicy: "Always"
+  serviceAccount:
+    enabled: true
+    create: true
+  # Probes désactivées : `celery inspect ping` expire quand le pod est occupé à lire une page, voir document_process.
+  probes:
+    startupProbe: null
+    readinessProbe: null
+    livenessProbe: null
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+  envFrom:
+  - secretRef:
+      name: "millefeuille-s3"
+  - secretRef:
+      name: "millefeuille-redis"
+  - secretRef:
+      name: "millefeuille-worker"
+  env:
+    AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
+
+# Celery worker - texte des régions, PP-OCRv5 (worker/ocr).
+# Pod d'OCR de la lecture par layout (`OCR_ENGINE: layout` de `worker_document`). Opt-in : à activer avec les trois autres
+# (`worker_ocr_layout`, `worker_ocr`, `worker_ocr_table`, `worker_ocr_vision`) ; `worker_document` leur envoie les pages
+# par S3 + Redis (file `document_ocr`). Pas de KEDA : la file d'un pod ne contient jamais plus de OCR_PAGE_WINDOW pages par
+# document, le nombre de réplicas se règle ici.
+worker_ocr:
+  enabled: false
+  image:
+    registry: "harbor.sdid.cpin.numerique-interieur.com"
+    repository: "mille-feuille-worker-ocr"
+    pullPolicy: "Always"
+  serviceAccount:
+    enabled: true
+    create: true
+  # Probes désactivées : `celery inspect ping` expire quand le pod est occupé à lire une page, voir document_process.
+  probes:
+    startupProbe: null
+    readinessProbe: null
+    livenessProbe: null
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+  envFrom:
+  - secretRef:
+      name: "millefeuille-s3"
+  - secretRef:
+      name: "millefeuille-redis"
+  - secretRef:
+      name: "millefeuille-worker"
+  env:
+    AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
+
+# Celery worker - tableaux, SLANet_plus (worker/table).
+# Pod d'OCR de la lecture par layout (`OCR_ENGINE: layout` de `worker_document`). Opt-in : à activer avec les trois autres
+# (`worker_ocr_layout`, `worker_ocr`, `worker_ocr_table`, `worker_ocr_vision`) ; `worker_document` leur envoie les pages
+# par S3 + Redis (file `document_table`). Pas de KEDA : la file d'un pod ne contient jamais plus de OCR_PAGE_WINDOW pages par
+# document, le nombre de réplicas se règle ici.
+worker_ocr_table:
+  enabled: false
+  image:
+    registry: "harbor.sdid.cpin.numerique-interieur.com"
+    repository: "mille-feuille-worker-ocr-table"
+    pullPolicy: "Always"
+  serviceAccount:
+    enabled: true
+    create: true
+  # Probes désactivées : `celery inspect ping` expire quand le pod est occupé à lire une page, voir document_process.
+  probes:
+    startupProbe: null
+    readinessProbe: null
+    livenessProbe: null
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "1"
+    limits:
+      memory: "4Gi"
+      cpu: "2"
+  envFrom:
+  - secretRef:
+      name: "millefeuille-s3"
+  - secretRef:
+      name: "millefeuille-redis"
+  - secretRef:
+      name: "millefeuille-worker"
+  env:
+    AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
+
+# Celery worker - description des images et tableaux par le VLM du hub (worker/vision).
+# Pod d'OCR de la lecture par layout (`OCR_ENGINE: layout` de `worker_document`). Opt-in : à activer avec les trois autres
+# (`worker_ocr_layout`, `worker_ocr`, `worker_ocr_table`, `worker_ocr_vision`) ; `worker_document` leur envoie les pages
+# par S3 + Redis (file `document_vision`). Pas de KEDA : la file d'un pod ne contient jamais plus de OCR_PAGE_WINDOW pages par
+# document, le nombre de réplicas se règle ici.
+worker_ocr_vision:
+  enabled: false
+  image:
+    registry: "harbor.sdid.cpin.numerique-interieur.com"
+    repository: "mille-feuille-worker-ocr-vision"
+    pullPolicy: "Always"
+  serviceAccount:
+    enabled: true
+    create: true
+  # Probes désactivées : `celery inspect ping` expire quand le pod est occupé à lire une page, voir document_process.
+  probes:
+    startupProbe: null
+    readinessProbe: null
+    livenessProbe: null
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "1Gi"
+      cpu: "1"
+  envFrom:
+  - secretRef:
+      name: "millefeuille-s3"
+  - secretRef:
+      name: "millefeuille-openai"
+  - secretRef:
+      name: "millefeuille-redis"
+  - secretRef:
+      name: "millefeuille-worker"
+  env:
+    AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
 
 # AsyncTaskAPI worker - RabbitMQ consumer, no Celery (worker/async_api). Lets mille-feuille be consumed
 # by the async-api platform (https://github.com/IA-Generative/async-api): it runs analyses through

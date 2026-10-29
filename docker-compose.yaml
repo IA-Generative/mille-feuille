@@ -50,8 +50,6 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://millefeuille:millefeuille@postgres:5432/millefeuille
       REDIS_URL: redis://redis:6379/0
-      MEILI_URL: http://meilisearch:7700
-      MEILI_API_KEY: ${MEILI_MASTER_KEY:-dev-only-meili-key-not-for-prod}
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_PUBLIC_URL: http://localhost:8080
       KEYCLOAK_REALM: mille-feuille
@@ -82,8 +80,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      meilisearch:
-        condition: service_healthy
       keycloak:
         condition: service_healthy
       rustfs:
@@ -105,6 +101,10 @@ services:
       AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:-dev-only-rustfs-key-not-for-prod}
       AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:-dev-only-rustfs-key-not-for-prod}
       AWS_S3_BUCKET_NAME: mille-feuille
+      # OCR : `tesseract` (liteparse, par défaut) ou `layout` (pods PaddleOCR du profil `ocr`, voir plus bas).
+      # `OCR_ENGINE=layout VISION_POD_ENABLED=true docker compose --profile ocr up` les utilise.
+      OCR_ENGINE: ${OCR_ENGINE:-tesseract}
+      VISION_POD_ENABLED: ${VISION_POD_ENABLED:-false}
     depends_on:
       redis:
         condition: service_healthy
@@ -112,6 +112,59 @@ services:
         condition: service_started
       rustfs:
         condition: service_healthy
+    restart: unless-stopped
+
+  # Pods d'OCR des pages scannées (profil `ocr`, OCR_ENGINE=layout) : un worker Celery par modèle, à la file propre.
+  # worker-document-process leur envoie les pages (voir worker/document_process/app/ocr/).
+  worker-ocr-layout:
+    profiles: ["ocr"]
+    build:
+      context: ./worker/layout
+      dockerfile: Dockerfile
+    environment: &ocr-pod-environment
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/0
+      AWS_ENDPOINT_URL: http://rustfs:9000
+      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:-dev-only-rustfs-key-not-for-prod}
+      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:-dev-only-rustfs-key-not-for-prod}
+      AWS_S3_BUCKET_NAME: mille-feuille
+    depends_on: &ocr-pod-depends-on
+      redis:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker-ocr:
+    profiles: ["ocr"]
+    build:
+      context: ./worker/ocr
+      dockerfile: Dockerfile
+    environment: *ocr-pod-environment
+    depends_on: *ocr-pod-depends-on
+    restart: unless-stopped
+
+  worker-ocr-table:
+    profiles: ["ocr"]
+    build:
+      context: ./worker/table
+      dockerfile: Dockerfile
+    environment: *ocr-pod-environment
+    depends_on: *ocr-pod-depends-on
+    restart: unless-stopped
+
+  # Décrit images et tableaux avec le VLM du hub (aucun modèle local).
+  worker-ocr-vision:
+    profiles: ["ocr"]
+    build:
+      context: ./worker/vision
+      dockerfile: Dockerfile
+    environment:
+      <<: *ocr-pod-environment
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-}
+      VLM_MODEL: ${VLM_MODEL:-pixtral-12b-2409}
+    depends_on: *ocr-pod-depends-on
     restart: unless-stopped
 
   # Agents, chat, résumés, propositions de notes. La classification et l'extraction d'entités ont leur propre
@@ -326,22 +379,6 @@ services:
       timeout: 3s
       retries: 10
 
-  meilisearch:
-    image: getmeili/meilisearch:v1.12
-    environment:
-      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev-only-meili-key-not-for-prod}
-      MEILI_NO_ANALYTICS: "true"
-    volumes:
-      - meilisearch-data:/meili_data
-    ports:
-      - "7700:7700"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 10s
-
   # Index de recherche des dossiers (hybride dense + creux) : un alias `dossier_<id>` par dossier.
   qdrant:
     image: qdrant/qdrant:v1.19.2
@@ -423,6 +460,5 @@ secrets:
 
 volumes:
   postgres-data:
-  meilisearch-data:
   qdrant-data:
   rustfs-data:

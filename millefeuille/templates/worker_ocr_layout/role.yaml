@@ -1,0 +1,10 @@
+{{- if and .Values.enabled .Values.worker_ocr_layout.enabled }}
+{{- if and .Values.worker_ocr_layout.serviceAccount.enabled .Values.worker_ocr_layout.serviceAccount.role.create .Values.worker_ocr_layout.serviceAccount.role.rules }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_ocr_layout") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_ocr_layout")) | nindent 4 }}
+rules: {{- toYaml .Values.worker_ocr_layout.serviceAccount.role.rules | nindent 0 }}
+{{- end }}
+{{- end }}

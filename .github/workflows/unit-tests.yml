@@ -37,6 +37,22 @@ on:
         description: Le worker extraction a changé
         required: false
         type: boolean
+      WORKER_OCR_LAYOUT:
+        description: Le worker ocr-layout a changé
+        required: false
+        type: boolean
+      WORKER_OCR:
+        description: Le worker ocr a changé
+        required: false
+        type: boolean
+      WORKER_OCR_TABLE:
+        description: Le worker ocr-table a changé
+        required: false
+        type: boolean
+      WORKER_OCR_VISION:
+        description: Le worker ocr-vision a changé
+        required: false
+        type: boolean
         default: false
       WORKER_ASYNC_API:
         description: Le worker async_api (ou le SDK Python) a changé
@@ -88,6 +104,22 @@ on:
         default: false
       WORKER_EXTRACTION:
         description: Le worker extraction a changé
+        required: false
+        type: boolean
+      WORKER_OCR_LAYOUT:
+        description: Le worker ocr-layout a changé
+        required: false
+        type: boolean
+      WORKER_OCR:
+        description: Le worker ocr a changé
+        required: false
+        type: boolean
+      WORKER_OCR_TABLE:
+        description: Le worker ocr-table a changé
+        required: false
+        type: boolean
+      WORKER_OCR_VISION:
+        description: Le worker ocr-vision a changé
         required: false
         type: boolean
         default: false
@@ -320,6 +352,110 @@ jobs:
 
       - name: Run tests
         working-directory: worker/extraction
+        run: uv run pytest
+
+
+  unit-tests-worker-ocr-layout:
+    name: worker/layout
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_OCR_LAYOUT }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          python-version: ${{ inputs.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: worker/layout/uv.lock
+
+      - name: Install worker dependencies
+        working-directory: worker/layout
+        run: uv sync --group dev
+
+      - name: Run tests
+        working-directory: worker/layout
+        run: uv run pytest
+
+
+  unit-tests-worker-ocr:
+    name: worker/ocr
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_OCR }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          python-version: ${{ inputs.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: worker/ocr/uv.lock
+
+      - name: Install worker dependencies
+        working-directory: worker/ocr
+        run: uv sync --group dev
+
+      - name: Run tests
+        working-directory: worker/ocr
+        run: uv run pytest
+
+
+  unit-tests-worker-ocr-table:
+    name: worker/table
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_OCR_TABLE }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          python-version: ${{ inputs.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: worker/table/uv.lock
+
+      - name: Install worker dependencies
+        working-directory: worker/table
+        run: uv sync --group dev
+
+      - name: Run tests
+        working-directory: worker/table
+        run: uv run pytest
+
+
+  unit-tests-worker-ocr-vision:
+    name: worker/vision
+    if: ${{ inputs.RUN_ALL || inputs.WORKER_OCR_VISION }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
+        with:
+          python-version: ${{ inputs.PYTHON_VERSION }}
+          enable-cache: true
+          cache-dependency-glob: worker/vision/uv.lock
+
+      - name: Install worker dependencies
+        working-directory: worker/vision
+        run: uv sync --group dev
+
+      - name: Run tests
+        working-directory: worker/vision
         run: uv run pytest
 
   unit-tests-worker-async-api:

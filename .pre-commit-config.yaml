@@ -88,6 +88,34 @@ repos:
         files: ^worker/extraction/
         pass_filenames: false
 
+      - id: worker-ocr-layout-tests
+        name: worker/layout - pytest
+        entry: bash -c 'cd worker/layout && uv run pytest -q'
+        language: system
+        files: ^worker/layout/
+        pass_filenames: false
+
+      - id: worker-ocr-tests
+        name: worker/ocr - pytest
+        entry: bash -c 'cd worker/ocr && uv run pytest -q'
+        language: system
+        files: ^worker/ocr/
+        pass_filenames: false
+
+      - id: worker-ocr-table-tests
+        name: worker/table - pytest
+        entry: bash -c 'cd worker/table && uv run pytest -q'
+        language: system
+        files: ^worker/table/
+        pass_filenames: false
+
+      - id: worker-ocr-vision-tests
+        name: worker/vision - pytest
+        entry: bash -c 'cd worker/vision && uv run pytest -q'
+        language: system
+        files: ^worker/vision/
+        pass_filenames: false
+
       - id: worker-document-render-tests
         name: worker/document_render - pytest
         entry: bash -c 'cd worker/document_render && uv run pytest -q'

@@ -1876,6 +1876,898 @@ Kubernetes: `>=1.25.0-0`
 | worker_extraction.strategy.rollingUpdate.maxUnavailable | int | `1` | The maximum number of pods that can be unavailable during the update process. |
 | worker_extraction.strategy.type | string | `"RollingUpdate"` | Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`. Only applied when `deploymentType` is "Deployment". |
 
+### WorkerOcr
+
+#### General
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.affinity | object | `{}` | Affinity used for app pod. |
+| worker_ocr.args | list | `[]` | Worker_ocr container command args. |
+| worker_ocr.automountServiceAccountToken | bool | `false` | Mount the ServiceAccount token into the app pods. Defaults to false so a compromised container holds no API credentials; the API server does not need the token unless the app actually talks to the Kubernetes API. Applied at pod level so it holds even when `serviceAccount.name` points at an SA that automounts. |
+| worker_ocr.command | list | `[]` | Worker_ocr container command. |
+| worker_ocr.containerPort | int | `8080` | Worker_ocr container port number. Set to `null`/`0` (and disable `service`/probes) for components that don't listen on any port (e.g. a queue consumer). |
+| worker_ocr.containerPortName | string | `"http"` | Worker_ocr container port name. |
+| worker_ocr.deploymentType | string | `"Deployment"` | Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet" (validated at render time - an unknown value fails instead of producing a release with no workload). Use the top-level `jobs` / `cronjobs` maps for one-off or scheduled workloads. Some values only apply to certain kinds: `replicaCount`/`autoscaling` and `strategy` are Deployment-only (`autoscaling` also works on a StatefulSet), `volumeClaims`/`extraVolumeClaims` are StatefulSet-only, and `updateStrategy` covers StatefulSet and DaemonSet. |
+| worker_ocr.dnsConfig | object | `{}` | Pod DNS configuration, merged with `dnsPolicy` by the kubelet. |
+| worker_ocr.dnsPolicy | string | `""` (`ClusterFirstWithHostNet` when `hostNetwork` is true) | Pod DNS policy. Left empty, it defaults to `ClusterFirstWithHostNet` when `hostNetwork` is true (otherwise a hostNetwork pod silently stops resolving cluster DNS) and to the Kubernetes default `ClusterFirst` when it isn't. |
+| worker_ocr.enableServiceLinks | bool | `false` | Inject the legacy `{SVC}_SERVICE_HOST`/`_PORT` environment variables for every Service in the namespace. Defaults to false: the variables are rarely used, leak the namespace's topology into every container, and can collide with the app's own configuration. Set to true only for an app that genuinely reads them. |
+| worker_ocr.enabled | bool | `false` | Déploie le pod d'OCR « texte des régions des pages scannées (PP-OCRv5) » (OCR_ENGINE=layout de `worker_document`). Désactivé par défaut : il porte un modèle ONNX et n'a de sens qu'avec les autres pods d'OCR. Voir worker/document_process/README.md. |
+| worker_ocr.env | object | `{}` | Map or array of environment variables to inject into the app container (`valueFrom` supported). |
+| worker_ocr.envCm | object | `{}` | Map of environment variables to inject into a configmap loaded by the app container (`valueFrom` not supported). |
+| worker_ocr.envFrom | list | `[]` | Worker_ocr container env variables loaded from configmap or secret reference. List or map (merged with `global.envFrom` above, global entries first); see `global.envFrom` for both forms. |
+| worker_ocr.envSecret | object | `{}` | Map of environment variables to inject into a secret loaded by the app container (`valueFrom` not supported). Values placed here are stored in plain text in the values file AND in the Helm release secret, so use it for non-sensitive-but-secret-shaped config only. For real credentials prefer referencing a Secret you manage elsewhere via `envFrom`, or have an operator materialise it (see the `VaultStaticSecret` example under `extraObjects`). |
+| worker_ocr.extraContainers | list | `[]` | Extra containers to add to the app pod as sidecars. |
+| worker_ocr.extraPorts | list | `[]` | Worker_ocr extra container ports. |
+| worker_ocr.extraVolumeClaims | list | `[]` | Additional volumeClaims to add, concatenated with `volumeClaims` above at render time. |
+| worker_ocr.extraVolumeMounts | list | `[]` | Additional volumeMounts to add, concatenated with `volumeMounts` above at render time. |
+| worker_ocr.extraVolumes | list | `[]` | Additional volumes to add, concatenated with `volumes` above at render time (e.g. to mount a cert or config from a values override without repeating the chart's own volumes). |
+| worker_ocr.hostAliases | list | `[]` | Host aliases that will be injected at pod-level into /etc/hosts. |
+| worker_ocr.hostNetwork | bool | `false` | Share the host network namespace. Container ports then bind directly on the node, so they must not collide with anything else running there. |
+| worker_ocr.hostPID | bool | `false` | Share the host PID namespace (lets the container see and signal host processes). |
+| worker_ocr.imagePullSecrets | list | `[]` | Image credentials configuration. |
+| worker_ocr.initContainers | list | `[]` | Init containers to add to the app pod. |
+| worker_ocr.nodeSelector | object | `{}` | Default node selector for app. |
+| worker_ocr.podAnnotations | object | `{}` | Annotations for the app deployed pods. |
+| worker_ocr.podLabels | object | `{}` | Labels for the app deployed pods. |
+| worker_ocr.podSecurityContext | object | `{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard. Rendered via `toYaml`, so any `PodSecurityContext` field is accepted. Adjust the UID/GID to whatever your image actually ships with - `runAsNonRoot` makes the kubelet refuse to start a container that would run as root, which is the intended failure mode rather than something to switch off. Set to `null` to omit the block entirely. |
+| worker_ocr.priorityClassName | string | `""` | PriorityClass to schedule the pods with (e.g. `system-node-critical` for a node agent that must not be evicted under pressure). |
+| worker_ocr.replicaCount | int | `1` | The number of application controller pods to run. Ignored when `deploymentType` is "DaemonSet" (one pod per node) or when `autoscaling.enabled` is true. |
+| worker_ocr.revisionHistoryLimit | int | `10` | Revision history limit for the app. |
+| worker_ocr.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000}` | Container-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard: no privilege escalation, no capabilities, immutable root filesystem. Rendered via `toYaml`, so any `SecurityContext` field is accepted. Note `readOnlyRootFilesystem` requires the app to write only to mounted volumes - the default `volumes`/`volumeMounts` below provide an `emptyDir` on /tmp for that reason. Set to `null` to omit the block entirely. |
+| worker_ocr.terminationGracePeriodSeconds | int | `null` (Kubernetes default of 30) | Grace period, in seconds, given to the pod to shut down cleanly before it is killed. |
+| worker_ocr.tolerations | list | `[]` | Default tolerations for app. |
+| worker_ocr.topologySpreadConstraints | list | `[]` | Topology spread constraints used to spread the pods across failure domains. |
+| worker_ocr.updateStrategy | object | `{}` | Update strategy applied when `deploymentType` is "StatefulSet" or "DaemonSet" (ignored for a Deployment, which uses `strategy` above). Rendered verbatim via `toYaml`, so it takes the native `StatefulSetUpdateStrategy`/`DaemonSetUpdateStrategy` shape of the selected kind; left empty, Kubernetes applies its own default (`RollingUpdate` for both). |
+| worker_ocr.volumeClaims | list | `[]` | List of volumeClaims to add, rendered as the StatefulSet's `volumeClaimTemplates`. Requires `deploymentType: "StatefulSet"` - setting it on a Deployment or DaemonSet fails at render time rather than being silently dropped (use `volumes`/`extraVolumes` there instead). |
+| worker_ocr.volumeMounts | list | `[{"mountPath":"/tmp","name":"tmp"}]` | List of mounts to add (normally used with `volumes` or `volumeClaims`). Prefer this for mounts the chart itself always needs; use `extraVolumeMounts` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to the `/tmp` mount backing the hardened `readOnlyRootFilesystem` default (see `volumes` above). |
+| worker_ocr.volumes | list | `[{"emptyDir":{},"name":"tmp"}]` | List of volumes to add. Prefer this for volumes the chart itself always needs (e.g. security-hardening `emptyDir`s); use `extraVolumes` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to a `/tmp` `emptyDir`, which is what makes the default `securityContext.readOnlyRootFilesystem: true` usable - drop it only if you also relax that. Helm replaces lists wholesale rather than merging them, so overriding this key means restating the entries you want to keep. |
+
+#### Autoscaling
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.autoscaling.enabled | bool | `false` | Enable Horizontal Pod Autoscaler for the app. |
+| worker_ocr.autoscaling.maxReplicas | int | `3` | Maximum number of replicas for the app. |
+| worker_ocr.autoscaling.minReplicas | int | `1` | Minimum number of replicas for the app. |
+| worker_ocr.autoscaling.targetCPUUtilizationPercentage | int | `80` | Average CPU utilization percentage for the app. |
+| worker_ocr.autoscaling.targetMemoryUtilizationPercentage | int | `80` | Average memory utilization percentage for the app. |
+
+#### GrpcRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.grpcRoute.annotations | object | `{}` | Additional GRPCRoute annotations. |
+| worker_ocr.grpcRoute.enabled | bool | `false` | Enable a GRPCRoute resource for this service. |
+| worker_ocr.grpcRoute.hostnames | list | `[]` | Hostnames for the GRPCRoute to match. |
+| worker_ocr.grpcRoute.labels | object | `{}` | Additional GRPCRoute labels. |
+| worker_ocr.grpcRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the GRPCRoute to. |
+| worker_ocr.grpcRoute.rules | list | `[]` | Routing rules for the GRPCRoute. |
+
+#### HttpRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.httpRoute.annotations | object | `{}` | Additional HTTPRoute annotations. |
+| worker_ocr.httpRoute.enabled | bool | `false` | Enable an HTTPRoute resource for this service. |
+| worker_ocr.httpRoute.hostnames | list | `[]` | Hostnames for the HTTPRoute to match. |
+| worker_ocr.httpRoute.labels | object | `{}` | Additional HTTPRoute labels. |
+| worker_ocr.httpRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the HTTPRoute to. |
+| worker_ocr.httpRoute.rules | list | `[]` | Routing rules for the HTTPRoute. |
+
+#### Image
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.image.digest | string | `""` | Image digest (`sha256:...`). When set it takes precedence over `tag`, pinning the exact image content so the same release can never resolve to a different build - preferred over a mutable tag for anything you deploy to production. |
+| worker_ocr.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the app. |
+| worker_ocr.image.registry | string | `"ghcr.io"` | Registry to use for the app. |
+| worker_ocr.image.repository | string | `"ia-generative/mille-feuille/worker-ocr"` | Repository to use for the app. |
+| worker_ocr.image.tag | string | `""` | Tag to use for the app. Overrides the image tag whose default is the chart appVersion. |
+
+#### Ingress
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.ingress.annotations | object | `{}` | Additional ingress annotations. |
+| worker_ocr.ingress.className | string | `""` | Defines which ingress controller will implement the resource. |
+| worker_ocr.ingress.enabled | bool | `false` | Whether or not ingress should be enabled. |
+| worker_ocr.ingress.hosts[0].name | string | `"domain.local"` | Name of the host record. |
+| worker_ocr.ingress.hosts[0].paths | list | `[{"backend":{"portNumber":null,"serviceName":""},"path":"/","pathType":"Prefix"}]` | Paths of the host record to manage routing (avoids repeating the same host for multiple paths/backends). |
+| worker_ocr.ingress.hosts[0].paths[0].backend.portNumber | string | `nil` | Port used by the backend service linked to the path (leave null to use the app service port). |
+| worker_ocr.ingress.hosts[0].paths[0].backend.serviceName | string | `""` | Name of the backend service linked to the path (leave empty to use the app service). |
+| worker_ocr.ingress.hosts[0].paths[0].path | string | `"/"` | Path of the host record to manage routing. |
+| worker_ocr.ingress.hosts[0].paths[0].pathType | string | `"Prefix"` | Path type of the host record. |
+| worker_ocr.ingress.labels | object | `{}` | Additional ingress labels. |
+| worker_ocr.ingress.tls | list | `[]` | Enable TLS configuration. |
+
+#### Metrics
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.metrics.enabled | bool | `false` | Deploy metrics service. |
+| worker_ocr.metrics.service.annotations | object | `{}` | Metrics service annotations. |
+| worker_ocr.metrics.service.labels | object | `{}` | Metrics service labels. |
+| worker_ocr.metrics.service.port | int | `9000` | Metrics service port. |
+| worker_ocr.metrics.service.portName | string | `"metrics"` | Metrics service port name. |
+| worker_ocr.metrics.service.targetPort | int | `9000` | Metrics service target port. |
+| worker_ocr.metrics.service.type | string | `"ClusterIP"` | Type of metrics service to create. |
+| worker_ocr.metrics.serviceMonitor.annotations | object | `{}` | Prometheus ServiceMonitor annotations. |
+| worker_ocr.metrics.serviceMonitor.enabled | bool | `false` | Enable a prometheus ServiceMonitor. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].basicAuth.password | string | `""` | The secret in the service monitor namespace that contains the password for authentication. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].basicAuth.username | string | `""` | The secret in the service monitor namespace that contains the username for authentication. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.key | string | `""` | Secret key to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.name | string | `""` | Secret name to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].honorLabels | bool | `false` | When true, honorLabels preserves the metric’s labels when they collide with the target’s labels. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].interval | string | `"30s"` | Prometheus ServiceMonitor interval. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].metricRelabelings | list | `[]` | Prometheus MetricRelabelConfigs to apply to samples before ingestion. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].path | string | `"/metrics"` | Path used by the Prometheus ServiceMonitor to scrape metrics. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].relabelings | list | `[]` | Prometheus RelabelConfigs to apply to samples before scraping. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].scheme | string | `""` | Prometheus ServiceMonitor scheme. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].scrapeTimeout | string | `"10s"` | Prometheus ServiceMonitor scrapeTimeout. If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].selector | object | `{}` | Prometheus ServiceMonitor selector. |
+| worker_ocr.metrics.serviceMonitor.endpoints[0].tlsConfig | object | `{}` | Prometheus ServiceMonitor tlsConfig. |
+| worker_ocr.metrics.serviceMonitor.labels | object | `{}` | Prometheus ServiceMonitor labels. |
+
+#### NetworkPolicy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.networkPolicy.annotations | object | `{}` | Annotations to be added to the app NetworkPolicy. |
+| worker_ocr.networkPolicy.create | bool | `false` | Create NetworkPolicy object for the app. The policy always selects this component's pods only (via its selector labels), never the whole namespace. |
+| worker_ocr.networkPolicy.egress | list | `[]` | Egress rules for the NetworkPolicy object. |
+| worker_ocr.networkPolicy.ingress | list | `[]` | Ingress rules for the NetworkPolicy object. |
+| worker_ocr.networkPolicy.labels | object | `{}` | Labels to be added to the app NetworkPolicy. |
+| worker_ocr.networkPolicy.policyTypes | list | `["Ingress"]` | Policy types used in the NetworkPolicy object. |
+
+#### Pdb
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.pdb.annotations | object | `{}` | Annotations to be added to app pdb. |
+| worker_ocr.pdb.enabled | bool | `false` | Deploy a PodDisruptionBudget for the app |
+| worker_ocr.pdb.labels | object | `{}` | Labels to be added to app pdb. |
+| worker_ocr.pdb.maxUnavailable | string | `""` | Number of pods that are unavailable after eviction as number or percentage (eg.: 50%). Has higher precedence over `worker_ocr.pdb.minAvailable`. |
+| worker_ocr.pdb.minAvailable | string | `""` | Number of pods that are available after eviction as number or percentage (eg.: 50%). One of `minAvailable` / `maxUnavailable` must be set when `pdb.enabled` is true - a budget of 0 is the same as having no budget at all, so leaving both empty fails at render time. |
+
+#### Probes
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.probes.livenessProbe.failureThreshold | int | `3` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr.probes.livenessProbe.httpGet.path | string | `"/"` | Worker_ocr container healthcheck endpoint (livenessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr.probes.livenessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr.probes.livenessProbe.initialDelaySeconds | int | `30` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr.probes.livenessProbe.periodSeconds | int | `30` | How often (in seconds) to perform the probe. |
+| worker_ocr.probes.livenessProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr.probes.livenessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_ocr.probes.readinessProbe.failureThreshold | int | `2` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr.probes.readinessProbe.httpGet.path | string | `"/"` | Worker_ocr container healthcheck endpoint (readinessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr.probes.readinessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr.probes.readinessProbe.initialDelaySeconds | int | `10` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr.probes.readinessProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_ocr.probes.readinessProbe.successThreshold | int | `2` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr.probes.readinessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_ocr.probes.startupProbe.failureThreshold | int | `10` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr.probes.startupProbe.httpGet.path | string | `"/"` | Worker_ocr container healthcheck endpoint (startupProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr.probes.startupProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr.probes.startupProbe.initialDelaySeconds | int | `0` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr.probes.startupProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_ocr.probes.startupProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr.probes.startupProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+
+#### Resources
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.resources.limits.cpu | string | `"500m"` | CPU limit for the app. |
+| worker_ocr.resources.limits.memory | string | `"2Gi"` | Memory limit for the app. |
+| worker_ocr.resources.requests.cpu | string | `"100m"` | CPU request for the app. |
+| worker_ocr.resources.requests.memory | string | `"256Mi"` | Memory request for the app. |
+
+#### Service
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.service.enabled | bool | `true` | Whether or not to create a Service for the app. Set to `false` for components that don't accept traffic (e.g. a queue consumer with no `containerPort`). |
+| worker_ocr.service.extraPorts | list | `[]` | Extra service ports. |
+| worker_ocr.service.nodePort | int | `null` (allocated by Kubernetes) | Port used when type is `NodePort` to expose the service on the given node port. Left empty, Kubernetes allocates one from the configured node-port range, which avoids two releases of this chart colliding on the same hardcoded port. |
+| worker_ocr.service.port | int | `80` | Port used by the service. |
+| worker_ocr.service.portName | string | `"http"` | Port name used by the service. |
+| worker_ocr.service.protocol | string | `"TCP"` | Protocol used by the service. |
+| worker_ocr.service.type | string | `"ClusterIP"` | Type of service to create for the app. |
+
+#### ServiceAccount
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.serviceAccount.annotations | object | `{}` | Annotations applied to created service account. |
+| worker_ocr.serviceAccount.automountServiceAccountToken | bool | `false` | Should the service account access token be automount in the pod. |
+| worker_ocr.serviceAccount.clusterRole.create | bool | `false` | Should the clusterRole be created. |
+| worker_ocr.serviceAccount.clusterRole.rules | list | `[]` | ClusterRole rules associated with the service account. |
+| worker_ocr.serviceAccount.create | bool | `false` | Create a service account. |
+| worker_ocr.serviceAccount.enabled | bool | `false` | Enable the service account. |
+| worker_ocr.serviceAccount.name | string | `""` | Service account name. |
+| worker_ocr.serviceAccount.role.create | bool | `false` | Should the role be created. |
+| worker_ocr.serviceAccount.role.rules | list | `[]` | Role rules associated with the service account. |
+
+#### Strategy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr.strategy.rollingUpdate.maxSurge | int | `1` | The maximum number of pods that can be scheduled above the desired number of pods. |
+| worker_ocr.strategy.rollingUpdate.maxUnavailable | int | `1` | The maximum number of pods that can be unavailable during the update process. |
+| worker_ocr.strategy.type | string | `"RollingUpdate"` | Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`. Only applied when `deploymentType` is "Deployment". |
+
+### WorkerOcrLayout
+
+#### General
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.affinity | object | `{}` | Affinity used for app pod. |
+| worker_ocr_layout.args | list | `[]` | Worker_ocr_layout container command args. |
+| worker_ocr_layout.automountServiceAccountToken | bool | `false` | Mount the ServiceAccount token into the app pods. Defaults to false so a compromised container holds no API credentials; the API server does not need the token unless the app actually talks to the Kubernetes API. Applied at pod level so it holds even when `serviceAccount.name` points at an SA that automounts. |
+| worker_ocr_layout.command | list | `[]` | Worker_ocr_layout container command. |
+| worker_ocr_layout.containerPort | int | `8080` | Worker_ocr_layout container port number. Set to `null`/`0` (and disable `service`/probes) for components that don't listen on any port (e.g. a queue consumer). |
+| worker_ocr_layout.containerPortName | string | `"http"` | Worker_ocr_layout container port name. |
+| worker_ocr_layout.deploymentType | string | `"Deployment"` | Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet" (validated at render time - an unknown value fails instead of producing a release with no workload). Use the top-level `jobs` / `cronjobs` maps for one-off or scheduled workloads. Some values only apply to certain kinds: `replicaCount`/`autoscaling` and `strategy` are Deployment-only (`autoscaling` also works on a StatefulSet), `volumeClaims`/`extraVolumeClaims` are StatefulSet-only, and `updateStrategy` covers StatefulSet and DaemonSet. |
+| worker_ocr_layout.dnsConfig | object | `{}` | Pod DNS configuration, merged with `dnsPolicy` by the kubelet. |
+| worker_ocr_layout.dnsPolicy | string | `""` (`ClusterFirstWithHostNet` when `hostNetwork` is true) | Pod DNS policy. Left empty, it defaults to `ClusterFirstWithHostNet` when `hostNetwork` is true (otherwise a hostNetwork pod silently stops resolving cluster DNS) and to the Kubernetes default `ClusterFirst` when it isn't. |
+| worker_ocr_layout.enableServiceLinks | bool | `false` | Inject the legacy `{SVC}_SERVICE_HOST`/`_PORT` environment variables for every Service in the namespace. Defaults to false: the variables are rarely used, leak the namespace's topology into every container, and can collide with the app's own configuration. Set to true only for an app that genuinely reads them. |
+| worker_ocr_layout.enabled | bool | `false` | Déploie le pod d'OCR « layout des pages scannées (PP-DocLayoutV3) » (OCR_ENGINE=layout de `worker_document`). Désactivé par défaut : il porte un modèle ONNX et n'a de sens qu'avec les autres pods d'OCR. Voir worker/document_process/README.md. |
+| worker_ocr_layout.env | object | `{}` | Map or array of environment variables to inject into the app container (`valueFrom` supported). |
+| worker_ocr_layout.envCm | object | `{}` | Map of environment variables to inject into a configmap loaded by the app container (`valueFrom` not supported). |
+| worker_ocr_layout.envFrom | list | `[]` | Worker_ocr_layout container env variables loaded from configmap or secret reference. List or map (merged with `global.envFrom` above, global entries first); see `global.envFrom` for both forms. |
+| worker_ocr_layout.envSecret | object | `{}` | Map of environment variables to inject into a secret loaded by the app container (`valueFrom` not supported). Values placed here are stored in plain text in the values file AND in the Helm release secret, so use it for non-sensitive-but-secret-shaped config only. For real credentials prefer referencing a Secret you manage elsewhere via `envFrom`, or have an operator materialise it (see the `VaultStaticSecret` example under `extraObjects`). |
+| worker_ocr_layout.extraContainers | list | `[]` | Extra containers to add to the app pod as sidecars. |
+| worker_ocr_layout.extraPorts | list | `[]` | Worker_ocr_layout extra container ports. |
+| worker_ocr_layout.extraVolumeClaims | list | `[]` | Additional volumeClaims to add, concatenated with `volumeClaims` above at render time. |
+| worker_ocr_layout.extraVolumeMounts | list | `[]` | Additional volumeMounts to add, concatenated with `volumeMounts` above at render time. |
+| worker_ocr_layout.extraVolumes | list | `[]` | Additional volumes to add, concatenated with `volumes` above at render time (e.g. to mount a cert or config from a values override without repeating the chart's own volumes). |
+| worker_ocr_layout.hostAliases | list | `[]` | Host aliases that will be injected at pod-level into /etc/hosts. |
+| worker_ocr_layout.hostNetwork | bool | `false` | Share the host network namespace. Container ports then bind directly on the node, so they must not collide with anything else running there. |
+| worker_ocr_layout.hostPID | bool | `false` | Share the host PID namespace (lets the container see and signal host processes). |
+| worker_ocr_layout.imagePullSecrets | list | `[]` | Image credentials configuration. |
+| worker_ocr_layout.initContainers | list | `[]` | Init containers to add to the app pod. |
+| worker_ocr_layout.nodeSelector | object | `{}` | Default node selector for app. |
+| worker_ocr_layout.podAnnotations | object | `{}` | Annotations for the app deployed pods. |
+| worker_ocr_layout.podLabels | object | `{}` | Labels for the app deployed pods. |
+| worker_ocr_layout.podSecurityContext | object | `{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard. Rendered via `toYaml`, so any `PodSecurityContext` field is accepted. Adjust the UID/GID to whatever your image actually ships with - `runAsNonRoot` makes the kubelet refuse to start a container that would run as root, which is the intended failure mode rather than something to switch off. Set to `null` to omit the block entirely. |
+| worker_ocr_layout.priorityClassName | string | `""` | PriorityClass to schedule the pods with (e.g. `system-node-critical` for a node agent that must not be evicted under pressure). |
+| worker_ocr_layout.replicaCount | int | `1` | The number of application controller pods to run. Ignored when `deploymentType` is "DaemonSet" (one pod per node) or when `autoscaling.enabled` is true. |
+| worker_ocr_layout.revisionHistoryLimit | int | `10` | Revision history limit for the app. |
+| worker_ocr_layout.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000}` | Container-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard: no privilege escalation, no capabilities, immutable root filesystem. Rendered via `toYaml`, so any `SecurityContext` field is accepted. Note `readOnlyRootFilesystem` requires the app to write only to mounted volumes - the default `volumes`/`volumeMounts` below provide an `emptyDir` on /tmp for that reason. Set to `null` to omit the block entirely. |
+| worker_ocr_layout.terminationGracePeriodSeconds | int | `null` (Kubernetes default of 30) | Grace period, in seconds, given to the pod to shut down cleanly before it is killed. |
+| worker_ocr_layout.tolerations | list | `[]` | Default tolerations for app. |
+| worker_ocr_layout.topologySpreadConstraints | list | `[]` | Topology spread constraints used to spread the pods across failure domains. |
+| worker_ocr_layout.updateStrategy | object | `{}` | Update strategy applied when `deploymentType` is "StatefulSet" or "DaemonSet" (ignored for a Deployment, which uses `strategy` above). Rendered verbatim via `toYaml`, so it takes the native `StatefulSetUpdateStrategy`/`DaemonSetUpdateStrategy` shape of the selected kind; left empty, Kubernetes applies its own default (`RollingUpdate` for both). |
+| worker_ocr_layout.volumeClaims | list | `[]` | List of volumeClaims to add, rendered as the StatefulSet's `volumeClaimTemplates`. Requires `deploymentType: "StatefulSet"` - setting it on a Deployment or DaemonSet fails at render time rather than being silently dropped (use `volumes`/`extraVolumes` there instead). |
+| worker_ocr_layout.volumeMounts | list | `[{"mountPath":"/tmp","name":"tmp"}]` | List of mounts to add (normally used with `volumes` or `volumeClaims`). Prefer this for mounts the chart itself always needs; use `extraVolumeMounts` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to the `/tmp` mount backing the hardened `readOnlyRootFilesystem` default (see `volumes` above). |
+| worker_ocr_layout.volumes | list | `[{"emptyDir":{},"name":"tmp"}]` | List of volumes to add. Prefer this for volumes the chart itself always needs (e.g. security-hardening `emptyDir`s); use `extraVolumes` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to a `/tmp` `emptyDir`, which is what makes the default `securityContext.readOnlyRootFilesystem: true` usable - drop it only if you also relax that. Helm replaces lists wholesale rather than merging them, so overriding this key means restating the entries you want to keep. |
+
+#### Autoscaling
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.autoscaling.enabled | bool | `false` | Enable Horizontal Pod Autoscaler for the app. |
+| worker_ocr_layout.autoscaling.maxReplicas | int | `3` | Maximum number of replicas for the app. |
+| worker_ocr_layout.autoscaling.minReplicas | int | `1` | Minimum number of replicas for the app. |
+| worker_ocr_layout.autoscaling.targetCPUUtilizationPercentage | int | `80` | Average CPU utilization percentage for the app. |
+| worker_ocr_layout.autoscaling.targetMemoryUtilizationPercentage | int | `80` | Average memory utilization percentage for the app. |
+
+#### GrpcRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.grpcRoute.annotations | object | `{}` | Additional GRPCRoute annotations. |
+| worker_ocr_layout.grpcRoute.enabled | bool | `false` | Enable a GRPCRoute resource for this service. |
+| worker_ocr_layout.grpcRoute.hostnames | list | `[]` | Hostnames for the GRPCRoute to match. |
+| worker_ocr_layout.grpcRoute.labels | object | `{}` | Additional GRPCRoute labels. |
+| worker_ocr_layout.grpcRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the GRPCRoute to. |
+| worker_ocr_layout.grpcRoute.rules | list | `[]` | Routing rules for the GRPCRoute. |
+
+#### HttpRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.httpRoute.annotations | object | `{}` | Additional HTTPRoute annotations. |
+| worker_ocr_layout.httpRoute.enabled | bool | `false` | Enable an HTTPRoute resource for this service. |
+| worker_ocr_layout.httpRoute.hostnames | list | `[]` | Hostnames for the HTTPRoute to match. |
+| worker_ocr_layout.httpRoute.labels | object | `{}` | Additional HTTPRoute labels. |
+| worker_ocr_layout.httpRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the HTTPRoute to. |
+| worker_ocr_layout.httpRoute.rules | list | `[]` | Routing rules for the HTTPRoute. |
+
+#### Image
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.image.digest | string | `""` | Image digest (`sha256:...`). When set it takes precedence over `tag`, pinning the exact image content so the same release can never resolve to a different build - preferred over a mutable tag for anything you deploy to production. |
+| worker_ocr_layout.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the app. |
+| worker_ocr_layout.image.registry | string | `"ghcr.io"` | Registry to use for the app. |
+| worker_ocr_layout.image.repository | string | `"ia-generative/mille-feuille/worker-ocr-layout"` | Repository to use for the app. |
+| worker_ocr_layout.image.tag | string | `""` | Tag to use for the app. Overrides the image tag whose default is the chart appVersion. |
+
+#### Ingress
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.ingress.annotations | object | `{}` | Additional ingress annotations. |
+| worker_ocr_layout.ingress.className | string | `""` | Defines which ingress controller will implement the resource. |
+| worker_ocr_layout.ingress.enabled | bool | `false` | Whether or not ingress should be enabled. |
+| worker_ocr_layout.ingress.hosts[0].name | string | `"domain.local"` | Name of the host record. |
+| worker_ocr_layout.ingress.hosts[0].paths | list | `[{"backend":{"portNumber":null,"serviceName":""},"path":"/","pathType":"Prefix"}]` | Paths of the host record to manage routing (avoids repeating the same host for multiple paths/backends). |
+| worker_ocr_layout.ingress.hosts[0].paths[0].backend.portNumber | string | `nil` | Port used by the backend service linked to the path (leave null to use the app service port). |
+| worker_ocr_layout.ingress.hosts[0].paths[0].backend.serviceName | string | `""` | Name of the backend service linked to the path (leave empty to use the app service). |
+| worker_ocr_layout.ingress.hosts[0].paths[0].path | string | `"/"` | Path of the host record to manage routing. |
+| worker_ocr_layout.ingress.hosts[0].paths[0].pathType | string | `"Prefix"` | Path type of the host record. |
+| worker_ocr_layout.ingress.labels | object | `{}` | Additional ingress labels. |
+| worker_ocr_layout.ingress.tls | list | `[]` | Enable TLS configuration. |
+
+#### Metrics
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.metrics.enabled | bool | `false` | Deploy metrics service. |
+| worker_ocr_layout.metrics.service.annotations | object | `{}` | Metrics service annotations. |
+| worker_ocr_layout.metrics.service.labels | object | `{}` | Metrics service labels. |
+| worker_ocr_layout.metrics.service.port | int | `9000` | Metrics service port. |
+| worker_ocr_layout.metrics.service.portName | string | `"metrics"` | Metrics service port name. |
+| worker_ocr_layout.metrics.service.targetPort | int | `9000` | Metrics service target port. |
+| worker_ocr_layout.metrics.service.type | string | `"ClusterIP"` | Type of metrics service to create. |
+| worker_ocr_layout.metrics.serviceMonitor.annotations | object | `{}` | Prometheus ServiceMonitor annotations. |
+| worker_ocr_layout.metrics.serviceMonitor.enabled | bool | `false` | Enable a prometheus ServiceMonitor. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].basicAuth.password | string | `""` | The secret in the service monitor namespace that contains the password for authentication. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].basicAuth.username | string | `""` | The secret in the service monitor namespace that contains the username for authentication. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.key | string | `""` | Secret key to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.name | string | `""` | Secret name to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].honorLabels | bool | `false` | When true, honorLabels preserves the metric’s labels when they collide with the target’s labels. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].interval | string | `"30s"` | Prometheus ServiceMonitor interval. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].metricRelabelings | list | `[]` | Prometheus MetricRelabelConfigs to apply to samples before ingestion. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].path | string | `"/metrics"` | Path used by the Prometheus ServiceMonitor to scrape metrics. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].relabelings | list | `[]` | Prometheus RelabelConfigs to apply to samples before scraping. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].scheme | string | `""` | Prometheus ServiceMonitor scheme. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].scrapeTimeout | string | `"10s"` | Prometheus ServiceMonitor scrapeTimeout. If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].selector | object | `{}` | Prometheus ServiceMonitor selector. |
+| worker_ocr_layout.metrics.serviceMonitor.endpoints[0].tlsConfig | object | `{}` | Prometheus ServiceMonitor tlsConfig. |
+| worker_ocr_layout.metrics.serviceMonitor.labels | object | `{}` | Prometheus ServiceMonitor labels. |
+
+#### NetworkPolicy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.networkPolicy.annotations | object | `{}` | Annotations to be added to the app NetworkPolicy. |
+| worker_ocr_layout.networkPolicy.create | bool | `false` | Create NetworkPolicy object for the app. The policy always selects this component's pods only (via its selector labels), never the whole namespace. |
+| worker_ocr_layout.networkPolicy.egress | list | `[]` | Egress rules for the NetworkPolicy object. |
+| worker_ocr_layout.networkPolicy.ingress | list | `[]` | Ingress rules for the NetworkPolicy object. |
+| worker_ocr_layout.networkPolicy.labels | object | `{}` | Labels to be added to the app NetworkPolicy. |
+| worker_ocr_layout.networkPolicy.policyTypes | list | `["Ingress"]` | Policy types used in the NetworkPolicy object. |
+
+#### Pdb
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.pdb.annotations | object | `{}` | Annotations to be added to app pdb. |
+| worker_ocr_layout.pdb.enabled | bool | `false` | Deploy a PodDisruptionBudget for the app |
+| worker_ocr_layout.pdb.labels | object | `{}` | Labels to be added to app pdb. |
+| worker_ocr_layout.pdb.maxUnavailable | string | `""` | Number of pods that are unavailable after eviction as number or percentage (eg.: 50%). Has higher precedence over `worker_ocr_layout.pdb.minAvailable`. |
+| worker_ocr_layout.pdb.minAvailable | string | `""` | Number of pods that are available after eviction as number or percentage (eg.: 50%). One of `minAvailable` / `maxUnavailable` must be set when `pdb.enabled` is true - a budget of 0 is the same as having no budget at all, so leaving both empty fails at render time. |
+
+#### Probes
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.probes.livenessProbe.failureThreshold | int | `3` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr_layout.probes.livenessProbe.httpGet.path | string | `"/"` | Worker_ocr_layout container healthcheck endpoint (livenessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr_layout.probes.livenessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr_layout.probes.livenessProbe.initialDelaySeconds | int | `30` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr_layout.probes.livenessProbe.periodSeconds | int | `30` | How often (in seconds) to perform the probe. |
+| worker_ocr_layout.probes.livenessProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr_layout.probes.livenessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_ocr_layout.probes.readinessProbe.failureThreshold | int | `2` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr_layout.probes.readinessProbe.httpGet.path | string | `"/"` | Worker_ocr_layout container healthcheck endpoint (readinessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr_layout.probes.readinessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr_layout.probes.readinessProbe.initialDelaySeconds | int | `10` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr_layout.probes.readinessProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_ocr_layout.probes.readinessProbe.successThreshold | int | `2` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr_layout.probes.readinessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_ocr_layout.probes.startupProbe.failureThreshold | int | `10` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr_layout.probes.startupProbe.httpGet.path | string | `"/"` | Worker_ocr_layout container healthcheck endpoint (startupProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr_layout.probes.startupProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr_layout.probes.startupProbe.initialDelaySeconds | int | `0` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr_layout.probes.startupProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_ocr_layout.probes.startupProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr_layout.probes.startupProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+
+#### Resources
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.resources.limits.cpu | string | `"500m"` | CPU limit for the app. |
+| worker_ocr_layout.resources.limits.memory | string | `"2Gi"` | Memory limit for the app. |
+| worker_ocr_layout.resources.requests.cpu | string | `"100m"` | CPU request for the app. |
+| worker_ocr_layout.resources.requests.memory | string | `"256Mi"` | Memory request for the app. |
+
+#### Service
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.service.enabled | bool | `true` | Whether or not to create a Service for the app. Set to `false` for components that don't accept traffic (e.g. a queue consumer with no `containerPort`). |
+| worker_ocr_layout.service.extraPorts | list | `[]` | Extra service ports. |
+| worker_ocr_layout.service.nodePort | int | `null` (allocated by Kubernetes) | Port used when type is `NodePort` to expose the service on the given node port. Left empty, Kubernetes allocates one from the configured node-port range, which avoids two releases of this chart colliding on the same hardcoded port. |
+| worker_ocr_layout.service.port | int | `80` | Port used by the service. |
+| worker_ocr_layout.service.portName | string | `"http"` | Port name used by the service. |
+| worker_ocr_layout.service.protocol | string | `"TCP"` | Protocol used by the service. |
+| worker_ocr_layout.service.type | string | `"ClusterIP"` | Type of service to create for the app. |
+
+#### ServiceAccount
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.serviceAccount.annotations | object | `{}` | Annotations applied to created service account. |
+| worker_ocr_layout.serviceAccount.automountServiceAccountToken | bool | `false` | Should the service account access token be automount in the pod. |
+| worker_ocr_layout.serviceAccount.clusterRole.create | bool | `false` | Should the clusterRole be created. |
+| worker_ocr_layout.serviceAccount.clusterRole.rules | list | `[]` | ClusterRole rules associated with the service account. |
+| worker_ocr_layout.serviceAccount.create | bool | `false` | Create a service account. |
+| worker_ocr_layout.serviceAccount.enabled | bool | `false` | Enable the service account. |
+| worker_ocr_layout.serviceAccount.name | string | `""` | Service account name. |
+| worker_ocr_layout.serviceAccount.role.create | bool | `false` | Should the role be created. |
+| worker_ocr_layout.serviceAccount.role.rules | list | `[]` | Role rules associated with the service account. |
+
+#### Strategy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_layout.strategy.rollingUpdate.maxSurge | int | `1` | The maximum number of pods that can be scheduled above the desired number of pods. |
+| worker_ocr_layout.strategy.rollingUpdate.maxUnavailable | int | `1` | The maximum number of pods that can be unavailable during the update process. |
+| worker_ocr_layout.strategy.type | string | `"RollingUpdate"` | Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`. Only applied when `deploymentType` is "Deployment". |
+
+### WorkerOcrTable
+
+#### General
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.affinity | object | `{}` | Affinity used for app pod. |
+| worker_ocr_table.args | list | `[]` | Worker_ocr_table container command args. |
+| worker_ocr_table.automountServiceAccountToken | bool | `false` | Mount the ServiceAccount token into the app pods. Defaults to false so a compromised container holds no API credentials; the API server does not need the token unless the app actually talks to the Kubernetes API. Applied at pod level so it holds even when `serviceAccount.name` points at an SA that automounts. |
+| worker_ocr_table.command | list | `[]` | Worker_ocr_table container command. |
+| worker_ocr_table.containerPort | int | `8080` | Worker_ocr_table container port number. Set to `null`/`0` (and disable `service`/probes) for components that don't listen on any port (e.g. a queue consumer). |
+| worker_ocr_table.containerPortName | string | `"http"` | Worker_ocr_table container port name. |
+| worker_ocr_table.deploymentType | string | `"Deployment"` | Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet" (validated at render time - an unknown value fails instead of producing a release with no workload). Use the top-level `jobs` / `cronjobs` maps for one-off or scheduled workloads. Some values only apply to certain kinds: `replicaCount`/`autoscaling` and `strategy` are Deployment-only (`autoscaling` also works on a StatefulSet), `volumeClaims`/`extraVolumeClaims` are StatefulSet-only, and `updateStrategy` covers StatefulSet and DaemonSet. |
+| worker_ocr_table.dnsConfig | object | `{}` | Pod DNS configuration, merged with `dnsPolicy` by the kubelet. |
+| worker_ocr_table.dnsPolicy | string | `""` (`ClusterFirstWithHostNet` when `hostNetwork` is true) | Pod DNS policy. Left empty, it defaults to `ClusterFirstWithHostNet` when `hostNetwork` is true (otherwise a hostNetwork pod silently stops resolving cluster DNS) and to the Kubernetes default `ClusterFirst` when it isn't. |
+| worker_ocr_table.enableServiceLinks | bool | `false` | Inject the legacy `{SVC}_SERVICE_HOST`/`_PORT` environment variables for every Service in the namespace. Defaults to false: the variables are rarely used, leak the namespace's topology into every container, and can collide with the app's own configuration. Set to true only for an app that genuinely reads them. |
+| worker_ocr_table.enabled | bool | `false` | Déploie le pod d'OCR « tableaux des pages scannées (SLANet_plus) » (OCR_ENGINE=layout de `worker_document`). Désactivé par défaut : il porte un modèle ONNX et n'a de sens qu'avec les autres pods d'OCR. Voir worker/document_process/README.md. |
+| worker_ocr_table.env | object | `{}` | Map or array of environment variables to inject into the app container (`valueFrom` supported). |
+| worker_ocr_table.envCm | object | `{}` | Map of environment variables to inject into a configmap loaded by the app container (`valueFrom` not supported). |
+| worker_ocr_table.envFrom | list | `[]` | Worker_ocr_table container env variables loaded from configmap or secret reference. List or map (merged with `global.envFrom` above, global entries first); see `global.envFrom` for both forms. |
+| worker_ocr_table.envSecret | object | `{}` | Map of environment variables to inject into a secret loaded by the app container (`valueFrom` not supported). Values placed here are stored in plain text in the values file AND in the Helm release secret, so use it for non-sensitive-but-secret-shaped config only. For real credentials prefer referencing a Secret you manage elsewhere via `envFrom`, or have an operator materialise it (see the `VaultStaticSecret` example under `extraObjects`). |
+| worker_ocr_table.extraContainers | list | `[]` | Extra containers to add to the app pod as sidecars. |
+| worker_ocr_table.extraPorts | list | `[]` | Worker_ocr_table extra container ports. |
+| worker_ocr_table.extraVolumeClaims | list | `[]` | Additional volumeClaims to add, concatenated with `volumeClaims` above at render time. |
+| worker_ocr_table.extraVolumeMounts | list | `[]` | Additional volumeMounts to add, concatenated with `volumeMounts` above at render time. |
+| worker_ocr_table.extraVolumes | list | `[]` | Additional volumes to add, concatenated with `volumes` above at render time (e.g. to mount a cert or config from a values override without repeating the chart's own volumes). |
+| worker_ocr_table.hostAliases | list | `[]` | Host aliases that will be injected at pod-level into /etc/hosts. |
+| worker_ocr_table.hostNetwork | bool | `false` | Share the host network namespace. Container ports then bind directly on the node, so they must not collide with anything else running there. |
+| worker_ocr_table.hostPID | bool | `false` | Share the host PID namespace (lets the container see and signal host processes). |
+| worker_ocr_table.imagePullSecrets | list | `[]` | Image credentials configuration. |
+| worker_ocr_table.initContainers | list | `[]` | Init containers to add to the app pod. |
+| worker_ocr_table.nodeSelector | object | `{}` | Default node selector for app. |
+| worker_ocr_table.podAnnotations | object | `{}` | Annotations for the app deployed pods. |
+| worker_ocr_table.podLabels | object | `{}` | Labels for the app deployed pods. |
+| worker_ocr_table.podSecurityContext | object | `{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard. Rendered via `toYaml`, so any `PodSecurityContext` field is accepted. Adjust the UID/GID to whatever your image actually ships with - `runAsNonRoot` makes the kubelet refuse to start a container that would run as root, which is the intended failure mode rather than something to switch off. Set to `null` to omit the block entirely. |
+| worker_ocr_table.priorityClassName | string | `""` | PriorityClass to schedule the pods with (e.g. `system-node-critical` for a node agent that must not be evicted under pressure). |
+| worker_ocr_table.replicaCount | int | `1` | The number of application controller pods to run. Ignored when `deploymentType` is "DaemonSet" (one pod per node) or when `autoscaling.enabled` is true. |
+| worker_ocr_table.revisionHistoryLimit | int | `10` | Revision history limit for the app. |
+| worker_ocr_table.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000}` | Container-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard: no privilege escalation, no capabilities, immutable root filesystem. Rendered via `toYaml`, so any `SecurityContext` field is accepted. Note `readOnlyRootFilesystem` requires the app to write only to mounted volumes - the default `volumes`/`volumeMounts` below provide an `emptyDir` on /tmp for that reason. Set to `null` to omit the block entirely. |
+| worker_ocr_table.terminationGracePeriodSeconds | int | `null` (Kubernetes default of 30) | Grace period, in seconds, given to the pod to shut down cleanly before it is killed. |
+| worker_ocr_table.tolerations | list | `[]` | Default tolerations for app. |
+| worker_ocr_table.topologySpreadConstraints | list | `[]` | Topology spread constraints used to spread the pods across failure domains. |
+| worker_ocr_table.updateStrategy | object | `{}` | Update strategy applied when `deploymentType` is "StatefulSet" or "DaemonSet" (ignored for a Deployment, which uses `strategy` above). Rendered verbatim via `toYaml`, so it takes the native `StatefulSetUpdateStrategy`/`DaemonSetUpdateStrategy` shape of the selected kind; left empty, Kubernetes applies its own default (`RollingUpdate` for both). |
+| worker_ocr_table.volumeClaims | list | `[]` | List of volumeClaims to add, rendered as the StatefulSet's `volumeClaimTemplates`. Requires `deploymentType: "StatefulSet"` - setting it on a Deployment or DaemonSet fails at render time rather than being silently dropped (use `volumes`/`extraVolumes` there instead). |
+| worker_ocr_table.volumeMounts | list | `[{"mountPath":"/tmp","name":"tmp"}]` | List of mounts to add (normally used with `volumes` or `volumeClaims`). Prefer this for mounts the chart itself always needs; use `extraVolumeMounts` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to the `/tmp` mount backing the hardened `readOnlyRootFilesystem` default (see `volumes` above). |
+| worker_ocr_table.volumes | list | `[{"emptyDir":{},"name":"tmp"}]` | List of volumes to add. Prefer this for volumes the chart itself always needs (e.g. security-hardening `emptyDir`s); use `extraVolumes` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to a `/tmp` `emptyDir`, which is what makes the default `securityContext.readOnlyRootFilesystem: true` usable - drop it only if you also relax that. Helm replaces lists wholesale rather than merging them, so overriding this key means restating the entries you want to keep. |
+
+#### Autoscaling
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.autoscaling.enabled | bool | `false` | Enable Horizontal Pod Autoscaler for the app. |
+| worker_ocr_table.autoscaling.maxReplicas | int | `3` | Maximum number of replicas for the app. |
+| worker_ocr_table.autoscaling.minReplicas | int | `1` | Minimum number of replicas for the app. |
+| worker_ocr_table.autoscaling.targetCPUUtilizationPercentage | int | `80` | Average CPU utilization percentage for the app. |
+| worker_ocr_table.autoscaling.targetMemoryUtilizationPercentage | int | `80` | Average memory utilization percentage for the app. |
+
+#### GrpcRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.grpcRoute.annotations | object | `{}` | Additional GRPCRoute annotations. |
+| worker_ocr_table.grpcRoute.enabled | bool | `false` | Enable a GRPCRoute resource for this service. |
+| worker_ocr_table.grpcRoute.hostnames | list | `[]` | Hostnames for the GRPCRoute to match. |
+| worker_ocr_table.grpcRoute.labels | object | `{}` | Additional GRPCRoute labels. |
+| worker_ocr_table.grpcRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the GRPCRoute to. |
+| worker_ocr_table.grpcRoute.rules | list | `[]` | Routing rules for the GRPCRoute. |
+
+#### HttpRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.httpRoute.annotations | object | `{}` | Additional HTTPRoute annotations. |
+| worker_ocr_table.httpRoute.enabled | bool | `false` | Enable an HTTPRoute resource for this service. |
+| worker_ocr_table.httpRoute.hostnames | list | `[]` | Hostnames for the HTTPRoute to match. |
+| worker_ocr_table.httpRoute.labels | object | `{}` | Additional HTTPRoute labels. |
+| worker_ocr_table.httpRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the HTTPRoute to. |
+| worker_ocr_table.httpRoute.rules | list | `[]` | Routing rules for the HTTPRoute. |
+
+#### Image
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.image.digest | string | `""` | Image digest (`sha256:...`). When set it takes precedence over `tag`, pinning the exact image content so the same release can never resolve to a different build - preferred over a mutable tag for anything you deploy to production. |
+| worker_ocr_table.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the app. |
+| worker_ocr_table.image.registry | string | `"ghcr.io"` | Registry to use for the app. |
+| worker_ocr_table.image.repository | string | `"ia-generative/mille-feuille/worker-ocr-table"` | Repository to use for the app. |
+| worker_ocr_table.image.tag | string | `""` | Tag to use for the app. Overrides the image tag whose default is the chart appVersion. |
+
+#### Ingress
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.ingress.annotations | object | `{}` | Additional ingress annotations. |
+| worker_ocr_table.ingress.className | string | `""` | Defines which ingress controller will implement the resource. |
+| worker_ocr_table.ingress.enabled | bool | `false` | Whether or not ingress should be enabled. |
+| worker_ocr_table.ingress.hosts[0].name | string | `"domain.local"` | Name of the host record. |
+| worker_ocr_table.ingress.hosts[0].paths | list | `[{"backend":{"portNumber":null,"serviceName":""},"path":"/","pathType":"Prefix"}]` | Paths of the host record to manage routing (avoids repeating the same host for multiple paths/backends). |
+| worker_ocr_table.ingress.hosts[0].paths[0].backend.portNumber | string | `nil` | Port used by the backend service linked to the path (leave null to use the app service port). |
+| worker_ocr_table.ingress.hosts[0].paths[0].backend.serviceName | string | `""` | Name of the backend service linked to the path (leave empty to use the app service). |
+| worker_ocr_table.ingress.hosts[0].paths[0].path | string | `"/"` | Path of the host record to manage routing. |
+| worker_ocr_table.ingress.hosts[0].paths[0].pathType | string | `"Prefix"` | Path type of the host record. |
+| worker_ocr_table.ingress.labels | object | `{}` | Additional ingress labels. |
+| worker_ocr_table.ingress.tls | list | `[]` | Enable TLS configuration. |
+
+#### Metrics
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.metrics.enabled | bool | `false` | Deploy metrics service. |
+| worker_ocr_table.metrics.service.annotations | object | `{}` | Metrics service annotations. |
+| worker_ocr_table.metrics.service.labels | object | `{}` | Metrics service labels. |
+| worker_ocr_table.metrics.service.port | int | `9000` | Metrics service port. |
+| worker_ocr_table.metrics.service.portName | string | `"metrics"` | Metrics service port name. |
+| worker_ocr_table.metrics.service.targetPort | int | `9000` | Metrics service target port. |
+| worker_ocr_table.metrics.service.type | string | `"ClusterIP"` | Type of metrics service to create. |
+| worker_ocr_table.metrics.serviceMonitor.annotations | object | `{}` | Prometheus ServiceMonitor annotations. |
+| worker_ocr_table.metrics.serviceMonitor.enabled | bool | `false` | Enable a prometheus ServiceMonitor. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].basicAuth.password | string | `""` | The secret in the service monitor namespace that contains the password for authentication. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].basicAuth.username | string | `""` | The secret in the service monitor namespace that contains the username for authentication. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.key | string | `""` | Secret key to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.name | string | `""` | Secret name to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].honorLabels | bool | `false` | When true, honorLabels preserves the metric’s labels when they collide with the target’s labels. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].interval | string | `"30s"` | Prometheus ServiceMonitor interval. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].metricRelabelings | list | `[]` | Prometheus MetricRelabelConfigs to apply to samples before ingestion. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].path | string | `"/metrics"` | Path used by the Prometheus ServiceMonitor to scrape metrics. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].relabelings | list | `[]` | Prometheus RelabelConfigs to apply to samples before scraping. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].scheme | string | `""` | Prometheus ServiceMonitor scheme. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].scrapeTimeout | string | `"10s"` | Prometheus ServiceMonitor scrapeTimeout. If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].selector | object | `{}` | Prometheus ServiceMonitor selector. |
+| worker_ocr_table.metrics.serviceMonitor.endpoints[0].tlsConfig | object | `{}` | Prometheus ServiceMonitor tlsConfig. |
+| worker_ocr_table.metrics.serviceMonitor.labels | object | `{}` | Prometheus ServiceMonitor labels. |
+
+#### NetworkPolicy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.networkPolicy.annotations | object | `{}` | Annotations to be added to the app NetworkPolicy. |
+| worker_ocr_table.networkPolicy.create | bool | `false` | Create NetworkPolicy object for the app. The policy always selects this component's pods only (via its selector labels), never the whole namespace. |
+| worker_ocr_table.networkPolicy.egress | list | `[]` | Egress rules for the NetworkPolicy object. |
+| worker_ocr_table.networkPolicy.ingress | list | `[]` | Ingress rules for the NetworkPolicy object. |
+| worker_ocr_table.networkPolicy.labels | object | `{}` | Labels to be added to the app NetworkPolicy. |
+| worker_ocr_table.networkPolicy.policyTypes | list | `["Ingress"]` | Policy types used in the NetworkPolicy object. |
+
+#### Pdb
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.pdb.annotations | object | `{}` | Annotations to be added to app pdb. |
+| worker_ocr_table.pdb.enabled | bool | `false` | Deploy a PodDisruptionBudget for the app |
+| worker_ocr_table.pdb.labels | object | `{}` | Labels to be added to app pdb. |
+| worker_ocr_table.pdb.maxUnavailable | string | `""` | Number of pods that are unavailable after eviction as number or percentage (eg.: 50%). Has higher precedence over `worker_ocr_table.pdb.minAvailable`. |
+| worker_ocr_table.pdb.minAvailable | string | `""` | Number of pods that are available after eviction as number or percentage (eg.: 50%). One of `minAvailable` / `maxUnavailable` must be set when `pdb.enabled` is true - a budget of 0 is the same as having no budget at all, so leaving both empty fails at render time. |
+
+#### Probes
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.probes.livenessProbe.failureThreshold | int | `3` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr_table.probes.livenessProbe.httpGet.path | string | `"/"` | Worker_ocr_table container healthcheck endpoint (livenessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr_table.probes.livenessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr_table.probes.livenessProbe.initialDelaySeconds | int | `30` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr_table.probes.livenessProbe.periodSeconds | int | `30` | How often (in seconds) to perform the probe. |
+| worker_ocr_table.probes.livenessProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr_table.probes.livenessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_ocr_table.probes.readinessProbe.failureThreshold | int | `2` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr_table.probes.readinessProbe.httpGet.path | string | `"/"` | Worker_ocr_table container healthcheck endpoint (readinessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr_table.probes.readinessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr_table.probes.readinessProbe.initialDelaySeconds | int | `10` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr_table.probes.readinessProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_ocr_table.probes.readinessProbe.successThreshold | int | `2` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr_table.probes.readinessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_ocr_table.probes.startupProbe.failureThreshold | int | `10` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr_table.probes.startupProbe.httpGet.path | string | `"/"` | Worker_ocr_table container healthcheck endpoint (startupProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr_table.probes.startupProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr_table.probes.startupProbe.initialDelaySeconds | int | `0` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr_table.probes.startupProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_ocr_table.probes.startupProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr_table.probes.startupProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+
+#### Resources
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.resources.limits.cpu | string | `"500m"` | CPU limit for the app. |
+| worker_ocr_table.resources.limits.memory | string | `"2Gi"` | Memory limit for the app. |
+| worker_ocr_table.resources.requests.cpu | string | `"100m"` | CPU request for the app. |
+| worker_ocr_table.resources.requests.memory | string | `"256Mi"` | Memory request for the app. |
+
+#### Service
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.service.enabled | bool | `true` | Whether or not to create a Service for the app. Set to `false` for components that don't accept traffic (e.g. a queue consumer with no `containerPort`). |
+| worker_ocr_table.service.extraPorts | list | `[]` | Extra service ports. |
+| worker_ocr_table.service.nodePort | int | `null` (allocated by Kubernetes) | Port used when type is `NodePort` to expose the service on the given node port. Left empty, Kubernetes allocates one from the configured node-port range, which avoids two releases of this chart colliding on the same hardcoded port. |
+| worker_ocr_table.service.port | int | `80` | Port used by the service. |
+| worker_ocr_table.service.portName | string | `"http"` | Port name used by the service. |
+| worker_ocr_table.service.protocol | string | `"TCP"` | Protocol used by the service. |
+| worker_ocr_table.service.type | string | `"ClusterIP"` | Type of service to create for the app. |
+
+#### ServiceAccount
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.serviceAccount.annotations | object | `{}` | Annotations applied to created service account. |
+| worker_ocr_table.serviceAccount.automountServiceAccountToken | bool | `false` | Should the service account access token be automount in the pod. |
+| worker_ocr_table.serviceAccount.clusterRole.create | bool | `false` | Should the clusterRole be created. |
+| worker_ocr_table.serviceAccount.clusterRole.rules | list | `[]` | ClusterRole rules associated with the service account. |
+| worker_ocr_table.serviceAccount.create | bool | `false` | Create a service account. |
+| worker_ocr_table.serviceAccount.enabled | bool | `false` | Enable the service account. |
+| worker_ocr_table.serviceAccount.name | string | `""` | Service account name. |
+| worker_ocr_table.serviceAccount.role.create | bool | `false` | Should the role be created. |
+| worker_ocr_table.serviceAccount.role.rules | list | `[]` | Role rules associated with the service account. |
+
+#### Strategy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_table.strategy.rollingUpdate.maxSurge | int | `1` | The maximum number of pods that can be scheduled above the desired number of pods. |
+| worker_ocr_table.strategy.rollingUpdate.maxUnavailable | int | `1` | The maximum number of pods that can be unavailable during the update process. |
+| worker_ocr_table.strategy.type | string | `"RollingUpdate"` | Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`. Only applied when `deploymentType` is "Deployment". |
+
+### WorkerOcrVision
+
+#### General
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.affinity | object | `{}` | Affinity used for app pod. |
+| worker_ocr_vision.args | list | `[]` | Worker_ocr_vision container command args. |
+| worker_ocr_vision.automountServiceAccountToken | bool | `false` | Mount the ServiceAccount token into the app pods. Defaults to false so a compromised container holds no API credentials; the API server does not need the token unless the app actually talks to the Kubernetes API. Applied at pod level so it holds even when `serviceAccount.name` points at an SA that automounts. |
+| worker_ocr_vision.command | list | `[]` | Worker_ocr_vision container command. |
+| worker_ocr_vision.containerPort | int | `8080` | Worker_ocr_vision container port number. Set to `null`/`0` (and disable `service`/probes) for components that don't listen on any port (e.g. a queue consumer). |
+| worker_ocr_vision.containerPortName | string | `"http"` | Worker_ocr_vision container port name. |
+| worker_ocr_vision.deploymentType | string | `"Deployment"` | Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet" (validated at render time - an unknown value fails instead of producing a release with no workload). Use the top-level `jobs` / `cronjobs` maps for one-off or scheduled workloads. Some values only apply to certain kinds: `replicaCount`/`autoscaling` and `strategy` are Deployment-only (`autoscaling` also works on a StatefulSet), `volumeClaims`/`extraVolumeClaims` are StatefulSet-only, and `updateStrategy` covers StatefulSet and DaemonSet. |
+| worker_ocr_vision.dnsConfig | object | `{}` | Pod DNS configuration, merged with `dnsPolicy` by the kubelet. |
+| worker_ocr_vision.dnsPolicy | string | `""` (`ClusterFirstWithHostNet` when `hostNetwork` is true) | Pod DNS policy. Left empty, it defaults to `ClusterFirstWithHostNet` when `hostNetwork` is true (otherwise a hostNetwork pod silently stops resolving cluster DNS) and to the Kubernetes default `ClusterFirst` when it isn't. |
+| worker_ocr_vision.enableServiceLinks | bool | `false` | Inject the legacy `{SVC}_SERVICE_HOST`/`_PORT` environment variables for every Service in the namespace. Defaults to false: the variables are rarely used, leak the namespace's topology into every container, and can collide with the app's own configuration. Set to true only for an app that genuinely reads them. |
+| worker_ocr_vision.enabled | bool | `false` | Déploie le pod d'OCR « description des images et tableaux (VLM du hub) » (OCR_ENGINE=layout de `worker_document`). Désactivé par défaut : il porte un modèle ONNX et n'a de sens qu'avec les autres pods d'OCR. Voir worker/document_process/README.md. |
+| worker_ocr_vision.env | object | `{}` | Map or array of environment variables to inject into the app container (`valueFrom` supported). |
+| worker_ocr_vision.envCm | object | `{}` | Map of environment variables to inject into a configmap loaded by the app container (`valueFrom` not supported). |
+| worker_ocr_vision.envFrom | list | `[]` | Worker_ocr_vision container env variables loaded from configmap or secret reference. List or map (merged with `global.envFrom` above, global entries first); see `global.envFrom` for both forms. |
+| worker_ocr_vision.envSecret | object | `{}` | Map of environment variables to inject into a secret loaded by the app container (`valueFrom` not supported). Values placed here are stored in plain text in the values file AND in the Helm release secret, so use it for non-sensitive-but-secret-shaped config only. For real credentials prefer referencing a Secret you manage elsewhere via `envFrom`, or have an operator materialise it (see the `VaultStaticSecret` example under `extraObjects`). |
+| worker_ocr_vision.extraContainers | list | `[]` | Extra containers to add to the app pod as sidecars. |
+| worker_ocr_vision.extraPorts | list | `[]` | Worker_ocr_vision extra container ports. |
+| worker_ocr_vision.extraVolumeClaims | list | `[]` | Additional volumeClaims to add, concatenated with `volumeClaims` above at render time. |
+| worker_ocr_vision.extraVolumeMounts | list | `[]` | Additional volumeMounts to add, concatenated with `volumeMounts` above at render time. |
+| worker_ocr_vision.extraVolumes | list | `[]` | Additional volumes to add, concatenated with `volumes` above at render time (e.g. to mount a cert or config from a values override without repeating the chart's own volumes). |
+| worker_ocr_vision.hostAliases | list | `[]` | Host aliases that will be injected at pod-level into /etc/hosts. |
+| worker_ocr_vision.hostNetwork | bool | `false` | Share the host network namespace. Container ports then bind directly on the node, so they must not collide with anything else running there. |
+| worker_ocr_vision.hostPID | bool | `false` | Share the host PID namespace (lets the container see and signal host processes). |
+| worker_ocr_vision.imagePullSecrets | list | `[]` | Image credentials configuration. |
+| worker_ocr_vision.initContainers | list | `[]` | Init containers to add to the app pod. |
+| worker_ocr_vision.nodeSelector | object | `{}` | Default node selector for app. |
+| worker_ocr_vision.podAnnotations | object | `{}` | Annotations for the app deployed pods. |
+| worker_ocr_vision.podLabels | object | `{}` | Labels for the app deployed pods. |
+| worker_ocr_vision.podSecurityContext | object | `{"fsGroup":1000,"fsGroupChangePolicy":"OnRootMismatch","runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000,"seccompProfile":{"type":"RuntimeDefault"}}` | Pod-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard. Rendered via `toYaml`, so any `PodSecurityContext` field is accepted. Adjust the UID/GID to whatever your image actually ships with - `runAsNonRoot` makes the kubelet refuse to start a container that would run as root, which is the intended failure mode rather than something to switch off. Set to `null` to omit the block entirely. |
+| worker_ocr_vision.priorityClassName | string | `""` | PriorityClass to schedule the pods with (e.g. `system-node-critical` for a node agent that must not be evicted under pressure). |
+| worker_ocr_vision.replicaCount | int | `1` | The number of application controller pods to run. Ignored when `deploymentType` is "DaemonSet" (one pod per node) or when `autoscaling.enabled` is true. |
+| worker_ocr_vision.revisionHistoryLimit | int | `10` | Revision history limit for the app. |
+| worker_ocr_vision.securityContext | object | `{"allowPrivilegeEscalation":false,"capabilities":{"drop":["ALL"]},"privileged":false,"readOnlyRootFilesystem":true,"runAsGroup":1000,"runAsNonRoot":true,"runAsUser":1000}` | Container-level security context. Defaults to a hardened baseline that satisfies the `restricted` Pod Security Standard: no privilege escalation, no capabilities, immutable root filesystem. Rendered via `toYaml`, so any `SecurityContext` field is accepted. Note `readOnlyRootFilesystem` requires the app to write only to mounted volumes - the default `volumes`/`volumeMounts` below provide an `emptyDir` on /tmp for that reason. Set to `null` to omit the block entirely. |
+| worker_ocr_vision.terminationGracePeriodSeconds | int | `null` (Kubernetes default of 30) | Grace period, in seconds, given to the pod to shut down cleanly before it is killed. |
+| worker_ocr_vision.tolerations | list | `[]` | Default tolerations for app. |
+| worker_ocr_vision.topologySpreadConstraints | list | `[]` | Topology spread constraints used to spread the pods across failure domains. |
+| worker_ocr_vision.updateStrategy | object | `{}` | Update strategy applied when `deploymentType` is "StatefulSet" or "DaemonSet" (ignored for a Deployment, which uses `strategy` above). Rendered verbatim via `toYaml`, so it takes the native `StatefulSetUpdateStrategy`/`DaemonSetUpdateStrategy` shape of the selected kind; left empty, Kubernetes applies its own default (`RollingUpdate` for both). |
+| worker_ocr_vision.volumeClaims | list | `[]` | List of volumeClaims to add, rendered as the StatefulSet's `volumeClaimTemplates`. Requires `deploymentType: "StatefulSet"` - setting it on a Deployment or DaemonSet fails at render time rather than being silently dropped (use `volumes`/`extraVolumes` there instead). |
+| worker_ocr_vision.volumeMounts | list | `[{"mountPath":"/tmp","name":"tmp"}]` | List of mounts to add (normally used with `volumes` or `volumeClaims`). Prefer this for mounts the chart itself always needs; use `extraVolumeMounts` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to the `/tmp` mount backing the hardened `readOnlyRootFilesystem` default (see `volumes` above). |
+| worker_ocr_vision.volumes | list | `[{"emptyDir":{},"name":"tmp"}]` | List of volumes to add. Prefer this for volumes the chart itself always needs (e.g. security-hardening `emptyDir`s); use `extraVolumes` below for anything you add on top, so overriding one doesn't require repeating the other. Defaults to a `/tmp` `emptyDir`, which is what makes the default `securityContext.readOnlyRootFilesystem: true` usable - drop it only if you also relax that. Helm replaces lists wholesale rather than merging them, so overriding this key means restating the entries you want to keep. |
+
+#### Autoscaling
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.autoscaling.enabled | bool | `false` | Enable Horizontal Pod Autoscaler for the app. |
+| worker_ocr_vision.autoscaling.maxReplicas | int | `3` | Maximum number of replicas for the app. |
+| worker_ocr_vision.autoscaling.minReplicas | int | `1` | Minimum number of replicas for the app. |
+| worker_ocr_vision.autoscaling.targetCPUUtilizationPercentage | int | `80` | Average CPU utilization percentage for the app. |
+| worker_ocr_vision.autoscaling.targetMemoryUtilizationPercentage | int | `80` | Average memory utilization percentage for the app. |
+
+#### GrpcRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.grpcRoute.annotations | object | `{}` | Additional GRPCRoute annotations. |
+| worker_ocr_vision.grpcRoute.enabled | bool | `false` | Enable a GRPCRoute resource for this service. |
+| worker_ocr_vision.grpcRoute.hostnames | list | `[]` | Hostnames for the GRPCRoute to match. |
+| worker_ocr_vision.grpcRoute.labels | object | `{}` | Additional GRPCRoute labels. |
+| worker_ocr_vision.grpcRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the GRPCRoute to. |
+| worker_ocr_vision.grpcRoute.rules | list | `[]` | Routing rules for the GRPCRoute. |
+
+#### HttpRoute
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.httpRoute.annotations | object | `{}` | Additional HTTPRoute annotations. |
+| worker_ocr_vision.httpRoute.enabled | bool | `false` | Enable an HTTPRoute resource for this service. |
+| worker_ocr_vision.httpRoute.hostnames | list | `[]` | Hostnames for the HTTPRoute to match. |
+| worker_ocr_vision.httpRoute.labels | object | `{}` | Additional HTTPRoute labels. |
+| worker_ocr_vision.httpRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the HTTPRoute to. |
+| worker_ocr_vision.httpRoute.rules | list | `[]` | Routing rules for the HTTPRoute. |
+
+#### Image
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.image.digest | string | `""` | Image digest (`sha256:...`). When set it takes precedence over `tag`, pinning the exact image content so the same release can never resolve to a different build - preferred over a mutable tag for anything you deploy to production. |
+| worker_ocr_vision.image.pullPolicy | string | `"IfNotPresent"` | Image pull policy for the app. |
+| worker_ocr_vision.image.registry | string | `"ghcr.io"` | Registry to use for the app. |
+| worker_ocr_vision.image.repository | string | `"ia-generative/mille-feuille/worker-ocr-vision"` | Repository to use for the app. |
+| worker_ocr_vision.image.tag | string | `""` | Tag to use for the app. Overrides the image tag whose default is the chart appVersion. |
+
+#### Ingress
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.ingress.annotations | object | `{}` | Additional ingress annotations. |
+| worker_ocr_vision.ingress.className | string | `""` | Defines which ingress controller will implement the resource. |
+| worker_ocr_vision.ingress.enabled | bool | `false` | Whether or not ingress should be enabled. |
+| worker_ocr_vision.ingress.hosts[0].name | string | `"domain.local"` | Name of the host record. |
+| worker_ocr_vision.ingress.hosts[0].paths | list | `[{"backend":{"portNumber":null,"serviceName":""},"path":"/","pathType":"Prefix"}]` | Paths of the host record to manage routing (avoids repeating the same host for multiple paths/backends). |
+| worker_ocr_vision.ingress.hosts[0].paths[0].backend.portNumber | string | `nil` | Port used by the backend service linked to the path (leave null to use the app service port). |
+| worker_ocr_vision.ingress.hosts[0].paths[0].backend.serviceName | string | `""` | Name of the backend service linked to the path (leave empty to use the app service). |
+| worker_ocr_vision.ingress.hosts[0].paths[0].path | string | `"/"` | Path of the host record to manage routing. |
+| worker_ocr_vision.ingress.hosts[0].paths[0].pathType | string | `"Prefix"` | Path type of the host record. |
+| worker_ocr_vision.ingress.labels | object | `{}` | Additional ingress labels. |
+| worker_ocr_vision.ingress.tls | list | `[]` | Enable TLS configuration. |
+
+#### Metrics
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.metrics.enabled | bool | `false` | Deploy metrics service. |
+| worker_ocr_vision.metrics.service.annotations | object | `{}` | Metrics service annotations. |
+| worker_ocr_vision.metrics.service.labels | object | `{}` | Metrics service labels. |
+| worker_ocr_vision.metrics.service.port | int | `9000` | Metrics service port. |
+| worker_ocr_vision.metrics.service.portName | string | `"metrics"` | Metrics service port name. |
+| worker_ocr_vision.metrics.service.targetPort | int | `9000` | Metrics service target port. |
+| worker_ocr_vision.metrics.service.type | string | `"ClusterIP"` | Type of metrics service to create. |
+| worker_ocr_vision.metrics.serviceMonitor.annotations | object | `{}` | Prometheus ServiceMonitor annotations. |
+| worker_ocr_vision.metrics.serviceMonitor.enabled | bool | `false` | Enable a prometheus ServiceMonitor. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].basicAuth.password | string | `""` | The secret in the service monitor namespace that contains the password for authentication. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].basicAuth.username | string | `""` | The secret in the service monitor namespace that contains the username for authentication. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.key | string | `""` | Secret key to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].bearerTokenSecret.name | string | `""` | Secret name to mount to read bearer token for scraping targets. The secret needs to be in the same namespace as the service monitor and accessible by the Prometheus Operator. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].honorLabels | bool | `false` | When true, honorLabels preserves the metric’s labels when they collide with the target’s labels. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].interval | string | `"30s"` | Prometheus ServiceMonitor interval. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].metricRelabelings | list | `[]` | Prometheus MetricRelabelConfigs to apply to samples before ingestion. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].path | string | `"/metrics"` | Path used by the Prometheus ServiceMonitor to scrape metrics. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].relabelings | list | `[]` | Prometheus RelabelConfigs to apply to samples before scraping. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].scheme | string | `""` | Prometheus ServiceMonitor scheme. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].scrapeTimeout | string | `"10s"` | Prometheus ServiceMonitor scrapeTimeout. If empty, Prometheus uses the global scrape timeout unless it is less than the target's scrape interval value in which the latter is used. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].selector | object | `{}` | Prometheus ServiceMonitor selector. |
+| worker_ocr_vision.metrics.serviceMonitor.endpoints[0].tlsConfig | object | `{}` | Prometheus ServiceMonitor tlsConfig. |
+| worker_ocr_vision.metrics.serviceMonitor.labels | object | `{}` | Prometheus ServiceMonitor labels. |
+
+#### NetworkPolicy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.networkPolicy.annotations | object | `{}` | Annotations to be added to the app NetworkPolicy. |
+| worker_ocr_vision.networkPolicy.create | bool | `false` | Create NetworkPolicy object for the app. The policy always selects this component's pods only (via its selector labels), never the whole namespace. |
+| worker_ocr_vision.networkPolicy.egress | list | `[]` | Egress rules for the NetworkPolicy object. |
+| worker_ocr_vision.networkPolicy.ingress | list | `[]` | Ingress rules for the NetworkPolicy object. |
+| worker_ocr_vision.networkPolicy.labels | object | `{}` | Labels to be added to the app NetworkPolicy. |
+| worker_ocr_vision.networkPolicy.policyTypes | list | `["Ingress"]` | Policy types used in the NetworkPolicy object. |
+
+#### Pdb
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.pdb.annotations | object | `{}` | Annotations to be added to app pdb. |
+| worker_ocr_vision.pdb.enabled | bool | `false` | Deploy a PodDisruptionBudget for the app |
+| worker_ocr_vision.pdb.labels | object | `{}` | Labels to be added to app pdb. |
+| worker_ocr_vision.pdb.maxUnavailable | string | `""` | Number of pods that are unavailable after eviction as number or percentage (eg.: 50%). Has higher precedence over `worker_ocr_vision.pdb.minAvailable`. |
+| worker_ocr_vision.pdb.minAvailable | string | `""` | Number of pods that are available after eviction as number or percentage (eg.: 50%). One of `minAvailable` / `maxUnavailable` must be set when `pdb.enabled` is true - a budget of 0 is the same as having no budget at all, so leaving both empty fails at render time. |
+
+#### Probes
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.probes.livenessProbe.failureThreshold | int | `3` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr_vision.probes.livenessProbe.httpGet.path | string | `"/"` | Worker_ocr_vision container healthcheck endpoint (livenessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr_vision.probes.livenessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr_vision.probes.livenessProbe.initialDelaySeconds | int | `30` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr_vision.probes.livenessProbe.periodSeconds | int | `30` | How often (in seconds) to perform the probe. |
+| worker_ocr_vision.probes.livenessProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr_vision.probes.livenessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_ocr_vision.probes.readinessProbe.failureThreshold | int | `2` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr_vision.probes.readinessProbe.httpGet.path | string | `"/"` | Worker_ocr_vision container healthcheck endpoint (readinessProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr_vision.probes.readinessProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr_vision.probes.readinessProbe.initialDelaySeconds | int | `10` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr_vision.probes.readinessProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_ocr_vision.probes.readinessProbe.successThreshold | int | `2` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr_vision.probes.readinessProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+| worker_ocr_vision.probes.startupProbe.failureThreshold | int | `10` | Minimum consecutive failures for the probe to be considered failed after having succeeded. |
+| worker_ocr_vision.probes.startupProbe.httpGet.path | string | `"/"` | Worker_ocr_vision container healthcheck endpoint (startupProbe is defined using `toYaml` so it is possible to override it completely). |
+| worker_ocr_vision.probes.startupProbe.httpGet.port | int | `8080` | Port to use for healthcheck (defaults to container port). |
+| worker_ocr_vision.probes.startupProbe.initialDelaySeconds | int | `0` | Number of seconds after the container has started before probe is initiated. |
+| worker_ocr_vision.probes.startupProbe.periodSeconds | int | `10` | How often (in seconds) to perform the probe. |
+| worker_ocr_vision.probes.startupProbe.successThreshold | int | `1` | Minimum consecutive successes for the probe to be considered successful after having failed. |
+| worker_ocr_vision.probes.startupProbe.timeoutSeconds | int | `5` | Number of seconds after which the probe times out. |
+
+#### Resources
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.resources.limits.cpu | string | `"500m"` | CPU limit for the app. |
+| worker_ocr_vision.resources.limits.memory | string | `"2Gi"` | Memory limit for the app. |
+| worker_ocr_vision.resources.requests.cpu | string | `"100m"` | CPU request for the app. |
+| worker_ocr_vision.resources.requests.memory | string | `"256Mi"` | Memory request for the app. |
+
+#### Service
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.service.enabled | bool | `true` | Whether or not to create a Service for the app. Set to `false` for components that don't accept traffic (e.g. a queue consumer with no `containerPort`). |
+| worker_ocr_vision.service.extraPorts | list | `[]` | Extra service ports. |
+| worker_ocr_vision.service.nodePort | int | `null` (allocated by Kubernetes) | Port used when type is `NodePort` to expose the service on the given node port. Left empty, Kubernetes allocates one from the configured node-port range, which avoids two releases of this chart colliding on the same hardcoded port. |
+| worker_ocr_vision.service.port | int | `80` | Port used by the service. |
+| worker_ocr_vision.service.portName | string | `"http"` | Port name used by the service. |
+| worker_ocr_vision.service.protocol | string | `"TCP"` | Protocol used by the service. |
+| worker_ocr_vision.service.type | string | `"ClusterIP"` | Type of service to create for the app. |
+
+#### ServiceAccount
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.serviceAccount.annotations | object | `{}` | Annotations applied to created service account. |
+| worker_ocr_vision.serviceAccount.automountServiceAccountToken | bool | `false` | Should the service account access token be automount in the pod. |
+| worker_ocr_vision.serviceAccount.clusterRole.create | bool | `false` | Should the clusterRole be created. |
+| worker_ocr_vision.serviceAccount.clusterRole.rules | list | `[]` | ClusterRole rules associated with the service account. |
+| worker_ocr_vision.serviceAccount.create | bool | `false` | Create a service account. |
+| worker_ocr_vision.serviceAccount.enabled | bool | `false` | Enable the service account. |
+| worker_ocr_vision.serviceAccount.name | string | `""` | Service account name. |
+| worker_ocr_vision.serviceAccount.role.create | bool | `false` | Should the role be created. |
+| worker_ocr_vision.serviceAccount.role.rules | list | `[]` | Role rules associated with the service account. |
+
+#### Strategy
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_ocr_vision.strategy.rollingUpdate.maxSurge | int | `1` | The maximum number of pods that can be scheduled above the desired number of pods. |
+| worker_ocr_vision.strategy.rollingUpdate.maxUnavailable | int | `1` | The maximum number of pods that can be unavailable during the update process. |
+| worker_ocr_vision.strategy.type | string | `"RollingUpdate"` | Strategy type used to replace old Pods by new ones, can be `Recreate` or `RollingUpdate`. Only applied when `deploymentType` is "Deployment". |
+
 ### WorkerRender
 
 #### General
