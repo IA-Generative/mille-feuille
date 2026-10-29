@@ -17,6 +17,7 @@ from liteparse.types import AnnotationRect, ParsedPage, TextItem, WordBox
 
 from app import api_client
 from app.celery_app import celery_app
+from app.ocr.scanned import read_scanned_pages
 from app.parsing import parse_file
 from app.storage import storage
 
@@ -109,6 +110,8 @@ def extract_document_text(self, document_id: str) -> None:
             api_client.set_file_hash(client, document_id, file_hash=file_hash)
 
             result = parse_file(data)
+            # Les pages scannées sont lues par les pods d'OCR si OCR_ENGINE=layout ; sinon c'est le résultat inchangé.
+            result = read_scanned_pages(document_id, data, result)
             screenshots_by_page = {screenshot.page_num: screenshot for screenshot in result.screenshots}
 
             for page in result.pages:
