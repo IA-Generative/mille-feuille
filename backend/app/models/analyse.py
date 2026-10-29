@@ -55,6 +55,9 @@ class VersionedField(enum.StrEnum):
     KNOWLEDGE_COLLECTIONS = "knowledge_collections"
     # Recherche dans les dossiers de l'analyse : découpage des pages en passages et modèle d'embeddings.
     SEARCH_SETTINGS = "search_settings"
+    # Lecture des documents scannés : modèle du hub qui décrit les images et les tableaux (absent : celui de la
+    # plateforme).
+    OCR_SETTINGS = "ocr_settings"
 
 
 class Analyse(UUIDMixin, TimestampMixin, Base):
@@ -83,6 +86,10 @@ class Analyse(UUIDMixin, TimestampMixin, Base):
     # Réglages de la recherche dans les dossiers (stratégie et paramètres de découpage, modèles), versionnés
     # (`VersionedField.SEARCH_SETTINGS`). Un champ absent prend la valeur par défaut de la plateforme.
     search_settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # Réglages de la lecture des documents scannés (modèle qui décrit les images), versionnés
+    # (`VersionedField.OCR_SETTINGS`). Le worker document_process les lit à l'extraction ; absents, ceux de la
+    # plateforme.
+    ocr_settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
 
     classification_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # Classification multi-label : plusieurs labels possibles par page (sinon un seul). Fixé à la création

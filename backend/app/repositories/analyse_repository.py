@@ -590,6 +590,21 @@ class AnalyseRepository:
             (v for v in self.field_versions(analyse, VersionedField.SEARCH_SETTINGS) if v.id == version_id), None
         )
 
+    # --- Réglages de la lecture des documents scannés (modèle qui décrit les images) ---
+
+    async def update_ocr_settings(self, analyse: Analyse, settings: dict) -> None:
+        """Remplace les réglages ; l'état précédent est conservé dans l'historique (restaurable). Rien ne change : pas
+        de version inutile."""
+        if settings == analyse.ocr_settings:
+            return
+        self._record_version(analyse, VersionedField.OCR_SETTINGS, dict(analyse.ocr_settings))
+        analyse.ocr_settings = settings
+        await self.db.commit()
+        await self.db.refresh(analyse)
+
+    def ocr_settings_version(self, analyse: Analyse, version_id: uuid.UUID):
+        return next((v for v in self.field_versions(analyse, VersionedField.OCR_SETTINGS) if v.id == version_id), None)
+
     # --- Agents ---
 
     async def add_agent(
