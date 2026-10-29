@@ -88,6 +88,7 @@ class ScannedPageReader:
         clock: Callable[[], float] = time.monotonic,
         sleep: Callable[[float], None] = time.sleep,
         captions: bool | None = None,
+        caption_model: str | None = None,
     ) -> None:
         if app is None:
             from app.celery_app import celery_app as app
@@ -96,6 +97,8 @@ class ScannedPageReader:
         self._app, self._storage, self._clock, self._sleep = app, storage, clock, sleep
         # Si les images sont décrites (pod `vision`) ; par défaut, ce que dit VISION_POD_ENABLED.
         self._captions = settings.VISION_POD_ENABLED if captions is None else captions
+        # Le modèle du hub choisi par l'analyse du dossier ; à défaut CAPTION_MODEL, puis le VLM_MODEL du pod.
+        self._caption_model = caption_model or settings.CAPTION_MODEL or None
         # Ce qui reste du plafond de descriptions du document.
         self._budget = settings.CAPTION_MAX_PER_DOCUMENT
 
@@ -249,7 +252,7 @@ class ScannedPageReader:
     def _send_descriptions(self, document_id: str, job: _Job) -> None:
         number = job.page.page_num
         regions_to_send = [region.model_dump(mode="json") for region in job.to_describe]
-        model = settings.CAPTION_MODEL or None
+        model = self._caption_model
         job.reads = {
             "describe": self._app.send_task(
                 routing.DESCRIBE_REGIONS_TASK,
@@ -335,7 +338,13 @@ def _images_for(data: bytes, scanned: list[Any], result: Any) -> dict[int, bytes
     return images
 
 
-def read_scanned_pages(document_id: str, data: bytes, result: Any, reader: ScannedPageReader | None = None) -> Any:
+def read_scanned_pages(
+    document_id: str,
+    data: bytes,
+    result: Any,
+    reader: ScannedPageReader | None = None,
+    caption_model: str | None = None,
+) -> Any:
     """`result` (un ParseResult de liteparse) dont les pages scannées sont lues par les pods d'OCR. Inchangé - et rien
     n'est touché - quand OCR_ENGINE n'est pas "layout", ou qu'aucune page n'a besoin d'un OCR."""
     if settings.OCR_ENGINE != "layout":
@@ -353,7 +362,7 @@ def read_scanned_pages(document_id: str, data: bytes, result: Any, reader: Scann
     started = time.monotonic()
     try:
         images = _images_for(data, scanned, result)
-        reader = reader or ScannedPageReader(storage=storage)
+        reader = reader or ScannedPageReader(storage=storage, caption_model=caption_model)
         read, failed = reader.read(document_id, scanned, images)
     finally:
         try:

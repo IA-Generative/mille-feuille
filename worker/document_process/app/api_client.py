@@ -65,3 +65,11 @@ def replace_text_boxes(client: httpx.Client, page_id: str, boxes: list[dict]) ->
     """Pose le texte positionné de la page (lignes et mots avec bbox et intervalle de caractères)."""
     response = client.put(f"/pages/{page_id}/text-boxes", json=boxes)
     response.raise_for_status()
+
+
+def get_ocr_settings(client: httpx.Client, dossier_id: str) -> dict:
+    """Réglages de lecture des documents scannés du dossier (ceux de son analyse) : `caption_model`, le modèle du hub
+    qui décrit les images et les tableaux (None : le défaut du déploiement)."""
+    response = client.get(f"/dossiers/{dossier_id}/ocr-settings")
+    response.raise_for_status()
+    return response.json()
