@@ -1,0 +1,16 @@
+{{- if and .Values.enabled .Values.worker_ocr_layout.enabled }}
+{{- if or .Values.worker_ocr_layout.envCm .Values.global.envCm -}}
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_ocr_layout") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_ocr_layout")) | nindent 4 }}
+data:
+  {{- if .Values.global.envCm -}}
+  {{- include "helper.env" (dict "root" . "data" .Values.global.envCm) | indent 2 }}
+  {{- end -}}
+  {{- if .Values.worker_ocr_layout.envCm -}}
+  {{- include "helper.env" (dict "root" . "data" .Values.worker_ocr_layout.envCm) | indent 2 }}
+  {{- end -}}
+{{- end -}}
+{{- end }}
