@@ -415,6 +415,39 @@ services:
       retries: 15
       start_period: 10s
 
+  # Hub LLM local (profil `ollama`) : sert des modèles via l'API compatible OpenAI sur http://ollama:11434/v1, par
+  # exemple SmolVLM-500M pour décrire les images sans hub distant. Voir docs/ollama-local.md.
+  # `docker compose --profile ollama up` ; puis OPENAI_API_BASE_URL=http://ollama:11434/v1 dans `.env`.
+  ollama:
+    profiles: ["ollama"]
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # Télécharge les modèles d'OLLAMA_MODELS une fois Ollama prêt, puis s'arrête.
+  ollama-pull:
+    profiles: ["ollama"]
+    image: ollama/ollama:latest
+    entrypoint: ["/bin/sh", "/pull-models.sh"]
+    environment:
+      OLLAMA_HOST: http://ollama:11434
+      OLLAMA_MODELS: ${OLLAMA_MODELS:-hf.co/ggml-org/SmolVLM-500M-Instruct-GGUF:Q8_0}
+    volumes:
+      - ./docker/ollama/pull-models.sh:/pull-models.sh:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+
 # Jeton d'accès (lecture) au dépôt privé IA-Generative/async-api, nécessaire au build de
 # worker-async-api : `export GH_TOKEN=$(gh auth token)` avant `docker compose --profile async-api build`.
 secrets:
@@ -423,6 +456,7 @@ secrets:
 
 volumes:
   postgres-data:
+  ollama-data:
   meilisearch-data:
   qdrant-data:
   rustfs-data:
