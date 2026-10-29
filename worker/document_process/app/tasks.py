@@ -17,6 +17,7 @@ from liteparse.types import AnnotationRect, ParsedPage, TextItem, WordBox
 
 from app import api_client
 from app.celery_app import celery_app
+from app.config import settings
 from app.ocr.scanned import read_scanned_pages
 from app.parsing import parse_file
 from app.storage import storage
@@ -94,6 +95,18 @@ def build_text_boxes(page: ParsedPage) -> list[dict]:
     return boxes
 
 
+def _caption_model(client, dossier_id: str | None) -> str | None:
+    """Le modèle du hub que l'analyse du dossier a choisi pour décrire les images ; None (le défaut du déploiement) si
+    elle n'en a pas ou si le backend ne répond pas : la lecture du document ne doit pas en dépendre."""
+    if not dossier_id or not settings.VISION_POD_ENABLED:
+        return None
+    try:
+        return api_client.get_ocr_settings(client, str(dossier_id)).get("caption_model")
+    except Exception:
+        logger.warning("Réglages OCR du dossier %s illisibles, modèle par défaut", dossier_id, exc_info=True)
+        return None
+
+
 @celery_app.task(name="app.tasks.extract_document_text", bind=True)
 def extract_document_text(self, document_id: str) -> None:
     with api_client.get_client() as client:
@@ -111,7 +124,9 @@ def extract_document_text(self, document_id: str) -> None:
 
             result = parse_file(data)
             # Les pages scannées sont lues par les pods d'OCR si OCR_ENGINE=layout ; sinon c'est le résultat inchangé.
-            result = read_scanned_pages(document_id, data, result)
+            result = read_scanned_pages(
+                document_id, data, result, caption_model=_caption_model(client, document.get("dossier_id"))
+            )
             screenshots_by_page = {screenshot.page_num: screenshot for screenshot in result.screenshots}
 
             for page in result.pages:

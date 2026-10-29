@@ -46,7 +46,7 @@ tâches par nom, il ne les importe pas. `app/ocr/contracts.py` est le contrat co
 | `OCR_READ_TABLES_AS_TEXT` | `false` | `true` : un tableau est lu comme du texte, une ligne par ligne, sans le pod `table` |
 | `OCR_TABLE_MIN_SCORE` | `0.6` | score minimal d'un tableau pour être dit fiable (sinon `[Structure du tableau douteuse]`) |
 | `VISION_POD_ENABLED` | `false` | décrire les images et tableaux avec le pod `vision` |
-| `CAPTION_MODEL` | *(vide)* | modèle du hub qui décrit ; vide : le `VLM_MODEL` du pod |
+| `CAPTION_MODEL` | *(vide)* | modèle du hub qui décrit par défaut ; vide : le `VLM_MODEL` du pod. Une analyse peut choisir le sien (onglet « Lecture »), lu par le worker via `GET /api/internal/dossiers/{id}/ocr-settings` |
 | `CAPTION_MIN_PIXELS` / `CAPTION_MAX_PER_PAGE` / `CAPTION_MAX_PER_DOCUMENT` | `96` / `5` / `50` | quelles images sont décrites, et combien |
 | `CAPTION_TABLES` | `true` | décrire aussi les tableaux lus comme tableaux |
 | `TASK_TIME_LIMIT_SECONDS` | `0` | limite dure de la tâche ; 0 : 300 s avec Tesseract, 3600 s avec `layout` |
