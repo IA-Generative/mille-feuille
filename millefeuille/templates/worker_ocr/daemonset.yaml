@@ -1,0 +1,18 @@
+{{- if and .Values.enabled .Values.worker_ocr.enabled }}
+{{- if eq .Values.worker_ocr.deploymentType "DaemonSet" }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_ocr") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_ocr")) | nindent 4 }}
+spec:
+  revisionHistoryLimit: {{ .Values.worker_ocr.revisionHistoryLimit | default 10 }}
+  selector:
+    matchLabels: {{- include "helper.selectorLabels" (dict "root" . "componentName" "worker_ocr") | nindent 6 }}
+  {{- with .Values.worker_ocr.updateStrategy }}
+  updateStrategy: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    {{- include "helper.component.podTemplate" (dict "root" . "name" "worker_ocr" "component" .Values.worker_ocr) | nindent 4 }}
+{{- end }}
+{{- end }}

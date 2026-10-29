@@ -1,0 +1,25 @@
+{{- if and .Values.enabled .Values.worker_ocr.enabled }}
+{{- if eq .Values.worker_ocr.deploymentType "StatefulSet" }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_ocr") }}
+  labels: {{- include "helper.labels" (dict "root" . "componentName" "worker_ocr") | nindent 4 }}
+spec:
+  {{- if not .Values.worker_ocr.autoscaling.enabled }}
+  replicas: {{ .Values.worker_ocr.replicaCount }}
+  {{- end }}
+  revisionHistoryLimit: {{ .Values.worker_ocr.revisionHistoryLimit | default 10 }}
+  selector:
+    matchLabels: {{- include "helper.selectorLabels" (dict "root" . "componentName" "worker_ocr") | nindent 6 }}
+  serviceName: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_ocr") }}
+  {{- with .Values.worker_ocr.updateStrategy }}
+  updateStrategy: {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    {{- include "helper.component.podTemplate" (dict "root" . "name" "worker_ocr" "component" .Values.worker_ocr) | nindent 4 }}
+  {{- if or .Values.worker_ocr.volumeClaims .Values.worker_ocr.extraVolumeClaims }}
+  volumeClaimTemplates: {{- toYaml (concat (default (list) .Values.worker_ocr.volumeClaims) (default (list) .Values.worker_ocr.extraVolumeClaims)) | nindent 2 }}
+  {{- end }}
+{{- end }}
+{{- end }}
