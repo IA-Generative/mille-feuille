@@ -214,3 +214,51 @@ def test_the_documents_cap_is_shared_by_its_pages(monkeypatch):
     read, _ = _reader(app).read("doc-1", _pages(1, 2), {1: _png(), 2: _png()})
     assert len([name for name, _ in app.sent if name == routing.DESCRIBE_REGIONS_TASK]) == 1
     assert sum(1 for page in read.values() if page.captions) == 1
+
+
+def test_the_model_of_the_analyse_wins_over_the_deployments(monkeypatch):
+    monkeypatch.setattr(settings, "CAPTION_MODEL", "gpt-4o")
+    app = VisionApp()
+    reader = ScannedPageReader(app=app, storage=FakeStorage(), clock=Clock(), caption_model="pixtral-12b")
+    reader._sleep = Clock().sleep
+    reader.read("doc-1", _pages(3), {3: _png()})
+    assert app.asked["model"] == "pixtral-12b"
+
+
+# --- le modèle choisi par l'analyse du dossier ---
+
+
+class _Client:
+    pass
+
+
+def test_the_caption_model_is_read_from_the_dossiers_analyse(monkeypatch):
+    from app import api_client, tasks
+
+    monkeypatch.setattr(settings, "VISION_POD_ENABLED", True)
+    monkeypatch.setattr(api_client, "get_ocr_settings", lambda client, dossier_id: {"caption_model": "pixtral-12b"})
+    assert tasks._caption_model(_Client(), "dossier-1") == "pixtral-12b"
+
+
+def test_no_caption_model_is_asked_for_when_nothing_is_described(monkeypatch):
+    from app import api_client, tasks
+
+    def boom(client, dossier_id):
+        raise AssertionError("not asked")
+
+    monkeypatch.setattr(api_client, "get_ocr_settings", boom)
+    monkeypatch.setattr(settings, "VISION_POD_ENABLED", False)
+    assert tasks._caption_model(_Client(), "dossier-1") is None
+    monkeypatch.setattr(settings, "VISION_POD_ENABLED", True)
+    assert tasks._caption_model(_Client(), None) is None
+
+
+def test_a_backend_that_does_not_answer_gives_the_default_model(monkeypatch):
+    from app import api_client, tasks
+
+    def down(client, dossier_id):
+        raise OSError("backend down")
+
+    monkeypatch.setattr(settings, "VISION_POD_ENABLED", True)
+    monkeypatch.setattr(api_client, "get_ocr_settings", down)
+    assert tasks._caption_model(_Client(), "dossier-1") is None
