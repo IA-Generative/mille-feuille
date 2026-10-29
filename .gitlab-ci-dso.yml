@@ -81,6 +81,50 @@ lint-worker-extraction:
     - uv run ruff check .
     - uv run ruff format --check .
 
+lint-worker-ocr-layout:
+  stage: lint
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/layout
+    - uv sync
+    - uv run ruff check .
+    - uv run ruff format --check .
+
+lint-worker-ocr:
+  stage: lint
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/ocr
+    - uv sync
+    - uv run ruff check .
+    - uv run ruff format --check .
+
+lint-worker-ocr-table:
+  stage: lint
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/table
+    - uv sync
+    - uv run ruff check .
+    - uv run ruff format --check .
+
+lint-worker-ocr-vision:
+  stage: lint
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/vision
+    - uv sync
+    - uv run ruff check .
+    - uv run ruff format --check .
+
 lint-worker-document-render:
   stage: lint
   image: python:3.12-slim
@@ -185,6 +229,46 @@ unit-tests-worker-extraction:
     - pip install --no-cache-dir uv
   script:
     - cd worker/extraction
+    - uv sync
+    - uv run pytest -q
+
+unit-tests-worker-ocr-layout:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/layout
+    - uv sync
+    - uv run pytest -q
+
+unit-tests-worker-ocr:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/ocr
+    - uv sync
+    - uv run pytest -q
+
+unit-tests-worker-ocr-table:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/table
+    - uv sync
+    - uv run pytest -q
+
+unit-tests-worker-ocr-vision:
+  stage: test
+  image: python:3.12-slim
+  before_script:
+    - pip install --no-cache-dir uv
+  script:
+    - cd worker/vision
     - uv sync
     - uv run pytest -q
 
@@ -378,6 +462,98 @@ docker-build-worker-extraction:
       TAGS="$TAGS mille-feuille/worker-extraction:$APP_VERSION"
       if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
         TAGS="$TAGS mille-feuille/worker-extraction:latest"
+      fi
+      export IMAGE_NAMES="$TAGS"
+      echo "Building with tags: $IMAGE_NAMES"
+
+docker-build-worker-ocr-layout:
+  extends:
+    - .docker-build-common
+  variables:
+    DOCKERFILE: "worker/layout/Dockerfile"
+    WORKING_DIR: "worker/layout"
+  before_script:
+    - |
+      SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-7)
+      APP_VERSION=$(grep '^version' backend/pyproject.toml | head -1 | cut -d'"' -f2)
+      if [ -z "$APP_VERSION" ]; then
+        echo "Error: Could not extract version from backend/pyproject.toml"
+        exit 1
+      fi
+      TAGS="mille-feuille/worker-ocr-layout:$SHORT_SHA"
+      TAGS="$TAGS mille-feuille/worker-ocr-layout:$CI_COMMIT_REF_SLUG"
+      TAGS="$TAGS mille-feuille/worker-ocr-layout:$APP_VERSION"
+      if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        TAGS="$TAGS mille-feuille/worker-ocr-layout:latest"
+      fi
+      export IMAGE_NAMES="$TAGS"
+      echo "Building with tags: $IMAGE_NAMES"
+
+docker-build-worker-ocr:
+  extends:
+    - .docker-build-common
+  variables:
+    DOCKERFILE: "worker/ocr/Dockerfile"
+    WORKING_DIR: "worker/ocr"
+  before_script:
+    - |
+      SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-7)
+      APP_VERSION=$(grep '^version' backend/pyproject.toml | head -1 | cut -d'"' -f2)
+      if [ -z "$APP_VERSION" ]; then
+        echo "Error: Could not extract version from backend/pyproject.toml"
+        exit 1
+      fi
+      TAGS="mille-feuille/worker-ocr:$SHORT_SHA"
+      TAGS="$TAGS mille-feuille/worker-ocr:$CI_COMMIT_REF_SLUG"
+      TAGS="$TAGS mille-feuille/worker-ocr:$APP_VERSION"
+      if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        TAGS="$TAGS mille-feuille/worker-ocr:latest"
+      fi
+      export IMAGE_NAMES="$TAGS"
+      echo "Building with tags: $IMAGE_NAMES"
+
+docker-build-worker-ocr-table:
+  extends:
+    - .docker-build-common
+  variables:
+    DOCKERFILE: "worker/table/Dockerfile"
+    WORKING_DIR: "worker/table"
+  before_script:
+    - |
+      SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-7)
+      APP_VERSION=$(grep '^version' backend/pyproject.toml | head -1 | cut -d'"' -f2)
+      if [ -z "$APP_VERSION" ]; then
+        echo "Error: Could not extract version from backend/pyproject.toml"
+        exit 1
+      fi
+      TAGS="mille-feuille/worker-ocr-table:$SHORT_SHA"
+      TAGS="$TAGS mille-feuille/worker-ocr-table:$CI_COMMIT_REF_SLUG"
+      TAGS="$TAGS mille-feuille/worker-ocr-table:$APP_VERSION"
+      if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        TAGS="$TAGS mille-feuille/worker-ocr-table:latest"
+      fi
+      export IMAGE_NAMES="$TAGS"
+      echo "Building with tags: $IMAGE_NAMES"
+
+docker-build-worker-ocr-vision:
+  extends:
+    - .docker-build-common
+  variables:
+    DOCKERFILE: "worker/vision/Dockerfile"
+    WORKING_DIR: "worker/vision"
+  before_script:
+    - |
+      SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-7)
+      APP_VERSION=$(grep '^version' backend/pyproject.toml | head -1 | cut -d'"' -f2)
+      if [ -z "$APP_VERSION" ]; then
+        echo "Error: Could not extract version from backend/pyproject.toml"
+        exit 1
+      fi
+      TAGS="mille-feuille/worker-ocr-vision:$SHORT_SHA"
+      TAGS="$TAGS mille-feuille/worker-ocr-vision:$CI_COMMIT_REF_SLUG"
+      TAGS="$TAGS mille-feuille/worker-ocr-vision:$APP_VERSION"
+      if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+        TAGS="$TAGS mille-feuille/worker-ocr-vision:latest"
       fi
       export IMAGE_NAMES="$TAGS"
       echo "Building with tags: $IMAGE_NAMES"

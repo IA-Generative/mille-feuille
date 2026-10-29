@@ -70,6 +70,46 @@
         },
         {
           "type": "toml",
+          "path": "worker/layout/pyproject.toml",
+          "jsonpath": "project.version"
+        },
+        {
+          "type": "toml",
+          "path": "worker/layout/uv.lock",
+          "jsonpath": "$.package[?(@.name=='mille-feuille-worker-ocr-layout')].version"
+        },
+        {
+          "type": "toml",
+          "path": "worker/ocr/pyproject.toml",
+          "jsonpath": "project.version"
+        },
+        {
+          "type": "toml",
+          "path": "worker/ocr/uv.lock",
+          "jsonpath": "$.package[?(@.name=='mille-feuille-worker-ocr')].version"
+        },
+        {
+          "type": "toml",
+          "path": "worker/table/pyproject.toml",
+          "jsonpath": "project.version"
+        },
+        {
+          "type": "toml",
+          "path": "worker/table/uv.lock",
+          "jsonpath": "$.package[?(@.name=='mille-feuille-worker-ocr-table')].version"
+        },
+        {
+          "type": "toml",
+          "path": "worker/vision/pyproject.toml",
+          "jsonpath": "project.version"
+        },
+        {
+          "type": "toml",
+          "path": "worker/vision/uv.lock",
+          "jsonpath": "$.package[?(@.name=='mille-feuille-worker-ocr-vision')].version"
+        },
+        {
+          "type": "toml",
           "path": "worker/document_render/pyproject.toml",
           "jsonpath": "project.version"
         },

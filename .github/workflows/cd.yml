@@ -122,6 +122,18 @@ jobs:
           - name: worker-extraction
             context: worker/extraction
             dockerfile: worker/extraction/Dockerfile
+          - name: worker-ocr-layout
+            context: worker/layout
+            dockerfile: worker/layout/Dockerfile
+          - name: worker-ocr
+            context: worker/ocr
+            dockerfile: worker/ocr/Dockerfile
+          - name: worker-ocr-table
+            context: worker/table
+            dockerfile: worker/table/Dockerfile
+          - name: worker-ocr-vision
+            context: worker/vision
+            dockerfile: worker/vision/Dockerfile
           - name: worker-document-render
             context: worker/document_render
             dockerfile: worker/document_render/Dockerfile

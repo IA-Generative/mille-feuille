@@ -85,6 +85,10 @@ jobs:
           - worker-agent-execution
           - worker-classification
           - worker-extraction
+          - worker-ocr-layout
+          - worker-ocr
+          - worker-ocr-table
+          - worker-ocr-vision
           - worker-document-render
     with:
       IMAGE: ${{ needs.list-closed-prs.outputs.image-base }}/${{ matrix.service }}:pr-${{ matrix.pr.number }}
@@ -106,6 +110,10 @@ jobs:
           - worker-agent-execution
           - worker-classification
           - worker-extraction
+          - worker-ocr-layout
+          - worker-ocr
+          - worker-ocr-table
+          - worker-ocr-vision
           - worker-document-render
     with:
       IMAGE: ${{ needs.list-closed-prs.outputs.image-base }}/${{ matrix.service }}
