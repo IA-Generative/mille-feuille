@@ -26,5 +26,13 @@ class RustFsStorage:
         # backend, qui le crée si besoin).
         self._client.put_object(Bucket=self._bucket, Key=key, Body=data, ContentType=content_type)
 
+    def delete_objects(self, keys: list[str]) -> None:
+        """Supprime des objets (les images temporaires de pages confiées aux pods d'OCR)."""
+        for start in range(0, len(keys), 1000):
+            self._client.delete_objects(
+                Bucket=self._bucket,
+                Delete={"Objects": [{"Key": key} for key in keys[start : start + 1000]], "Quiet": True},
+            )
+
 
 storage = RustFsStorage()
