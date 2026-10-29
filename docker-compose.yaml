@@ -50,8 +50,6 @@ services:
     environment:
       DATABASE_URL: postgresql+asyncpg://millefeuille:millefeuille@postgres:5432/millefeuille
       REDIS_URL: redis://redis:6379/0
-      MEILI_URL: http://meilisearch:7700
-      MEILI_API_KEY: ${MEILI_MASTER_KEY:-dev-only-meili-key-not-for-prod}
       KEYCLOAK_URL: http://keycloak:8080
       KEYCLOAK_PUBLIC_URL: http://localhost:8080
       KEYCLOAK_REALM: mille-feuille
@@ -81,8 +79,6 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_healthy
-      meilisearch:
         condition: service_healthy
       keycloak:
         condition: service_healthy
@@ -383,22 +379,6 @@ services:
       timeout: 3s
       retries: 10
 
-  meilisearch:
-    image: getmeili/meilisearch:v1.12
-    environment:
-      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-dev-only-meili-key-not-for-prod}
-      MEILI_NO_ANALYTICS: "true"
-    volumes:
-      - meilisearch-data:/meili_data
-    ports:
-      - "7700:7700"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 15
-      start_period: 10s
-
   # Index de recherche des dossiers (hybride dense + creux) : un alias `dossier_<id>` par dossier.
   qdrant:
     image: qdrant/qdrant:v1.19.2
@@ -480,6 +460,5 @@ secrets:
 
 volumes:
   postgres-data:
-  meilisearch-data:
   qdrant-data:
   rustfs-data:
