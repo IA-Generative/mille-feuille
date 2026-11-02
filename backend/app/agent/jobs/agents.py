@@ -21,7 +21,7 @@ from app.agent.agent_call import FUNCTION_NAME, NOTICE
 from app.agent.agent_loop import run_agent
 from app.agent.agent_tool_set import ExtraTools
 from app.agent.analysis_agents import ANALYSIS_NOTICE, AnalysisAgent, build_agent_tools, load_agents
-from app.agent.dispatch import dispatch_dossier_summary
+from app.agent.dispatch import dispatch_dossier_summary, dispatch_question_answers
 from app.agent.documents import load_dossier
 from app.agent.knowledge_tools import KnowledgeContext
 from app.db import async_session_factory
@@ -199,3 +199,6 @@ async def run_agents(dossier_id: str, acting_user: str | None = None) -> None:
     # Tous les agents ont terminé, les synthèses sont disponibles : le résumé global du dossier (issue #52). Aussi pour
     # une analyse sans agent : sans cela, un dossier sans agent n'aurait jamais de résumé.
     dispatch_dossier_summary(dossier_id)
+    # Les réponses aux questions fréquentes de l'analyse, prêtes pour la conversation (issue #422) : indépendantes du
+    # résumé, elles se calculent en même temps.
+    dispatch_question_answers(dossier_id)

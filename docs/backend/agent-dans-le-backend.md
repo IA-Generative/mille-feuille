@@ -76,6 +76,24 @@ ses outils, la synthèse déjà produite, l'accès à son analyse et, s'il a l'o
   une ligne), avec les droits de lecture du dossier ; le menu des agents du chat s'en sert.
 - Dans le chat, `appel_agent` n'est pas proposé comme outil : c'est le plan qui choisit l'agent à interroger.
 
+## Réponses prêtes aux questions fréquentes
+
+Une analyse définit des **questions fréquentes** (`Analyse.frequent_questions`, versionnées). À la fin de l'analyse d'un dossier,
+`jobs/question_answers.py` calcule la réponse à chacune, en tâche de fond, pour que la conversation les affiche sans appel au
+modèle (table `dossier_question_answers`, une ligne par dossier et par question).
+
+- **Comme le chat répond** : recherche hybride dans le dossier, passages numérotés `[n]`, puis un seul appel qui dit si le dossier
+  permet de répondre (`answerable`) et écrit la réponse. Une question **sans réponse n'est pas suggérée** (statut `sans_réponse`,
+  pas un échec). Les passages cités sont gardés avec la réponse.
+- **Pas de recalcul inutile** : chaque ligne garde l'empreinte de ce qu'elle a lu (pages, éléments retenus de l'analyse, synthèses des
+  agents). Inchangée, la question n'est pas recalculée ; un échec (empreinte vide) est retenté au passage suivant.
+- **Quand** : à la fin de `run_agents` (en même temps que le résumé du dossier), avec `full=True` : la liste de l'analyse fait foi (une
+  question ajoutée apparaît, une retirée disparaît). Après une **correction** d'un élément par l'instructeur, `full=False` : seules
+  les réponses existantes sont rafraîchies ; une question ajoutée à l'analyse n'apparaît sur un dossier qu'à sa relance.
+- **Index** : le travail attend l'index de recherche du dossier ; sans index (Qdrant absent, échec) il ne fait rien.
+- **API** : `GET /api/dossiers/{id}/question-answers` (réponses prêtes, ordre de l'analyse, état `pending`/`failed`/`ready`) et
+  `POST …/regenerate` (relance, c'est ce qui reprend un échec). Un balayage au démarrage passe en échec une réponse restée en cours.
+
 ## Les agents d'analyse
 
 `jobs/agents.py` attend la classification et l'extraction en lisant la base (jusqu'à 10 minutes ; ils partent ensuite avec ce
