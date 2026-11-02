@@ -32,10 +32,10 @@ from app.agent.runner import settings
 from app.agent.tools import AgentTools, NotIndexedError
 from app.db import async_session_factory
 from app.repositories.analyse_repository import AnalyseRepository
-from app.repositories.chat_tool_call_repository import ChatToolCallRepository
 from app.repositories.dossier_note_repository import DossierNoteRepository
 from app.schemas.dossier import InternalMessageIn
 from app.services.chat_conversation import deposit_assistant_message, load_chat_conversation
+from app.services.chat_tool_calls import record_approved_result
 from app.services.search.retrieval import DossierSearcher
 
 logger = logging.getLogger(__name__)
@@ -85,10 +85,7 @@ async def _run_approved_calls(conversation: dict, tools: AgentTools, events: Cha
                 await tools.dispatch_tool(name, call["arguments"]) if tools.has_extra(name) else chat_history.TOOL_GONE
             )
             async with async_session_factory() as db:
-                repository = ChatToolCallRepository(db)
-                row = await repository.get(uuid.UUID(call["id"]))
-                if row is not None:
-                    await repository.record_result(row, result)
+                await record_approved_result(db, uuid.UUID(call["id"]), result)
             await events.emit("tool_result", {"tool_name": call["tool_name"], "preview": result[:200]})
             call["status"], call["result"] = "executed", result
 

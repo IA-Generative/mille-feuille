@@ -5,6 +5,8 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
+from app.agent.helper.tools import HelperTools
+
 ME = "dev-user"  # identité fixe du mode de test (VERIFY_TOKEN_MODEL=full-access)
 INTERNAL_HEADERS = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 
@@ -357,18 +359,17 @@ def test_events_leave_with_their_dossier(client: TestClient) -> None:
     assert run(client, count_events) == 0  # le journal suit le dossier (cascade, cf. #94)
 
 
-def test_dossier_created_by_the_internal_agent_is_journaled_under_the_person_it_acts_for(client: TestClient) -> None:
+def test_dossier_created_by_the_agent_is_journaled_under_the_person_it_acts_for(client: TestClient) -> None:
     analyse = _create_analyse(client)
     client.get("/api/auth/me")  # la personne est connue de l'annuaire, avec ses groupes
 
-    created = client.post(
-        "/api/internal/agent/dossiers",
-        json={"name": "Dossier de l'agent", "analyse_id": analyse["id"]},
-        headers={**INTERNAL_HEADERS, "X-Acting-User": ME},
-    )
+    async def create() -> str:
+        return await HelperTools(ME).create_dossier("Dossier de l'agent", analyse["id"])
 
-    assert created.status_code == 201, created.text
-    (event,) = _events(client, created.json()["id"])
+    created = client.portal.call(create)
+
+    assert created.startswith("Dossier « Dossier de l'agent » créé"), created
+    (event,) = _events(client, created.split("(id: ")[1].split(")")[0])
     # L'agent agit au nom de la personne (issue #222) : c'est elle qui est responsable de l'action.
     assert event["type"] == "created" and event["actor_id"] == ME
 

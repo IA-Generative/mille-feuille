@@ -1,26 +1,58 @@
 import uuid
+from types import SimpleNamespace
 
 import fakeredis
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app.core.security.acting_user import context_for_user
 from app.db import async_session_factory
 from app.main import app
 from app.models.tool import ToolCallLog
-from app.routers.internal_tools import get_call_limiter
+from app.routers.tool_servers import get_identity_tokens
+from app.schemas.tool_call import ToolCallOut, ToolDefinitionOut, ToolResolveOut
 from app.services.tools.call_limits import CallLimiter
-from app.services.tools.mcp_caller import CallFailedError, CallTimeoutError, RawToolResult
+from app.services.tools.call_service import ToolCallService
+from app.services.tools.definitions import resolve_tool_definitions
+from app.services.tools.dependencies import get_call_limiter, get_tool_caller
+from app.services.tools.mcp_caller import CallFailedError, CallTimeoutError, McpToolCaller, RawToolResult
 from tests.access_support import As
 from tests.tool_support import FakeCaller, FakeIdentityTokens, FakeLister, create_server, tool_id
 
-TOKEN = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
+
+def _override(dependency, default):  # noqa: ANN001, ANN202
+    """Le faux que le test a installé pour cette dépendance, à défaut la vraie."""
+    return app.dependency_overrides.get(dependency, default)()
 
 
-def call(client: TestClient, tool: str, *, person=None, arguments: dict | None = None, run_id: str | None = None):
-    headers = {**TOKEN, **({"X-Acting-User": person.user_id} if person else {})}
-    body = {"arguments": arguments or {"mots_cles": "subvention"}, "run_id": run_id or f"run-{uuid.uuid4().hex[:8]}"}
-    return client.post(f"/api/internal/tools/{tool}/call", json=body, headers=headers)
+def call(client: TestClient, tool: str, *, person=None, arguments: dict | None = None, run_id: str | None = None):  # noqa: ANN001, ANN201
+    """Appelle un tool MCP au nom d'une personne, comme le fait l'agent (`ToolCallService`)."""
+    acting = person.user_id if person else None
+    run = run_id or f"run-{uuid.uuid4().hex[:8]}"
+
+    async def run_call() -> dict:
+        async with async_session_factory() as db:
+            user = await context_for_user(db, acting)
+            service = ToolCallService(
+                db,
+                caller=_override(get_tool_caller, McpToolCaller),
+                identity_tokens=_override(get_identity_tokens, get_identity_tokens),
+                limiter=_override(get_call_limiter, get_call_limiter),
+            )
+            outcome, duration_ms = await service.call(
+                user, tool, arguments or {"mots_cles": "subvention"}, acting_user=acting, run_id=run
+            )
+        return ToolCallOut(
+            ok=outcome.ok,
+            code=outcome.code,
+            output=outcome.output,
+            truncated=outcome.truncated,
+            duration_ms=duration_ms,
+        ).model_dump()
+
+    body = client.portal.call(run_call)
+    return SimpleNamespace(status_code=200, json=lambda: body)
 
 
 def logs_of(client: TestClient, user_id: str) -> list[ToolCallLog]:
@@ -56,7 +88,7 @@ def test_a_tool_is_called_for_the_person_and_only_its_output_comes_back(
     assert caller.calls[0][1] == {}  # serveur sans authentification : aucun jeton
 
 
-def test_the_token_for_the_person_is_added_by_the_backend_never_asked_of_the_worker(
+def test_the_token_for_the_person_is_added_by_the_backend_never_asked_of_the_agent(
     client: TestClient, caller: FakeCaller, lister: FakeLister, identity_tokens: FakeIdentityTokens, world: dict
 ) -> None:
     with As(world["alice"]):
@@ -200,20 +232,25 @@ def test_every_call_is_logged_without_its_arguments_or_output(
     assert not hasattr(logs[0], "arguments") and not hasattr(logs[0], "output")
 
 
-def test_the_route_requires_the_worker_token(client: TestClient) -> None:
-    assert client.post("/api/internal/tools/x/call", json={}).status_code == 422
-    assert client.post("/api/internal/tools/x/call", json={}, headers={"X-App-Token": "nope"}).status_code == 401
+# --- La résolution des définitions, pour l'agent ---
 
 
-# --- La résolution des définitions, pour le worker ---
+def resolve(client: TestClient, ids: list[str], *, person=None):  # noqa: ANN001, ANN201
+    acting = person.user_id if person else None
+
+    async def run_resolve() -> dict:
+        async with async_session_factory() as db:
+            user = await context_for_user(db, acting)
+            definitions, unavailable = await resolve_tool_definitions(db, user, ids)
+        return ToolResolveOut(
+            tools=[ToolDefinitionOut(**vars(definition)) for definition in definitions], unavailable=unavailable
+        ).model_dump()
+
+    body = client.portal.call(run_resolve)
+    return SimpleNamespace(status_code=200, json=lambda: body)
 
 
-def resolve(client: TestClient, ids: list[str], *, person=None):
-    headers = {**TOKEN, **({"X-Acting-User": person.user_id} if person else {})}
-    return client.post("/api/internal/tools/resolve", json={"tool_ids": ids}, headers=headers)
-
-
-def test_the_worker_gets_the_definitions_the_person_can_use(
+def test_the_agent_gets_the_definitions_the_person_can_use(
     client: TestClient, lister: FakeLister, server: dict, world: dict
 ) -> None:
     ids = [tool_id(server, "rechercher_texte"), tool_id(server, "lire_article")]

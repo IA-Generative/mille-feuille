@@ -1,7 +1,5 @@
-"""Tests de la génération des valeurs de champs : côté backend (issue #141).
-
-L'agent lui-même vit dans le worker (``worker/agent_execution``, LLM simulé dans ses tests) ; ici : le prompt
-versionné, le déclenchement et le suivi de la génération, et l'API interne que le worker appelle."""
+"""Tests de la génération des valeurs de champs (issue #141) : le prompt versionné, le déclenchement et le suivi de la
+génération, ce que l'agent lit (le contexte) et ce qu'il dépose (le LLM est simulé, la base est réelle)."""
 
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -11,11 +9,11 @@ import pytest
 from document_helpers import add_entity, by_name, create_draft, entity, field, make_dossier, make_template, run, url
 from fastapi.testclient import TestClient
 
+from app.agent.document_generation import FieldProposal, GeneratedFields
 from app.core.security.factory import RequestContext, get_current_user
 from app.main import app
 from app.models.document_draft import DocumentDraft
 
-INTERNAL = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 PROMPT = "/api/admin/generation-prompt"
 
 
@@ -211,21 +209,41 @@ def test_a_validated_field_cannot_be_regenerated(client: TestClient, setup: dict
     assert dispatched == []
 
 
-# --- API interne appelée par le worker ---
+# --- Ce que l'agent lit, ce qu'il dépose ---
 
 
-def internal(setup: dict, suffix: str) -> str:
-    return f"/api/internal/document-drafts/{setup['draft']['id']}{suffix}"
+def draft_context(client: TestClient, setup: dict) -> dict:
+    """Le contexte de génération tel que l'agent le lit."""
+    from app.db import async_session_factory
+    from app.services.draft_generation_context import build_draft_context
+
+    async def read() -> dict:
+        async with async_session_factory() as db:
+            draft = await db.get(DocumentDraft, uuid.UUID(setup["draft"]["id"]))
+            return (await build_draft_context(db, draft)).model_dump(mode="json")
+
+    return client.portal.call(read)
 
 
-def test_internal_routes_require_the_worker_token(client: TestClient, setup: dict) -> None:
-    bad = {"X-App-Token": "mauvais-jeton"}
-    for call in (
-        client.get(internal(setup, "/context"), headers=bad),
-        client.post(internal(setup, "/fields/decision/propose"), headers=bad, json={"value": "x"}),
-        client.post(internal(setup, "/generation"), headers=bad, json={"status": "terminé"}),
-    ):
-        assert call.status_code == 401
+def generate(client: TestClient, setup: dict, proposals: list, *, names=None, instruction=None, draft_id=None):  # noqa: ANN001, ANN201
+    """Lance le travail de génération, le LLM répondant `proposals` (des FieldProposal, ou une exception)."""
+    from app.agent import llm
+    from app.agent.jobs.document_fields import generate_document_fields
+
+    async def fake(messages: list) -> Any:
+        fake.messages.append(messages)
+        if isinstance(proposals, Exception):
+            raise proposals
+        return GeneratedFields(fields=proposals)
+
+    fake.messages = []  # type: ignore[attr-defined]
+    original = llm.generate_field_values
+    llm.generate_field_values = fake
+    try:
+        client.portal.call(generate_document_fields, draft_id or setup["draft"]["id"], names, instruction)
+    finally:
+        llm.generate_field_values = original
+    return fake.messages
 
 
 def test_the_context_has_everything_the_agent_needs(client: TestClient, setup: dict) -> None:
@@ -233,10 +251,8 @@ def test_the_context_has_everything_the_agent_needs(client: TestClient, setup: d
     archived = client.post(f"/api/dossiers/{setup['dossier_id']}/notes", json={"content": "Note archivée"}).json()
     client.post(f"/api/dossiers/{setup['dossier_id']}/notes/{archived['id']}/archive")
 
-    response = client.get(internal(setup, "/context"), headers=INTERNAL)
+    body = draft_context(client, setup)
 
-    assert response.status_code == 200, response.text
-    body = response.json()
     assert body["draft_id"] == setup["draft"]["id"] and body["status"] == "brouillon"
     assert [f["name"] for f in body["fields"]] == ["nom", "decision", "motif", "dossier"]
     decision = body["fields"][1]
@@ -252,98 +268,119 @@ def test_the_context_has_everything_the_agent_needs(client: TestClient, setup: d
 
 def test_the_context_reads_the_frozen_revision_not_the_current_analysis(client: TestClient, setup: dict) -> None:
     add_entity(client, setup["analysis"], "adresse", "Ajoutée après le brouillon")
-    body = client.get(internal(setup, "/context"), headers=INTERNAL).json()
+    body = draft_context(client, setup)
     assert [e["name"] for e in body["elements"]] == ["nom"]
 
 
 def test_the_context_carries_the_prompt_in_force(client: TestClient, setup: dict) -> None:
     created = client.post(f"{PROMPT}/versions", json={"content": "Prompt versionné du contexte, assez long."}).json()
-    body = client.get(internal(setup, "/context"), headers=INTERNAL).json()
+    body = draft_context(client, setup)
     assert body["prompt"].startswith("Prompt versionné du contexte")
     assert body["prompt_version_number"] == created["version_number"]
     assert body["prompt_label"] == f"doc-fields-v{created['version_number']}"
 
 
-def test_the_worker_proposes_a_value_with_its_traces(client: TestClient, setup: dict) -> None:
-    sources = [{"type": "analysis_element", "element_id": str(uuid.uuid4())}, {"type": "note", "note_id": "n1"}]
-    response = client.post(
-        internal(setup, "/fields/decision/propose"),
-        headers=INTERNAL,
-        json={"value": "Demande accordée", "sources": sources, "prompt_version": "doc-fields-v3", "model": "m1"},
+def test_the_agent_proposes_a_value_with_its_traces(client: TestClient, setup: dict) -> None:
+    messages = generate(
+        client,
+        setup,
+        [
+            FieldProposal(name="decision", found=True, value="Demande accordée", source_ids=["E1"]),
+            FieldProposal(name="motif", found=False),
+        ],
     )
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert (body["status"], body["origin"], body["value"]) == ("proposé", "agent", "Demande accordée")
-    assert (body["prompt_version"], body["model"], body["sources"]) == ("doc-fields-v3", "m1", sources)
+
+    # Le LLM reçoit le prompt versionné et le contexte borné.
+    assert messages[0][0]["role"] == "system" and "decision" in messages[0][1]["content"]
+    decision = by_name(client.get(setup["base"]).json())["decision"]["current"]
+    assert (decision["status"], decision["origin"], decision["value"]) == ("proposé", "agent", "Demande accordée")
+    assert decision["prompt_version"].startswith("doc-fields-v") and decision["model"]
+    assert [s["type"] for s in decision["sources"]] == ["analysis_element"]
     events = client.get(setup["base"] + "/events", params={"field": "decision"}).json()
-    assert events[-1]["kind"] == "proposed" and events[-1]["prompt_version"] == "doc-fields-v3"
-    assert events[-1]["model"] == "m1"
+    assert events[-1]["kind"] == "proposed" and events[-1]["prompt_version"] == decision["prompt_version"]
+    # Un champ introuvable reste « non renseigné » : jamais inventé.
+    assert by_name(client.get(setup["base"]).json())["motif"]["current"]["status"] == "non_renseigné"
+
+
+def test_the_end_of_a_generation_is_reported_on_the_draft(client: TestClient, setup: dict, dispatched) -> None:
+    client.post(setup["base"] + "/generate", json={})
+
+    generate(
+        client,
+        setup,
+        [
+            FieldProposal(name="nom", found=True, value="Dupont"),
+            FieldProposal(name="decision", found=True, value="Accordée"),
+            FieldProposal(name="motif", found=False),
+        ],
+    )
+
+    body = client.get(setup["base"]).json()
+    assert body["generation_status"] == "terminé" and body["generation_proposal_count"] == 2
+    assert body["generation_missing"] == ["motif"] and body["generation_truncated"] is False
+    assert body["generation_prompt_version"].startswith("doc-fields-v") and body["generation_error"] is None
+    # La génération est terminée : on peut en relancer une.
+    assert client.post(setup["base"] + "/generate", json={}).status_code == 202
 
 
 def test_a_regeneration_is_journaled_with_its_instruction(client: TestClient, setup: dict) -> None:
-    path = internal(setup, "/fields/decision/propose")
-    client.post(path, headers=INTERNAL, json={"value": "Première version"})
-    client.post(path, headers=INTERNAL, json={"value": "Version courte", "instruction": "Plus court"})
+    generate(client, setup, [FieldProposal(name="decision", found=True, value="Première version")])
+    generate(
+        client,
+        setup,
+        [FieldProposal(name="decision", found=True, value="Version courte")],
+        names=["decision"],
+        instruction="Plus court",
+    )
+
     events = client.get(setup["base"] + "/events", params={"field": "decision"}).json()
     assert [e["kind"] for e in events] == ["proposed", "regenerated"] and events[-1]["detail"] == "Plus court"
     assert by_name(client.get(setup["base"]).json())["decision"]["current"]["value"] == "Version courte"
 
 
-def test_the_worker_can_never_rewrite_a_validated_value(client: TestClient, setup: dict) -> None:
+def test_the_agent_can_never_rewrite_a_validated_value(client: TestClient, setup: dict) -> None:
     client.put(setup["base"] + "/fields/decision", json={"value": "Saisie à la main"})
-    response = client.post(internal(setup, "/fields/decision/propose"), headers=INTERNAL, json={"value": "Écrasée"})
-    assert response.status_code == 409
-    assert by_name(client.get(setup["base"]).json())["decision"]["current"]["value"] == "Saisie à la main"
-    # Ni une métadonnée du dossier, validée d'office.
-    assert (
-        client.post(internal(setup, "/fields/dossier/propose"), headers=INTERNAL, json={"value": "X"}).status_code
-        == 409
+
+    messages = generate(
+        client,
+        setup,
+        [
+            FieldProposal(name="decision", found=True, value="Écrasée"),
+            FieldProposal(name="dossier", found=True, value="X"),  # une métadonnée du dossier, validée d'office
+            FieldProposal(name="motif", found=True, value="Un motif"),
+        ],
     )
 
+    fields = by_name(client.get(setup["base"]).json())
+    assert fields["decision"]["current"]["value"] == "Saisie à la main"
+    assert fields["dossier"]["current"]["value"] != "X"
+    assert fields["motif"]["current"]["value"] == "Un motif"
+    # Les champs validés ne sont même pas demandés au modèle.
+    assert "decision" not in messages[0][1]["content"].split("--- Champs à renseigner ---")[1].split("---")[0]
 
-def test_the_worker_proposal_must_match_the_field_type(client: TestClient, setup: dict) -> None:
+
+def test_the_agent_proposal_must_match_the_field_type(client: TestClient, setup: dict) -> None:
     template_id = make_template(client, [field("montant", type="number")], dossier_id=setup["dossier_id"])
     draft = create_draft(client, setup["dossier_id"], template_id)
-    path = f"/api/internal/document-drafts/{draft['id']}/fields/montant/propose"
-    assert client.post(path, headers=INTERNAL, json={"value": "beaucoup"}).status_code == 422
-    assert client.post(path, headers=INTERNAL, json={"value": "1 250,5"}).json()["value"] == 1250.5
-    assert (
-        client.post(internal(setup, "/fields/inconnu/propose"), headers=INTERNAL, json={"value": "x"}).status_code
-        == 404
-    )
+    other = {**setup, "draft": draft, "base": url(setup["dossier_id"], draft["id"])}
 
+    generate(client, other, [FieldProposal(name="montant", found=True, value="beaucoup")])
+    body = client.get(other["base"]).json()
+    assert body["generation_missing"] == ["montant"] and body["generation_proposal_count"] == 0
 
-def test_unknown_drafts_are_404(client: TestClient) -> None:
-    ghost = f"/api/internal/document-drafts/{uuid.uuid4()}"
-    assert client.get(ghost + "/context", headers=INTERNAL).status_code == 404
-    assert client.post(ghost + "/generation", headers=INTERNAL, json={"status": "terminé"}).status_code == 404
-
-
-def test_the_end_of_a_generation_is_reported_on_the_draft(client: TestClient, setup: dict, dispatched) -> None:
-    client.post(setup["base"] + "/generate", json={})
-    done = client.post(
-        internal(setup, "/generation"),
-        headers=INTERNAL,
-        json={
-            "status": "terminé",
-            "proposal_count": 1,
-            "missing": ["motif"],
-            "truncated": True,
-            "prompt_version": "p1",
-        },
-    )
-    assert done.status_code == 204
-    body = client.get(setup["base"]).json()
-    assert body["generation_status"] == "terminé" and body["generation_proposal_count"] == 1
-    assert body["generation_missing"] == ["motif"] and body["generation_truncated"] is True
-    assert body["generation_prompt_version"] == "p1" and body["generation_error"] is None
-    # La génération est terminée : on peut en relancer une.
-    assert client.post(setup["base"] + "/generate", json={}).status_code == 202
+    generate(client, other, [FieldProposal(name="montant", found=True, value="1 250,5")])
+    assert by_name(client.get(other["base"]).json())["montant"]["current"]["value"] == 1250.5
 
 
 def test_a_failed_generation_keeps_its_reason(client: TestClient, setup: dict, dispatched) -> None:
     client.post(setup["base"] + "/generate", json={})
-    client.post(internal(setup, "/generation"), headers=INTERNAL, json={"status": "échec", "error": "LLM injoignable"})
+
+    generate(client, setup, RuntimeError("LLM injoignable"))
+
     body = client.get(setup["base"]).json()
     assert body["generation_status"] == "échec" and body["generation_error"] == "LLM injoignable"
-    assert client.post(internal(setup, "/generation"), headers=INTERNAL, json={"status": "bof"}).status_code == 422
+
+
+def test_an_unknown_draft_is_ignored(client: TestClient, setup: dict) -> None:
+    messages = generate(client, setup, [], draft_id=str(uuid.uuid4()))
+    assert messages == []

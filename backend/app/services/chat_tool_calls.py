@@ -54,3 +54,17 @@ async def decide_batch(
         await repository.decide(call, allow=decision.allow, user_id=user_id, comment=decision.comment)
     await db.commit()
     return sorted(calls, key=lambda call: call.position)
+
+
+async def record_approved_result(db: AsyncSession, call_id: uuid.UUID, result: str) -> str:
+    """Garde le résultat d'un appel que la personne a **autorisé** et que l'agent a exécuté, pour que le modèle le lise
+    au prochain tour. Jamais pour un appel en attente, refusé, laissé sans réponse ou déjà exécuté. Renvoie `ok`,
+    `not_found` ou `not_approved`."""
+    repository = ChatToolCallRepository(db)
+    call = await repository.get(call_id)
+    if call is None:
+        return "not_found"
+    if call.status != ChatToolCallStatus.APPROVED:
+        return "not_approved"
+    await repository.record_result(call, result)
+    return "ok"

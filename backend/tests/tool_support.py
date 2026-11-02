@@ -7,9 +7,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.routers.internal_tools import get_tool_caller
 from app.routers.tool_servers import get_identity_tokens, get_tool_lister
 from app.services.tools.credentials_errors import CredentialsUnavailableError
+from app.services.tools.dependencies import get_tool_caller
 from app.services.tools.mcp_caller import RawToolResult
 from app.services.tools.mcp_discovery import DiscoveredTool
 

@@ -6,6 +6,7 @@ from typing import Any
 
 from fastapi.testclient import TestClient
 
+from app.agent.analysis_tools import AnalysisProposer
 from app.db import async_session_factory
 from app.models.dossier_analysis import (
     AnalysisElement,
@@ -15,6 +16,7 @@ from app.models.dossier_analysis import (
     ElementVersionOrigin,
 )
 from app.repositories.dossier_analysis_repository import DossierAnalysisRepository
+from tests.agent_support import internal_conversation
 
 
 def _create_dossier(client: TestClient, name: str = "Dossier propositions") -> str:
@@ -367,66 +369,40 @@ def test_frozen_analysis_rejects_proposals_and_decisions(client: TestClient) -> 
     assert client.get(f"{base}/{proposal['id']}").json()["status"] == "pending"
 
 
-# --- API interne : le chat propose pour le compte d'un utilisateur (issue #115) ---
-
-INTERNAL = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
+# --- Le chat propose pour le compte d'un utilisateur (issue #115) ---
 
 
-def test_internal_current_analysis_lists_the_elements_the_chat_can_target(client: TestClient) -> None:
-    dossier_id, analysis, element = _setup(client)
-    response = client.get(f"/api/internal/dossiers/{dossier_id}/analysis", headers=INTERNAL)
-    assert response.status_code == 200
-    body = response.json()
-    assert body["id"] == str(analysis.id)
-    assert [e["id"] for e in body["elements"]] == [str(element.id)]
-    assert body["elements"][0]["retained_version"]["value"] == {"value": "Dupond"}
+def _chat_proposer(dossier_id: str, **overrides: Any) -> AnalysisProposer:
+    params = {"dossier_id": dossier_id, "user_id": "user-42", "model": "llm-test", "source_message_id": None}
+    return AnalysisProposer(**{**params, **overrides})
 
 
-def test_internal_current_analysis_is_404_without_analysis(client: TestClient) -> None:
-    dossier_id = _create_dossier(client)
-    assert client.get(f"/api/internal/dossiers/{dossier_id}/analysis", headers=INTERNAL).status_code == 404
+def _chat_proposes(client: TestClient, proposer: AnalysisProposer, **proposal: Any) -> str:
+    async def run_proposal() -> str:
+        await proposer.load()
+        return await proposer.propose(**proposal)
 
-
-def test_internal_routes_require_a_valid_app_token(client: TestClient) -> None:
-    dossier_id, _, element = _setup(client)
-    bad = {"X-App-Token": "not-a-valid-token"}
-    body = {"proposed_by": "x", "element_id": str(element.id), "value": {"value": "Y"}, "reason": "r"}
-    assert client.get(f"/api/internal/dossiers/{dossier_id}/analysis", headers=bad).status_code == 401
-    created = client.post(f"/api/internal/dossiers/{dossier_id}/analysis/proposals", json=body, headers=bad)
-    assert created.status_code == 401
+    return client.portal.call(run_proposal)
 
 
 def test_chat_proposal_is_stored_pending_for_the_given_user(client: TestClient) -> None:
     dossier_id, analysis, element = _setup(client)
     message_id = str(uuid.uuid4())
-    response = client.post(
-        f"/api/internal/dossiers/{dossier_id}/analysis/proposals",
-        json={
-            "proposed_by": "chat-agent:user-42",
-            "element_id": str(element.id),
-            "value": {"value": "Dupont"},
-            "reason": "L'instructeur a vérifié la pièce",
-            "source_type": "chat_message",
-            "source_id": message_id,
-            "model": "llm-test",
-            "prompt_version": "chat-v2",
-        },
-        headers=INTERNAL,
-    )
-    assert response.status_code == 201
-    proposal = response.json()
-    assert proposal["analysis_id"] == str(analysis.id)
-    assert proposal["status"] == "pending"
-    assert proposal["proposed_by"] == "chat-agent:user-42"
-    assert proposal["source_type"] == "chat_message"
-    assert proposal["source_id"] == message_id
-    assert (proposal["model"], proposal["prompt_version"]) == ("llm-test", "chat-v2")
+    proposer = _chat_proposer(dossier_id, source_message_id=message_id)
 
+    answer = _chat_proposes(
+        client, proposer, element_id=str(element.id), value="Dupont", reason="L'instructeur a vérifié la pièce"
+    )
+
+    assert "EN ATTENTE" in answer and len(proposer.proposal_ids) == 1
     # Rien n'est appliqué : l'utilisateur doit accepter.
     assert _element(client, dossier_id, element.id)["retained_version"]["value"] == {"value": "Dupond"}
-    # La proposition est visible côté utilisateur et peut être acceptée.
-    pending = client.get(f"/api/dossiers/{dossier_id}/analyse-dossier/proposals").json()
-    assert [p["id"] for p in pending] == [proposal["id"]]
+    # La proposition est visible côté utilisateur, avec ses traces, et peut être acceptée.
+    [proposal] = client.get(f"/api/dossiers/{dossier_id}/analyse-dossier/proposals").json()
+    assert proposal["id"] == proposer.proposal_ids[0] and proposal["analysis_id"] == str(analysis.id)
+    assert proposal["status"] == "pending" and proposal["proposed_by"] == "chat-agent:user-42"
+    assert (proposal["source_type"], proposal["source_id"]) == ("chat_message", message_id)
+    assert (proposal["model"], proposal["prompt_version"]) == ("llm-test", "chat-v2")
     accepted = client.post(f"{_base(dossier_id, analysis.id)}/proposals/{proposal['id']}/accept")
     assert accepted.status_code == 200
     assert _element(client, dossier_id, element.id)["retained_version"]["value"] == {"value": "Dupont"}
@@ -434,56 +410,30 @@ def test_chat_proposal_is_stored_pending_for_the_given_user(client: TestClient) 
 
 def test_chat_proposal_can_add_a_new_element(client: TestClient) -> None:
     dossier_id, _, _ = _setup(client)
-    response = client.post(
-        f"/api/internal/dossiers/{dossier_id}/analysis/proposals",
-        json={
-            "proposed_by": "chat-agent:u",
-            "kind": "entity",
-            "definition_name": "téléphone",
-            "value": {"value": "06 12 34 56 78"},
-            "reason": "Donné au téléphone",
-        },
-        headers=INTERNAL,
-    )
-    assert response.status_code == 201
-    assert response.json()["element_id"] is None
+    proposer = _chat_proposer(dossier_id)
+
+    _chat_proposes(client, proposer, kind="entity", name="téléphone", value="06 12 34 56 78", reason="Au téléphone")
+
+    [proposal] = client.get(f"/api/dossiers/{dossier_id}/analyse-dossier/proposals").json()
+    assert proposal["element_id"] is None and proposal["definition_name"] == "téléphone"
+    assert proposal["proposed_value"] == {"value": "06 12 34 56 78"}
 
 
-def test_chat_proposal_errors(client: TestClient) -> None:
-    dossier_id, analysis, element = _setup(client)
-    url = f"/api/internal/dossiers/{dossier_id}/analysis/proposals"
-    base = {"proposed_by": "u", "reason": "r"}
-    unknown = client.post(
-        url, json={**base, "element_id": str(uuid.uuid4()), "value": {"value": "X"}}, headers=INTERNAL
-    )
-    wrong = client.post(url, json={**base, "element_id": str(element.id), "value": {"label": "X"}}, headers=INTERNAL)
-    no_user = client.post(
-        url, json={"element_id": str(element.id), "value": {"value": "X"}, "reason": "r"}, headers=INTERNAL
-    )
-    assert (unknown.status_code, wrong.status_code, no_user.status_code) == (404, 422, 422)
+def test_chat_proposal_errors_are_told_to_the_model(client: TestClient) -> None:
+    dossier_id, _, element = _setup(client)
+    proposer = _chat_proposer(dossier_id)
+    unknown = _chat_proposes(client, proposer, element_id=str(uuid.uuid4()), value="X", reason="r")
+    assert "introuvable" in unknown and proposer.proposal_ids == []
 
     never_launched = _create_dossier(client, "Sans analyse")
-    missing = client.post(
-        f"/api/internal/dossiers/{never_launched}/analysis/proposals",
-        json={**base, "kind": "entity", "value": {"value": "X"}},
-        headers=INTERNAL,
-    )
-    assert missing.status_code == 404
-
-    async def freeze(repo: DossierAnalysisRepository) -> None:
-        row = await repo.db.get(DossierAnalysis, analysis.id)
-        row.status = DossierAnalysisStatus.FIGEE
-        await repo.db.commit()
-
-    _run(client, freeze)
-    frozen = client.post(url, json={**base, "element_id": str(element.id), "value": {"value": "X"}}, headers=INTERNAL)
-    assert frozen.status_code == 409
+    missing = _chat_proposes(client, _chat_proposer(never_launched), kind="entity", name="n", value="X", reason="r")
+    assert "pas encore d'analyse" in missing
 
 
 def test_internal_conversation_exposes_its_user(client: TestClient) -> None:
     dossier_id = _create_dossier(client)
     conversation = client.post(f"/api/dossiers/{dossier_id}/conversations").json()
-    internal = client.get(f"/api/internal/conversations/{conversation['id']}", headers=INTERNAL).json()
+    internal = internal_conversation(client, conversation["id"])
     assert internal["user_id"] == conversation["user_id"]
 
 

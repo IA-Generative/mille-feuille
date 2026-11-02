@@ -1,24 +1,29 @@
 import uuid
+from types import SimpleNamespace
 
 import fakeredis
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy import select
 
+from app.core.security.acting_user import context_for_user
 from app.db import async_session_factory
 from app.main import app
 from app.models.tool import ToolCallLog
-from app.routers.internal_tools import get_call_limiter
+from app.repositories.analyse_repository import AnalyseRepository
 from app.routers.knowledge_sources import get_knowledge_client
+from app.routers.tool_servers import get_identity_tokens
+from app.schemas.knowledge_search import KnowledgeSearchIn
 from app.services.knowledge.client import KnowledgeError
 from app.services.knowledge.contract import Box, SearchRequest, SearchResult, SkippedCollection, Source
+from app.services.knowledge.search_service import KnowledgeSearchService
 from app.services.tools.call_limits import CallLimiter
+from app.services.tools.dependencies import get_call_limiter
 from tests.access_support import As
 from tests.test_analysis_knowledge import FakeProvider, make_analyse, make_source, put
 from tests.test_knowledge_sources import probe as probe  # noqa: F401  (fixture : vérification de connexion simulée)
 from tests.tool_support import FakeIdentityTokens
-
-TOKEN = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 
 
 def source(collection: str, score: float, text: str = "Un RIB est exigé.", **extra) -> Source:
@@ -74,10 +79,34 @@ def provider():
     del app.dependency_overrides[get_knowledge_client]
 
 
-def search(client: TestClient, analyse: str, *, person=None, query: str = "pièces à fournir", **extra):
-    headers = {**TOKEN, **({"X-Acting-User": person.user_id} if person else {})}
-    body = {"analyse_id": analyse, "query": query, "run_id": f"run-{uuid.uuid4().hex[:8]}"} | extra
-    return client.post("/api/internal/knowledge/search", json=body, headers=headers)
+def search(client: TestClient, analyse: str, *, person=None, query: str = "pièces à fournir", **extra):  # noqa: ANN001, ANN201
+    """Cherche dans la base de connaissances de l'analyse au nom d'une personne, comme le fait l'agent. La réponse a la
+    forme de `TestClient` : 200 et le résultat, 422 si la demande est invalide, 404 sans analyse."""
+    acting = person.user_id if person else None
+    fields = {"analyse_id": analyse, "query": query, "run_id": f"run-{uuid.uuid4().hex[:8]}"} | extra
+
+    async def run_search() -> SimpleNamespace:
+        try:
+            body = KnowledgeSearchIn(**fields)
+        except ValidationError:
+            return SimpleNamespace(status_code=422, json=lambda: {})
+        async with async_session_factory() as db:
+            found = await AnalyseRepository(db).get(body.analyse_id)
+            if found is None:
+                return SimpleNamespace(status_code=404, json=lambda: {})
+            user = await context_for_user(db, acting)
+            service = KnowledgeSearchService(
+                db,
+                client=app.dependency_overrides[get_knowledge_client](),
+                identity_tokens=app.dependency_overrides.get(get_identity_tokens, get_identity_tokens)(),
+                limiter=app.dependency_overrides.get(get_call_limiter, get_call_limiter)(),
+            )
+            result = (await service.search(user, found.knowledge_collections, body, acting_user=acting)).model_dump(
+                mode="json"
+            )
+        return SimpleNamespace(status_code=200, json=lambda: result)
+
+    return client.portal.call(run_search)
 
 
 def logs_of(client: TestClient, user_id: str) -> list[ToolCallLog]:
@@ -263,13 +292,9 @@ def test_the_quota_stops_the_searches(client: TestClient, provider, probe, world
     assert codes == [None, None, "quota_depasse"]
 
 
-def test_the_route_needs_the_worker_token_and_a_valid_request(client: TestClient, provider) -> None:
+def test_an_invalid_request_or_an_unknown_analysis_is_refused(client: TestClient, provider) -> None:
     analyse = make_analyse(client)
-    body = {"analyse_id": analyse, "query": "pièces"}
 
-    assert client.post("/api/internal/knowledge/search", json=body).status_code == 422  # en-tête absent
-    bad = {"X-App-Token": "nope"}
-    assert client.post("/api/internal/knowledge/search", json=body, headers=bad).status_code == 401
     assert search(client, analyse, query="ab").status_code == 422
     assert search(client, analyse, top_k=11).status_code == 422
     assert search(client, str(uuid.uuid4())).status_code == 404

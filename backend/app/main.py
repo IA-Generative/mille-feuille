@@ -42,12 +42,6 @@ from app.routers.ephemeral import router as ephemeral_router
 from app.routers.generated_documents import router as generated_documents_router
 from app.routers.health import router as health_router
 from app.routers.internal import router as internal_router
-from app.routers.internal_agent import agent_conversations_router as internal_agent_conversations_router
-from app.routers.internal_agent import router as internal_agent_router
-from app.routers.internal_chat_tool_calls import router as internal_chat_tool_calls_router
-from app.routers.internal_knowledge import router as internal_knowledge_router
-from app.routers.internal_search import router as internal_search_router
-from app.routers.internal_tools import router as internal_tools_router
 from app.routers.knowledge_sources import router as knowledge_sources_router
 from app.routers.models import router as models_router
 from app.routers.notifications import router as notifications_router
@@ -181,11 +175,6 @@ app.include_router(chat_tool_calls_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(assist_router, prefix="/api")
 app.include_router(internal_router, prefix="/api")
-app.include_router(internal_agent_router, prefix="/api")
-app.include_router(internal_knowledge_router, prefix="/api")
-app.include_router(internal_tools_router, prefix="/api")
-app.include_router(internal_chat_tool_calls_router, prefix="/api")
-app.include_router(internal_agent_conversations_router, prefix="/api")
 app.include_router(app_tokens_router, prefix="/api")
 app.include_router(reports_router, prefix="/api")
 app.include_router(admin_reports_router, prefix="/api")
@@ -208,7 +197,6 @@ app.include_router(knowledge_sources_router, prefix="/api")
 app.include_router(analysis_knowledge_router, prefix="/api")
 app.include_router(analysis_search_router, prefix="/api")
 app.include_router(dossier_search_index_router, prefix="/api")
-app.include_router(internal_search_router, prefix="/api")
 app.include_router(tools_router, prefix="/api")
 app.include_router(usage_router, prefix="/api")
 app.include_router(internal_usage_router, prefix="/api")

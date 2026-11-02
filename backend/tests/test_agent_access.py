@@ -1,7 +1,7 @@
 """L'agent assistant agit au nom d'une personne (issue #222) : il ne voit jamais plus de dossiers qu'elle.
 
-Deux chemins : les routes internes de l'agent de l'interface (le worker transmet `X-Acting-User`) et le serveur MCP
-(le jeton d'application a un propriétaire dont l'agent a les droits)."""
+Deux chemins : l'agent de l'interface (le backend agit pour la personne qui a ouvert la conversation) et le serveur
+MCP (le jeton d'application a un propriétaire dont l'agent a les droits)."""
 
 import json
 import uuid
@@ -12,38 +12,41 @@ from fastapi.testclient import TestClient
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
+from app.agent.helper.tools import HelperTools
 from app.main import app
 from app.mcp.helper_server import mcp_server
 from tests.access_support import As
 from tests.test_dossier_access import _create, _events
 
-INTERNAL = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
+# --- L'agent de l'interface (la fenêtre de l'assistant) ---
 
 
-def _acting(person) -> dict:
-    return {**INTERNAL, "X-Acting-User": person.user_id}
+def _agent(client: TestClient, person_id: str, work):  # noqa: ANN001, ANN202
+    """Exécute `work(outils)` sur la boucle de l'application, les outils de l'assistant agissant pour cette personne."""
+
+    async def run_work():  # noqa: ANN202
+        return await work(HelperTools(person_id))
+
+    return client.portal.call(run_work)
 
 
-# --- Routes internes de l'agent de l'interface ---
+def _id_of(answer: str) -> str:
+    return answer.split("(id: ")[1].split(")")[0]
 
 
-def test_the_internal_agent_lists_only_what_the_person_sees(client: TestClient, analyse: dict, world: dict) -> None:
+def test_the_agent_lists_only_what_the_person_sees(client: TestClient, analyse: dict, world: dict) -> None:
     with As(world["alice"]):
         restricted = _create(client, analyse)
         open_one = _create(client, analyse, visibility="analyse")
 
-    def listed(person) -> set[str]:
-        ids: set[str] = set()
-        for page in range(1, 40):
-            body = client.get(
-                "/api/internal/agent/dossiers", params={"page": page, "page_size": 100}, headers=_acting(person)
-            ).json()
-            ids |= {d["id"] for d in body["items"]}
-            if page >= body["pages"]:
-                break
-        return ids
+    def listed(person) -> str:  # noqa: ANN001
+        async def every_page(tools: HelperTools) -> str:
+            return "\n".join([await tools.list_dossiers(page=page, page_size=100) for page in range(1, 6)])
 
-    assert {restricted["id"], open_one["id"]} <= listed(world["alice"])
+        return _agent(client, person.user_id, every_page)
+
+    for dossier in (restricted, open_one):
+        assert dossier["id"] in listed(world["alice"])
     assert restricted["id"] not in listed(world["bob"]) and open_one["id"] in listed(world["bob"])
 
 
@@ -53,65 +56,51 @@ def test_without_an_acting_person_the_agent_sees_no_restricted_dossier(
     with As(world["alice"]):
         restricted = _create(client, analyse)
 
-    anonymous = client.get(f"/api/internal/agent/dossiers/{restricted['id']}", headers=INTERNAL)
+    anonymous = _agent(client, "", lambda tools: tools.get_dossier(restricted["id"]))
 
-    assert anonymous.status_code == 404
+    assert anonymous == "Erreur : Dossier introuvable"
 
 
-@pytest.mark.parametrize(
-    ("method", "template", "body"),
-    [
-        ("GET", "/api/internal/agent/dossiers/{id}", None),
-        ("POST", "/api/internal/agent/dossiers/{id}/launch", None),
-        ("POST", "/api/internal/agent/dossiers/{id}/documents", {"files": []}),
-    ],
-)
-def test_the_internal_agent_cannot_reach_a_dossier_the_person_cannot_see(
-    client: TestClient, analyse: dict, world: dict, method: str, template: str, body: dict | None
+@pytest.mark.parametrize("tool", ["get_dossier", "run_dossier"])
+def test_the_agent_cannot_reach_a_dossier_the_person_cannot_see(
+    client: TestClient, analyse: dict, world: dict, tool: str
 ) -> None:
     with As(world["alice"]):
         dossier = _create(client, analyse)  # /a
-    path = template.format(id=dossier["id"])
 
-    outsider = client.request(method, path, json=body, headers=_acting(world["bob"]))
-    member = client.request(method, path, json=body, headers=_acting(world["carol"]))
+    outsider = _agent(client, world["bob"].user_id, lambda tools: getattr(tools, tool)(dossier["id"]))
+    member = _agent(client, world["carol"].user_id, lambda tools: getattr(tools, tool)(dossier["id"]))
 
-    assert outsider.status_code == 404 and outsider.json()["detail"] == "Dossier introuvable"
-    assert member.status_code != 404
+    assert outsider == "Erreur : Dossier introuvable"
+    assert member != "Erreur : Dossier introuvable"
 
 
-def test_the_internal_agent_creates_dossiers_restricted_to_the_persons_groups(
+def test_the_agent_creates_dossiers_restricted_to_the_persons_groups(
     client: TestClient, analyse: dict, world: dict
 ) -> None:
-    created = client.post(
-        "/api/internal/agent/dossiers",
-        json={"name": "Créé par l'agent", "analyse_id": analyse["id"]},
-        headers=_acting(world["alice"]),
+    created = _agent(
+        client, world["alice"].user_id, lambda tools: tools.create_dossier("Créé par l'agent", analyse["id"])
     )
 
-    assert created.status_code == 201, created.text
+    assert created.startswith("Dossier « Créé par l'agent » créé"), created
     with As(world["alice"]):
-        groups = client.get(f"/api/dossiers/{created.json()['id']}/access").json()
+        groups = client.get(f"/api/dossiers/{_id_of(created)}/access").json()
     assert groups["visibility"] == "restricted" and [g["path"] for g in groups["groups"]] == [world["a"]]
 
 
 def test_a_person_without_groups_cannot_have_the_agent_create_a_dossier(client: TestClient, analyse: dict) -> None:
-    created = client.post(
-        "/api/internal/agent/dossiers",
-        json={"name": "Sans groupe", "analyse_id": analyse["id"]},
-        headers={**INTERNAL, "X-Acting-User": "inconnu"},
-    )
+    created = _agent(client, "inconnu", lambda tools: tools.create_dossier("Sans groupe", analyse["id"]))
 
-    assert created.status_code == 422 and created.json()["detail"]["code"] == "groups_required"
+    assert created.startswith("Erreur :") and "groups_required" in created
 
 
 def test_an_administrator_entering_through_the_agent_is_traced(client: TestClient, analyse: dict, world: dict) -> None:
     with As(world["bob"]):
         dossier = _create(client, analyse)  # /b : root n'en fait pas partie
 
-    response = client.get(f"/api/internal/agent/dossiers/{dossier['id']}", headers=_acting(world["root"]))
+    answer = _agent(client, world["root"].user_id, lambda tools: tools.get_dossier(dossier["id"]))
 
-    assert response.status_code == 200
+    assert answer.startswith("Dossier « ") and not answer.startswith("Erreur")
     with As(world["root"]):
         (event,) = _events(client, dossier["id"], "admin_access")
     assert event["actor_id"] == world["root"].user_id

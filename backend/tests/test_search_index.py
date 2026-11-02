@@ -1,13 +1,16 @@
 import uuid
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
+from app.db import async_session_factory
 from app.models.search_index import DossierSearchIndex
+from app.schemas.search_index import IndexRebuildOut, RebuildReport, SearchIndexReport
 from app.services.search import settings as search_settings
+from app.services.search.index_service import SearchIndexService
 from tests.document_helpers import run
-
-INTERNAL = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 
 
 @pytest.fixture(autouse=True)
@@ -40,8 +43,46 @@ def effective(client: TestClient, analyse: str) -> dict:
     return client.get(f"/api/analyses/{analyse}/search-settings").json()["effective"]
 
 
-def report(client: TestClient, dossier: str, **body):
-    return client.put(f"/api/internal/dossiers/{dossier}/search-index", json=body, headers=INTERNAL)
+def _service_call(client: TestClient, work):  # noqa: ANN001, ANN202
+    """Ce que fait l'indexation du backend : appeler `SearchIndexService` (sur la boucle de l'application)."""
+
+    async def run_work():  # noqa: ANN202
+        async with async_session_factory() as db:
+            return await work(SearchIndexService(db))
+
+    return client.portal.call(run_work)
+
+
+def report(client: TestClient, dossier: str, **body):  # noqa: ANN201
+    """Le compte rendu de l'indexation sur l'index du dossier : 204, ou 422 si le compte rendu est incomplet."""
+
+    async def run_report(service: SearchIndexService) -> int:
+        try:
+            await service.report_index(uuid.UUID(dossier), SearchIndexReport(**body))
+        except (ValueError, ValidationError):
+            return 422
+        return 204
+
+    return SimpleNamespace(status_code=_service_call(client, run_report))
+
+
+def report_rebuild(client: TestClient, rebuild_id: str, **body) -> dict:  # noqa: ANN003
+    """Le compte rendu de la reconstruction : la reconstruction après mise à jour."""
+
+    async def run_report(service: SearchIndexService) -> dict:
+        rebuild = await service.report_rebuild(uuid.UUID(rebuild_id), RebuildReport(**body))
+        return IndexRebuildOut.model_validate(rebuild).model_dump(mode="json")
+
+    return _service_call(client, run_report)
+
+
+def search_config(client: TestClient, dossier: str) -> dict:
+    """Les réglages à appliquer, l'index actif et la reconstruction en cours, tels que l'indexation les lit."""
+
+    async def read(service: SearchIndexService) -> dict:
+        return (await service.config(uuid.UUID(dossier))).model_dump(mode="json")
+
+    return _service_call(client, read)
 
 
 def first_index(client: TestClient, analyse: str, dossier: str, **extra):
@@ -87,22 +128,15 @@ def test_the_state_of_an_unknown_dossier_is_a_404(client: TestClient) -> None:
 # --- Configuration lue par le worker ---
 
 
-def test_the_worker_reads_the_settings_to_apply_and_the_active_index(client: TestClient) -> None:
+def test_the_indexation_reads_the_settings_to_apply_and_the_active_index(client: TestClient) -> None:
     analyse, dossier = make_dossier(client, strategy="classique", embedding_model="e5")
-    config = client.get(f"/api/internal/dossiers/{dossier}/search-config", headers=INTERNAL).json()
+    config = search_config(client, dossier)
     assert config["effective"]["embedding_model"] == "e5" and config["index_fingerprint"] is None
     assert config["problem"] is None and config["rebuild"] is None
 
     first_index(client, analyse, dossier)
-    config = client.get(f"/api/internal/dossiers/{dossier}/search-config", headers=INTERNAL).json()
+    config = search_config(client, dossier)
     assert config["index_settings"]["embedding_model"] == "e5" and config["index_status"] == "ready"
-
-
-def test_internal_routes_need_the_worker_token(client: TestClient) -> None:
-    _, dossier = make_dossier(client)
-    url = f"/api/internal/dossiers/{dossier}/search-config"
-    assert client.get(url).status_code == 422  # pas d'en-tête
-    assert client.get(url, headers={"X-App-Token": "faux"}).status_code in (401, 403)
 
 
 def test_the_first_report_must_carry_the_fingerprint_and_the_settings(client: TestClient) -> None:
@@ -193,7 +227,7 @@ def test_unresolvable_settings_refuse_the_rebuild(client: TestClient, dispatched
 
 def swap(client: TestClient, rebuild: dict, **extra) -> None:
     """Ce que fait le worker à la bascule : il le dit au backend, qui prend les nouveaux réglages."""
-    client.put(f"/api/internal/index-rebuilds/{rebuild['id']}", json={"status": "swapped", **extra}, headers=INTERNAL)
+    report_rebuild(client, rebuild["id"], status="swapped", **extra)
 
 
 def test_a_rebuild_goes_building_swapped_then_is_validated(client: TestClient, dispatched) -> None:
@@ -203,9 +237,7 @@ def test_a_rebuild_goes_building_swapped_then_is_validated(client: TestClient, d
     rebuild = start(client, dossier).json()
     assert rebuild["previous_fingerprint"] is not None
 
-    progress = client.put(
-        f"/api/internal/index-rebuilds/{rebuild['id']}", json={"total_pages": 40, "done_pages": 10}, headers=INTERNAL
-    ).json()
+    progress = report_rebuild(client, rebuild["id"], total_pages=40, done_pages=10)
     assert (progress["total_pages"], progress["done_pages"], progress["status"]) == (40, 10, "building")
 
     swap(client, rebuild)
@@ -276,9 +308,7 @@ def test_validation_needs_a_swapped_rebuild(client: TestClient, dispatched) -> N
 def test_a_finished_rebuild_cannot_be_rolled_back(client: TestClient, dispatched) -> None:
     _, dossier = make_dossier(client, strategy="classique", embedding_model="e5")
     rebuild = start(client, dossier).json()
-    client.put(
-        f"/api/internal/index-rebuilds/{rebuild['id']}", json={"status": "failed", "error": "boom"}, headers=INTERNAL
-    )
+    report_rebuild(client, rebuild["id"], status="failed", error="boom")
 
     response = client.post(f"/api/dossiers/{dossier}/search-index/rebuilds/{rebuild['id']}/rollback")
 
@@ -296,17 +326,15 @@ def test_a_rebuild_of_another_dossier_is_not_found(client: TestClient, dispatche
     assert client.post(f"/api/dossiers/{other}/search-index/rebuilds/{uuid.uuid4()}/validate").status_code == 404
 
 
-def test_the_worker_can_read_a_rebuild_and_its_targets(client: TestClient, dispatched) -> None:
+def test_the_indexation_reads_a_rebuild_and_its_targets(client: TestClient, dispatched) -> None:
     analyse, dossier = make_dossier(client, strategy="classique", embedding_model="e5")
     rebuild = start(client, dossier).json()
 
-    read = client.get(f"/api/internal/index-rebuilds/{rebuild['id']}", headers=INTERNAL)
-    config = client.get(f"/api/internal/dossiers/{dossier}/search-config", headers=INTERNAL).json()
+    config = search_config(client, dossier)
 
-    assert read.json()["status"] == "building"
+    assert config["rebuild"]["status"] == "building"
     assert config["rebuild"]["id"] == rebuild["id"]
     assert config["rebuild_target_settings"] == effective(client, analyse)
-    assert client.get(f"/api/internal/index-rebuilds/{uuid.uuid4()}", headers=INTERNAL).status_code == 404
 
 
 def test_deleting_a_dossier_deletes_its_index_state(client: TestClient, dispatched) -> None:
@@ -418,9 +446,7 @@ def test_a_finished_build_frees_a_place_for_the_oldest_queued_one(
     first = next(d for d in dossiers if rebuild_of(client, d)["status"] == "building")
     queued = sorted((d for d in dossiers if d != first), key=lambda d: rebuild_of(client, d)["created_at"])
 
-    client.put(
-        f"/api/internal/index-rebuilds/{rebuild_of(client, first)['id']}", json={"status": "swapped"}, headers=INTERNAL
-    )
+    report_rebuild(client, rebuild_of(client, first)["id"], status="swapped")
 
     assert rebuild_of(client, queued[0])["status"] == "building"
     assert rebuild_of(client, queued[1])["status"] == "queued"
@@ -436,11 +462,7 @@ def test_a_failed_build_also_frees_its_place(client: TestClient, dispatched_ids,
     first = next(d for d in dossiers if rebuild_of(client, d)["status"] == "building")
     second = next(d for d in dossiers if d != first)
 
-    client.put(
-        f"/api/internal/index-rebuilds/{rebuild_of(client, first)['id']}",
-        json={"status": "failed", "error": "x"},
-        headers=INTERNAL,
-    )
+    report_rebuild(client, rebuild_of(client, first)["id"], status="failed", error="x")
 
     assert rebuild_of(client, second)["status"] == "building"
 

@@ -13,6 +13,7 @@ from fastapi.testclient import TestClient
 
 from app.db import async_session_factory
 from app.models.dossier_analysis import AnalysisElement
+from app.services.execution_steps import reusable_agent_output
 
 INTERNAL = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 FP_CLS_1 = "1" * 64
@@ -512,14 +513,19 @@ def test_the_chain_of_relaunches_keeps_carrying_manual_elements(client: TestClie
 # --- Agents et synthèses ---
 
 
+def _reuse_of_step(dossier: Dossier, step_id: str) -> dict[str, Any]:
+    """La synthèse précédente que l'agent de cette étape peut reprendre (service appelé par l'agent)."""
+
+    async def reuse() -> str | None:
+        async with async_session_factory() as db:
+            return await reusable_agent_output(db, uuid.UUID(str(dossier.id)), uuid.UUID(step_id))
+
+    output = dossier.client.portal.call(reuse)
+    return {"reused": output is not None, "output": output}
+
+
 def _agent_reuse(dossier: Dossier) -> dict[str, Any]:
-    response = dossier.client.post(
-        f"/api/internal/dossiers/{dossier.id}/agent-units/reuse",
-        json={"step_id": dossier.steps["agent"]["id"]},
-        headers=INTERNAL,
-    )
-    assert response.status_code == 200
-    return response.json()
+    return _reuse_of_step(dossier, dossier.steps["agent"]["id"])
 
 
 def _finish_agent(dossier: Dossier, output: str = "Les pièces sont cohérentes.") -> None:
@@ -589,17 +595,7 @@ def test_agent_reuse_is_refused_without_a_previous_analysis_or_for_an_unknown_st
     dossier = Dossier(client, agent="Cohérence")
     dossier.launch()
     assert _agent_reuse(dossier) == {"reused": False, "output": None}
-    unknown = client.post(
-        f"/api/internal/dossiers/{dossier.id}/agent-units/reuse", json={"step_id": str(uuid.uuid4())}, headers=INTERNAL
-    )
-    assert unknown.json() == {"reused": False, "output": None}
-    bad = {"X-App-Token": "not-a-valid-token"}
-    refused = client.post(
-        f"/api/internal/dossiers/{dossier.id}/agent-units/reuse",
-        json={"step_id": dossier.steps["agent"]["id"]},
-        headers=bad,
-    )
-    assert refused.status_code == 401
+    assert _reuse_of_step(dossier, str(uuid.uuid4())) == {"reused": False, "output": None}
 
 
 def test_correcting_an_element_flags_the_syntheses_to_regenerate(client: TestClient) -> None:
