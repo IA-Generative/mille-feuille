@@ -21,7 +21,7 @@ def dispatched(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
     calls: list[tuple[str, str]] = []
     for name in ("rebuild_index", "finalize_rebuild", "rollback_rebuild"):
         monkeypatch.setattr(
-            f"app.celery_client.dispatch_{name}", lambda rebuild_id, name=name: calls.append((name, rebuild_id))
+            f"app.agent.dispatch.dispatch_{name}", lambda rebuild_id, name=name: calls.append((name, rebuild_id))
         )
     return calls
 
@@ -357,9 +357,9 @@ def indexed_dossiers(client: TestClient, analyse: str, count: int) -> list[str]:
 @pytest.fixture
 def dispatched_ids(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     ids: list[str] = []
-    monkeypatch.setattr("app.celery_client.dispatch_rebuild_index", ids.append)
-    monkeypatch.setattr("app.celery_client.dispatch_rollback_rebuild", lambda rebuild_id: None)
-    monkeypatch.setattr("app.celery_client.dispatch_finalize_rebuild", lambda rebuild_id: None)
+    monkeypatch.setattr("app.agent.dispatch.dispatch_rebuild_index", ids.append)
+    monkeypatch.setattr("app.agent.dispatch.dispatch_rollback_rebuild", lambda rebuild_id: None)
+    monkeypatch.setattr("app.agent.dispatch.dispatch_finalize_rebuild", lambda rebuild_id: None)
     return ids
 
 

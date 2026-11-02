@@ -13,7 +13,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app import celery_client
+from app.agent import dispatch as agent_dispatch
 from app.config import SearchSettings as PlatformSearchSettings
 from app.models.analyse import Analyse
 from app.models.dossier import Dossier
@@ -223,7 +223,7 @@ class SearchIndexService:
         except IntegrityError as error:
             await self.db.rollback()
             raise RebuildInProgressError from error
-        celery_client.dispatch_rebuild_index(str(rebuild.id))
+        agent_dispatch.dispatch_rebuild_index(str(rebuild.id))
         return rebuild
 
     async def _owned(self, dossier_id: uuid.UUID, rebuild_id: uuid.UUID) -> IndexRebuild:
@@ -240,7 +240,7 @@ class SearchIndexService:
         rebuild.status = IndexRebuildStatus.FINALIZED
         rebuild.finished_at = datetime.now(UTC)
         await self.db.commit()
-        celery_client.dispatch_finalize_rebuild(str(rebuild.id))
+        agent_dispatch.dispatch_finalize_rebuild(str(rebuild.id))
         return rebuild
 
     async def rollback(self, dossier_id: uuid.UUID, rebuild_id: uuid.UUID) -> IndexRebuild:
@@ -257,7 +257,7 @@ class SearchIndexService:
         rebuild.status = IndexRebuildStatus.ROLLED_BACK
         rebuild.finished_at = datetime.now(UTC)
         await self.db.commit()
-        celery_client.dispatch_rollback_rebuild(str(rebuild.id))
+        agent_dispatch.dispatch_rollback_rebuild(str(rebuild.id))
         if was_building:
             await self._promote_queued(dossier_id)
         return rebuild
@@ -298,7 +298,7 @@ class SearchIndexService:
             rebuild.status = IndexRebuildStatus.BUILDING
         await self.db.commit()
         for rebuild in started:
-            celery_client.dispatch_rebuild_index(str(rebuild.id))
+            agent_dispatch.dispatch_rebuild_index(str(rebuild.id))
 
     async def _indexed_dossiers(self, analyse_id: uuid.UUID) -> list[tuple[uuid.UUID, DossierSearchIndex]]:
         result = await self.db.execute(
@@ -381,5 +381,5 @@ class SearchIndexService:
         await self.db.commit()
         for rebuild in created:
             if rebuild.status == IndexRebuildStatus.BUILDING:
-                celery_client.dispatch_rebuild_index(str(rebuild.id))
+                agent_dispatch.dispatch_rebuild_index(str(rebuild.id))
         return created

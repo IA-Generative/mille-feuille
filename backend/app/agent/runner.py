@@ -95,6 +95,19 @@ class AgentRunner:
             logger.warning("Redis injoignable : %s supposé vivant", name, exc_info=True)
             return True
 
+    async def is_alive_prefix(self, prefix: str) -> bool:
+        """Un travail dont le nom commence ainsi tourne-t-il quelque part ? (Redis injoignable : oui, dans le doute.)"""
+        if any(name.startswith(prefix) for name in self._tasks):
+            return True
+        try:
+            keys = await asyncio.to_thread(
+                lambda: list(redis_connector.client.scan_iter(match=f"{_beat_key(prefix)}*", count=100))
+            )
+            return bool(keys)
+        except Exception:
+            logger.warning("Redis injoignable : %s* supposé vivant", prefix, exc_info=True)
+            return True
+
     async def _beat(self, name: str) -> None:
         while True:
             try:
