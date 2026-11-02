@@ -13,6 +13,7 @@ from app.agent.ask_user import ASK_USER
 from app.agent.chat.events import ChatEvents
 from app.agent.runner import settings
 from app.agent.tools import AgentTools
+from app.agent.wrap_up import wrap_up
 
 logger = logging.getLogger(__name__)
 
@@ -133,8 +134,9 @@ async def run_tool_loop(
             else:
                 return LoopResult(answer=model_output.shown(content), iterations=iterations)
         if iterations >= settings.AGENT_MAX_ITERATIONS:
-            logger.warning("Chat: %d itérations atteintes, arrêt", settings.AGENT_MAX_ITERATIONS)
-            return LoopResult(answer=model_output.shown(content), iterations=iterations)
+            logger.warning("Chat: %d itérations atteintes, réponse finale demandée", settings.AGENT_MAX_ITERATIONS)
+            final = await wrap_up(model=model or settings.LLM_MODEL, messages=conversation, definitions=definitions)
+            return LoopResult(answer=model_output.shown(final or content), iterations=iterations)
 
         for call in calls:
             questions = tools.question_to_ask(call["function"]["name"], _arguments_of(call))
