@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import CreateAnalyseModal from "@/components/analyses/CreateAnalyseModal.vue";
+import MarkdownText from "@/components/MarkdownText.vue";
 import PagerNav from "@/components/PagerNav.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 
@@ -81,17 +82,28 @@ function onAnalyseCreated() {
     <p v-if="paginatedAnalyses.length === 0" class="fr-text--sm">Aucune analyse ne correspond à cette recherche.</p>
 
     <div v-else class="analyses-page__grid">
-      <DsfrCard
-        v-for="analyse in paginatedAnalyses"
-        :key="analyse.id"
-        :title="analyse.name"
-        :description="analyse.description"
-        :link="{ name: 'analyse-detail', params: { id: analyse.id } }"
-        :detail="formatDate(analyse.createdAt)"
-        detail-icon="ri-calendar-line"
-        :end-detail="`${analyse.agentCount} agent${analyse.agentCount > 1 ? 's' : ''}`"
-        end-detail-icon="ri-robot-line"
-      />
+      <div v-for="analyse in paginatedAnalyses" :key="analyse.id" class="fr-card fr-enlarge-link">
+        <div class="fr-card__body">
+          <div class="fr-card__content">
+            <h3 class="fr-card__title">
+              <RouterLink :to="{ name: 'analyse-detail', params: { id: analyse.id } }">{{ analyse.name }}</RouterLink>
+            </h3>
+            <!-- Pas de <p> : le rendu markdown produit lui-même des blocs. -->
+            <div class="fr-card__desc">
+              <MarkdownText :content="analyse.description" />
+            </div>
+            <div class="fr-card__start">
+              <p class="fr-card__detail"><VIcon name="ri-calendar-line" scale="0.8" /> {{ formatDate(analyse.createdAt) }}</p>
+            </div>
+            <div class="fr-card__end">
+              <p class="fr-card__detail">
+                <VIcon name="ri-robot-line" scale="0.8" />
+                {{ analyse.agentCount }} agent{{ analyse.agentCount > 1 ? "s" : "" }}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <PagerNav v-model:page="currentPage" :page-count="pageCount" class="analyses-page__pagination" />
