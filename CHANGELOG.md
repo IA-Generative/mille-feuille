@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.35.0](https://github.com/IA-Generative/mille-feuille/compare/v0.34.0...v0.35.0) (2026-11-02)
+
+
+### Features
+
+* **chat:** lire les agents du dossier depuis l'API ([6a8c4be](https://github.com/IA-Generative/mille-feuille/commit/6a8c4be9738745f77af8c723eb58587687ebcc40)), closes [#415](https://github.com/IA-Generative/mille-feuille/issues/415)
+* **chat:** menu des agents de l'analyse sur données simulées ([4d8c4e9](https://github.com/IA-Generative/mille-feuille/commit/4d8c4e947923ff3adfa9dee6cbc56c99b789bff6)), closes [#415](https://github.com/IA-Generative/mille-feuille/issues/415)
+* **chat:** une mention @Nom appelle l'agent à coup sûr ([2726c9f](https://github.com/IA-Generative/mille-feuille/commit/2726c9f84d4241bda43d523d88578b28b8f55369)), closes [#415](https://github.com/IA-Generative/mille-feuille/issues/415)
+
 ## [0.34.0](https://github.com/IA-Generative/mille-feuille/compare/v0.33.0...v0.34.0) (2026-11-02)
 
 
