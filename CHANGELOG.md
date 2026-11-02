@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.36.1](https://github.com/IA-Generative/mille-feuille/compare/v0.36.0...v0.36.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **analyses:** description des cartes rendue en markdown ([3b30b32](https://github.com/IA-Generative/mille-feuille/commit/3b30b32dead5fadda595a4d8de6ee578c90cfd66))
+* **ui:** liste du sélecteur de modèle rognée par les parents scrollables ([b7c2dcc](https://github.com/IA-Generative/mille-feuille/commit/b7c2dcc1b8da21f76af2c5f5be31bf6877af524e))
+
 ## [0.36.0](https://github.com/IA-Generative/mille-feuille/compare/v0.35.0...v0.36.0) (2026-11-02)
 
 
