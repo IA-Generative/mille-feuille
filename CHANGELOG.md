@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.33.0](https://github.com/IA-Generative/mille-feuille/compare/v0.32.0...v0.33.0) (2026-11-02)
+
+
+### Features
+
+* **analyse:** modèle de description des images choisi par l'analyse ([11fd9d5](https://github.com/IA-Generative/mille-feuille/commit/11fd9d5f73f9733acbeb894b1a17d0595d128a74))
+* **compose:** profil ocr pour les pods d'OCR ([fde0b3e](https://github.com/IA-Generative/mille-feuille/commit/fde0b3e4364470beabdd543d7087394c3a88386a))
+* **frontend:** onglet Lecture de l'analyse pour choisir le modèle de description ([29414d5](https://github.com/IA-Generative/mille-feuille/commit/29414d5c11d2cf814d8679b5406f7496b26c73de))
+* **helm:** composants worker_ocr_* désactivés par défaut ([a8ace37](https://github.com/IA-Generative/mille-feuille/commit/a8ace37c0e4013afd54421e93ee6cb52745e8802))
+* **ocr:** pods PaddleOCR layout, ocr, table et vision ([c178259](https://github.com/IA-Generative/mille-feuille/commit/c178259c96094e88d11271ac5e451c59de3e591d))
+* **worker:** le modèle de description vient de l'analyse du dossier ([e73a903](https://github.com/IA-Generative/mille-feuille/commit/e73a90377242a270e8f51806a2689472998e9684))
+* **worker:** lecture des pages scannées par les pods d'OCR ([eb94d37](https://github.com/IA-Generative/mille-feuille/commit/eb94d3770183e1bd8ef12a0ef10d089bbc1d3a40))
+
 ## [0.32.0](https://github.com/IA-Generative/mille-feuille/compare/v0.31.0...v0.32.0) (2026-11-02)
 
 
