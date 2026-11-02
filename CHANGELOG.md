@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.32.0](https://github.com/IA-Generative/mille-feuille/compare/v0.31.0...v0.32.0) (2026-11-02)
+
+
+### Features
+
+* **agent:** l'assistant tourne dans le backend, le worker agent_execution disparaît ([195d415](https://github.com/IA-Generative/mille-feuille/commit/195d415b5f30e873ec058960defb42acdbb53a93))
+* **agent:** les agents d'analyse tournent dans le backend ([dc27ed4](https://github.com/IA-Generative/mille-feuille/commit/dc27ed445693cbe3b8b642eab9316b3a3dfd91dc))
+* **agent:** outils de l'agent et propositions depuis une note dans le backend ([bd0dd9b](https://github.com/IA-Generative/mille-feuille/commit/bd0dd9b0bd07559c0e5e4c3740e92cc075c5ab61))
+* **agent:** résumés, suggestion d'analyse et champs de document dans le backend ([acd07fe](https://github.com/IA-Generative/mille-feuille/commit/acd07fe3fb54be8715d7ea59f471c7ce364c9646))
+* **backend:** les travaux de l'agent tournent dans le backend ([f10eadd](https://github.com/IA-Generative/mille-feuille/commit/f10eadd8ec0550ff3dad83e0fe915737de97bce2))
+* **chat:** le chat du dossier planifie, cherche puis répond en streaming ([0219cab](https://github.com/IA-Generative/mille-feuille/commit/0219cab228c89e79ba817e33b8ed0b4b9055c663))
+* **frontend:** la réponse du chat s'affiche à mesure qu'elle s'écrit ([780614f](https://github.com/IA-Generative/mille-feuille/commit/780614fa758041c1b17be17ef06da7b48ca2d9b7))
+* **search:** l'indexation des dossiers tourne dans le backend ([e215f3c](https://github.com/IA-Generative/mille-feuille/commit/e215f3c8b40c4015610f057f10356b0a259e6dc0))
+* **search:** recherche hybride et indexation Qdrant dans le backend ([8372247](https://github.com/IA-Generative/mille-feuille/commit/8372247de6863991cb7fa8f2a022dcbeb40f9bbc))
+
+
+### Bug Fixes
+
+* **tests:** tests de l'assistant et de l'index stables sur une base vierge ([7219c4d](https://github.com/IA-Generative/mille-feuille/commit/7219c4d952c6bf1746b1515c90f0a8515ba19fa3))
+
+
+### Code Refactoring
+
+* **internal:** retire les routes internes que seul l'ancien worker appelait ([f98bac3](https://github.com/IA-Generative/mille-feuille/commit/f98bac35dcf743fcb7f217138007474ddedb03d7))
+
 ## [0.31.0](https://github.com/IA-Generative/mille-feuille/compare/v0.30.3...v0.31.0) (2026-11-02)
 
 
