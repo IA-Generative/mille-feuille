@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.38.0](https://github.com/IA-Generative/mille-feuille/compare/v0.37.1...v0.38.0) (2026-11-02)
+
+
+### Features
+
+* **analyse:** modifier et supprimer une analyse depuis sa page ([87935ae](https://github.com/IA-Generative/mille-feuille/commit/87935ae2560847b929dd18f1eb44216fa532d752))
+* **analyse:** modifier, restaurer et supprimer une analyse ([6cf7f19](https://github.com/IA-Generative/mille-feuille/commit/6cf7f19046412ecefb3595750769a84edd81b4ec))
+
+
+### Bug Fixes
+
+* **agent:** réponse écrite quand la limite d'appels d'outils est atteinte ([c0d80f2](https://github.com/IA-Generative/mille-feuille/commit/c0d80f2ddcf862ccfa7c41c0116e917d39741936))
+* **ui:** la page d'un dossier ne se mettait pas à jour en changeant de dossier ([c97a133](https://github.com/IA-Generative/mille-feuille/commit/c97a133cc60db24694e1af3f64badf0b6c831e4b))
+
 ## [0.37.1](https://github.com/IA-Generative/mille-feuille/compare/v0.37.0...v0.37.1) (2026-11-02)
 
 
