@@ -30,9 +30,14 @@ def test_removed_tools_are_not_in_the_catalog() -> None:
 
 
 def test_only_what_the_worker_can_run_is_offered() -> None:
-    assert {tool.id for tool in available_internal_tools()} == {"calculatrice", "calcul_dates", "base_connaissances"}
-    assert is_available("calculatrice")
-    assert not is_available("appel_agent")  # connu, pas encore exécutable
+    assert {tool.id for tool in available_internal_tools()} == {
+        "calculatrice",
+        "calcul_dates",
+        "base_connaissances",
+        "appel_agent",
+    }
+    assert is_available("calculatrice") and is_available("appel_agent")
+    assert not is_available("verification_coherence")  # connu, pas encore exécutable
     assert not is_available("recherche_web")  # retiré
 
 

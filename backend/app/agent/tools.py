@@ -29,6 +29,7 @@ from app.agent.source_numbering import SourceNumbering
 
 if TYPE_CHECKING:
     from app.agent.agent_tool_set import ExtraTools
+    from app.agent.analysis_reader import AnalysisReader
     from app.agent.analysis_tools import AnalysisProposer
     from app.agent.note_tools import NoteWriter
 
@@ -69,6 +70,20 @@ class Searcher(Protocol):
     async def search(self, query: str) -> list[SearchHit]: ...
 
 
+# Lister les éléments de l'analyse sans pouvoir la modifier (les agents ; le chat a la sienne, qui sert à proposer).
+READ_ELEMENTS_DEFINITION = {
+    "type": "function",
+    "function": {
+        "name": "view_analysis",
+        "description": (
+            "Liste les éléments de l'analyse du dossier (classifications, entités, synthèses...) avec leur valeur "
+            "retenue."
+        ),
+        "parameters": {"type": "object", "properties": {}},
+    },
+}
+
+
 class AgentTools:
     """Conteneur d'outils pour l'agent LangGraph. Construit à partir du
     dossier complet (avec pages et prédictions), tel que le rend `documents.load_dossier`.
@@ -85,8 +100,11 @@ class AgentTools:
         extra: "ExtraTools | None" = None,
         ask_user: bool = False,
         searcher: Searcher | None = None,
+        reader: "AnalysisReader | None" = None,
     ) -> None:
         self._dossier = dossier
+        # L'analyse en lecture seule (définition, éléments, synthèses des autres agents) : tous les agents l'ont.
+        self._reader = reader
         # Les outils choisis pour l'agent (calculatrice, dates, serveurs MCP) : ils s'ajoutent au socle ci-dessous.
         self._extra = extra
         # Une seule suite de numéros pour les pages du dossier et les sources de la base de connaissances.
@@ -158,7 +176,9 @@ class AgentTools:
         return await self._notes.add(content) if self._notes else "Les notes sont indisponibles."
 
     def view_analysis(self) -> str:
-        return self._analysis.list_elements() if self._analysis else "Analyse indisponible."
+        if self._analysis:
+            return self._analysis.list_elements()
+        return self._reader.view_elements() if self._reader else "Analyse indisponible."
 
     async def propose_update(
         self,
@@ -335,7 +355,21 @@ class AgentTools:
         """Renvoie les définitions d'outils au format attendu par l'API
         OpenAI (function calling)."""
         asking = [ASK_USER_DEFINITION] if self._ask_user else []
-        return self._core_definitions() + asking + (self._extra.definitions() if self._extra else [])
+        return (
+            self._core_definitions()
+            + asking
+            + self._reader_definitions()
+            + (self._extra.definitions() if self._extra else [])
+        )
+
+    def _reader_definitions(self) -> list[dict[str, Any]]:
+        """La lecture de l'analyse ; la liste de ses éléments, quand le chat ne l'a pas déjà (avec ses propositions)."""
+        if self._reader is None:
+            return []
+        definitions = self._reader.definitions()
+        if not self.has_analysis and self._reader.elements_available:
+            definitions.append(READ_ELEMENTS_DEFINITION)
+        return definitions
 
     def _core_definitions(self) -> list[dict[str, Any]]:
         """Le socle : les outils de lecture du dossier, toujours donnés (et ceux du chat quand il y a lieu)."""
@@ -522,6 +556,8 @@ class AgentTools:
         """Exécute un outil par son nom et renvoie le résultat."""
         if self._extra and self._extra.owns(name):
             return await self._extra.dispatch(name, arguments)
+        if self._reader and self._reader.owns(name):
+            return self._reader.dispatch(name, arguments)
         if name == ASK_USER and self._ask_user:
             return ASK_USER_INVALID  # un appel valable ne passe pas ici : le graphe l'enregistre et s'arrête
         if name == "search_documents":
@@ -536,7 +572,7 @@ class AgentTools:
             return self.suggest_assistant(arguments.get("question", ""))
         if name == "add_note":
             return await self.add_note(arguments.get("content", ""))
-        if name == "view_analysis":
+        if name == "view_analysis" and (self.has_analysis or (self._reader and self._reader.elements_available)):
             return self.view_analysis()
         if name == "propose_update":
             return await self.propose_update(

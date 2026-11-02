@@ -13,7 +13,8 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.agent import knowledge_tools, runtime
+from app.agent import agent_call, knowledge_tools, runtime
+from app.agent.agent_call import AgentCaller
 from app.agent.catalog.functions import FUNCTIONS_BY_TOOL
 from app.agent.knowledge_tools import KnowledgeContext, KnowledgeTools
 from app.agent.mcp_tools import McpTools, function_name_of
@@ -107,10 +108,12 @@ async def build_extra_tools(
     allow_side_effects: bool = True,
     confirm_side_effects: bool = False,
     knowledge: KnowledgeContext | None = None,
+    agent_caller: AgentCaller | None = None,
 ) -> ExtraTools:
     """`allow_side_effects=False` : un tool MCP qui modifie des données n'est pas donné au modèle.
     `confirm_side_effects=True` : il est donné, mais l'appel attend l'autorisation de la personne (le chat ; un agent,
-    lui, tourne sans personne)."""
+    lui, tourne sans personne). `agent_caller` : de quoi interroger un autre agent de l'analyse (`appel_agent`) ;
+    sans lui l'outil est ignoré (un agent déjà interrogé par un autre n'en interroge pas un troisième)."""
     extra = ExtraTools()
     mcp_ids: list[str] = []
     for tool_id in dict.fromkeys(tool_ids):
@@ -119,6 +122,9 @@ async def build_extra_tools(
             for function in functions:
                 extra._definitions.append(function.definition())
                 extra._runners[function.definition()["function"]["name"]] = _sync(function.run)
+        elif tool_id == agent_call.TOOL_ID and agent_caller is not None:
+            extra._definitions.append(agent_caller.definition())
+            extra._runners[agent_call.FUNCTION_NAME] = agent_caller.run
         elif tool_id == knowledge_tools.TOOL_ID:
             _add_knowledge_tool(extra, knowledge, acting_user=acting_user, run_id=run_id)
         elif _is_uuid(tool_id):

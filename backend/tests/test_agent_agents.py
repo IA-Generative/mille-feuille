@@ -102,7 +102,9 @@ def test_an_agent_runs_and_its_synthesis_completes_its_step(
     agent = steps_of(client, dossier["id"])["Agent 1"]
     assert agent["status"] == "terminé" and agent["output"] == "Le dossier est cohérent."
     assert [log["message"] for log in agent["logs"]] == ["Agent 'Agent 1' démarré"]
-    assert llm.requests[0]["messages"][0] == {"role": "system", "content": "Fais X1"}
+    system = llm.requests[0]["messages"][0]
+    assert system["role"] == "system" and system["content"].startswith("Fais X1")
+    assert "lire l'analyse" in system["content"]
     # Tout est terminé : le dossier aussi, et son résumé global part.
     assert client.get(f"/api/dossiers/{dossier['id']}").json()["status"] == "terminé"
     assert _dispatched["summary"] == [dossier["id"]]

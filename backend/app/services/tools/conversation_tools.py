@@ -16,6 +16,8 @@ from app.services.tools.definitions import resolve_tool_definitions
 from app.services.tools.ids import unique
 from app.services.tools.internal_catalog import available_internal_tools
 
+AGENT_CALL_TOOL = "appel_agent"
+
 
 @dataclass(frozen=True)
 class ChatTool:
@@ -41,7 +43,8 @@ def analysis_tool_ids(analyse: Analyse) -> list[str]:
 
 async def chat_tools_for(db: AsyncSession, user: RequestContext, analyse: Analyse) -> ChatToolsView:
     """Les outils que l'analyse autorise pour le chat, tels que cette personne peut les utiliser."""
-    ids = analysis_tool_ids(analyse)
+    # `appel_agent` est un outil des agents entre eux : dans le chat, c'est le plan qui choisit l'agent à interroger.
+    ids = [tool_id for tool_id in analysis_tool_ids(analyse) if tool_id != AGENT_CALL_TOOL]
     internal = {tool.id: tool for tool in available_internal_tools()}
     definitions, unavailable = await resolve_tool_definitions(db, user, [i for i in ids if i not in internal])
     mcp = {definition.id: definition for definition in definitions}
@@ -71,4 +74,4 @@ async def chat_tools_for(db: AsyncSession, user: RequestContext, analyse: Analys
 def tool_ids_for_chat(analyse: Analyse, excluded: Sequence[str]) -> list[str]:
     """Ce que le worker doit donner au modèle : les outils de l'analyse, moins ceux que la personne a retirés."""
     removed = set(excluded)
-    return [tool_id for tool_id in analysis_tool_ids(analyse) if tool_id not in removed]
+    return [tool_id for tool_id in analysis_tool_ids(analyse) if tool_id not in removed and tool_id != AGENT_CALL_TOOL]

@@ -7,8 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.agent import usage
-from app.agent.chat import agent_reply
-from app.agent.chat.agent_reply import ChatAgent
+from app.agent.analysis_agents import AnalysisAgent, conversation_prompt, synthesis_of
 from app.agent.chat.planner import agents_guide, parse
 from tests.test_agent_chat import Llm, Searcher, events, hit, messages, plan, run, use_searcher
 from tests.test_conversation_tools import open_chat
@@ -105,9 +104,9 @@ def test_an_analysis_without_agent_never_offers_the_agent_mode(
 
 
 def test_the_agent_summary_is_the_beginning_of_its_prompt_on_one_line() -> None:
-    long = ChatAgent("1", "Juriste", "Tu analyses\nles clauses. " * 40, [], None)
+    long = AnalysisAgent("1", "Juriste", "Tu analyses\nles clauses. " * 40, [], None)
     assert "\n" not in long.summary and long.summary.endswith("…") and len(long.summary) <= 201
-    assert ChatAgent("2", "Vide", "", [], None).summary == "(sans description)"
+    assert AnalysisAgent("2", "Vide", "", [], None).summary == "(sans description)"
     assert agents_guide([]) == ""
 
 
@@ -119,10 +118,10 @@ def test_the_plan_of_an_agent_needs_a_known_reference() -> None:
 
 
 def test_the_prompt_of_an_agent_carries_its_synthesis() -> None:
-    agent = ChatAgent("1", "Juriste", "Rôle.", [], None)
+    agent = AnalysisAgent("1", "Juriste", "Rôle.", [], None)
     dossier = {"execution_steps": [{"kind": "agent", "label": "Juriste", "output": "Bail de trois ans."}]}
-    synthesis = agent_reply._synthesis_of(dossier, agent)
+    synthesis = synthesis_of(dossier, agent)
     assert synthesis == "Bail de trois ans."
-    assert "Bail de trois ans." in agent_reply._prompt(agent, synthesis, "")
+    assert "Bail de trois ans." in conversation_prompt(agent, synthesis, [])
     other = {"execution_steps": [{"kind": "agent", "label": "Comptable", "output": "Autre."}]}
-    assert agent_reply._synthesis_of(other, agent) is None
+    assert synthesis_of(other, agent) is None
