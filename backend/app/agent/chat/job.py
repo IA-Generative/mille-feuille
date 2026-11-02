@@ -5,7 +5,8 @@ appel écrit la réponse, en streaming (`answer`). Une question sur le dossier c
 demandes d'agir (note, correction de l'analyse, outil externe) et les reprises après une décision passent par la
 boucle d'outils (`react`), qui sert aussi de repli quand la recherche ne trouve rien.
 
-    message -> plan -> { direct | clarify | assistant | act -> outils | search -> passages -> réponse en streaming }
+    message -> plan -> { direct | clarify | assistant | act -> outils | agent -> l'agent répond |
+                         search -> passages -> réponse en streaming }
 
 Le travail se termine toujours par un événement `done` ou `error` : le navigateur ne reste jamais en attente."""
 
@@ -17,8 +18,8 @@ from typing import Any
 from app.agent import usage
 from app.agent.agent_tool_set import ExtraTools, build_extra_tools
 from app.agent.analysis_tools import AnalysisProposer, proposals_marker
+from app.agent.chat import agent_reply, react
 from app.agent.chat import history as chat_history
-from app.agent.chat import react
 from app.agent.chat.answer import stream_answer
 from app.agent.chat.events import ChatEvents
 from app.agent.chat.planner import Plan, make_plan
@@ -153,9 +154,10 @@ async def _respond(
     extra: ExtraTools,
     events: ChatEvents,
     notes: list[str],
-) -> str:
-    """Le texte de la réponse (les marqueurs en plus) ; les appels qui attendent la personne sont dans
-    `tools.confirmation_batch`."""
+) -> tuple[str, AgentTools]:
+    """Le texte de la réponse (les marqueurs en plus) et les outils qui ont lu le dossier pour l'écrire (ceux du chat,
+    ou ceux de l'agent qui a répondu) : de là viennent les sources du message. Les appels qui attendent la personne
+    sont dans `tools.confirmation_batch`."""
     model = conversation.get("model")
     history = chat_history.build_conversation_history(conversation)
     syntheses = chat_history.extract_syntheses(dossier)
@@ -180,19 +182,26 @@ async def _respond(
 
     # Une décision ou une réponse relance le chat sans nouveau message : le modèle reprend là où il s'était arrêté.
     if messages and messages[-1]["role"] == "assistant" and messages[-1].get("tool_calls"):
-        return await with_tools()
+        return await with_tools(), tools
 
     question = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
     speculative = asyncio.ensure_future(tools.search_hits(question)) if question.strip() else None
     if speculative is not None:
         # Une erreur de la recherche spéculative est sans importance si le plan n'en veut pas.
         speculative.add_done_callback(lambda task: task.cancelled() or task.exception())
+    agents = await agent_reply.load_agents(dossier.get("analyse_id"))
     plan = await make_plan(
-        question=question, messages=history, dossier=dossier, abilities=_abilities(tools, extra), model=model
+        question=question,
+        messages=history,
+        dossier=dossier,
+        abilities=_abilities(tools, extra),
+        model=model,
+        agents=agent_reply.agents_for_plan(agents),
     )
     logger.info("Plan du chat : %s", plan.mode)
 
     answer: str | None = None
+    source_tools = tools
     if plan.mode == "direct":
         answer = plan.answer
     elif plan.mode == "clarify":
@@ -200,6 +209,18 @@ async def _respond(
     elif plan.mode == "assistant":
         tools.suggest_assistant(plan.standalone_query)
         answer = plan.answer or "L'assistant de l'application peut s'en charger."
+    elif plan.mode == "agent":
+        agent = next(agent for agent in agents if agent.ref == plan.agent)
+        answer, source_tools = await agent_reply.answer_as_agent(
+            agent=agent,
+            dossier=dossier,
+            history=history,
+            events=events,
+            acting_user=conversation.get("user_id", ""),
+            conversation_id=conversation["id"],
+            knowledge=await _knowledge_context(dossier.get("analyse_id"), agent.tools),
+            model=model,
+        )
     elif plan.mode == "search":
         answer = await _answer_from_search(
             plan=plan,
@@ -222,7 +243,7 @@ async def _respond(
     proposals = tools.analysis_proposals()
     if proposals:
         answer += proposals_marker(*proposals)
-    return answer
+    return answer, source_tools
 
 
 async def run_chat(conversation_id: str, dossier_id: str) -> None:
@@ -266,15 +287,15 @@ async def run_chat(conversation_id: str, dossier_id: str) -> None:
         notes = chat_history.notes_for_prompt(note_rows)
 
         await _run_approved_calls(conversation, tools, events)
-        answer = await _respond(
+        answer, source_tools = await _respond(
             conversation=conversation, dossier=dossier, tools=tools, extra=extra, events=events, notes=notes
         )
 
         message: dict[str, Any] = {
             "content": answer,
-            "sources": chat_history.sources_to_api(tools.consulted_sources()),
+            "sources": chat_history.sources_to_api(source_tools.consulted_sources()),
             "tool_calls": tools.confirmation_batch,
-            "external_sources": tools.external_sources(),
+            "external_sources": source_tools.external_sources(),
         }
         async with async_session_factory() as db:
             await deposit_assistant_message(db, uuid.UUID(conversation_id), InternalMessageIn.model_validate(message))
