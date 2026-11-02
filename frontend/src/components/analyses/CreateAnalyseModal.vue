@@ -6,7 +6,7 @@ import { useAnalyses } from "@/composables/useAnalyses";
 import { ASSIST_MIN_WORDS_HINT, hasEnoughWords, suggestAnalyseDescription } from "@/composables/useLlmAssist";
 
 const opened = defineModel<boolean>("opened", { default: false });
-const emit = defineEmits<{ created: [] }>();
+const emit = defineEmits<{ created: [id: string] }>();
 
 const { create } = useAnalyses();
 
@@ -34,9 +34,9 @@ async function applySuggestion(suggestionModel: string | null) {
 
 async function submit() {
   if (!name.value.trim() || !description.value.trim()) return;
-  await create(name.value.trim(), description.value.trim());
+  const analyse = await create(name.value.trim(), description.value.trim());
   opened.value = false;
-  emit("created");
+  emit("created", analyse.id);
 }
 </script>
 
