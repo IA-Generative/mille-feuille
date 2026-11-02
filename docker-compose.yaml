@@ -77,10 +77,17 @@ services:
       # configuré, voir app/config/llm.py).
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-}
+      # Agents, chat, résumés et indexation de la recherche tournent dans le backend : modèle texte par défaut et
+      # index de recherche des dossiers (Qdrant).
+      LLM_MODEL: ${LLM_MODEL:-llama-3.3-70b-instruct}
+      QDRANT_URL: http://qdrant:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-dev-only-qdrant-key-not-for-prod}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      qdrant:
         condition: service_healthy
       meilisearch:
         condition: service_healthy
@@ -111,33 +118,6 @@ services:
       backend:
         condition: service_started
       rustfs:
-        condition: service_healthy
-    restart: unless-stopped
-
-  # Agents, chat, résumés, propositions de notes. La classification et l'extraction d'entités ont leur propre
-  # worker (code, image et file Celery séparés) : voir plus bas.
-  worker-agent-execution:
-    build:
-      context: ./worker/agent_execution
-      dockerfile: Dockerfile
-    environment:
-      CELERY_BROKER_URL: redis://redis:6379/0
-      CELERY_RESULT_BACKEND: redis://redis:6379/0
-      BACKEND_INTERNAL_URL: http://backend:8000
-      INTERNAL_WORKER_TOKEN: ${INTERNAL_WORKER_TOKEN:-dev-only-worker-token-not-for-prod}
-      # Hub LLM (compatible API OpenAI), modèle servi par le hub configuré (Scaleway AI par défaut).
-      # Surchargeable via .env / .env.local sans toucher au code.
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
-      OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-}
-      LLM_MODEL: ${LLM_MODEL:-llama-3.3-70b-instruct}
-      QDRANT_URL: http://qdrant:6333
-      QDRANT_API_KEY: ${QDRANT_API_KEY:-dev-only-qdrant-key-not-for-prod}
-    depends_on:
-      redis:
-        condition: service_healthy
-      backend:
-        condition: service_started
-      qdrant:
         condition: service_healthy
     restart: unless-stopped
 

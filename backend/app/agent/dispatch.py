@@ -148,6 +148,13 @@ def dispatch_dossier_pipeline(document_ids: list[str], dossier_id: str) -> None:
     dispatch_agent_execution(dossier_id)
 
 
+def dispatch_helper_chat_response(conversation_id: str, model: str | None = None) -> None:
+    """Réponse de l'assistant de l'application à un message de la personne (issue #50)."""
+    from app.agent.helper.job import run_helper_chat
+
+    agent_runner.start(f"helper-chat-{conversation_id}", partial(run_helper_chat, conversation_id, model))
+
+
 def dispatch_note_proposals(note_id: str) -> None:
     """Propositions de mise à jour de l'analyse que justifie une note (issue #117)."""
     from app.agent.jobs.note_proposals import propose_from_note

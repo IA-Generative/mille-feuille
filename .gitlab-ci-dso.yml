@@ -48,17 +48,6 @@ lint-worker-document-process:
     - uv run ruff check .
     - uv run ruff format --check .
 
-lint-worker-agent-execution:
-  stage: lint
-  image: python:3.12-slim
-  before_script:
-    - pip install --no-cache-dir uv
-  script:
-    - cd worker/agent_execution
-    - uv sync
-    - uv run ruff check .
-    - uv run ruff format --check .
-
 lint-worker-classification:
   stage: lint
   image: python:3.12-slim
@@ -155,16 +144,6 @@ unit-tests-worker-document-process:
     - pip install --no-cache-dir uv
   script:
     - cd worker/document_process
-    - uv sync
-    - uv run pytest -q
-
-unit-tests-worker-agent-execution:
-  stage: test
-  image: python:3.12-slim
-  before_script:
-    - pip install --no-cache-dir uv
-  script:
-    - cd worker/agent_execution
     - uv sync
     - uv run pytest -q
 
@@ -309,29 +288,6 @@ docker-build-worker-document-process:
       TAGS="$TAGS mille-feuille/worker-document-process:$APP_VERSION"
       if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
         TAGS="$TAGS mille-feuille/worker-document-process:latest"
-      fi
-      export IMAGE_NAMES="$TAGS"
-      echo "Building with tags: $IMAGE_NAMES"
-
-docker-build-worker-agent-execution:
-  extends:
-    - .docker-build-common
-  variables:
-    DOCKERFILE: "worker/agent_execution/Dockerfile"
-    WORKING_DIR: "worker/agent_execution"
-  before_script:
-    - |
-      SHORT_SHA=$(echo $CI_COMMIT_SHA | cut -c1-7)
-      APP_VERSION=$(grep '^version' backend/pyproject.toml | head -1 | cut -d'"' -f2)
-      if [ -z "$APP_VERSION" ]; then
-        echo "Error: Could not extract version from backend/pyproject.toml"
-        exit 1
-      fi
-      TAGS="mille-feuille/worker-agent-execution:$SHORT_SHA"
-      TAGS="$TAGS mille-feuille/worker-agent-execution:$CI_COMMIT_REF_SLUG"
-      TAGS="$TAGS mille-feuille/worker-agent-execution:$APP_VERSION"
-      if echo "$APP_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-        TAGS="$TAGS mille-feuille/worker-agent-execution:latest"
       fi
       export IMAGE_NAMES="$TAGS"
       echo "Building with tags: $IMAGE_NAMES"

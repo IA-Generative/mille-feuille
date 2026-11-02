@@ -9,10 +9,9 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from app.agent import agent_loop, usage
+from app.agent import agent_loop, dispatch, usage
 from app.agent.jobs import agents as agents_job
 from app.agent.jobs.agents import run_agents
-from app.agent.runner import agent_runner
 
 INTERNAL = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 
@@ -197,7 +196,11 @@ def test_agents_interrupted_by_a_restart_are_failed_so_the_dossier_can_end(clien
     dossier = launched_dossier(client, "Agent interrompu")
     finish_upstream(client, dossier)
 
-    client.portal.call(agent_runner.fail_stale)
+    # Seul le travail de ce dossier est tenu pour mort : la base est partagée avec les autres tests.
+    async def only_this_one_is_dead(name: str) -> bool:
+        return name != f"agents-{dossier['id']}"
+
+    client.portal.call(dispatch._fail_stale_agents, only_this_one_is_dead)
 
     agent = steps_of(client, dossier["id"])["Agent 1"]
     assert agent["status"] == "échec" and "interrompu" in agent["output"]

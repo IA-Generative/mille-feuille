@@ -8,9 +8,8 @@ chaque exécution. Épique : #103.
 
 | Composant | Rôle |
 | --- | --- |
-| backend | Tient l'**état** : réglages de l'analyse, index de chaque dossier, reconstructions. Ne parle jamais à Qdrant : il dépose des tâches. |
-| `document_process` | Une fois l'OCR terminé, dépose `app.tasks.index_document` sur la file `agent_execution`. |
-| `agent_execution` | Découpe, vectorise, écrit dans Qdrant (`app/search/`), reconstruit, et répond à `search_documents`. |
+| backend | Tient l'**état** (réglages de l'analyse, index de chaque dossier, reconstructions) **et** travaille : découpe, vectorise, écrit dans Qdrant (`app/services/search/`), reconstruit, et répond à la recherche du chat. Voir [agent-dans-le-backend.md](agent-dans-le-backend.md). |
+| `document_process` | Une fois l'OCR terminé, dit au backend que l'extraction est « terminée » : c'est lui qui lance le résumé et l'indexation du document. |
 | Qdrant | Un **alias** `dossier_<id>` par dossier, qui désigne la collection active. |
 
 ## Réglages de l'analyse
@@ -55,7 +54,7 @@ termine directement en `finalized`.
 
 ## Mesurer
 
-`uv run python -m app.search.evaluation --dossier <id> --cases questions.json --k 5` (depuis `worker/agent_execution`) compare le
+`uv run python -m app.services.search.evaluation --dossier <id> --cases questions.json --k 5` (depuis `backend`) compare le
 **lexical seul** (ce que faisait l'ancien BM25), le **sémantique seul** et l'**hybride** sur un jeu de questions
 (`recall@k`, `hit@k`, `mrr`). Pour comparer deux découpages ou deux modèles, indexer le même dossier avec chacun et relancer.
 
@@ -71,4 +70,4 @@ Format du jeu de questions : `[{"question": "...", "expected": [{"document": "ba
 - Sauvegarde : l'index se reconstruit depuis les pages stockées (`POST .../search-index/rebuild`) ; des snapshots de Qdrant
   accélèrent une restauration mais ne sont pas indispensables.
 - Tests contre un vrai serveur : `QDRANT_TEST_URL=http://localhost:6333 QDRANT_TEST_API_KEY=... uv run pytest` dans
-  `worker/agent_execution` (ignorés sans serveur).
+  `backend` (ignorés sans serveur).

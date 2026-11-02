@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.celery_client import dispatch_helper_chat_response
+from app.agent.dispatch import dispatch_helper_chat_response
 from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
 from app.models.agent_conversation import AgentMessageRole

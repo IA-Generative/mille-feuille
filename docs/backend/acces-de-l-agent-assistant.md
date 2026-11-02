@@ -6,7 +6,7 @@ L'agent assistant est le modèle de langage qui cherche, crée et lance des doss
 
 | Forme | Qui l'appelle | Comment il s'authentifie |
 | --- | --- | --- |
-| **Agent de l'interface** (la fenêtre de l'assistant) | Le worker `agent_execution`, via les routes `/api/internal/agent/*`. | Le jeton du worker (`X-App-Token`). |
+| **Agent de l'interface** (la fenêtre de l'assistant) | Le backend lui-même (`app/agent/helper/`), qui appelle les services au nom de la personne qui a ouvert la conversation. | L'identité de cette personne (`context_for_user`). |
 | **Serveur MCP** (`/mcp/helper`) | Un client MCP extérieur (un assistant de développement, un script). | Un **jeton d'application** (`Authorization: Bearer …`), créé avec `POST /api/app-tokens`. |
 
 Avant ce changement, ni l'une ni l'autre ne passait par la règle d'accès par groupe : n'importe quelle personne connectée pouvait créer un jeton d'application et lire, lancer ou modifier **un dossier restreint** par l'agent. La règle de l'API (garde sur `/dossiers/{id}/…`) est donc contournable par ce chemin, tant que l'agent n'a pas d'identité.

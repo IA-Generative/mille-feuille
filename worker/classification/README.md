@@ -1,7 +1,7 @@
 # worker/classification
 
 Worker Celery **dédié à la classification** des pages d'un dossier. Code, image et file Celery séparés de
-`worker/agent_execution` et de `worker/extraction`.
+`worker/extraction`.
 
 - File : `classification` (le backend y dépose `app.tasks.classify_dossier`, voir `backend/app/celery_client.py`).
 - Deux classifications par page, déposées avec un champ `source` et chacune dans sa propre unité de calcul :

@@ -73,7 +73,7 @@ N'importe qui peut ajouter un serveur MCP. Les agents (et le chat, selon l'analy
 
 ## Constats sur l'existant
 
-- Les tools internes (recherche BM25, dates, notes, propositions d'analyse) sont codés en dur dans `worker/agent_execution/app/tools.py` (`AgentTools`, `tool_definitions()`, `dispatch_tool()`), partagés par `agent_graph.py` et `chat_graph.py`.
+- Les tools internes (recherche BM25, dates, notes, propositions d'analyse) sont codés en dur dans `backend/app/agent/tools.py` (`AgentTools`, `tool_definitions()`, `dispatch_tool()`), partagés par `agent_graph.py` et `chat_graph.py`.
 - Le worker n'a pas accès à la base ni à Keycloak : il parle au backend via `/api/internal/*` (`X-App-Token`, et `X-Acting-User` pour agir au nom d'une personne, voir [acces-de-l-agent-assistant.md](backend/acces-de-l-agent-assistant.md)).
 - Le backend garde déjà une session Redis par connexion (`access_token`, `refresh_token`), rafraîchie à la demande (`backend/app/core/security/session.py`).
 - Les agents ont déjà un champ `tools: AgentTool[]` versionné (historique + restauration).
@@ -166,7 +166,7 @@ Données mockées, composants séparés, style sobre.
 - [ ] `AgentTools` fusionne tools internes et MCP, `tool_definitions()` dynamique selon l'agent.
 - [ ] `dispatch_tool()` route les tools MCP vers la route interne via `api_client` (aucun token côté worker).
 - [ ] Marquage du contenu non fiable dans le prompt.
-- [ ] Tests dans `worker/agent_execution/tests/`.
+- [ ] Tests dans `backend/tests/test_agent_*`.
 
 ## Phase 7 — Chat
 

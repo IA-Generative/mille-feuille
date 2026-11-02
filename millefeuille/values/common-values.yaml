@@ -72,6 +72,9 @@ backend:
       name: "millefeuille-worker"
   - secretRef:
       name: "millefeuille-redis"
+  # Clé d'API de Qdrant (index de recherche des dossiers) : QDRANT_API_KEY.
+  - secretRef:
+      name: "millefeuille-qdrant"
   # Listed last: envFrom's later-source-wins rule guarantees this computed DATABASE_URL is what
   # actually lands in the container even if another secret above ever grows a stray field of the
   # same name.
@@ -88,6 +91,9 @@ backend:
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
     # Same OpenAI-compatible LLM hub used by ocr's worker.
     # OPENAI_API_BASE_URL: ""
+    # Index de recherche des dossiers (un alias `dossier_<id>` par dossier), service interne du sous-chart `qdrant` :
+    # le backend indexe et cherche lui-même (agents, chat, résumés et indexation n'ont plus de worker dédié).
+    QDRANT_URL: "http://millefeuille-qdrant:6333"
     LOG_LEVEL: "INFO"
 
 # Celery worker - document ingestion/OCR pipeline (worker/document_process).
@@ -162,47 +168,6 @@ worker_render:
     CELERY_QUEUE_NAME: "document_render"
     # Full endpoint (with scheme), same as the other workers.
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
-
-# Celery worker - agentic research/chat execution (worker/agent_execution).
-# NOTE: this worker's LangGraph checkpointer needs RediSearch (redis-stack), which is why
-# `redis.image` below is overridden away from the chart's plain redis default - see comment there.
-worker_agent:
-  image:
-    registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "mille-feuille-worker-agent-execution"
-    pullPolicy: "Always"
-  serviceAccount:
-    enabled: true
-    create: true
-  # KEDA ScaledObject on the Celery Redis queue - see document_process above.
-  # Probes disabled - see document_process above for rationale.
-  probes:
-    startupProbe: null
-    readinessProbe: null
-    livenessProbe: null
-  envFrom:
-  - secretRef:
-      name: "millefeuille-s3"
-  - secretRef:
-      name: "millefeuille-openai"
-  - secretRef:
-      name: "millefeuille-worker"
-  - secretRef:
-      name: "millefeuille-redis"
-  # Clé d'API de Qdrant (index de recherche des dossiers) : QDRANT_API_KEY.
-  - secretRef:
-      name: "millefeuille-qdrant"
-  env:
-    CELERY_QUEUE_NAME: "agent_execution"
-    BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
-    # Index de recherche des dossiers (un alias `dossier_<id>` par dossier), service interne du sous-chart `qdrant`.
-    QDRANT_URL: "http://millefeuille-qdrant:6333"
-    AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
-    # Internal ClusterIP service (sub-chart `searxng`). Web search is opt-in per run (off by
-    # default - see worker/agent_execution/app/config.py SEARXNG_URL).
-    # Named `millefeuille-searxng` (not `searxng`) to avoid ArgoCD conflict: open-webui also deploys
-    # a `searxng` Deployment, and ArgoCD tracks resources by name across apps.
-    SEARXNG_URL: "http://millefeuille-searxng:8080"
 
 # Celery worker - page classification (worker/classification): page screenshot read from S3, described by a VLM, then classified by an LLM.
 worker_classification:
@@ -438,14 +403,14 @@ ephemeral_frontend:
     enabled: true
     create: true
 
-# Index de recherche des dossiers (worker/agent_execution) : recherche hybride, dense + lexicale, fusionnée par RRF.
-# Service interne uniquement (ClusterIP, pas d'ingress) : seuls les workers le joignent. Les vecteurs et les passages
+# Index de recherche des dossiers (backend) : recherche hybride, dense + lexicale, fusionnée par RRF.
+# Service interne uniquement (ClusterIP, pas d'ingress) : seul le backend le joint. Les vecteurs et les passages
 # sont des données dérivées des dossiers d'usagers, supprimées avec eux.
 qdrant:
   enabled: true
   fullnameOverride: millefeuille-qdrant
   replicaCount: 1
-  # Clé d'API lue dans le secret `millefeuille-qdrant` (Vault), la même que celle que reçoivent les workers. Passée par
+  # Clé d'API lue dans le secret `millefeuille-qdrant` (Vault), la même que celle que reçoit le backend. Passée par
   # la variable d'environnement de Qdrant plutôt que par `apiKey.valueFrom` du chart : celui-ci lit le secret avec
   # `lookup` au moment du rendu, ce qui ne donne rien sous Argo CD (le rendu se fait hors du cluster).
   env:
@@ -470,9 +435,8 @@ qdrant:
   updateVolumeFsOwnership: false
 
 redis:
-  # RediSearch is required by the agent_execution worker's Redis-backed LangGraph checkpointer
-  # (see worker/agent_execution - a HITL pause must survive being resumed by a different Celery
-  # prefork child). Swap the plain redis image for redis-stack-server, which is a superset.
+  # redis-stack-server (a superset of redis). RediSearch was required by the agent worker's Redis-backed
+  # LangGraph checkpointer; the agents now run in the backend without one, so the plain redis image would do.
   fullnameOverride: millefeuille-redis
   image:
     registry: "docker.io"
@@ -752,30 +716,6 @@ extraObjects:
         metadata:
           address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
           listName: "document_processing"
-          listLength: "5"
-        authenticationRef:
-          name: millefeuille-keda-triggerauth
-
-  # ScaledObject for agent_execution (queue: agent_execution)
-  millefeuille-keda-agent-execution:
-    apiVersion: keda.sh/v1alpha1
-    kind: ScaledObject
-    metadata:
-      name: millefeuille-worker-agent
-    spec:
-      scaleTargetRef:
-        name: millefeuille-worker-agent
-        kind: Deployment
-        apiVersion: apps/v1
-      minReplicaCount: 1
-      maxReplicaCount: 4
-      pollingInterval: 30
-      triggers:
-      - type: redis
-        metricType: AverageValue
-        metadata:
-          address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
-          listName: "agent_execution"
           listLength: "5"
         authenticationRef:
           name: millefeuille-keda-triggerauth
