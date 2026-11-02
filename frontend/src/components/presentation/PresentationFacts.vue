@@ -9,7 +9,10 @@ const props = defineProps<{
   entityCount: number;
   agentCount: number;
   documentCount: number;
+  /** Les vues de détail existent : la nature du dossier propose « Voir le détail ». */
+  detailable?: boolean;
 }>();
+const emit = defineEmits<{ detail: [] }>();
 
 const plural = (count: number, one: string, many: string) => `${count} ${count > 1 ? many : one}`;
 
@@ -29,6 +32,9 @@ const facts = computed(() => [
         Confiance {{ classification.confidence }} %
       </span>
     </p>
+    <button v-if="classification && detailable" type="button" class="presentation-facts__detail" @click="emit('detail')">
+      Voir le détail
+    </button>
     <p class="presentation-facts__counts">{{ facts.join(" · ") }}</p>
   </div>
 </template>
@@ -61,6 +67,20 @@ const facts = computed(() => [
   white-space: nowrap;
   color: var(--text-mention-grey);
   font-weight: 400;
+}
+
+.presentation-facts__detail {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--text-action-high-blue-france);
+  cursor: pointer;
+}
+
+.presentation-facts__detail:hover {
+  text-decoration: underline;
 }
 
 .presentation-facts__counts {

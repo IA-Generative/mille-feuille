@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { PresentationEntity } from "@/types/dossierPresentation";
 
-defineProps<{ entities: PresentationEntity[] }>();
+defineProps<{ entities: PresentationEntity[]; detailable?: boolean }>();
+const emit = defineEmits<{ detail: [] }>();
 </script>
 
 <template>
@@ -14,6 +15,9 @@ defineProps<{ entities: PresentationEntity[] }>();
       </dd>
     </div>
   </dl>
+  <button v-if="detailable" type="button" class="presentation-entities__detail" @click="emit('detail')">
+    Voir le détail par page
+  </button>
 </template>
 
 <style scoped>
@@ -43,6 +47,21 @@ defineProps<{ entities: PresentationEntity[] }>();
   margin-left: 0.5rem;
   font-size: 0.75rem;
   color: var(--text-mention-grey);
+}
+
+.presentation-entities__detail {
+  margin-top: 0.75rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.875rem;
+  color: var(--text-action-high-blue-france);
+  cursor: pointer;
+}
+
+.presentation-entities__detail:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 36rem) {

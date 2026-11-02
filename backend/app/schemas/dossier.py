@@ -422,6 +422,8 @@ class ConversationOut(BaseModel):
     user_id: str
     created_at: datetime
     model: str | None
+    # La conversation s'ouvre sur la présentation du dossier ; faux pour les conversations d'avant cette fonction.
+    with_presentation: bool = False
 
 
 class MessagePage(BaseModel):

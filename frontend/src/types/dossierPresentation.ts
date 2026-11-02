@@ -1,7 +1,10 @@
 import type { ChatWindowSource } from "@/components/ChatWindow.vue";
 
-/** Où en est la présentation d'un dossier : l'analyse tourne encore, elle est prête, ou elle a échoué. */
-export type PresentationStatus = "pending" | "ready" | "failed";
+/**
+ * Où en est la présentation d'un dossier : l'analyse n'est pas lancée (rien à montrer), elle tourne encore, elle est
+ * prête, ou elle a échoué.
+ */
+export type PresentationStatus = "idle" | "pending" | "ready" | "failed";
 
 export interface PresentationClassification {
   label: string;
@@ -42,6 +45,8 @@ export interface SuggestedQuestion {
 /** Ce que la conversation montre en tête : l'essentiel du dossier, le détail à un clic. */
 export interface DossierPresentation {
   status: PresentationStatus;
+  /** Le résumé ou les réponses prêtes se calculent encore : la présentation se recharge jusqu'à ce que tout y soit. */
+  refreshing?: boolean;
   /** Le message d'erreur quand l'analyse a échoué. */
   error?: string;
   dossierName: string;
