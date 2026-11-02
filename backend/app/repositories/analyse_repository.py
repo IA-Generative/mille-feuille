@@ -628,7 +628,15 @@ class AnalyseRepository:
         self.db.add(agent)
         await self.db.commit()
         await self.db.refresh(analyse)
+        self._index_agents(analyse)
         return agent
+
+    @staticmethod
+    def _index_agents(analyse: Analyse) -> None:
+        """Le chat retrouve l'agent qui répond par recherche : son index suit les agents et leur prompt."""
+        from app.agent.dispatch import dispatch_index_agents
+
+        dispatch_index_agents(str(analyse.id))
 
     def get_agent(self, analyse: Analyse, agent_id: uuid.UUID) -> Agent | None:
         return next((a for a in analyse.agents if a.id == agent_id), None)
@@ -640,6 +648,7 @@ class AnalyseRepository:
         agent.prompt = prompt
         await self.db.commit()
         await self.db.refresh(analyse)
+        self._index_agents(analyse)
 
     async def update_agent_tools(self, analyse: Analyse, agent: Agent, tools: list[str]) -> None:
         new_values = unique(tools)

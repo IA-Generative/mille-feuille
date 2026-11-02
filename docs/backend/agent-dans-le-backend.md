@@ -64,6 +64,11 @@ ses outils, la synthèse déjà produite, l'accès à son analyse et, s'il a l'o
 - **`appel_agent`** (`agent_call.py`) : l'outil `ask_agent` pose une question à un autre agent de l'analyse et rend sa réponse.
   L'agent interrogé travaille avec son prompt et ses outils, mais **sans** `ask_agent` (profondeur 1, pas de boucle A → B → A) ;
   `MAX_CALLS` appels par exécution. Ses sources ne remontent pas, seule sa réponse.
+- **Choisir le bon agent** (`services/search/agent_index.py`, `jobs/agent_index.py`) : avec plus de 4 agents, le plan ne lit que
+  les plus proches de la question, trouvés par recherche hybride (dense + BM25, RRF) dans une collection Qdrant `agents_<modèle>`
+  (nom + début du prompt, filtrée par analyse). L'index suit la création d'un agent et son changement de prompt (restauration
+  comprise), et se synchronise au démarrage ; seul ce qui a changé est recalculé. Sans Qdrant ni modèle d'embeddings, ou en cas
+  d'erreur, le plan reçoit tous les agents. La référence d'un agent reste son rang dans l'analyse.
 - Dans le chat, `appel_agent` n'est pas proposé comme outil : c'est le plan qui choisit l'agent à interroger.
 
 ## Les agents d'analyse

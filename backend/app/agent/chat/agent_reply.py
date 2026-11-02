@@ -13,8 +13,37 @@ from app.agent.analysis_agents import AnalysisAgent, converse
 from app.agent.chat.events import ChatEvents
 from app.agent.knowledge_tools import KnowledgeContext
 from app.agent.tools import AgentTools
+from app.db import async_session_factory
+from app.repositories.analyse_repository import AnalyseRepository
+from app.services.search import agent_index
 
 logger = logging.getLogger(__name__)
+
+
+# Combien d'agents le plan lit au plus : au-delà, seuls les plus proches de la question lui sont donnés.
+SHORTLIST = 4
+
+
+async def shortlist(analyse_id: str | None, question: str, agents: list[AnalysisAgent]) -> list[AnalysisAgent]:
+    """Les agents que le plan peut choisir : tous quand ils sont peu nombreux, sinon les `SHORTLIST` plus proches de la
+    question par recherche hybride (voir services/search/agent_index.py), la référence de chacun restant son rang dans
+    l'analyse. Sans index (Qdrant ou modèle d'embeddings absents) ou en cas d'erreur, tous : un choix moins ciblé vaut
+    mieux qu'un chat en échec."""
+    if len(agents) <= SHORTLIST or not analyse_id or not question.strip() or not agent_index.configured():
+        return agents
+    try:
+        async with async_session_factory() as db:
+            analyse = await AnalyseRepository(db).get(uuid.UUID(analyse_id))
+        model = agent_index.embedding_model_of(analyse.search_settings if analyse else None)
+        if not model:
+            return agents
+        ranked = await agent_index.find(analyse_id, question, model, SHORTLIST)
+    except Exception:
+        logger.warning("Agents de l'analyse %s non recherchés : tous sont proposés", analyse_id, exc_info=True)
+        return agents
+    by_id = {agent.id: agent for agent in agents}
+    found = [by_id[agent_id] for agent_id in ranked if agent_id in by_id]
+    return found or agents
 
 
 def agents_for_plan(agents: list[AnalysisAgent]) -> list[dict]:

@@ -15,6 +15,7 @@ from sqlalchemy import select
 from app import celery_client
 from app.agent.runner import IsAlive, agent_runner
 from app.db import async_session_factory
+from app.models.analyse import Agent
 from app.models.document_draft import DocumentDraft
 from app.models.dossier import (
     Dossier,
@@ -33,6 +34,10 @@ from app.repositories.dossier_note_repository import NOTE_ANALYSIS_FAILED, NOTE_
 logger = logging.getLogger(__name__)
 
 _INTERRUPTED = "Le calcul a été interrompu : le serveur qui l'exécutait s'est arrêté."
+
+
+def _agent_index_name(analyse_id: str) -> str:
+    return f"index-agents-{analyse_id}"
 
 
 def _document_summary_name(document_id: str) -> str:
@@ -146,6 +151,13 @@ def dispatch_dossier_pipeline(document_ids: list[str], dossier_id: str) -> None:
     (chaîne Celery), et les agents, qui attendent la fin de ces deux étapes."""
     celery_client.dispatch_dossier_pipeline(document_ids, dossier_id)
     dispatch_agent_execution(dossier_id)
+
+
+def dispatch_index_agents(analyse_id: str) -> None:
+    """Met à jour l'index des agents de l'analyse (le chat y retrouve l'agent qui répond à une question)."""
+    from app.agent.jobs.agent_index import index_analyse_agents
+
+    agent_runner.start(_agent_index_name(analyse_id), partial(index_analyse_agents, analyse_id))
 
 
 def dispatch_helper_chat_response(conversation_id: str, model: str | None = None) -> None:
@@ -289,7 +301,20 @@ async def _fail_stale_agents(is_alive: IsAlive) -> None:
                 await complete_step(db, step_id, ExecutionStepStatus.ECHEC, _INTERRUPTED)
 
 
+async def _sync_agent_indexes(is_alive: IsAlive) -> None:
+    """Au démarrage, les agents créés avant l'index (ou pendant une panne) sont indexés ; à jour, cela ne coûte rien."""
+    from app.services.search import agent_index
+
+    if not agent_index.configured():
+        return
+    async with async_session_factory() as db:
+        analyse_ids = (await db.execute(select(Agent.analyse_id).distinct())).scalars().all()
+    for analyse_id in analyse_ids:
+        dispatch_index_agents(str(analyse_id))
+
+
 for _sweep in (
+    _sync_agent_indexes,
     _fail_stale_agents,
     _resume_stale_rebuilds,
     _fail_stale_indexing,

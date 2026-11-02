@@ -82,9 +82,11 @@ def active_collection(client: QdrantClient, dossier_id: str) -> str | None:
     return None
 
 
-def create_collection(client: QdrantClient, name: str, dimension: int) -> None:
+def create_collection(
+    client: QdrantClient, name: str, dimension: int, indexed_fields: tuple[str, ...] = _INDEXED_FIELDS
+) -> None:
     """Crée la collection (sans effet si elle existe déjà) : un vecteur dense de la dimension du modèle et un vecteur
-    creux dont l'IDF est calculé par le serveur."""
+    creux dont l'IDF est calculé par le serveur. `indexed_fields` : les champs du payload sur lesquels on filtre."""
     if client.collection_exists(name):
         return
     client.create_collection(
@@ -92,7 +94,7 @@ def create_collection(client: QdrantClient, name: str, dimension: int) -> None:
         vectors_config={DENSE: m.VectorParams(size=dimension, distance=m.Distance.COSINE)},
         sparse_vectors_config={SPARSE: m.SparseVectorParams(modifier=m.Modifier.IDF)},
     )
-    for field in _INDEXED_FIELDS:
+    for field in indexed_fields:
         client.create_payload_index(name, field_name=field, field_schema=m.PayloadSchemaType.KEYWORD)
 
 
@@ -223,28 +225,47 @@ def hybrid_search(
     """Recherche hybride sur l'alias du dossier : deux branches (dense et creuse) fusionnées par RRF. Ne cherche que
     dans ce dossier, quoi que contienne la requête. `mode` (`dense` ou `sparse`) n'interroge qu'une branche : c'est
     ce qui permet de mesurer l'apport de l'hybride (voir app.search.evaluation)."""
+    return hybrid_query(client, alias_name(dossier_id), dense=dense, sparse=sparse, limit=limit, mode=mode)
+
+
+def hybrid_query(
+    client: QdrantClient,
+    collection: str,
+    *,
+    dense: list[float],
+    sparse: dict,
+    limit: int | None = None,
+    mode: str = "hybrid",
+    query_filter: m.Filter | None = None,
+) -> list[m.ScoredPoint]:
+    """La recherche hybride sur une collection ou un alias, éventuellement restreinte par un filtre. Une collection
+    absente ne donne aucun résultat."""
     branch = settings.SEARCH_BRANCH_LIMIT
     prefetch = []
     if mode in ("hybrid", "dense"):
-        prefetch.append(m.Prefetch(query=dense, using=DENSE, limit=branch))
+        prefetch.append(m.Prefetch(query=dense, using=DENSE, limit=branch, filter=query_filter))
     if mode in ("hybrid", "sparse") and sparse["indices"]:
         prefetch.append(
             m.Prefetch(
-                query=m.SparseVector(indices=sparse["indices"], values=sparse["values"]), using=SPARSE, limit=branch
+                query=m.SparseVector(indices=sparse["indices"], values=sparse["values"]),
+                using=SPARSE,
+                limit=branch,
+                filter=query_filter,
             )
         )
     if not prefetch:
         return []
     try:
         result = client.query_points(
-            alias_name(dossier_id),
+            collection,
             prefetch=prefetch,
             query=m.RrfQuery(rrf=m.Rrf(k=settings.SEARCH_RRF_K)),
             limit=limit or settings.SEARCH_TOP_K,
             with_payload=True,
         )
     except (UnexpectedResponse, ValueError) as error:
-        # Un dossier sans index n'a pas d'alias : aucun résultat, sans demander d'abord au serveur la liste des alias.
+        # Pas d'index (un dossier sans alias, des agents jamais indexés) : aucun résultat, sans demander d'abord au
+        # serveur la liste des alias.
         if _is_missing(error):
             return []
         raise
