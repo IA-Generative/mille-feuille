@@ -13,7 +13,7 @@ Jamais seul : seulement sur demande. Le suivi est porté par le brouillon (`gene
 
 ## Ce que fait le worker
 
-Tâche `app.tasks.generate_document_fields(draft_id, names, instruction)` (file `agent_execution`, `worker/agent_execution/app/tasks/document_fields.py`) :
+Tâche `app.tasks.generate_document_fields(draft_id, names, instruction)` (`backend/app/agent/jobs/document_fields.py`) :
 
 1. lit `GET /internal/document-drafts/{id}/context` : champs et états courants, éléments de la **révision figée** du brouillon, notes internes **non archivées**, métadonnées, prompt en vigueur ;
 2. écarte les champs validés et les métadonnées ;

@@ -55,6 +55,20 @@ voir `.env.example` à la racine du repo et la section _Configuration_ du
 | `SHARE_DEFAULT_TTL_HOURS` | `168` (7 jours)                      |                                                                                         |
 | `INTERNAL_WORKER_TOKEN`   | `dev-only-worker-token-not-for-prod` | Jeton statique de bootstrap pour les workers Celery (`X-App-Token`). À changer en prod. |
 
+### Agent (`AgentSettings`, `SearchSettings`)
+
+Les agents d'analyse, le chat d'un dossier, les résumés et l'indexation de la recherche tournent dans le backend
+(voir [docs/backend/agent-dans-le-backend.md](../docs/backend/agent-dans-le-backend.md)).
+
+| Variable                | Défaut                   | Description                                                                         |
+| ----------------------- | ------------------------ | ----------------------------------------------------------------------------------- |
+| `LLM_MODEL`             | `llama-3.3-70b-instruct` | Modèle texte des agents, du chat, des résumés et des propositions.                  |
+| `CHAT_PLAN_MODEL`       | _(vide)_                 | Modèle du premier appel du chat (le plan) ; vide : celui du chat.                   |
+| `MAX_CONCURRENT_JOBS`   | `8`                      | Travaux de l'agent menés en même temps dans un pod ; les suivants attendent.        |
+| `AGENT_MAX_ITERATIONS`  | `10`                     | Tours d'outils au plus pour un agent ou une réponse du chat.                        |
+| `QDRANT_URL`            | _(vide)_                 | Index de recherche des dossiers ; `:memory:` pour les tests. Vide : pas de recherche. |
+| `QDRANT_API_KEY`        | _(vide)_                 | Clé d'API de Qdrant.                                                                |
+
 ### Modèles LLM (`LlmSettings`)
 
 | Variable                        | Défaut   | Description                                                 |

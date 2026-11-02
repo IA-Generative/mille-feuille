@@ -129,9 +129,9 @@ Le bouton **Historique** liste toutes les versions d'un élément, avec ce qui a
 - `backend/app/routers/analysis_collaboration.py`, `repositories/analysis_collaboration_repository.py` : verrou, présence, flux SSE.
 - `frontend/src/components/analysis/NotesPanel.vue`, `composables/useDossierNotes.ts` : notes internes (#117).
 - `backend/app/routers/dossier_notes.py`, `repositories/dossier_note_repository.py`, `models/dossier_note.py` : notes versionnées, archivage, demande d'analyse.
-- `worker/agent_execution/app/tasks/note_proposals.py`, `llm.py` : analyse d'une note ; `tasks/chat.py`, `chat_graph.py` : notes comme contexte du chat.
+- `backend/app/agent/jobs/note_proposals.py`, `llm.py` : analyse d'une note ; `tasks/chat.py`, `chat_graph.py` : notes comme contexte du chat.
 - `frontend/src/utils/assistantSuggestion.ts` : lecture des marqueurs de réponse du chat.
-- `worker/agent_execution/app/analysis_tools.py`, `tools.py`, `chat_graph.py` : outils `view_analysis` et `propose_update`, consigne du prompt, marqueur.
+- `backend/app/agent/analysis_tools.py`, `tools.py`, `chat_graph.py` : outils `view_analysis` et `propose_update`, consigne du prompt, marqueur.
 - `backend/app/routers/internal.py` : `GET /api/internal/dossiers/{id}/analysis` et `POST /api/internal/dossiers/{id}/analysis/proposals`.
 - `frontend/src/components/analysis/ElementHistoryModal.vue` : historique et restauration.
 - `frontend/src/types/dossierAnalysis.ts`, `frontend/src/utils/textDiff.ts` : types, textes de valeurs, différence mot à mot.

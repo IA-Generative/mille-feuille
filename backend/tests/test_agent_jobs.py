@@ -195,18 +195,23 @@ def _mark_summary_running(client: TestClient, dossier_id: str, document_id: str)
 
 
 def test_an_interrupted_summary_is_failed_at_start_up(client: TestClient) -> None:
-    from app.agent.runner import agent_runner
+    from app.agent import dispatch
 
     _, dossier_id, document_id = _dossier_with_page(client, "Résumé interrompu")
     _mark_summary_running(client, dossier_id, document_id)
 
-    client.portal.call(agent_runner.fail_stale)
+    # Seul le travail de ce document est tenu pour mort : la base est partagée avec les autres tests.
+    async def only_this_one_is_dead(name: str) -> bool:
+        return name != f"document-summary-{document_id}"
+
+    client.portal.call(dispatch._fail_stale_summaries, only_this_one_is_dead)
 
     document = _document(client, dossier_id)
     assert document["summary_status"] == "échec" and "interrompu" in document["summary_error"]
 
 
 def test_a_summary_running_on_another_pod_is_left_alone(client: TestClient) -> None:
+    from app.agent import dispatch
     from app.agent.runner import agent_runner
     from app.connectors import redis_connector
 
@@ -215,7 +220,11 @@ def test_a_summary_running_on_another_pod_is_left_alone(client: TestClient) -> N
     key = f"agent:job:document-summary-{document_id}"
     redis_connector.client.set(key, 1, ex=30)  # le battement d'un autre pod
     try:
-        client.portal.call(agent_runner.fail_stale)
+        # Les autres travaux de la base partagée sont tenus pour vivants : seul celui-ci est jugé, par son battement.
+        async def judge(name: str) -> bool:
+            return name != f"document-summary-{document_id}" or await agent_runner.is_alive(name)
+
+        client.portal.call(dispatch._fail_stale_summaries, judge)
     finally:
         redis_connector.client.delete(key)
 

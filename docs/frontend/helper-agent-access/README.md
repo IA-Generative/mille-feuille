@@ -28,14 +28,14 @@ L'assistant reste aussi accessible comme avant, depuis le menu utilisateur et le
 
 ## Fonctionnement technique de la proposition
 
-- Le chat du dossier dispose d'un outil `suggest_assistant(question)` (`worker/agent_execution/app/tools.py`), décrit au LLM comme à utiliser pour les demandes qui concernent l'application. Il n'a **aucun effet de bord** : il mémorise seulement la question.
+- Le chat du dossier dispose d'un outil `suggest_assistant(question)` (`backend/app/agent/tools.py`), décrit au LLM comme à utiliser pour les demandes qui concernent l'application. Il n'a **aucun effet de bord** : il mémorise seulement la question.
 - En fin d'exécution, le worker (`chat_graph.py`) ajoute à la réponse un commentaire HTML `<!--assistant-suggestion:<question encodée>-->`. C'est le worker, pas le LLM, qui l'ajoute, pour que le format soit fiable ; le marqueur est enregistré avec le message, donc le bouton reste affiché au rechargement.
 - Le frontend (`utils/assistantSuggestion.ts`) retire le marqueur du texte affiché et, s'il existe, montre le bouton.
 - Seule l'action de l'utilisateur ouvre l'assistant ; l'assistant garde ses propres confirmations pour toute action à effet de bord.
 
 ## Code
 
-- `worker/agent_execution/app/tools.py`, `chat_graph.py` : outil `suggest_assistant`, consigne du prompt et marqueur.
+- `backend/app/agent/tools.py`, `chat_graph.py` : outil `suggest_assistant`, consigne du prompt et marqueur.
 - `frontend/src/utils/assistantSuggestion.ts` : lecture du marqueur.
 - `frontend/src/composables/useHelperAgent.ts` : état partagé de la modale (ouverture, dossier de départ).
 - `frontend/src/components/HelperAgentModal.vue` : bandeau de contexte et préfixe du premier message.

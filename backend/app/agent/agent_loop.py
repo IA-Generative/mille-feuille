@@ -1,13 +1,14 @@
-"""Un agent d'analyse : son prompt, des outils, et une boucle (le modèle appelle des outils jusqu'à avoir de quoi
-conclure). Il travaille sans personne : pas de question à choix, pas de demande d'accord."""
+"""Un agent : son prompt, des outils, et une boucle (le modèle appelle des outils jusqu'à avoir de quoi conclure).
+C'est celle des agents d'analyse, qui travaillent sans personne (pas de question à choix, pas de demande d'accord), et
+celle de l'assistant de l'application, qui converse (historique et événements en plus)."""
 
 import json
 import logging
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from app.agent import llm
 from app.agent.runner import settings
-from app.agent.tools import AgentTools
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,26 @@ def _arguments_of(call: dict[str, Any]) -> dict[str, Any]:
     return arguments if isinstance(arguments, dict) else {}
 
 
-async def run_agent(*, prompt: str, tools: AgentTools, model: str | None = None) -> str:
-    """La synthèse de l'agent : sa dernière réponse, une fois qu'il n'appelle plus d'outil."""
-    messages: list[dict[str, Any]] = [{"role": "system", "content": prompt}, {"role": "user", "content": TASK}]
+# Une étape visible de la personne : kind (tool_call, tool_result) et données.
+OnEvent = Callable[[str, dict], Awaitable[None]]
+PREVIEW_CHARS = 200
+
+
+async def run_agent(
+    *,
+    prompt: str,
+    tools: Any,
+    model: str | None = None,
+    history: list[dict[str, Any]] | None = None,
+    on_event: OnEvent | None = None,
+) -> str:
+    """La synthèse de l'agent : sa dernière réponse, une fois qu'il n'appelle plus d'outil. Sans `history`, l'agent
+    exécute la tâche de ses instructions ; avec, il répond à la conversation. `tools` : un jeu d'outils
+    (`tool_definitions()` et `dispatch_tool()`)."""
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": prompt},
+        *(history if history is not None else [{"role": "user", "content": TASK}]),
+    ]
     for iteration in range(1, settings.AGENT_MAX_ITERATIONS + 1):
         response = await llm.complete(
             model=model or settings.LLM_MODEL,
@@ -57,7 +75,12 @@ async def run_agent(*, prompt: str, tools: AgentTools, model: str | None = None)
         for call in calls:
             name, arguments = call["function"]["name"], _arguments_of(call)
             logger.info("Appel d'outil de l'agent : %s(%s)", name, arguments)
+            if on_event:
+                await on_event("tool_call", {"tool_name": name, "arguments": arguments})
             result = await tools.dispatch_tool(name, arguments)
+            if on_event:
+                preview = result[:PREVIEW_CHARS] + "..." if len(result) > PREVIEW_CHARS else result
+                await on_event("tool_result", {"tool_name": name, "preview": preview})
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
     logger.warning("Agent : %d itérations atteintes, arrêt", settings.AGENT_MAX_ITERATIONS)
     return messages[-1].get("content") if messages[-1]["role"] == "assistant" else NO_ANSWER

@@ -49,7 +49,7 @@ Realm de dev (`docker/keycloak/mille-feuille-realm.json`) : `agent` / `agent` (i
 ### Points d'attention de l'environnement
 
 - **Fenêtre de CGU** : une version non acceptée bloque l'interface ; l'accepter (ou en désactiver l'obstacle) avant de tester.
-- **Workers affichés « unhealthy »** : c'était un faux négatif, **corrigé** : le `HEALTHCHECK` des Dockerfiles de `worker/agent_execution` et `worker/document_process` utilisait `celery@$$HOSTNAME` ; dans un Dockerfile, `$$` est le PID du shell (le `$$` est une syntaxe de `docker-compose.yaml`), donc le nom du nœud ne correspondait jamais. Il utilise maintenant `celery@$HOSTNAME`. **Les images doivent être reconstruites** (`make up`) pour que le correctif s'applique ; un conteneur d'une ancienne image reste `unhealthy` alors que le worker fonctionne. Dans le doute, vérifier avec `docker compose exec <worker> celery -A app.celery_app inspect ping`.
+- **Workers affichés « unhealthy »** : c'était un faux négatif, **corrigé** : le `HEALTHCHECK` du Dockerfile de `worker/document_process` utilisait `celery@$$HOSTNAME` ; dans un Dockerfile, `$$` est le PID du shell (le `$$` est une syntaxe de `docker-compose.yaml`), donc le nom du nœud ne correspondait jamais. Il utilise maintenant `celery@$HOSTNAME`. **Les images doivent être reconstruites** (`make up`) pour que le correctif s'applique ; un conteneur d'une ancienne image reste `unhealthy` alors que le worker fonctionne. Dans le doute, vérifier avec `docker compose exec <worker> celery -A app.celery_app inspect ping`.
 - **Base de dev** : les tests automatisés du backend s'exécutent sur la base de dev et y laissent des données (dossiers, analyses de rattrapage). Pour un E2E propre, utiliser une **base neuve** (`docker compose down -v` est **destructif**).
 - **Plusieurs migrations** s'appliquent au démarrage ; vérifier la révision : `docker compose exec backend alembic current`.
 
@@ -72,8 +72,8 @@ Realm de dev (`docker/keycloak/mille-feuille-realm.json`) : `agent` / `agent` (i
 ### Logs
 
 ```bash
-docker compose logs -f backend worker-agent-execution worker-document-process
-docker compose exec worker-agent-execution celery -A app.celery_app inspect ping   # vivants ?
+docker compose logs -f backend worker-document-process
+docker compose exec worker-document-process celery -A app.celery_app inspect ping   # vivants ?
 ```
 
 ### Base de données
@@ -107,7 +107,7 @@ Cookie de session du navigateur (connexion Keycloak) ou jeton Bearer Keycloak de
 
 ### Compter les appels au LLM
 
-Les journaux du worker (`docker compose logs worker-agent-execution`) tracent chaque extraction ; compter les lignes « Entity ... » et les unités déclarées (`analysis_units`) par type, avant et après un changement de réglage.
+Les journaux du backend (`docker compose logs backend`) tracent chaque extraction ; compter les lignes « Entity ... » et les unités déclarées (`analysis_units`) par type, avant et après un changement de réglage.
 
 ## 4. Plan de tests
 

@@ -1,7 +1,7 @@
 # worker/extraction
 
 Worker Celery **dédié à l'extraction des entités** d'un dossier. Code, image et file Celery séparés de
-`worker/agent_execution` et de `worker/classification`.
+`worker/classification`.
 
 - File : `entity_extraction` (le backend y dépose `app.tasks.extract_dossier_entities`, voir
   `backend/app/celery_client.py`).

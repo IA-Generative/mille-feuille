@@ -40,16 +40,6 @@
         },
         {
           "type": "toml",
-          "path": "worker/agent_execution/pyproject.toml",
-          "jsonpath": "project.version"
-        },
-        {
-          "type": "toml",
-          "path": "worker/agent_execution/uv.lock",
-          "jsonpath": "$.package[?(@.name=='mille-feuille-worker-agent-execution')].version"
-        },
-        {
-          "type": "toml",
           "path": "worker/classification/pyproject.toml",
           "jsonpath": "project.version"
         },

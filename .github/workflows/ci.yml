@@ -36,7 +36,6 @@ jobs:
       ephemeral_frontend: ${{ steps.filter.outputs.ephemeral_frontend }}
       backend: ${{ steps.filter.outputs.backend }}
       worker_document_process: ${{ steps.filter.outputs.worker_document_process }}
-      worker_agent_execution: ${{ steps.filter.outputs.worker_agent_execution }}
       worker_classification: ${{ steps.filter.outputs.worker_classification }}
       worker_extraction: ${{ steps.filter.outputs.worker_extraction }}
       worker_async_api: ${{ steps.filter.outputs.worker_async_api }}
@@ -61,8 +60,6 @@ jobs:
               - 'backend/**'
             worker_document_process:
               - 'worker/document_process/**'
-            worker_agent_execution:
-              - 'worker/agent_execution/**'
             worker_classification:
               - 'worker/classification/**'
             worker_extraction:
@@ -85,7 +82,6 @@ jobs:
           EPHEMERAL_FRONTEND: ${{ steps.filter.outputs.ephemeral_frontend }}
           BACKEND: ${{ steps.filter.outputs.backend }}
           WORKER_DOCUMENT_PROCESS: ${{ steps.filter.outputs.worker_document_process }}
-          WORKER_AGENT_EXECUTION: ${{ steps.filter.outputs.worker_agent_execution }}
           WORKER_CLASSIFICATION: ${{ steps.filter.outputs.worker_classification }}
           WORKER_EXTRACTION: ${{ steps.filter.outputs.worker_extraction }}
           WORKER_DOCUMENT_RENDER: ${{ steps.filter.outputs.worker_document_render }}
@@ -110,9 +106,6 @@ jobs:
           fi
           if [ "$WORKER_DOCUMENT_PROCESS" = "true" ] || [ "$CI" = "true" ]; then
             add '{"name":"worker-document-process","context":"worker/document_process","dockerfile":"worker/document_process/Dockerfile","target":"runtime"}'
-          fi
-          if [ "$WORKER_AGENT_EXECUTION" = "true" ] || [ "$CI" = "true" ]; then
-            add '{"name":"worker-agent-execution","context":"worker/agent_execution","dockerfile":"worker/agent_execution/Dockerfile","target":"runtime"}'
           fi
           if [ "$WORKER_CLASSIFICATION" = "true" ] || [ "$CI" = "true" ]; then
             add '{"name":"worker-classification","context":"worker/classification","dockerfile":"worker/classification/Dockerfile","target":"runtime"}'
@@ -180,7 +173,7 @@ jobs:
     uses: ./.github/workflows/lint.yml
     needs:
       - path-filter
-    if: ${{ needs.path-filter.outputs.frontend == 'true' || needs.path-filter.outputs.ephemeral_frontend == 'true' || needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_agent_execution == 'true' || needs.path-filter.outputs.worker_classification == 'true' || needs.path-filter.outputs.worker_extraction == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.ci == 'true' }}
+    if: ${{ needs.path-filter.outputs.frontend == 'true' || needs.path-filter.outputs.ephemeral_frontend == 'true' || needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_classification == 'true' || needs.path-filter.outputs.worker_extraction == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.ci == 'true' }}
     with:
       RUN_ALL: ${{ needs.path-filter.outputs.ci == 'true' }}
       FRONTEND: ${{ needs.path-filter.outputs.frontend == 'true' }}
@@ -188,7 +181,6 @@ jobs:
       BACKEND: ${{ needs.path-filter.outputs.backend == 'true' }}
       WORKER_DOCUMENT_PROCESS: ${{ needs.path-filter.outputs.worker_document_process == 'true' }}
       WORKER_DOCUMENT_RENDER: ${{ needs.path-filter.outputs.worker_document_render == 'true' }}
-      WORKER_AGENT_EXECUTION: ${{ needs.path-filter.outputs.worker_agent_execution == 'true' }}
       WORKER_CLASSIFICATION: ${{ needs.path-filter.outputs.worker_classification == 'true' }}
       WORKER_EXTRACTION: ${{ needs.path-filter.outputs.worker_extraction == 'true' }}
       WORKER_ASYNC_API: ${{ needs.path-filter.outputs.worker_async_api == 'true' }}
@@ -201,13 +193,12 @@ jobs:
     uses: ./.github/workflows/unit-tests.yml
     needs:
       - path-filter
-    if: ${{ needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_agent_execution == 'true' || needs.path-filter.outputs.worker_classification == 'true' || needs.path-filter.outputs.worker_extraction == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.ci == 'true' }}
+    if: ${{ needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_classification == 'true' || needs.path-filter.outputs.worker_extraction == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.ci == 'true' }}
     with:
       RUN_ALL: ${{ needs.path-filter.outputs.ci == 'true' }}
       BACKEND: ${{ needs.path-filter.outputs.backend == 'true' }}
       WORKER_DOCUMENT_PROCESS: ${{ needs.path-filter.outputs.worker_document_process == 'true' }}
       WORKER_DOCUMENT_RENDER: ${{ needs.path-filter.outputs.worker_document_render == 'true' }}
-      WORKER_AGENT_EXECUTION: ${{ needs.path-filter.outputs.worker_agent_execution == 'true' }}
       WORKER_CLASSIFICATION: ${{ needs.path-filter.outputs.worker_classification == 'true' }}
       WORKER_EXTRACTION: ${{ needs.path-filter.outputs.worker_extraction == 'true' }}
       WORKER_ASYNC_API: ${{ needs.path-filter.outputs.worker_async_api == 'true' }}

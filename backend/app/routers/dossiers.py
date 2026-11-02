@@ -681,15 +681,15 @@ async def launch_dossier_for(
     if analyse is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Analyse introuvable")
     await dossier_repository.launch(dossier, analyse, actor=actor)
-    # Dépose les tâches de classification et d'extraction sur la file
-    # agent_execution : le worker traite chaque page (VLM + LLM) et dépose
-    # les prédictions via l'API interne. Les tâches sont indépendantes et
-    # tournent en parallèle sur la file dédiée.
+    # Dépose les tâches de classification et d'extraction sur leurs files
+    # dédiées : chaque worker traite chaque page (VLM + LLM) et dépose les
+    # prédictions via l'API interne. Les tâches sont indépendantes et
+    # tournent en parallèle.
     dispatch_classification(str(dossier.id))
     dispatch_entity_extraction(str(dossier.id))
-    # L'exécution des agents est déposée séparément : elle attend que la
-    # classification et l'extraction soient terminées avant de lancer les
-    # agents LangGraph (les agents utilisent les prédictions déposées).
+    # Les agents sont lancés par le backend lui-même : ils attendent que la
+    # classification et l'extraction soient terminées (les agents utilisent
+    # les prédictions déposées).
     acting_user, _ = actor_of(actor)
     dispatch_agent_execution(str(dossier.id), acting_user)
     return dossier
@@ -722,9 +722,8 @@ async def regenerate_document_summary(
     document_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Déclenche la (re)génération du résumé d'un document via le worker
-    agent_execution. Le worker concatène le contenu des pages, appelle le
-    LLM, et dépose le résumé via l'API interne."""
+    """Déclenche la (re)génération du résumé d'un document : le backend
+    concatène le contenu des pages, appelle le LLM et dépose le résumé."""
     repository = DossierRepository(db)
     document = await repository.get_document(dossier_id, document_id)
     if document is None:
@@ -738,9 +737,9 @@ async def regenerate_dossier_summary(
     dossier_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Déclenche la (re)génération du résumé global du dossier via le worker
-    agent_execution. Le worker récupère les résumés individuels des documents
-    + les synthèses des agents, et produit une vue d'ensemble."""
+    """Déclenche la (re)génération du résumé global du dossier : le backend
+    réunit les résumés individuels des documents et les synthèses des agents,
+    et produit une vue d'ensemble."""
     repository = DossierRepository(db)
     dossier = await _get_or_404(repository, dossier_id)
     dispatch_dossier_summary(str(dossier_id))
