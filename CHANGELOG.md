@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.36.0](https://github.com/IA-Generative/mille-feuille/compare/v0.35.0...v0.36.0) (2026-11-02)
+
+
+### Features
+
+* **analyse:** questions fréquentes versionnées ([6a8f86c](https://github.com/IA-Generative/mille-feuille/commit/6a8f86cd4c415432b368b784d0f8b4071028f4d6)), closes [#421](https://github.com/IA-Generative/mille-feuille/issues/421)
+* **chat:** ouvrir la conversation sur la présentation du dossier ([1d4772d](https://github.com/IA-Generative/mille-feuille/commit/1d4772d7136367809cc9ea0f044713939d7f1c7f)), closes [#423](https://github.com/IA-Generative/mille-feuille/issues/423)
+* **chat:** présentation du dossier et questions suggérées sur données simulées ([9500272](https://github.com/IA-Generative/mille-feuille/commit/95002726ce7f9bf7346631aa59f417fe86a4a2d3)), closes [#420](https://github.com/IA-Generative/mille-feuille/issues/420)
+* **chat:** retirer DossierResults, toutes les conversations sur la présentation ([678b0a5](https://github.com/IA-Generative/mille-feuille/commit/678b0a5b01db332670a7a20b1814ca71f1da45f5)), closes [#429](https://github.com/IA-Generative/mille-feuille/issues/429)
+* **dossier:** réponses prêtes aux questions fréquentes de l'analyse ([cf53dea](https://github.com/IA-Generative/mille-feuille/commit/cf53dea9628dfd2cf06e3d3553caafb46ed35b81)), closes [#422](https://github.com/IA-Generative/mille-feuille/issues/422)
+
+
+### Bug Fixes
+
+* **lint:** ligne trop longue dans la présentation du dossier ([a126176](https://github.com/IA-Generative/mille-feuille/commit/a1261761ee47b2068269313ef232292ebea6dcaf))
+
 ## [0.35.0](https://github.com/IA-Generative/mille-feuille/compare/v0.34.0...v0.35.0) (2026-11-02)
 
 
