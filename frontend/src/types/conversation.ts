@@ -112,7 +112,7 @@ export interface ConversationSummary {
 
 // --- Événements de chat (streaming de l'exécution) ---
 
-export type ChatEventKind = "tool_call" | "tool_result" | "thinking" | "done" | "error";
+export type ChatEventKind = "tool_call" | "tool_result" | "thinking" | "delta" | "done" | "error";
 
 export interface ChatEvent {
   id: string;
