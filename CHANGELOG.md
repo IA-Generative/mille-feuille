@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.37.1](https://github.com/IA-Generative/mille-feuille/compare/v0.37.0...v0.37.1) (2026-11-02)
+
+
+### Bug Fixes
+
+* **chat:** réponses vides ou en json du modèle jamais montrées ([332887d](https://github.com/IA-Generative/mille-feuille/commit/332887d0a9ce100ce11f42fdb644076cc989896c))
+
 ## [0.37.0](https://github.com/IA-Generative/mille-feuille/compare/v0.36.1...v0.37.0) (2026-11-02)
 
 
