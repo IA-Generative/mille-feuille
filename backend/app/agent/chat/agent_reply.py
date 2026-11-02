@@ -48,9 +48,9 @@ async def shortlist(analyse_id: str | None, question: str, agents: list[Analysis
 
 
 def mentioned(question: str, agents: list[AnalysisAgent]) -> tuple[AnalysisAgent, str] | None:
-    """L'agent que la personne a nommé avec `@Nom` (sans tenir compte de la casse), et sa question sans la mention. Une
-    mention appelle l'agent à coup sûr : le plan n'a pas à le choisir. Le nom le plus long l'emporte (« @Agent 10 » n'est
-    pas « @Agent 1 »), et un `@` collé à un mot (une adresse de courriel) n'est pas une mention."""
+    """L'agent que la personne a nommé avec `@Nom` (sans tenir compte de la casse), et sa question sans la mention.
+    Une mention appelle l'agent à coup sûr : le plan n'a pas à le choisir. Le nom le plus long l'emporte
+    (« @Agent 10 » n'est pas « @Agent 1 »), et un `@` collé à un mot (une adresse de courriel) n'est pas une mention."""
     for agent in sorted(agents, key=lambda candidate: len(candidate.name), reverse=True):
         found = re.search(rf"(?<!\w)@{re.escape(agent.name)}(?!\w)", question, flags=re.IGNORECASE)
         if found:
