@@ -14,6 +14,7 @@ import NotesPanel from "@/components/analysis/NotesPanel.vue";
 import ProposalCard from "@/components/analysis/ProposalCard.vue";
 import MarkdownText from "@/components/MarkdownText.vue";
 import PaginationBar from "@/components/PaginationBar.vue";
+import BackLink from "@/components/BackLink.vue";
 import { useAnalysisLive, type PresenceEntry } from "@/composables/useAnalysisLive";
 import { useDossierAnalysis } from "@/composables/useDossierAnalysis";
 import { useDossiers } from "@/composables/useDossiers";
@@ -253,9 +254,9 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
 
 <template>
   <div class="analysis-page">
-    <RouterLink :to="`/dossiers/${dossierId}`" class="fr-link fr-icon-arrow-left-line fr-link--icon-left">
+    <BackLink :to="`/dossiers/${dossierId}`">
       Retour au dossier
-    </RouterLink>
+    </BackLink>
 
     <header class="analysis-page__header">
       <h1 class="fr-h3">Analyse du dossier{{ dossier ? ` « ${dossier.name} »` : "" }}</h1>

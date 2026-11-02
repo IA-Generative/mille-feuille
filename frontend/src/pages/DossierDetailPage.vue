@@ -29,6 +29,7 @@ import ChatToolsMenu from "@/components/tools/ChatToolsMenu.vue";
 import SourceCarousel from "@/components/tools/SourceCarousel.vue";
 import ToolCallCard from "@/components/tools/ToolCallCard.vue";
 import ToolQuestionCard from "@/components/tools/ToolQuestionCard.vue";
+import BackLink from "@/components/BackLink.vue";
 import { useConversations } from "@/composables/useConversations";
 import { useDossiers } from "@/composables/useDossiers";
 import { useHelperAgent } from "@/composables/useHelperAgent";
@@ -394,9 +395,9 @@ async function onDeleteConversation() {
 
 <template>
   <div v-if="dossier" class="dossier-detail">
-    <RouterLink to="/dossiers" class="fr-link fr-icon-arrow-left-line fr-link--icon-left dossier-detail__back">
+    <BackLink to="/dossiers" class="dossier-detail__back">
       Retour aux dossiers
-    </RouterLink>
+    </BackLink>
 
     <div class="dossier-detail__header">
       <div>

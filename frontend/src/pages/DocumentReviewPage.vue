@@ -10,6 +10,7 @@ import { RouterLink, useRoute } from "vue-router";
 import DraftFieldCard from "@/components/documents/DraftFieldCard.vue";
 import FieldHistoryModal from "@/components/documents/FieldHistoryModal.vue";
 import PdfPreview from "@/components/documents/PdfPreview.vue";
+import BackLink from "@/components/BackLink.vue";
 import { draftErrorMessage, incompleteFieldsFrom, useDocumentDrafts } from "@/composables/useDocumentDrafts";
 import type { DocumentDraft, DraftField, FieldValue, FieldVersion, GeneratedDocument } from "@/types/documentDraft";
 
@@ -146,9 +147,9 @@ async function generateDocument(confirm = false) {
 
 <template>
   <div class="review">
-    <RouterLink :to="`/dossiers/${dossierId}/documents`" class="fr-link fr-icon-arrow-left-line fr-link--icon-left">
+    <BackLink :to="`/dossiers/${dossierId}/documents`">
       Documents du dossier
-    </RouterLink>
+    </BackLink>
 
     <p v-if="loading" class="fr-text--sm">Chargement…</p>
     <DsfrAlert v-else-if="!draft" type="error" :description="error || 'Brouillon introuvable.'" />
