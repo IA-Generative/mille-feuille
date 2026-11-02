@@ -18,6 +18,7 @@ import AddDocumentsModal from "@/components/dossiers/AddDocumentsModal.vue";
 import DossierDocuments from "@/components/dossiers/DossierDocuments.vue";
 import DossierSearchIndexCard from "@/components/dossiers/DossierSearchIndexCard.vue";
 import RelaunchBanner from "@/components/dossiers/RelaunchBanner.vue";
+import ExecutionDetailModal from "@/components/dossiers/ExecutionDetailModal.vue";
 import FeedbackReasonsModal from "@/components/dossiers/FeedbackReasonsModal.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { useChatStream } from "@/composables/useChatStream";
@@ -34,7 +35,7 @@ import { useConversations } from "@/composables/useConversations";
 import { useDossiers } from "@/composables/useDossiers";
 import { useHelperAgent } from "@/composables/useHelperAgent";
 import { useMyConversations } from "@/composables/useMyConversations";
-import type { FeedbackReasonCode, QuestionAnswer } from "@/types/conversation";
+import type { FeedbackReasonCode, MessageExecution, QuestionAnswer } from "@/types/conversation";
 import {
   DOSSIER_STATUS_LABELS,
   SUGGESTION_STATUS_LABELS,
@@ -79,6 +80,14 @@ const { presentation, load: loadPresentation, ask: askSuggestion } = useDossierP
 // Pouce haut : bascule directement. Pouce bas : ouvre une modale pour
 // recueillir la/les raison(s) avant d'envoyer (comme Muffin).
 const feedbackReasonsModalOpened = ref(false);
+// Le détail de l'exécution d'une réponse (modale ouverte depuis le bouton à côté des pouces).
+const executionOpened = ref(false);
+const executionShown = ref<MessageExecution | null>(null);
+
+function showExecution(execution: MessageExecution) {
+  executionShown.value = execution;
+  executionOpened.value = true;
+}
 const pendingDownMessageId = ref<string | null>(null);
 
 // Streaming du chat : événements reçus pendant l'exécution du graphe
@@ -697,6 +706,16 @@ async function onDeleteConversation() {
         >
           <VIcon name="ri-thumb-down-line" />
         </button>
+        <button
+          v-if="message.execution"
+          type="button"
+          class="chat-message__feedback-button"
+          aria-label="Détail de l'exécution"
+          title="Détail de l'exécution"
+          @click="showExecution(message.execution)"
+        >
+          <VIcon name="ri-flow-chart" />
+        </button>
       </template>
     </ChatWindow>
 
@@ -785,6 +804,7 @@ async function onDeleteConversation() {
     </DsfrModal>
 
     <FeedbackReasonsModal v-model:opened="feedbackReasonsModalOpened" @submit="submitDownFeedback" />
+    <ExecutionDetailModal v-model:opened="executionOpened" :execution="executionShown" />
   </div>
   <div v-else>
     <p>Dossier introuvable.</p>

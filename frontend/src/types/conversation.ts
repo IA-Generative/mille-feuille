@@ -79,6 +79,29 @@ export interface ChatToolCall {
   status: ToolCallStatus;
 }
 
+/** Un appel d'outil de la réponse : ses arguments, ce qu'il a rendu (début), combien de temps il a pris. */
+export interface ExecutionStep {
+  toolName: string;
+  /** L'agent de l'analyse qui l'a appelé, quand c'est un agent qui répond. */
+  agent: string | null;
+  arguments: Record<string, unknown>;
+  result: string | null;
+  /** Millisecondes depuis le début de la réponse. */
+  atMs: number;
+  durationMs: number | null;
+}
+
+/** Ce que l'assistant a fait pour produire une réponse (plan, outils, écarts du cas normal). */
+export interface MessageExecution {
+  mode: string | null;
+  model: string | null;
+  iterations: number | null;
+  durationMs: number | null;
+  notes: string[];
+  steps: ExecutionStep[];
+  omittedSteps: number;
+}
+
 export interface Message {
   id: string;
   role: MessageRole;
@@ -89,6 +112,8 @@ export interface Message {
   toolCalls: ChatToolCall[];
   /** Les sources d'une base de connaissances externe citées par le message (lien, aperçu, passage). */
   externalSources: ExternalSource[];
+  /** Le détail de l'exécution d'une réponse de l'assistant ; null pour un message de la personne ou d'avant. */
+  execution: MessageExecution | null;
 }
 
 /** Chat de la page dossier : une conversation par (dossier, utilisateur). */

@@ -11,6 +11,7 @@ import type {
   Message,
   MessageSource,
   ChatToolCall,
+  MessageExecution,
   QuestionAnswer,
 } from "@/types/conversation";
 
@@ -47,6 +48,26 @@ function mapSource(api: any): MessageSource {
   };
 }
 
+function mapExecution(api: any): MessageExecution | null {
+  if (!api) return null;
+  return {
+    mode: api.mode ?? null,
+    model: api.model ?? null,
+    iterations: api.iterations ?? null,
+    durationMs: api.duration_ms ?? null,
+    notes: api.notes ?? [],
+    steps: (api.steps ?? []).map((step: any) => ({
+      toolName: step.tool_name,
+      agent: step.agent ?? null,
+      arguments: step.arguments ?? {},
+      result: step.result ?? null,
+      atMs: step.at_ms ?? 0,
+      durationMs: step.duration_ms ?? null,
+    })),
+    omittedSteps: api.omitted_steps ?? 0,
+  };
+}
+
 function mapToolCall(api: any): ChatToolCall {
   return {
     id: api.id,
@@ -69,6 +90,7 @@ function mapMessage(api: any): Message {
     feedback: mapFeedback(api.feedback),
     toolCalls: (api.tool_calls ?? []).map(mapToolCall),
     externalSources: (api.external_sources ?? []).map(toExternalSource),
+    execution: mapExecution(api.execution),
   };
 }
 
