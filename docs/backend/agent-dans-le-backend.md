@@ -72,6 +72,8 @@ ses outils, la synthèse déjà produite, l'accès à son analyse et, s'il a l'o
   d'erreur, le plan reçoit tous les agents. La référence d'un agent reste son rang dans l'analyse.
 - **Mention** (`chat/agent_reply.mentioned`) : `@Nom` dans le message appelle l'agent à coup sûr, sans appel au plan (casse
   ignorée, nom entier : « @Agent 10 » n'est pas « @Agent 1 », une adresse de courriel n'est pas une mention).
+- **Liste** : `GET /api/dossiers/{id}/agents` (`routers/dossier_agents.py`) donne les agents de l'analyse du dossier (nom, rôle en
+  une ligne), avec les droits de lecture du dossier ; le menu des agents du chat s'en sert.
 - Dans le chat, `appel_agent` n'est pas proposé comme outil : c'est le plan qui choisit l'agent à interroger.
 
 ## Les agents d'analyse
