@@ -123,10 +123,12 @@ async def run_tool_loop(
             recovered = model_output.recovered_call(content, model_output.tool_names(definitions))
             if recovered:
                 logger.warning("Chat: appel d'outil écrit en texte repris (%s)", recovered["function"]["name"])
+                events.note("Le modèle a écrit un appel d'outil en texte : il a été repris et exécuté.")
                 calls, content = [recovered], ""
             elif model_output.unusable(content) and not retried and iterations < settings.AGENT_MAX_ITERATIONS:
                 logger.warning("Chat: réponse inexploitable du modèle (%d caractères), nouvelle demande", len(content))
                 retried = True
+                events.note("Réponse vide ou en JSON : le modèle a été relancé une fois.")
                 if content.strip():
                     conversation.append({"role": "assistant", "content": content})
                 conversation.append({"role": "user", "content": model_output.RETRY_NOTICE})
@@ -135,6 +137,7 @@ async def run_tool_loop(
                 return LoopResult(answer=model_output.shown(content), iterations=iterations)
         if iterations >= settings.AGENT_MAX_ITERATIONS:
             logger.warning("Chat: %d itérations atteintes, réponse finale demandée", settings.AGENT_MAX_ITERATIONS)
+            events.note("Limite d'appels d'outils atteinte : une réponse finale a été demandée sans outil.")
             final = await wrap_up(model=model or settings.LLM_MODEL, messages=conversation, definitions=definitions)
             return LoopResult(answer=model_output.shown(final or content), iterations=iterations)
 
@@ -155,5 +158,5 @@ async def run_tool_loop(
             logger.info("Chat tool call: %s(%s)", name, arguments)
             result = await tools.dispatch_tool(name, arguments)
             preview = result[:PREVIEW_CHARS] + "..." if len(result) > PREVIEW_CHARS else result
-            await events.emit("tool_result", {"tool_name": name, "preview": preview})
+            await events.emit("tool_result", {"tool_name": name, "preview": preview, "full": result})
             conversation.append({"role": "tool", "tool_call_id": call["id"], "content": result})

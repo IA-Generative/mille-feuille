@@ -26,6 +26,7 @@ from app.schemas.chat_tool_call import (
 )
 from app.schemas.document_source import DocumentSourceOut
 from app.schemas.external_source import MAX_EXTERNAL_SOURCES_PER_MESSAGE, ExternalSourceIn, ExternalSourceOut
+from app.schemas.message_execution import MessageExecution
 
 
 class BoundingBoxIn(BaseModel):
@@ -215,6 +216,8 @@ class InternalMessageIn(BaseModel):
     tool_calls: list[ChatToolCallIn] = Field(default_factory=list, max_length=MAX_CALLS_PER_BATCH)
     # Les sources de la base de connaissances que la réponse cite, dans l'ordre où le modèle les a numérotées.
     external_sources: list[ExternalSourceIn] = Field(default_factory=list, max_length=MAX_EXTERNAL_SOURCES_PER_MESSAGE)
+    # Ce que l'assistant a fait pour répondre (plan, outils, relances), montré dans le détail de l'exécution.
+    execution: MessageExecution | None = None
 
 
 class DocumentPageOut(BaseModel):
@@ -412,6 +415,8 @@ class MessageOut(BaseModel):
     tool_calls: list[ChatToolCallOut] = []
     # Les sources d'une base de connaissances externe citées par le message : lien, aperçu, passage, zones.
     external_sources: list[ExternalSourceOut] = []
+    # Le détail de l'exécution de la réponse (plan, outils appelés, relances) ; absent des messages d'avant.
+    execution: MessageExecution | None = None
 
 
 class ConversationOut(BaseModel):

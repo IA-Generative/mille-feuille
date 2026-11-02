@@ -77,12 +77,16 @@ async def run_agent(
             recovered = model_output.recovered_call(content, model_output.tool_names(definitions))
             if recovered:
                 logger.warning("Agent : appel d'outil écrit en texte repris (%s)", recovered["function"]["name"])
+                if on_event:
+                    await on_event("note", {"text": "Le modèle a écrit un appel d'outil en texte : il a été repris."})
                 calls, content = [recovered], ""
             elif model_output.unusable(content) and not retried:
                 logger.warning(
                     "Agent : réponse inexploitable du modèle (%d caractères), nouvelle demande", len(content)
                 )
                 retried = True
+                if on_event:
+                    await on_event("note", {"text": "Réponse vide ou en JSON : le modèle a été relancé une fois."})
                 if content.strip():
                     messages.append({"role": "assistant", "content": content})
                 messages.append({"role": "user", "content": model_output.RETRY_NOTICE})
@@ -99,8 +103,10 @@ async def run_agent(
             result = await tools.dispatch_tool(name, arguments)
             if on_event:
                 preview = result[:PREVIEW_CHARS] + "..." if len(result) > PREVIEW_CHARS else result
-                await on_event("tool_result", {"tool_name": name, "preview": preview})
+                await on_event("tool_result", {"tool_name": name, "preview": preview, "full": result})
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
     logger.warning("Agent : %d itérations atteintes, réponse finale demandée", settings.AGENT_MAX_ITERATIONS)
+    if on_event:
+        await on_event("note", {"text": "Limite d'appels d'outils atteinte : une réponse finale a été demandée."})
     final = await wrap_up(model=model or settings.LLM_MODEL, messages=messages, definitions=tools.tool_definitions())
     return final if not model_output.unusable(final) else NO_ANSWER

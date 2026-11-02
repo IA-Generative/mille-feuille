@@ -54,5 +54,9 @@ async def deposit_assistant_message(db: AsyncSession, conversation_id: uuid.UUID
             calls=[call.model_dump() for call in body.tool_calls],
         )
         await db.refresh(message, attribute_names=["tool_calls"])
+    if body.execution is not None:
+        message.execution = body.execution.model_dump(mode="json")
+        await db.commit()
+        await db.refresh(message)
     message.feedback = None
     return message
