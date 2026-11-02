@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 
+import CollapsibleText from "@/components/analyses/CollapsibleText.vue";
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
+import PaginationBar from "@/components/PaginationBar.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
+import { useListView } from "@/composables/useListView";
 import { suggestEntities, suggestEntityDefinition } from "@/composables/useLlmAssist";
 import type { EntityDefinition, EntityType, Version } from "@/types/analyse";
 
@@ -14,6 +17,7 @@ const entityTypes: EntityType[] = ["texte", "date", "nombre", "booléen", "ident
 const draftEntities = ref<EntityDefinition[]>(cloneEntities(props.entities));
 const isDirty = ref(false);
 const editingId = ref<string | null>(null);
+const { query, pageIndex, pageSize, hasSearch, filtered, paged, reveal } = useListView(draftEntities, (item) => `${item.name} ${item.definition}`);
 const isSuggestingList = ref(false);
 const suggestingDefinitionId = ref<string | null>(null);
 
@@ -41,6 +45,7 @@ watch(
 function addEntity() {
   draftEntities.value.push({ id: `entity-${Date.now()}`, name: "", definition: "", type: "texte" });
   editingId.value = draftEntities.value[draftEntities.value.length - 1].id;
+  reveal(editingId.value);
 }
 
 function removeEntity(id: string) {
@@ -89,11 +94,20 @@ function formatVersionContent(entities: EntityDefinition[]) {
   <div class="entities-editor">
     <h4 class="fr-h6 entities-editor__title">Entités à extraire</h4>
 
-    <p v-if="draftEntities.length === 0" class="fr-text--sm">Aucune entité définie.</p>
+    <DsfrInput
+      v-if="hasSearch"
+      v-model="query"
+      label="Rechercher"
+      label-visible
+      hint="Par nom ou définition"
+      class="entities-editor__search"
+    />
+        <p v-if="draftEntities.length === 0" class="fr-text--sm">Aucune entité définie.</p>
+    <p v-else-if="filtered.length === 0" class="fr-text--sm">Aucun résultat pour « {{ query }} ».</p>
 
     <ul v-else class="entities-editor__list">
       <li
-        v-for="item in draftEntities"
+        v-for="item in paged"
         :key="item.id"
         class="entities-editor__item"
         :class="{ 'entities-editor__item--editing': editingId === item.id }"
@@ -104,7 +118,7 @@ function formatVersionContent(entities: EntityDefinition[]) {
               <span>{{ item.name || "(sans nom)" }}</span>
               <span class="fr-badge fr-badge--sm fr-badge--blue-ecume">{{ item.type }}</span>
             </p>
-            <p v-if="item.definition" class="fr-text--sm entities-editor__definition">{{ item.definition }}</p>
+            <CollapsibleText v-if="item.definition" :text="item.definition" />
           </div>
           <div class="entities-editor__buttons">
             <DsfrButton label="Modifier" icon-only tertiary no-outline icon="ri-edit-line" size="sm" @click="editingId = item.id" />
@@ -138,6 +152,8 @@ function formatVersionContent(entities: EntityDefinition[]) {
         </div>
       </li>
     </ul>
+
+    <PaginationBar v-model:page-index="pageIndex" v-model:page-size="pageSize" :total="filtered.length" label="Par page" />
 
     <div class="entities-editor__actions">
       <DsfrButton label="Ajouter une entité" tertiary icon="ri-add-line" size="sm" @click="addEntity" />
@@ -199,16 +215,6 @@ function formatVersionContent(entities: EntityDefinition[]) {
   gap: 0.5rem;
   margin: 0;
   font-weight: 600;
-}
-
-.entities-editor__definition {
-  margin: 0.25rem 0 0;
-  color: var(--text-mention-grey);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .entities-editor__buttons {

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 
+import CollapsibleText from "@/components/analyses/CollapsibleText.vue";
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
+import PaginationBar from "@/components/PaginationBar.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
+import { useListView } from "@/composables/useListView";
 import { suggestLabelDefinition, suggestLabels } from "@/composables/useLlmAssist";
 import type { LabelDefinition, Version } from "@/types/analyse";
 
@@ -12,6 +15,7 @@ const emit = defineEmits<{ save: [LabelDefinition[]]; restore: [string] }>();
 const draftLabels = ref<LabelDefinition[]>(cloneLabels(props.labels));
 const isDirty = ref(false);
 const editingId = ref<string | null>(null);
+const { query, pageIndex, pageSize, hasSearch, filtered, paged, reveal } = useListView(draftLabels, (item) => `${item.name} ${item.definition}`);
 const isSuggestingList = ref(false);
 const suggestingDefinitionId = ref<string | null>(null);
 
@@ -39,6 +43,7 @@ watch(
 function addLabel() {
   draftLabels.value.push({ id: `label-${Date.now()}`, name: "", definition: "" });
   editingId.value = draftLabels.value[draftLabels.value.length - 1].id;
+  reveal(editingId.value);
 }
 
 function removeLabel(id: string) {
@@ -83,11 +88,20 @@ function formatVersionContent(labels: LabelDefinition[]) {
   <div class="labels-editor">
     <h4 class="fr-h6 labels-editor__title">Labels de classification</h4>
 
-    <p v-if="draftLabels.length === 0" class="fr-text--sm">Aucun label défini.</p>
+    <DsfrInput
+      v-if="hasSearch"
+      v-model="query"
+      label="Rechercher"
+      label-visible
+      hint="Par nom ou définition"
+      class="labels-editor__search"
+    />
+        <p v-if="draftLabels.length === 0" class="fr-text--sm">Aucun label défini.</p>
+    <p v-else-if="filtered.length === 0" class="fr-text--sm">Aucun résultat pour « {{ query }} ».</p>
 
     <ul v-else class="labels-editor__list">
       <li
-        v-for="item in draftLabels"
+        v-for="item in paged"
         :key="item.id"
         class="labels-editor__item"
         :class="{ 'labels-editor__item--editing': editingId === item.id }"
@@ -98,7 +112,7 @@ function formatVersionContent(labels: LabelDefinition[]) {
               <span>{{ item.name || "(sans nom)" }}</span>
               
             </p>
-            <p v-if="item.definition" class="fr-text--sm labels-editor__definition">{{ item.definition }}</p>
+            <CollapsibleText v-if="item.definition" :text="item.definition" />
           </div>
           <div class="labels-editor__buttons">
             <DsfrButton label="Modifier" icon-only tertiary no-outline icon="ri-edit-line" size="sm" @click="editingId = item.id" />
@@ -132,6 +146,8 @@ function formatVersionContent(labels: LabelDefinition[]) {
         </div>
       </li>
     </ul>
+
+    <PaginationBar v-model:page-index="pageIndex" v-model:page-size="pageSize" :total="filtered.length" label="Par page" />
 
     <div class="labels-editor__actions">
       <DsfrButton label="Ajouter un label" tertiary icon="ri-add-line" size="sm" @click="addLabel" />
@@ -193,16 +209,6 @@ function formatVersionContent(labels: LabelDefinition[]) {
   gap: 0.5rem;
   margin: 0;
   font-weight: 600;
-}
-
-.labels-editor__definition {
-  margin: 0.25rem 0 0;
-  color: var(--text-mention-grey);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .labels-editor__buttons {
