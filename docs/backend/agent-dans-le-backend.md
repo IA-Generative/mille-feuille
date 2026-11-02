@@ -59,8 +59,8 @@ agents après la chaîne (`dispatch_dossier_pipeline`).
 Le backend lance lui-même le résumé et l'indexation d'un document quand le worker `document_process` lui dit que l'extraction
 du texte est « terminée » (route interne `extraction-status`). Voir [recherche-dossier.md](recherche-dossier.md).
 
-## Ce qui reste à faire
+## Les routes internes
 
-Les routes `/api/internal/*` que seul l'ancien worker appelait existent encore (conversation, résumés, suggestions, notes,
-propositions, brouillons, outils, base de connaissances, index, assistant) : les tests s'en servent comme points d'appui. Elles
-peuvent être supprimées avec leurs tests, une fois ceux-ci réécrits contre les services.
+Les routes `/api/internal/*` que seul l'ancien worker appelait (conversation, résumés, suggestions, notes, propositions,
+brouillons, outils, base de connaissances, index, assistant) n'existent plus : l'agent appelle les services directement. Restent
+celles des workers de classification, d'extraction et d'extraction de texte (`app/routers/internal.py`).
