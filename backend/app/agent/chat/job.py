@@ -192,13 +192,14 @@ async def _respond(
         # Une erreur de la recherche spéculative est sans importance si le plan n'en veut pas.
         speculative.add_done_callback(lambda task: task.cancelled() or task.exception())
     agents = await load_agents(dossier.get("analyse_id"))
+    candidates = await agent_reply.shortlist(dossier.get("analyse_id"), question, agents)
     plan = await make_plan(
         question=question,
         messages=history,
         dossier=dossier,
         abilities=_abilities(tools, extra),
         model=model,
-        agents=agent_reply.agents_for_plan(agents),
+        agents=agent_reply.agents_for_plan(candidates),
     )
     logger.info("Plan du chat : %s", plan.mode)
 

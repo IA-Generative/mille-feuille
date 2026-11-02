@@ -42,6 +42,7 @@ class AnalysisAgent:
     prompt: str
     tools: list[str]
     model: str | None
+    id: str = ""  # l'identifiant en base (celui de l'index de recherche)
 
     @property
     def summary(self) -> str:
@@ -60,7 +61,7 @@ async def load_agents(analyse_id: str | None) -> list[AnalysisAgent]:
         if analyse is None:
             return []
         return [
-            AnalysisAgent(str(rank), agent.name, agent.prompt, list(agent.tools), agent.model)
+            AnalysisAgent(str(rank), agent.name, agent.prompt, list(agent.tools), agent.model, str(agent.id))
             for rank, agent in enumerate(analyse.agents, start=1)
         ]
 
