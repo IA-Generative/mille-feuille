@@ -306,12 +306,19 @@ defineExpose({ resizeTextarea });
       </div>
     </header>
 
-    <div v-if="messages.length === 0" class="chat-window__intro">
+    <!-- En tête de la conversation : la présentation du dossier, quand la page en fournit une. -->
+    <div v-if="$slots.presentation" class="chat-window__presentation">
+      <div class="chat-window__inner">
+        <slot name="presentation" />
+      </div>
+    </div>
+
+    <div v-if="messages.length === 0 && !$slots.presentation" class="chat-window__intro">
       <h2>{{ introTitle }}</h2>
       <p v-if="introText" class="fr-text--sm">{{ introText }}</p>
     </div>
 
-    <div v-else class="chat-window__messages">
+    <div v-else-if="messages.length > 0" class="chat-window__messages">
       <div class="chat-window__inner">
         <div v-if="hasMore" ref="topSentinelRef" class="chat-window__sentinel" aria-live="polite">
           <span v-if="loadingMore">Chargement des messages précédents…</span>
@@ -498,6 +505,10 @@ defineExpose({ resizeTextarea });
   margin: 0 auto;
   padding: 0 0.5rem;
   width: 100%;
+}
+
+.chat-window__presentation {
+  padding: 1rem 0;
 }
 
 .chat-window__intro {
