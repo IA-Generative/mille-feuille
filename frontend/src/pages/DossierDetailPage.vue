@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
 import AccessBadge from "@/components/access/AccessBadge.vue";
 import WorkflowStatusPicker from "@/components/statuses/WorkflowStatusPicker.vue";
 import AccessModal from "@/components/access/AccessModal.vue";
 import ModelPicker from "@/components/ModelPicker.vue";
+import ChatAgentsMenu from "@/components/ChatAgentsMenu.vue";
 import ChatWindow, { type ChatWindowSource } from "@/components/ChatWindow.vue";
 import SourceViewerModal from "@/components/SourceViewerModal.vue";
 import DueDatePicker from "@/components/dossiers/DueDatePicker.vue";
@@ -129,6 +130,16 @@ async function onSuggestAnalyse() {
 
 // Source citée par l'assistant, ouverte dans une modale (page + passage surligné).
 const viewedSource = ref<ChatWindowSource | null>(null);
+
+// Une phrase placée dans la zone de saisie du chat (adresser sa question à un agent) : on la vide aussitôt pour que
+// choisir deux fois le même agent la replace.
+const chatPrefill = ref("");
+function onPickAgent(text: string) {
+  chatPrefill.value = text;
+  void nextTick(() => {
+    chatPrefill.value = "";
+  });
+}
 const isSourceOpened = ref(false);
 function openSource(source: ChatWindowSource) {
   viewedSource.value = source;
@@ -544,6 +555,7 @@ async function onDeleteConversation() {
       :stream-events="chatEvents"
       :stream-text="chatStreamText"
       :is-running="isChatRunning"
+      :prefill="chatPrefill"
       page-composer
       show-file-attach
       intro-title="Alimenter l'analyse"
@@ -563,6 +575,7 @@ async function onDeleteConversation() {
       </template>
 
       <template #composer-actions>
+        <ChatAgentsMenu :dossier-id="dossierId" @pick="onPickAgent" />
         <ChatToolsMenu :dossier-id="dossierId" :conversation-id="conversation?.id" />
       </template>
 
