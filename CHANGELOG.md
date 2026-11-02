@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.34.0](https://github.com/IA-Generative/mille-feuille/compare/v0.33.0...v0.34.0) (2026-11-02)
+
+
+### Features
+
+* **agent:** chaque agent lit son analyse et peut en interroger un autre ([dbcbc40](https://github.com/IA-Generative/mille-feuille/commit/dbcbc40023f9d7801f802bc4e46c234590ff2f90)), closes [#407](https://github.com/IA-Generative/mille-feuille/issues/407)
+* **chat:** choisir le bon agent par recherche hybride ([41aab32](https://github.com/IA-Generative/mille-feuille/commit/41aab32af3dc5b15cacac05410576a6f6efa2394)), closes [#408](https://github.com/IA-Generative/mille-feuille/issues/408)
+* **chat:** interroger un agent de l'analyse dans le chat du dossier ([2dee567](https://github.com/IA-Generative/mille-feuille/commit/2dee5671eab1f4dad70ab95f4dc2ea58b5b072aa)), closes [#406](https://github.com/IA-Generative/mille-feuille/issues/406)
+* **chat:** montrer quel agent répond ([732daab](https://github.com/IA-Generative/mille-feuille/commit/732daaba1ae1e93a3747a574f270386d92f9cec2)), closes [#409](https://github.com/IA-Generative/mille-feuille/issues/409)
+
 ## [0.33.0](https://github.com/IA-Generative/mille-feuille/compare/v0.32.0...v0.33.0) (2026-11-02)
 
 
