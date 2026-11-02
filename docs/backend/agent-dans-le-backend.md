@@ -37,10 +37,16 @@ message → plan ─┬─ direct       réponse du plan
                 ├─ clarify      question à choix enregistrée, la personne répond plus tard
                 ├─ assistant    renvoi vers l'assistant de l'application
                 ├─ act          boucle d'outils (note, correction de l'analyse, outil externe)
+                ├─ agent        un agent de l'analyse répond (son prompt, ses outils, sa synthèse)
                 └─ search       recherches en parallèle → passages numérotés [n] → réponse en streaming
                                 (rien trouvé, ou dossier non indexé → boucle d'outils)
 ```
 
+- **Interroger un agent** (`chat/agent_reply.py`) : le plan reçoit la liste des agents de l'analyse (rang, nom, début du
+  prompt) et en choisit un quand la question relève de son rôle ; une référence inconnue ramène à `search`. L'agent
+  répond en direct (réponse non streamée) avec ses outils, sans ceux qui modifient des données (ils demandent l'accord
+  de la personne, ce que sa boucle ne sait pas faire), et relit sa synthèse déjà produite. Ses appels d'outils portent
+  son nom dans les événements du chat.
 - La recherche de la question brute part **pendant** le plan ; ses résultats rejoignent ceux du plan.
 - Les morceaux de la réponse passent par un flux Redis (`chat:<conversation>:deltas`, `services/chat_stream.py`), lu par le SSE
   en plus de la base : pas de table, pas de migration. Le message final est en base ; le navigateur le recharge à la fin.
