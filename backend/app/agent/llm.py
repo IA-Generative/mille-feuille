@@ -3,18 +3,20 @@ résumés, suggestions d'analyses. Chaque appel déclare sa consommation (voir u
 
 import logging
 
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel, Field
 
 from app.agent import usage
 from app.agent.document_generation import GeneratedFields
 from app.agent.runner import settings
 from app.config import LlmSettings
+from app.models.token_usage import TokenUsageKind
 
 logger = logging.getLogger(__name__)
 
 _llm_settings = LlmSettings()
 _client_instance: AsyncOpenAI | None = None
+_sync_client_instance: OpenAI | None = None
 
 
 def client() -> AsyncOpenAI:
@@ -28,10 +30,29 @@ def client() -> AsyncOpenAI:
     return _client_instance
 
 
+def sync_client() -> OpenAI:
+    """Le client bloquant, pour le travail d'indexation qui tourne dans un thread (découpage, embeddings par lots)."""
+    global _sync_client_instance
+    if not _llm_settings.is_configured:
+        raise RuntimeError("OPENAI_API_KEY et OPENAI_API_BASE_URL doivent être configurés pour utiliser l'agent.")
+    if _sync_client_instance is None:
+        _sync_client_instance = OpenAI(
+            api_key=_llm_settings.OPENAI_API_KEY, base_url=_llm_settings.OPENAI_API_BASE_URL, timeout=600.0
+        )
+    return _sync_client_instance
+
+
 async def complete(**kwargs):  # noqa: ANN003, ANN201
     """`chat.completions.create` + déclaration de la consommation."""
     response = await client().chat.completions.create(**kwargs)
     await usage.record(response.model, response.usage)
+    return response
+
+
+async def embed(**kwargs):  # noqa: ANN003, ANN201
+    """`embeddings.create` + déclaration de la consommation."""
+    response = await client().embeddings.create(**kwargs)
+    await usage.record(response.model, response.usage, TokenUsageKind.EMBEDDING)
     return response
 
 
