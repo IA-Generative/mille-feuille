@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
-import { RouterLink, RouterView, useRoute } from "vue-router";
+import { RouterLink, RouterView, useRoute, type RouteLocationNormalizedLoaded } from "vue-router";
 
 import UserMenu from "@/components/UserMenu.vue";
 import CguGate from "@/components/CguGate.vue";
@@ -9,6 +9,14 @@ import { useMyConversations } from "@/composables/useMyConversations";
 import { useNotifications } from "@/composables/useNotifications";
 
 const route = useRoute();
+
+// Les pages d'un dossier (ou d'une analyse) lisent leur identifiant à la création. Passer d'un dossier à un autre
+// réutiliserait la même instance de page, qui garderait l'ancien dossier : on la recrée quand l'identifiant change. Les
+// onglets d'une même analyse gardent le même identifiant, donc ne sont pas recréés.
+function pageKey(current: RouteLocationNormalizedLoaded): string | undefined {
+  const { id, draftId } = current.params;
+  return id ? `${String(id)}:${String(draftId ?? "")}` : undefined;
+}
 const { unreadCount, badgeLabel, startPolling, stopPolling } = useNotifications();
 const { fetchProfile, isAuthenticated } = useAuth();
 const { list: conversations, fetchList: fetchConversations, deleteConversation } = useMyConversations();
@@ -78,7 +86,9 @@ const navItems = [
   <CguGate />
 
   <!-- Page d'accueil : plein écran, sans sidebar -->
-  <RouterView v-if="!showShell" />
+  <RouterView v-if="!showShell" v-slot="{ Component, route: current }">
+    <component :is="Component" :key="pageKey(current)" />
+  </RouterView>
 
   <!-- Application (connecté) : sidebar façon Muffin + contenu -->
   <div v-else class="app-shell">
@@ -167,7 +177,9 @@ const navItems = [
     </aside>
 
     <main class="app-shell__content" :class="{ 'app-shell__content--page-scroll': route.meta.pageScroll }">
-      <RouterView />
+      <RouterView v-slot="{ Component, route: current }">
+        <component :is="Component" :key="pageKey(current)" />
+      </RouterView>
     </main>
   </div>
 </template>
