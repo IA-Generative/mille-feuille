@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.dispatch import (
     chat_job_name,
+    dispatch_agent_execution,
     dispatch_analyse_suggestion,
     dispatch_chat_response,
     dispatch_document_summary,
@@ -29,7 +30,6 @@ from app.agent.dispatch import (
 )
 from app.agent.runner import agent_runner
 from app.celery_client import (
-    dispatch_agent_execution,
     dispatch_classification,
     dispatch_entity_extraction,
     dispatch_text_extraction,

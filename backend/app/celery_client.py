@@ -41,11 +41,11 @@ def dispatch_entity_extraction(dossier_id: str) -> str:
 
 
 def dispatch_dossier_pipeline(document_ids: list[str], dossier_id: str) -> str:
-    """Enchaîne tout le pipeline d'un dossier : extraction de texte de tous les documents, puis (toutes les pages
-    créées) classification et extraction d'entités en parallèle, puis (quand les deux sont finies) exécution des
-    agents. Sans cet ordre, la classification et l'extraction liraient un dossier sans pages et concluraient sur
-    « 0/0 ». Signatures immuables : le résultat d'une étape n'est jamais passé en argument à la suivante.
-    Si une étape échoue, la suivante ne part pas."""
+    """Enchaîne le pipeline d'un dossier : extraction de texte de tous les documents, puis (toutes les pages
+    créées) classification et extraction d'entités en parallèle. Les agents, eux, sont lancés par le backend
+    (voir app.agent.dispatch) et attendent la fin de ces deux étapes. Sans cet ordre, la classification et
+    l'extraction liraient un dossier sans pages et concluraient sur « 0/0 ». Signatures immuables : le
+    résultat d'une étape n'est jamais passé en argument à la suivante. Si une étape échoue, la suivante ne part pas."""
 
     def signature(name: str, args: list[str], queue: str | None = None):
         return celery_client.signature(name, args=args, queue=queue, immutable=True)
@@ -57,23 +57,10 @@ def dispatch_dossier_pipeline(document_ids: list[str], dossier_id: str) -> str:
                 signature("app.tasks.classify_dossier", [dossier_id], CLASSIFICATION_QUEUE),
                 signature("app.tasks.extract_dossier_entities", [dossier_id], ENTITY_EXTRACTION_QUEUE),
             ),
-            signature("app.tasks.run_agents", [dossier_id], "agent_execution"),
         )
         .apply_async()
         .id
     )
-
-
-def dispatch_agent_execution(dossier_id: str, acting_user: str | None = None) -> str:
-    """Dépose la tâche d'exécution des agents sur la file agent_execution.
-    Le worker attend que la classification et l'extraction soient terminées,
-    puis exécute chaque agent via un graphe LangGraph avec des outils de
-    recherche (BM25), lecture de pages, et consultation des prédictions.
-
-    `acting_user` est la personne qui a lancé l'analyse : les agents appellent les serveurs MCP **en son nom**. Absente
-    (exécution sans personne), ils n'ont accès qu'aux outils internes."""
-    args = [dossier_id] if acting_user is None else [dossier_id, acting_user]
-    return celery_client.send_task("app.tasks.run_agents", args=args, queue="agent_execution").id
 
 
 def dispatch_chat_response(conversation_id: str, dossier_id: str) -> str:
