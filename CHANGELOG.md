@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.37.0](https://github.com/IA-Generative/mille-feuille/compare/v0.36.1...v0.37.0) (2026-11-02)
+
+
+### Features
+
+* **analyse:** labels et entités paginés, descriptions repliables ([7753e77](https://github.com/IA-Generative/mille-feuille/commit/7753e77913f109c066c81d43a41203367d16524d))
+* **analyse:** onglets regroupés en 4 entrées et assistant pas à pas ([e30a894](https://github.com/IA-Generative/mille-feuille/commit/e30a894a75b5281482796ffc8b91ab8ce299dca2))
+
+
+### Bug Fixes
+
+* **ui:** flèche des liens de retour et bouton œil non affichés ([360f8bf](https://github.com/IA-Generative/mille-feuille/commit/360f8bf51b04263a0e40f53c5ec073874cfb50eb))
+
 ## [0.36.1](https://github.com/IA-Generative/mille-feuille/compare/v0.36.0...v0.36.1) (2026-11-02)
 
 
