@@ -170,7 +170,9 @@ async def create_analysis(name: str, description: str, conversation_id: str | No
     async with async_session_factory() as db:
 
         async def run():
-            result = await _create_analyse(AnalyseCreate(name=name, description=description), db)
+            # Au nom de la personne qui a créé le jeton : c'est elle, avec les administrateurs, qui gérera l'analyse.
+            person = await _acting(db, identity)
+            result = await _create_analyse(AnalyseCreate(name=name, description=description), db, person)
             return result.model_dump(mode="json")
 
         return await _call_traced(db, identity, conversation_id, "create_analysis", arguments, run)

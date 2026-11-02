@@ -122,7 +122,10 @@ class HelperTools:
         """Crée une analyse persistante (nom + description) - la classification, l'extraction et les agents se
         configurent ensuite via la plateforme."""
         async with async_session_factory() as db:
-            analyse = await create_analyse(AnalyseCreate(name=name, description=description), db)
+            # Au nom de la personne qui a ouvert la conversation : c'est elle, avec les administrateurs, qui gérera
+            # l'analyse.
+            person = await context_for_user(db, self._acting_user)
+            analyse = await create_analyse(AnalyseCreate(name=name, description=description), db, person)
         self._record(analyse_id=str(analyse.id), excerpt=analyse.name)
         return f"Analyse « {analyse.name} » créée (id: {analyse.id})."
 

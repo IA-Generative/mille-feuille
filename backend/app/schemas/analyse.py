@@ -240,12 +240,24 @@ class AnalyseCreate(BaseModel):
         return value
 
 
+class AnalyseUpdate(AnalyseCreate):
+    """Nom et description de l'analyse : les deux, obligatoires comme à la création."""
+
+    @field_validator("name")
+    @classmethod
+    def _name_must_not_be_blank(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Le nom ne peut pas être vide.")
+        return value.strip()
+
+
 class AnalyseListItem(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     name: str
     description: str
+    created_by: str | None = None
     created_at: datetime
     agent_count: int
     # Statuts de dossier de l'analyse (issue #168) : la liste des dossiers s'en sert pour son filtre.
@@ -258,6 +270,11 @@ class AnalyseOut(BaseModel):
     id: uuid.UUID
     name: str
     description: str
+    # Qui a créé l'analyse (sub Keycloak) : l'interface s'en sert pour montrer ou non « Modifier » et « Supprimer ».
+    created_by: str | None = None
+    # Historique du nom et de la description (ancienne valeur de chaque modification).
+    name_versions: list[Version[str]] = []
+    description_versions: list[Version[str]] = []
     created_at: datetime
     # Version courante (v1, v2...) : un dossier garde celle de son dernier lancement, ce qui permet de voir qu'il
     # a été traité avec une version plus ancienne.
