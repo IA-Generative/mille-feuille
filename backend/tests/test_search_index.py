@@ -444,7 +444,11 @@ def test_a_finished_build_frees_a_place_for_the_oldest_queued_one(
     make_obsolete(client, analyse)
     client.post(analyse_url(analyse, "/rebuild"))
     first = next(d for d in dossiers if rebuild_of(client, d)["status"] == "building")
-    queued = sorted((d for d in dossiers if d != first), key=lambda d: rebuild_of(client, d)["created_at"])
+    # Créées dans la même transaction, les reconstructions ont la même date : l'identifiant départage.
+    queued = sorted(
+        (d for d in dossiers if d != first),
+        key=lambda d: (rebuild_of(client, d)["created_at"], rebuild_of(client, d)["id"]),
+    )
 
     report_rebuild(client, rebuild_of(client, first)["id"], status="swapped")
 

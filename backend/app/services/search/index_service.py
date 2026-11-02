@@ -290,7 +290,7 @@ class SearchIndexService:
             select(IndexRebuild)
             .join(Dossier, Dossier.id == IndexRebuild.dossier_id)
             .where(Dossier.analyse_id == analyse_id, IndexRebuild.status == IndexRebuildStatus.QUEUED)
-            .order_by(IndexRebuild.created_at)
+            .order_by(IndexRebuild.created_at, IndexRebuild.id)
             .limit(room)
         )
         started = list(result.scalars())
