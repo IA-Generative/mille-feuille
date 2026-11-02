@@ -20,6 +20,7 @@ interface PresentationOut {
   error: string | null;
   dossier_name: string;
   summary: string | null;
+  summary_error: string | null;
   classification: { label: string; confidence: number | null } | null;
   entities: { name: string; value: string; page: number | null }[];
   agents: { name: string; output: string }[];
@@ -42,6 +43,7 @@ function toPresentation(out: PresentationOut): DossierPresentation {
     error: out.error ?? undefined,
     dossierName: out.dossier_name,
     summary: out.summary ?? undefined,
+    summaryError: out.summary_error ?? undefined,
     classification: out.classification
       ? { label: out.classification.label, confidence: out.classification.confidence ?? undefined }
       : undefined,

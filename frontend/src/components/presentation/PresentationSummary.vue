@@ -4,7 +4,8 @@ import { ref } from "vue";
 import MarkdownText from "@/components/MarkdownText.vue";
 
 // Le résumé du dossier : quelques lignes d'abord, la suite à un clic.
-defineProps<{ content: string }>();
+defineProps<{ content: string; regenerable?: boolean }>();
+const emit = defineEmits<{ regenerate: [] }>();
 
 const expanded = ref(false);
 const LINES = 5;
@@ -16,6 +17,9 @@ const LINES = 5;
     <button type="button" class="presentation-summary__toggle" :aria-expanded="expanded" @click="expanded = !expanded">
       {{ expanded ? "Réduire" : "Lire la suite" }}
     </button>
+    <button v-if="regenerable" type="button" class="presentation-summary__toggle" @click="emit('regenerate')">
+      Régénérer le résumé
+    </button>
   </div>
 </template>
 
@@ -25,7 +29,7 @@ const LINES = 5;
 }
 
 .presentation-summary__toggle {
-  margin-top: 0.25rem;
+  margin: 0.25rem 1rem 0 0;
   padding: 0;
   border: none;
   background: none;

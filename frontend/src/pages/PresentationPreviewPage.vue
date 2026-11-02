@@ -15,6 +15,8 @@ const SCENARIOS: { id: MockScenario; label: string }[] = [
   { id: "pending", label: "En cours" },
   { id: "failed", label: "Échec" },
   { id: "no-suggestions", label: "Sans suggestion" },
+  { id: "no-summary", label: "Sans résumé" },
+  { id: "summary-failed", label: "Résumé en échec" },
 ];
 
 const { presentation, load } = useMockDossierPresentation();
@@ -66,6 +68,7 @@ watch(scenario, reload);
             ...presentation,
             suggestions: presentation.suggestions.filter((q) => !asked.includes(q.id)),
           }"
+          regenerable
           @ask="onAsk"
         />
       </template>

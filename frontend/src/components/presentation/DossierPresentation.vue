@@ -15,8 +15,14 @@ defineProps<{
   presentation: DossierPresentation;
   /** Les vues de détail existent (classification par fichier et par page, explorateur des entités). */
   detailable?: boolean;
+  /** Le résumé peut être (re)généré depuis cette présentation. */
+  regenerable?: boolean;
 }>();
-const emit = defineEmits<{ ask: [question: SuggestedQuestion]; detail: [kind: "label" | "entity"] }>();
+const emit = defineEmits<{
+  ask: [question: SuggestedQuestion];
+  detail: [kind: "label" | "entity"];
+  regenerateSummary: [];
+}>();
 </script>
 
 <template>
@@ -42,7 +48,18 @@ const emit = defineEmits<{ ask: [question: SuggestedQuestion]; detail: [kind: "l
         />
       </header>
 
-      <PresentationSummary v-if="presentation.summary" :content="presentation.summary" />
+      <PresentationSummary
+        v-if="presentation.summary"
+        :content="presentation.summary"
+        :regenerable="regenerable && !presentation.refreshing"
+        @regenerate="emit('regenerateSummary')"
+      />
+      <p v-else-if="regenerable && !presentation.refreshing" class="dossier-presentation__no-summary">
+        <span>{{ presentation.summaryError ?? "Pas de résumé pour l'instant." }}</span>
+        <button type="button" class="dossier-presentation__retry" @click="emit('regenerateSummary')">
+          {{ presentation.summaryError ? "Réessayer" : "Générer le résumé" }}
+        </button>
+      </p>
 
       <div class="dossier-presentation__sections">
         <PresentationSection
@@ -117,6 +134,29 @@ const emit = defineEmits<{ ask: [question: SuggestedQuestion]; detail: [kind: "l
 
 .dossier-presentation__sections > :last-child {
   border-bottom: 1px solid var(--border-default-grey);
+}
+
+.dossier-presentation__no-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-mention-grey);
+}
+
+.dossier-presentation__retry {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--text-action-high-blue-france);
+  cursor: pointer;
+}
+
+.dossier-presentation__retry:hover {
+  text-decoration: underline;
 }
 
 .dossier-presentation__failed-title {

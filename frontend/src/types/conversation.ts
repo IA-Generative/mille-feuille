@@ -99,8 +99,6 @@ export interface Conversation {
   createdAt: string;
   /** Identifiant de modèle (voir GET /api/models) ; null = pas de préférence, le hub par défaut sera utilisé. */
   model: string | null;
-  /** La conversation s'ouvre sur la présentation du dossier ; faux pour celles d'avant cette fonction. */
-  withPresentation: boolean;
 }
 
 /** Entrée de la liste "mes conversations" dans la sidebar, façon ChatGPT. */

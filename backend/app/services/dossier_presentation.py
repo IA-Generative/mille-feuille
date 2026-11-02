@@ -24,7 +24,7 @@ from app.schemas.dossier_presentation import (
 )
 from app.schemas.question_answer import QuestionAnswerSourceOut
 
-# « Demande de logement (confiance : 94%) » : la sortie de l'étape de classification, lue comme `DossierResults`.
+# « Demande de logement (confiance : 94%) » : la sortie de l'étape de classification, lue comme le faisaient les cartes de résultats.
 _CONFIDENCE = re.compile(r"^(.*) \(confiance : (\d+)%\)$")
 
 _STATUS = {
@@ -129,6 +129,9 @@ async def build_presentation(db: AsyncSession, dossier: Dossier) -> DossierPrese
         refreshing=await _is_refreshing(db, dossier),
         dossier_name=dossier.name,
         summary=dossier.summary.content if dossier.summary else None,
+        summary_error=(dossier.summary_error or "Le résumé n'a pas pu être généré.")
+        if dossier.summary_status == SummaryStatus.ECHEC
+        else None,
         classification=_classification(dossier),
         entities=await _entities(db, dossier),
         agents=[

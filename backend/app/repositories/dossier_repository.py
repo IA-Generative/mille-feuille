@@ -608,7 +608,7 @@ class DossierRepository:
         if existing:
             return existing[0]
 
-        conversation = Conversation(dossier_id=dossier_id, user_id=user_id, with_presentation=True)
+        conversation = Conversation(dossier_id=dossier_id, user_id=user_id)
         self.db.add(conversation)
         await self.db.commit()
         await self.db.refresh(conversation)

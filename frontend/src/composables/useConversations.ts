@@ -81,7 +81,6 @@ function mapConversation(api: any): Conversation {
     userId: api.user_id,
     createdAt: api.created_at,
     model: api.model,
-    withPresentation: api.with_presentation ?? false,
   };
 }
 
