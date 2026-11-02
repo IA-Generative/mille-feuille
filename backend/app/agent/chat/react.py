@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from app.agent import llm
+from app.agent import llm, model_output
 from app.agent.ask_user import ASK_USER
 from app.agent.chat.events import ChatEvents
 from app.agent.runner import settings
@@ -93,11 +93,13 @@ async def run_tool_loop(
     personne) ; il n'est pas modifié."""
     conversation = [{"role": "system", "content": system_prompt}, *messages]
     iterations = 0
+    retried = False
     while True:
+        definitions = tools.tool_definitions()
         response = await llm.complete(
             model=model or settings.LLM_MODEL,
             messages=conversation,
-            tools=tools.tool_definitions(),
+            tools=definitions,
             tool_choice="auto",
             parallel_tool_calls=False,
             temperature=0.2,
@@ -115,10 +117,24 @@ async def run_tool_loop(
             for call in message.tool_calls or []
         ]
         if not calls:
-            return LoopResult(answer=content, iterations=iterations)
+            # Un appel d'outil écrit en texte est exécuté comme s'il avait été fait par l'API ; une réponse vide ou en
+            # JSON est redemandée une fois.
+            recovered = model_output.recovered_call(content, model_output.tool_names(definitions))
+            if recovered:
+                logger.warning("Chat: appel d'outil écrit en texte repris (%s)", recovered["function"]["name"])
+                calls, content = [recovered], ""
+            elif model_output.unusable(content) and not retried and iterations < settings.AGENT_MAX_ITERATIONS:
+                logger.warning("Chat: réponse inexploitable du modèle (%d caractères), nouvelle demande", len(content))
+                retried = True
+                if content.strip():
+                    conversation.append({"role": "assistant", "content": content})
+                conversation.append({"role": "user", "content": model_output.RETRY_NOTICE})
+                continue
+            else:
+                return LoopResult(answer=model_output.shown(content), iterations=iterations)
         if iterations >= settings.AGENT_MAX_ITERATIONS:
             logger.warning("Chat: %d itérations atteintes, arrêt", settings.AGENT_MAX_ITERATIONS)
-            return LoopResult(answer=content, iterations=iterations)
+            return LoopResult(answer=model_output.shown(content), iterations=iterations)
 
         for call in calls:
             questions = tools.question_to_ask(call["function"]["name"], _arguments_of(call))
