@@ -17,6 +17,8 @@ from typing import Any
 
 from app.agent import usage
 from app.agent.agent_tool_set import ExtraTools, build_extra_tools
+from app.agent.analysis_agents import load_agents
+from app.agent.analysis_reader import AnalysisReader
 from app.agent.analysis_tools import AnalysisProposer, proposals_marker
 from app.agent.chat import agent_reply, react
 from app.agent.chat import history as chat_history
@@ -189,7 +191,7 @@ async def _respond(
     if speculative is not None:
         # Une erreur de la recherche spéculative est sans importance si le plan n'en veut pas.
         speculative.add_done_callback(lambda task: task.cancelled() or task.exception())
-    agents = await agent_reply.load_agents(dossier.get("analyse_id"))
+    agents = await load_agents(dossier.get("analyse_id"))
     plan = await make_plan(
         question=question,
         messages=history,
@@ -213,6 +215,7 @@ async def _respond(
         agent = next(agent for agent in agents if agent.ref == plan.agent)
         answer, source_tools = await agent_reply.answer_as_agent(
             agent=agent,
+            others=[other for other in agents if other.ref != agent.ref],
             dossier=dossier,
             history=history,
             events=events,
@@ -268,7 +271,10 @@ async def run_chat(conversation_id: str, dossier_id: str) -> None:
         # Les outils que l'analyse autorise (ses agents), moins ceux que la personne a retirés : calculatrice, dates,
         # serveurs MCP, appelés en son nom. Un outil qui modifie des données est donné, mais son appel attend l'accord
         # de la personne (la tâche se termine, la décision relance le chat).
-        knowledge, _ = await asyncio.gather(_knowledge_context(dossier.get("analyse_id"), tool_ids), proposer.load())
+        reader = AnalysisReader(dossier=dossier, analyse_id=dossier.get("analyse_id"), user_id=user_id)
+        knowledge, *_ = await asyncio.gather(
+            _knowledge_context(dossier.get("analyse_id"), tool_ids), proposer.load(), reader.load()
+        )
         extra = await build_extra_tools(
             tool_ids,
             acting_user=user_id,
@@ -283,6 +289,7 @@ async def run_chat(conversation_id: str, dossier_id: str) -> None:
             extra=extra,
             ask_user=True,
             searcher=DossierSearcher(dossier_id),
+            reader=reader,
         )
         notes = chat_history.notes_for_prompt(note_rows)
 

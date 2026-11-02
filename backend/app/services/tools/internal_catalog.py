@@ -45,8 +45,13 @@ INTERNAL_TOOLS: tuple[InternalTool, ...] = (
         config="collections",
         implemented=True,
     ),
+    InternalTool(
+        "appel_agent",
+        "Appel à un autre agent",
+        "Pose une question à un autre agent de l'analyse et reçoit sa réponse.",
+        implemented=True,
+    ),
     # Pas encore exécutables : ils reviennent avec leur issue (chat des dossiers…).
-    InternalTool("appel_agent", "Appel à un autre agent", "Délègue une sous-tâche à un autre agent de l'analyse."),
     InternalTool(
         "verification_coherence",
         "Vérification de cohérence",

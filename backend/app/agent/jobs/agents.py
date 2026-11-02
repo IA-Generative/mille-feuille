@@ -17,19 +17,19 @@ import uuid
 from sqlalchemy import select
 
 from app.agent import usage
+from app.agent.agent_call import FUNCTION_NAME, NOTICE
 from app.agent.agent_loop import run_agent
-from app.agent.agent_tool_set import ExtraTools, build_extra_tools
+from app.agent.agent_tool_set import ExtraTools
+from app.agent.analysis_agents import ANALYSIS_NOTICE, AnalysisAgent, build_agent_tools, load_agents
 from app.agent.dispatch import dispatch_dossier_summary
 from app.agent.documents import load_dossier
 from app.agent.knowledge_tools import KnowledgeContext
-from app.agent.tools import AgentTools
 from app.db import async_session_factory
 from app.models.dossier import Dossier, DossierStatus, ExecutionStep, ExecutionStepStatus
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.dossier_repository import DossierRepository
 from app.services.execution_steps import complete_step, reusable_agent_output
 from app.services.internal_analyse import build_internal_analyse
-from app.services.search.retrieval import DossierSearcher
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +93,12 @@ def _step_of(dossier: dict, agent_name: str) -> dict | None:
 
 
 def _with_notice(prompt: str, extra: ExtraTools) -> str:
-    """Le prompt de l'agent, suivi de ce qu'il doit savoir de ses outils (sorties externes, outils absents)."""
-    return f"{prompt}\n\n{extra.notice}" if extra.notice else prompt
+    """Le prompt de l'agent, suivi de ce qu'il doit savoir de ses outils (sorties externes, outils absents, analyse)."""
+    notices = [extra.notice] if extra.notice else []
+    notices.append(ANALYSIS_NOTICE)
+    if extra.owns(FUNCTION_NAME):
+        notices.append(NOTICE)
+    return "\n\n".join([prompt, *notices])
 
 
 async def _log_missing_tools(step_id: str | None, extra: ExtraTools) -> None:
@@ -113,19 +117,31 @@ async def _log_missing_tools(step_id: str | None, extra: ExtraTools) -> None:
 
 async def _run_single_agent(
     dossier_id: str,
+    analyse_id: str,
     agent: dict,
+    others: list[AnalysisAgent],
     step_id: str | None,
     acting_user: str | None,
     knowledge: KnowledgeContext | None,
 ) -> None:
     await _log(step_id, f"Agent '{agent['name']}' démarré")
-    # Le dossier à jour (avec les prédictions de la classification et de l'extraction) pour construire les outils.
-    async with async_session_factory() as db:
-        fresh = await load_dossier(db, dossier_id)
     run_id = f"agent-{dossier_id}-{agent.get('id', 'x')}-{uuid.uuid4().hex[:8]}"
-    extra = await build_extra_tools(agent.get("tools", []), acting_user=acting_user, run_id=run_id, knowledge=knowledge)
+    definition = AnalysisAgent(
+        str(agent.get("id", "")), agent["name"], agent["prompt"], list(agent.get("tools", [])), agent.get("model")
+    )
+    # Le dossier à jour (avec les prédictions de la classification et de l'extraction), les outils choisis pour
+    # l'agent et l'accès à son analyse : comme dans le chat, un autre agent peut lui répondre.
+    tools, extra, _ = await build_agent_tools(
+        agent=definition,
+        dossier_id=dossier_id,
+        analyse_id=analyse_id,
+        acting_user=acting_user,
+        run_id=run_id,
+        knowledge=knowledge,
+        allow_side_effects=True,
+        others=[other for other in others if other.name != definition.name],
+    )
     await _log_missing_tools(step_id, extra)
-    tools = AgentTools(fresh, extra=extra, searcher=DossierSearcher(dossier_id))
     answer = await run_agent(prompt=_with_notice(agent["prompt"], extra), tools=tools, model=agent.get("model"))
     await _complete(step_id, ExecutionStepStatus.TERMINE, answer)
     logger.info("Agent '%s' terminé : %d caractères", agent["name"], len(answer))
@@ -155,6 +171,7 @@ async def run_agents(dossier_id: str, acting_user: str | None = None) -> None:
         logger.info("Dossier %s arrêté : agents non lancés", dossier_id)
         return
 
+    others = await load_agents(str(analyse.id))
     for agent in agents:
         async with async_session_factory() as db:
             dossier = await load_dossier(db, dossier_id)
@@ -173,7 +190,7 @@ async def run_agents(dossier_id: str, acting_user: str | None = None) -> None:
                 logger.info("Agent '%s' repris pour le dossier %s", agent["name"], dossier_id)
                 continue
         try:
-            await _run_single_agent(dossier_id, agent, step_id, acting_user, knowledge)
+            await _run_single_agent(dossier_id, str(analyse.id), agent, others, step_id, acting_user, knowledge)
         except Exception as error:
             logger.exception("Agent '%s' en échec pour le dossier %s", agent["name"], dossier_id)
             await _log(step_id, str(error), "error")

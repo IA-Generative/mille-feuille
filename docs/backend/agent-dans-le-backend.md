@@ -53,6 +53,19 @@ message → plan ─┬─ direct       réponse du plan
 - `CHAT_PLAN_MODEL` (vide par défaut) permet de confier le plan à un petit modèle.
 - Une décision ou une réponse sur un appel d'outil relance le chat **sans plan** : le modèle reprend là où il s'était arrêté.
 
+## Accès à l'analyse et appel d'agent
+
+Tous les agents (exécution d'une analyse comme chat) sont construits au même endroit, `analysis_agents.py` :
+ses outils, la synthèse déjà produite, l'accès à son analyse et, s'il a l'outil `appel_agent`, de quoi en interroger un autre.
+
+- **Lecture de l'analyse** (`analysis_reader.py`, lecture seule) : `read_analysis` (objectif, consignes de classification et
+  d'extraction, labels, entités, agents), `list_agents`, `read_agent_output` (la synthèse d'un autre agent sur ce dossier) et
+  `view_analysis` (les éléments). Le lecteur est construit pour un dossier : un agent ne lit jamais celui d'un autre.
+- **`appel_agent`** (`agent_call.py`) : l'outil `ask_agent` pose une question à un autre agent de l'analyse et rend sa réponse.
+  L'agent interrogé travaille avec son prompt et ses outils, mais **sans** `ask_agent` (profondeur 1, pas de boucle A → B → A) ;
+  `MAX_CALLS` appels par exécution. Ses sources ne remontent pas, seule sa réponse.
+- Dans le chat, `appel_agent` n'est pas proposé comme outil : c'est le plan qui choisit l'agent à interroger.
+
 ## Les agents d'analyse
 
 `jobs/agents.py` attend la classification et l'extraction en lisant la base (jusqu'à 10 minutes ; ils partent ensuite avec ce
