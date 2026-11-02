@@ -17,7 +17,6 @@ import DueDatePicker from "@/components/dossiers/DueDatePicker.vue";
 import AddDocumentsModal from "@/components/dossiers/AddDocumentsModal.vue";
 import DossierDocuments from "@/components/dossiers/DossierDocuments.vue";
 import DossierSearchIndexCard from "@/components/dossiers/DossierSearchIndexCard.vue";
-import DossierResults from "@/components/dossiers/DossierResults.vue";
 import RelaunchBanner from "@/components/dossiers/RelaunchBanner.vue";
 import FeedbackReasonsModal from "@/components/dossiers/FeedbackReasonsModal.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
@@ -220,13 +219,12 @@ const analyse = computed(() =>
   dossier.value?.analyseId ? getAnalyseById(dossier.value.analyseId) : undefined,
 );
 
-// La présentation du dossier en tête de la conversation : seulement pour les conversations qui s'ouvrent dessus (les
-// anciennes gardent les cartes de résultats). Recalculée par le serveur à chaque lecture ; on la relit quand le dossier
-// change d'état, et tant que le résumé ou les réponses prêtes se calculent encore (quelques secondes après la fin).
-const hasPresentation = computed(() => conversation.value?.withPresentation === true);
-const showPresentation = computed(() => hasPresentation.value && !!presentation.value && presentation.value.status !== "idle");
-watch(hasPresentation, (value) => value && loadPresentation(), { immediate: true });
-watch(() => dossier.value?.status, () => hasPresentation.value && loadPresentation());
+// La présentation du dossier en tête de la conversation. Recalculée par le serveur à chaque lecture ; on la relit quand
+// le dossier change d'état, et tant que le résumé ou les réponses prêtes se calculent encore (quelques secondes après la
+// fin).
+const showPresentation = computed(() => !!presentation.value && presentation.value.status !== "idle");
+watch(() => conversation.value?.id, (id) => id && loadPresentation(), { immediate: true });
+watch(() => dossier.value?.status, () => conversation.value && loadPresentation());
 let presentationTimer: ReturnType<typeof setInterval> | undefined;
 let presentationPolls = 0;
 watch(
@@ -256,6 +254,11 @@ const shownPresentation = computed(() =>
 async function onAskSuggestion(question: SuggestedQuestion) {
   const current = await ensureConversation();
   if (await askSuggestion(current.id, question.id)) await refreshConversation();
+}
+
+async function onRegenerateSummary() {
+  await regenerateDossierSummary(dossierId);
+  await loadPresentation();
 }
 
 // « Voir le détail » : les vues de classification et d'extraction que les cartes de résultats ouvraient.
@@ -360,10 +363,9 @@ async function onWorkflowStatusChange(statusId: string) {
   }
 }
 
-// Fil d'échange pour alimenter l'analyse : les résultats eux-mêmes sont
-// présentés directement dans DossierResults, pas ici, pour rester visibles
-// sans avoir à remonter la conversation. Les messages sont chargés par pages
-// (les plus anciens au défilement vers le haut, voir useConversations).
+// Fil d'échange pour alimenter l'analyse : les résultats eux-mêmes sont présentés en tête de la conversation
+// (DossierPresentation). Les messages sont chargés par pages (les plus anciens au défilement vers le haut, voir
+// useConversations).
 
 async function onChatSubmit(content: string) {
   if (!dossier.value) return;
@@ -591,13 +593,6 @@ async function onDeleteConversation() {
     />
     <DsfrAlert v-if="relaunchError" type="error" :title="relaunchError" small class="fr-mb-2w" />
 
-    <DossierResults
-      v-if="conversation && !conversation.withPresentation"
-      :dossier="dossier"
-      :analyse="analyse"
-      @regenerate-summary="regenerateDossierSummary(dossierId)"
-    />
-
     <ChatWindow
       :messages="messages"
       :has-more="hasMoreMessages"
@@ -629,7 +624,9 @@ async function onDeleteConversation() {
         <DossierPresentation
           :presentation="shownPresentation"
           detailable
+          regenerable
           @ask="onAskSuggestion"
+          @regenerate-summary="onRegenerateSummary"
           @detail="detailKind = $event"
         />
       </template>

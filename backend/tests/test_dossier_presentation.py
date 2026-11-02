@@ -9,10 +9,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import update
 
 from app.db import async_session_factory
-from app.models.conversation import Conversation
 from app.models.dossier import Dossier, DossierStatus, ExecutionStep, ExecutionStepKind, ExecutionStepStatus
 from app.models.dossier_analysis import ElementVersionOrigin
 from app.models.question_answer import DossierQuestionAnswer, QuestionAnswerStatus
+from app.models.summary import SummaryStatus
 from app.repositories.dossier_analysis_repository import DossierAnalysisRepository
 from app.repositories.dossier_repository import DossierRepository
 from tests.access_support import As
@@ -196,25 +196,6 @@ def ask_url(dossier_id: str, conversation_id: str, answer_id: str) -> str:
     return f"/api/dossiers/{dossier_id}/conversations/{conversation_id}/question-answers/{answer_id}/ask"
 
 
-def test_a_new_conversation_opens_on_the_presentation_and_an_older_one_does_not(client: TestClient) -> None:
-    dossier = new_dossier(client)
-    conversation = open_conversation(client, dossier["id"])
-    assert conversation["with_presentation"] is True
-
-    async def make_legacy() -> None:
-        async with async_session_factory() as db:
-            await db.execute(
-                update(Conversation)
-                .where(Conversation.id == uuid.UUID(conversation["id"]))
-                .values(with_presentation=False)
-            )
-            await db.commit()
-
-    client.portal.call(make_legacy)
-
-    assert open_conversation(client, dossier["id"])["with_presentation"] is False
-
-
 def test_choosing_a_suggestion_adds_the_question_and_its_ready_answer_without_the_model(client: TestClient) -> None:
     dossier = new_dossier(client)
     answer_id = add_answer(
@@ -274,3 +255,24 @@ def test_the_presentation_is_still_refreshing_while_the_answers_are_not_computed
 
     client.portal.call(finish)
     assert presentation(client, dossier["id"])["refreshing"] is False
+
+
+def test_a_failed_summary_is_reported_so_that_one_can_try_again(client: TestClient) -> None:
+    dossier = new_dossier(client)
+    set_status(client, dossier["id"], DossierStatus.TERMINE)
+
+    async def fail() -> None:
+        async with async_session_factory() as db:
+            await db.execute(
+                update(Dossier)
+                .where(Dossier.id == uuid.UUID(dossier["id"]))
+                .values(summary_status=SummaryStatus.ECHEC, summary_error="Le modèle ne répond pas")
+            )
+            await db.commit()
+
+    client.portal.call(fail)
+
+    body = presentation(client, dossier["id"])
+
+    assert body["status"] == "ready" and body["summary"] is None
+    assert body["summary_error"] == "Le modèle ne répond pas"

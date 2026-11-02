@@ -53,6 +53,8 @@ class DossierPresentationOut(BaseModel):
     error: str | None = None
     dossier_name: str
     summary: str | None = None
+    # Le résumé n'a pas pu être généré : la raison, pour proposer de réessayer.
+    summary_error: str | None = None
     classification: PresentationClassificationOut | None = None
     entities: list[PresentationEntityOut] = []
     agents: list[PresentationAgentOut] = []

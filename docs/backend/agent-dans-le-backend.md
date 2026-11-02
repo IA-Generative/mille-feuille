@@ -96,14 +96,14 @@ modèle (table `dossier_question_answers`, une ligne par dossier et par question
 
 ## Présentation du dossier à l'ouverture d'une conversation
 
-Une conversation **créée** depuis cette fonction (`conversations.with_presentation`) s'ouvre sur la présentation du dossier ;
-celles d'avant gardent leur page (et les cartes de résultats). La présentation n'est pas un message stocké : elle est composée à la
-demande (`services/dossier_presentation.py`) à partir de ce que l'analyse a produit, sans appel au modèle, donc toujours à jour.
+Toute conversation d'un dossier s'ouvre sur la présentation du dossier (les cartes de résultats `DossierResults` sont retirées).
+La présentation n'est pas un message stocké : elle est composée à la demande (`services/dossier_presentation.py`) à partir de ce que l'analyse a produit, sans appel au modèle, donc toujours à jour.
 
 - `GET /api/dossiers/{id}/presentation` : `status` (`idle` : pas lancée ou arrêtée, rien à montrer ; `pending` : l'analyse tourne, pas
   de résumé partiel ni de suggestions ; `ready` ; `failed` avec la raison), le résumé, la classification, les entités **retenues** (une
   correction de l'instructeur fait foi, avec leur page), les synthèses des agents, les documents et les questions suggérées (réponses
-  prêtes de #422). `refreshing` indique que le résumé ou les réponses se calculent encore : la page recharge jusqu'à ce que tout y soit.
+  prêtes de #422). `refreshing` indique que le résumé ou les réponses se calculent encore : la page recharge jusqu'à ce que tout y soit. Un résumé
+  absent ou en échec (`summary_error`) propose de le (re)générer.
 - `POST /api/dossiers/{id}/conversations/{conversation_id}/question-answers/{answer_id}/ask` : la question et sa réponse prête entrent
   dans la conversation de la personne comme un échange normal (avec les sources), sans appel au modèle. 404 hors de sa conversation ou
   si la réponse n'est pas prête.

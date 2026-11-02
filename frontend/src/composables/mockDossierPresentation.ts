@@ -5,7 +5,7 @@ import type { DossierPresentation } from "@/types/dossierPresentation";
 // La présentation d'un dossier sur données simulées, avec plusieurs scénarios pour voir tous les états : réservée à la
 // page d'aperçu de développement (`PresentationPreviewPage`). La vraie page lit l'API (`useDossierPresentation`).
 
-export type MockScenario = "ready" | "pending" | "failed" | "no-suggestions";
+export type MockScenario = "ready" | "pending" | "failed" | "no-suggestions" | "no-summary" | "summary-failed";
 
 const READY: DossierPresentation = {
   status: "ready",
@@ -92,6 +92,8 @@ const READY: DossierPresentation = {
 const SCENARIOS: Record<MockScenario, DossierPresentation> = {
   ready: READY,
   "no-suggestions": { ...READY, suggestions: [] },
+  "no-summary": { ...READY, summary: undefined },
+  "summary-failed": { ...READY, summary: undefined, summaryError: "Le modèle ne répond pas pour le moment." },
   pending: {
     status: "pending",
     dossierName: READY.dossierName,

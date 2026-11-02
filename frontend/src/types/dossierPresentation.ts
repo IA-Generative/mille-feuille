@@ -52,6 +52,8 @@ export interface DossierPresentation {
   dossierName: string;
   /** Le résumé du dossier, en markdown. */
   summary?: string;
+  /** Le résumé n'a pas pu être généré : la raison, pour proposer de réessayer. */
+  summaryError?: string;
   classification?: PresentationClassification;
   entities: PresentationEntity[];
   agents: PresentationAgent[];
