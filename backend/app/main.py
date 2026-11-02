@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from mcp.server.transport_security import TransportSecuritySettings
 
+from app.agent.runner import agent_runner
 from app.config import KeycloakSettings
 from app.logging_config import configure_logging
 from app.mcp.auth import BearerTokenAuthMiddleware
@@ -109,7 +110,11 @@ def _app_version() -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     async with mcp_app.router.lifespan_context(mcp_app), helper_mcp_app.router.lifespan_context(helper_mcp_app):
-        yield
+        await agent_runner.start_up()
+        try:
+            yield
+        finally:
+            await agent_runner.shut_down()
 
 
 app = FastAPI(
