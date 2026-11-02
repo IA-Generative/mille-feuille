@@ -9,6 +9,7 @@ from typing import Any
 
 from app.agent import llm, model_output
 from app.agent.runner import settings
+from app.agent.wrap_up import wrap_up
 
 logger = logging.getLogger(__name__)
 
@@ -100,5 +101,6 @@ async def run_agent(
                 preview = result[:PREVIEW_CHARS] + "..." if len(result) > PREVIEW_CHARS else result
                 await on_event("tool_result", {"tool_name": name, "preview": preview})
             messages.append({"role": "tool", "tool_call_id": call["id"], "content": result})
-    logger.warning("Agent : %d itérations atteintes, arrêt", settings.AGENT_MAX_ITERATIONS)
-    return messages[-1].get("content") if messages[-1]["role"] == "assistant" else NO_ANSWER
+    logger.warning("Agent : %d itérations atteintes, réponse finale demandée", settings.AGENT_MAX_ITERATIONS)
+    final = await wrap_up(model=model or settings.LLM_MODEL, messages=messages, definitions=tools.tool_definitions())
+    return final if not model_output.unusable(final) else NO_ANSWER

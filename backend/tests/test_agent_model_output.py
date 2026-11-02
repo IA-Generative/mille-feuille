@@ -10,6 +10,7 @@ from app.agent import agent_loop, model_output
 from app.agent.chat import answer as answer_module
 from app.agent.chat import react
 from app.agent.tools import AgentTools
+from app.agent.wrap_up import WRAP_UP_NOTICE
 from tests.test_agent_chat_tools import NoEvents, ScriptedLlm
 
 pytestmark = pytest.mark.anyio
@@ -248,3 +249,56 @@ async def test_a_text_starting_with_a_brace_is_sent_in_the_end(monkeypatch: pyte
     sent, deposited = await stream(monkeypatch, ["{Le requérant} ", "est né."])
 
     assert sent == deposited == "{Le requérant} est né."
+
+
+def search_turns(*, final: str) -> list[tuple[list[tuple[str, dict]], str]]:
+    """Le modèle appelle des outils sans s'arrêter (« Je cherche. »), puis écrit sa réponse quand on la lui demande."""
+    return [([("view_entities", {})], "Je cherche."), ([("view_entities", {})], "Encore un instant."), ([], final)]
+
+
+async def test_the_chat_asks_for_a_written_answer_when_the_tool_limit_is_reached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(react.settings, "AGENT_MAX_ITERATIONS", 2)
+    llm = ScriptedLlm(monkeypatch, search_turns(final="Voici la réponse, d'après les pages lues."))
+
+    result = await run_chat()
+
+    # Avant : la personne lisait « Encore un instant. » et les sources des pages lues, sans réponse.
+    assert result.answer == "Voici la réponse, d'après les pages lues." and len(llm.requests) == 3
+    last = llm.requests[2]
+    assert last["tool_choice"] == "none" and last["messages"][-1] == {"role": "user", "content": WRAP_UP_NOTICE}
+    # Le dernier appel d'outil, jamais exécuté, n'est pas dans l'historique : il reste cohérent.
+    assert last["messages"][-2]["role"] == "tool"
+
+
+async def test_the_chat_keeps_the_last_sentence_when_the_final_answer_comes_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(react.settings, "AGENT_MAX_ITERATIONS", 2)
+    ScriptedLlm(monkeypatch, search_turns(final=""))
+
+    assert (await run_chat()).answer == "Encore un instant."
+
+
+async def test_the_agent_loop_asks_for_a_written_answer_when_the_tool_limit_is_reached(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(react.settings, "AGENT_MAX_ITERATIONS", 2)
+    llm = ScriptedLlm(monkeypatch, search_turns(final="Synthèse après lecture du dossier."))
+
+    answer = await agent_loop.run_agent(prompt="p", tools=new_tools())
+
+    assert answer == "Synthèse après lecture du dossier." and len(llm.requests) == 3
+    last = llm.requests[2]
+    assert last["tool_choice"] == "none" and last["messages"][-1] == {"role": "user", "content": WRAP_UP_NOTICE}
+    assert last["messages"][-2]["role"] == "tool"
+
+
+async def test_the_agent_loop_gives_the_usual_sentence_when_the_final_answer_is_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(react.settings, "AGENT_MAX_ITERATIONS", 2)
+    ScriptedLlm(monkeypatch, search_turns(final=""))
+
+    assert await agent_loop.run_agent(prompt="p", tools=new_tools()) == agent_loop.NO_ANSWER
