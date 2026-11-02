@@ -79,14 +79,20 @@ const pendingDownMessageId = ref<string | null>(null);
 // LangGraph (tool_call, tool_result, done, error). Affichés en temps réel
 // sous la forme d'une "pensée" de l'assistant.
 const chatEvents = ref<{ kind: string; data: Record<string, unknown> }[]>([]);
+// La réponse de l'assistant à mesure qu'il l'écrit (événements `delta`) : elle s'affiche avant la fin du calcul.
+const chatStreamText = ref("");
 const { isRunning: isChatRunning, start: startChatStream, stop: stopChatStream } = useChatStream({
-  onEvent: (event) => chatEvents.value.push(event),
+  onEvent: (event) => {
+    if (event.kind === "delta") chatStreamText.value += String(event.data.text ?? "");
+    else chatEvents.value.push(event);
+  },
   onDone: async () => {
     // done : recharge la conversation pour récupérer le message assistant
     // final avec ses sources, puis ferme le streaming.
     await refreshConversation();
     await refreshSidebarConversations();
     chatEvents.value = [];
+    chatStreamText.value = "";
   },
 });
 
@@ -168,6 +174,7 @@ async function onToolCallsDecided(decisions: { id: string; allow: boolean; comme
   try {
     const current = await ensureConversation();
     chatEvents.value = [];
+    chatStreamText.value = "";
     await decideToolCalls(decisions);
     startChatStream(`/api/dossiers/${dossierId}/conversations/${current.id}/stream`);
   } finally {
@@ -181,6 +188,7 @@ async function onQuestionAnswered(callId: string, answers: QuestionAnswer[]) {
   try {
     const current = await ensureConversation();
     chatEvents.value = [];
+    chatStreamText.value = "";
     await answerToolQuestion(callId, answers);
     startChatStream(`/api/dossiers/${dossierId}/conversations/${current.id}/stream`);
   } finally {
@@ -306,6 +314,7 @@ async function onChatSubmit(content: string) {
 
   const current = await ensureConversation();
   chatEvents.value = [];
+  chatStreamText.value = "";
   // Le streaming démarre APRÈS l'envoi : POST /messages purge les événements
   // du tour précédent. Ouvert avant, le flux rejouerait l'ancien `done`,
   // se fermerait aussitôt et rechargerait la conversation sans la réponse.
@@ -533,6 +542,7 @@ async function onDeleteConversation() {
       :loading-more="isLoadingMore"
       @load-more="loadOlderMessages"
       :stream-events="chatEvents"
+      :stream-text="chatStreamText"
       :is-running="isChatRunning"
       page-composer
       show-file-attach

@@ -76,6 +76,8 @@ const props = withDefaults(
   defineProps<{
     messages: ChatWindowMessage[];
     streamEvents?: StreamEvent[];
+    /** Début de la réponse, à mesure que l'assistant l'écrit (événements `delta`). */
+    streamText?: string;
     isRunning?: boolean;
     introTitle?: string;
     introText?: string;
@@ -95,6 +97,7 @@ const props = withDefaults(
   }>(),
   {
     streamEvents: () => [],
+    streamText: "",
     isRunning: false,
     introTitle: "Démarrez une conversation",
     introText: "",
@@ -245,7 +248,7 @@ onBeforeUnmount(() => {
 });
 
 watch(
-  () => props.streamEvents,
+  () => [props.streamEvents, props.streamText],
   () => {
     nextTick(() => messagesEndRef.value?.scrollIntoView({ behavior: "smooth" }));
   },
@@ -377,7 +380,8 @@ defineExpose({ resizeTextarea });
           </div> -->
           <div class="chat-message__bubble">
             <ToolSteps :steps="toolSteps" />
-            <div v-if="toolSteps.length === 0" class="chat-message__event chat-message__event--pending">
+            <MarkdownText v-if="streamText" :content="streamText" class="chat-message__text" />
+            <div v-else-if="toolSteps.length === 0" class="chat-message__event chat-message__event--pending">
               <VIcon name="ri-loader-4-line" class="spin" />
               <span>Réflexion en cours…</span>
             </div>
