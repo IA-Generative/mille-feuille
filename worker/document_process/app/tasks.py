@@ -6,8 +6,8 @@ côté backend. Pas de NER/relations ici (issue #4, prochaine étape) - juste
 le texte et sa localisation, comme convenu. Le statut d'extraction du
 document (en_attente -> en_cours -> terminé/échec) est reporté au backend à
 chaque étape, pour que le frontend puisse le suivre. Une fois les pages écrites,
-le résumé du document et son indexation dans la recherche du dossier partent
-sur la file agent_execution.
+le backend, qui reçoit le statut « terminé », lance le résumé du document et son
+indexation dans la recherche du dossier.
 """
 
 import hashlib
@@ -148,20 +148,5 @@ def extract_document_text(self, document_id: str) -> None:
             raise
         else:
             api_client.set_extraction_status(client, document_id, status="terminé")
-            # Déclenche la génération du résumé du document (issue #52) :
-            # le texte des pages est maintenant disponible, on l'envoie sur
-            # la file agent_execution pour que le LLM le résume.
-            dossier_id = document.get("dossier_id")
-            if dossier_id:
-                celery_app.send_task(
-                    "app.tasks.run_document_summary",
-                    args=[str(dossier_id), document_id],
-                    queue="agent_execution",
-                )
-                # Les pages sont écrites : on les indexe dans la recherche du dossier (découpage, embeddings,
-                # Qdrant). L'indexation est du ressort d'agent_execution, qui a les modèles et le client Qdrant.
-                celery_app.send_task(
-                    "app.tasks.index_document",
-                    args=[str(dossier_id), document_id],
-                    queue="agent_execution",
-                )
+            # Le résumé du document (issue #52) et son indexation dans la recherche du dossier sont lancés par le
+            # backend à la réception de ce statut : les pages sont écrites, le texte est disponible.

@@ -4,9 +4,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.dispatch import dispatch_document_summary, dispatch_index_document
 from app.core.security.internal import verify_app_token
 from app.db import get_db
-from app.models.dossier import DossierStatus, ExecutionStep
+from app.models.dossier import DossierStatus, ExecutionStep, TextExtractionStatus
 from app.models.dossier_analysis import AnalysisUnitStatus, DossierAnalysisStatus
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.analysis_proposal_repository import AnalysisProposalRepository, ProposalTargetError
@@ -145,6 +146,11 @@ async def set_document_extraction_status(
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document introuvable")
     await repository.set_text_extraction_status(document, body.status, body.error)
+    if body.status == TextExtractionStatus.TERMINE and document.dossier_id:
+        # Les pages sont écrites : le texte du document est résumé (issue #52) puis indexé dans la recherche du
+        # dossier (découpage, embeddings, Qdrant).
+        dispatch_document_summary(str(document.dossier_id), str(document.id))
+        dispatch_index_document(str(document.dossier_id), str(document.id))
     return document
 
 

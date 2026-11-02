@@ -86,10 +86,8 @@ def test_extract_document_text_writes_pages_bboxes_screenshots_and_status(monkey
     ]
     assert bbox_bodies == [{"x_min": 0.1, "y_min": 0.14285714285714285, "x_max": 0.5, "y_max": 0.17857142857142858}]
     assert status_bodies == [{"status": "en_cours", "error": None}, {"status": "terminé", "error": None}]
-    assert sent_tasks == [
-        ("app.tasks.run_document_summary", ("dossier-xyz", "doc-1")),
-        ("app.tasks.index_document", ("dossier-xyz", "doc-1")),
-    ]
+    # Le résumé et l'indexation du document sont lancés par le backend à la réception du statut « terminé ».
+    assert sent_tasks == []
 
 
 def test_extract_document_text_reports_failure_status(monkeypatch) -> None:

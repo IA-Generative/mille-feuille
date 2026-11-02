@@ -9,7 +9,7 @@ from sqlalchemy import delete, func, insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.celery_client import dispatch_drop_index
+from app.agent.dispatch import dispatch_drop_index
 from app.connectors import s3_connector
 from app.models.analyse import Analyse, StatusDefinition
 from app.models.app_user import AppUser

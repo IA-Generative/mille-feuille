@@ -2,6 +2,7 @@
 
 Les travaux tournent sur la boucle de l'application (`client.portal`), celle qui possède le moteur de base."""
 
+import uuid
 from types import SimpleNamespace
 
 import pytest
@@ -153,3 +154,69 @@ def test_usage_is_recorded_against_the_dossier(client: TestClient, monkeypatch: 
 
     assert client.portal.call(scenario) == "ok"
     assert recorded == [("modèle-test", 12, 5)]
+
+
+# --- Après l'extraction du texte, le backend lance le résumé et l'indexation ---
+
+
+def test_the_end_of_the_text_extraction_starts_the_summary_and_the_indexation(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, dossier_id, document_id = _dossier_with_page(client, "Extraction terminée")
+    started: list[tuple[str, tuple]] = []
+    monkeypatch.setattr("app.routers.internal.dispatch_document_summary", lambda *a: started.append(("summary", a)))
+    monkeypatch.setattr("app.routers.internal.dispatch_index_document", lambda *a: started.append(("index", a)))
+    url = f"/api/internal/documents/{document_id}/extraction-status"
+
+    client.put(url, json={"status": "en_cours"}, headers=_INTERNAL_HEADERS)
+    assert started == []  # ni pendant l'extraction…
+    client.put(url, json={"status": "échec", "error": "illisible"}, headers=_INTERNAL_HEADERS)
+    assert started == []  # …ni quand elle échoue
+    client.put(url, json={"status": "terminé"}, headers=_INTERNAL_HEADERS)
+
+    assert started == [("summary", (dossier_id, document_id)), ("index", (dossier_id, document_id))]
+
+
+# --- Au démarrage, ce qu'un pod précédent a laissé « en cours » est déclaré en échec ---
+
+
+def _mark_summary_running(client: TestClient, dossier_id: str, document_id: str) -> None:
+    from app.db import async_session_factory
+    from app.models.summary import SummaryStatus
+    from app.repositories.dossier_repository import DossierRepository
+
+    async def mark() -> None:
+        async with async_session_factory() as db:
+            repository = DossierRepository(db)
+            document = await repository.get_document_by_id(uuid.UUID(document_id))
+            await repository.set_document_summary_status(document, SummaryStatus.EN_COURS)
+
+    client.portal.call(mark)
+
+
+def test_an_interrupted_summary_is_failed_at_start_up(client: TestClient) -> None:
+    from app.agent.runner import agent_runner
+
+    _, dossier_id, document_id = _dossier_with_page(client, "Résumé interrompu")
+    _mark_summary_running(client, dossier_id, document_id)
+
+    client.portal.call(agent_runner.fail_stale)
+
+    document = _document(client, dossier_id)
+    assert document["summary_status"] == "échec" and "interrompu" in document["summary_error"]
+
+
+def test_a_summary_running_on_another_pod_is_left_alone(client: TestClient) -> None:
+    from app.agent.runner import agent_runner
+    from app.connectors import redis_connector
+
+    _, dossier_id, document_id = _dossier_with_page(client, "Résumé ailleurs")
+    _mark_summary_running(client, dossier_id, document_id)
+    key = f"agent:job:document-summary-{document_id}"
+    redis_connector.client.set(key, 1, ex=30)  # le battement d'un autre pod
+    try:
+        client.portal.call(agent_runner.fail_stale)
+    finally:
+        redis_connector.client.delete(key)
+
+    assert _document(client, dossier_id)["summary_status"] == "en_cours"
