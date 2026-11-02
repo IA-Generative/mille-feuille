@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.31.0](https://github.com/IA-Generative/mille-feuille/compare/v0.30.3...v0.31.0) (2026-11-02)
+
+
+### Features
+
+* **compose:** profil ollama pour un hub LLM local (SmolVLM-500M) ([203e49d](https://github.com/IA-Generative/mille-feuille/commit/203e49d0fef2649c3679e04367c50e5a6729e5cc))
+
 ## [0.30.3](https://github.com/IA-Generative/mille-feuille/compare/v0.30.2...v0.30.3) (2026-10-26)
 
 
