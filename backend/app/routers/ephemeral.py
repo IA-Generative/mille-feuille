@@ -8,9 +8,7 @@ from pydantic import TypeAdapter, ValidationError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.celery_client import (
-    dispatch_dossier_pipeline,
-)
+from app.agent.dispatch import dispatch_dossier_pipeline
 from app.connectors import s3_connector
 from app.core.security.ephemeral import EphemeralIdentity, get_ephemeral_identity
 from app.db import get_db

@@ -118,22 +118,23 @@ class AgentRunner:
 
     async def _run(self, name: str, job: Job) -> None:
         assert self._slots is not None
-        async with self._slots:
-            beat = asyncio.create_task(self._beat(name), name=f"{name}-beat")
-            try:
+        # Le battement commence dès le dépôt : un travail qui attend sa place est vivant, lui aussi.
+        beat = asyncio.create_task(self._beat(name), name=f"{name}-beat")
+        try:
+            async with self._slots:
                 await job()
-            except asyncio.CancelledError:
-                logger.info("%s annulé", name)
-                raise
+        except asyncio.CancelledError:
+            logger.info("%s annulé", name)
+            raise
+        except Exception:
+            # Chaque travail range son échec en base ; ici on ne fait que journaliser, sans relancer.
+            logger.exception("%s a échoué", name)
+        finally:
+            beat.cancel()
+            try:
+                await asyncio.to_thread(redis_connector.client.delete, _beat_key(name))
             except Exception:
-                # Chaque travail range son échec en base ; ici on ne fait que journaliser, sans relancer.
-                logger.exception("%s a échoué", name)
-            finally:
-                beat.cancel()
-                try:
-                    await asyncio.to_thread(redis_connector.client.delete, _beat_key(name))
-                except Exception:
-                    logger.warning("Battement de %s non retiré", name, exc_info=True)
+                logger.warning("Battement de %s non retiré", name, exc_info=True)
 
 
 agent_runner = AgentRunner()

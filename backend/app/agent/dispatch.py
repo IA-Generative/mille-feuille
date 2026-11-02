@@ -12,10 +12,18 @@ from functools import partial
 
 from sqlalchemy import select
 
+from app import celery_client
 from app.agent.runner import IsAlive, agent_runner
 from app.db import async_session_factory
 from app.models.document_draft import DocumentDraft
-from app.models.dossier import Dossier, DossierDocument, SuggestionStatus
+from app.models.dossier import (
+    Dossier,
+    DossierDocument,
+    ExecutionStep,
+    ExecutionStepKind,
+    ExecutionStepStatus,
+    SuggestionStatus,
+)
 from app.models.dossier_note import DossierNote
 from app.models.search_index import DossierSearchIndex, IndexRebuild, IndexRebuildStatus, SearchIndexStatus
 from app.models.summary import SummaryStatus
@@ -118,6 +126,26 @@ def dispatch_drop_index(dossier_id: str) -> None:
     from app.services.search import indexing
 
     agent_runner.start(f"index-drop-{dossier_id}", partial(indexing.drop_dossier_index, dossier_id))
+
+
+def agents_job_name(dossier_id: str) -> str:
+    return f"agents-{dossier_id}"
+
+
+def dispatch_agent_execution(dossier_id: str, acting_user: str | None = None) -> None:
+    """Exécution des agents d'une analyse sur un dossier. Ils attendent que la classification et l'extraction aient
+    terminé. `acting_user` est la personne qui a lancé l'analyse : les agents appellent les serveurs MCP **en son nom**.
+    Absente (exécution sans personne), ils n'ont accès qu'aux outils internes."""
+    from app.agent.jobs.agents import run_agents
+
+    agent_runner.start(agents_job_name(dossier_id), partial(run_agents, dossier_id, acting_user))
+
+
+def dispatch_dossier_pipeline(document_ids: list[str], dossier_id: str) -> None:
+    """Tout le pipeline d'un dossier : extraction de texte des documents, puis classification et extraction d'entités
+    (chaîne Celery), et les agents, qui attendent la fin de ces deux étapes."""
+    celery_client.dispatch_dossier_pipeline(document_ids, dossier_id)
+    dispatch_agent_execution(dossier_id)
 
 
 def dispatch_note_proposals(note_id: str) -> None:
@@ -236,7 +264,26 @@ async def _fail_stale_indexing(is_alive: IsAlive) -> None:
         await db.commit()
 
 
+async def _fail_stale_agents(is_alive: IsAlive) -> None:
+    """Les agents qu'un redémarrage a interrompus : l'étape passe en échec, le dossier peut se terminer."""
+    from app.services.execution_steps import complete_step
+
+    async with async_session_factory() as db:
+        rows = (
+            await db.execute(
+                select(ExecutionStep.id, ExecutionStep.dossier_id).where(
+                    ExecutionStep.kind == ExecutionStepKind.AGENT, ExecutionStep.status == ExecutionStepStatus.EN_COURS
+                )
+            )
+        ).all()
+    for step_id, dossier_id in rows:
+        if not await is_alive(agents_job_name(str(dossier_id))):
+            async with async_session_factory() as db:
+                await complete_step(db, step_id, ExecutionStepStatus.ECHEC, _INTERRUPTED)
+
+
 for _sweep in (
+    _fail_stale_agents,
     _resume_stale_rebuilds,
     _fail_stale_indexing,
     _fail_stale_summaries,

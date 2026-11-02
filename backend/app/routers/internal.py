@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.dispatch import dispatch_document_summary, dispatch_index_document
 from app.core.security.internal import verify_app_token
 from app.db import get_db
-from app.models.dossier import DossierStatus, ExecutionStep, TextExtractionStatus
+from app.models.dossier import TextExtractionStatus
 from app.models.dossier_analysis import AnalysisUnitStatus, DossierAnalysisStatus
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.analysis_proposal_repository import AnalysisProposalRepository, ProposalTargetError
@@ -21,7 +21,6 @@ from app.repositories.document_draft_repository import (
 from app.repositories.dossier_analysis_repository import DossierAnalysisRepository
 from app.repositories.dossier_note_repository import DossierNoteRepository
 from app.repositories.dossier_repository import DossierRepository
-from app.repositories.ephemeral_repository import EphemeralRepository
 from app.schemas.analysis_proposal import InternalProposalCreateIn, ProposalOut
 from app.schemas.document_draft import (
     FieldVersionOut,
@@ -44,15 +43,9 @@ from app.schemas.dossier import (
     ExecutionStepCompleteIn,
     ExecutionStepOut,
     FileHashIn,
-    InternalAgentOut,
     InternalAnalyseOut,
-    InternalClassificationOut,
     InternalConversationOut,
     InternalDossierOut,
-    InternalEntityDefinitionOut,
-    InternalExtractionOut,
-    InternalKnowledgeCollectionOut,
-    InternalLabelDefinitionOut,
     InternalMessageIn,
     MessageOut,
     PageTextBoxIn,
@@ -79,7 +72,8 @@ from app.services import analysis_builder, analysis_carryover
 from app.services.chat_conversation import deposit_assistant_message, load_chat_conversation
 from app.services.document_fields import FieldValueError
 from app.services.draft_generation_context import build_draft_context
-from app.services.ephemeral_run_service import finalize_run
+from app.services.execution_steps import complete_step, reusable_agent_output
+from app.services.internal_analyse import build_internal_analyse
 from app.services.user_task_service import update_task
 
 # Routes appelées par les workers Celery (pas par le navigateur) : le worker
@@ -107,23 +101,9 @@ async def complete_execution_step(
     body: ExecutionStepCompleteIn,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    repository = DossierRepository(db)
-    step = await repository.get_execution_step_by_id(step_id)
-    if step is None:
+    completed = await complete_step(db, step_id, body.status, body.output)
+    if completed is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Étape introuvable")
-    completed = await repository.complete_execution_step(step, body.status, body.output)
-    # Analyse de dossier (#125) : n'empêche jamais l'étape de se terminer.
-    await analysis_builder.record_step_result(step_id)
-    # Pose du TTL dès que le Dossier vient de passer à un état terminal (cf.
-    # docs/ephemeral-api.md) - no-op immédiat si ce n'est pas encore le cas
-    # (mark_dossier_terminal vérifie ended_at) ou si le dossier n'est pas
-    # éphémère.
-    dossier = await repository.get(completed.dossier_id)
-    if dossier is not None and dossier.status != DossierStatus.EN_COURS:
-        await EphemeralRepository(db).mark_dossier_terminal(dossier)
-        # Run éphémère persist=false : on garde le résultat, on supprime dossier et analyse.
-        # `completed` est sérialisé après ; il a déjà été chargé (logs comprises) avant.
-        await finalize_run(db, dossier.id)
     return completed
 
 
@@ -521,20 +501,10 @@ async def finish_note_analysis(
 async def reuse_agent_unit(dossier_id: uuid.UUID, body: AgentReuseIn, db: Annotated[AsyncSession, Depends(get_db)]):
     """Relance incrémentale (#119) : l'agent d'une étape peut-il reprendre la
     synthèse de l'analyse précédente ? Oui si son empreinte (configuration et ce
-    qu'il lit) est inchangée ; le worker dépose alors cette synthèse sans appeler le
+    qu'il lit) est inchangée ; l'agent dépose alors cette synthèse sans appeler le
     LLM. À appeler une fois la classification et l'extraction terminées."""
-    analyses = DossierAnalysisRepository(db)
-    analysis = await analyses.get_current(dossier_id)
-    step = await db.get(ExecutionStep, body.step_id)
-    if analysis is None or step is None or step.dossier_id != dossier_id:
-        return AgentReuseOut(reused=False)
-    fingerprint = await analysis_builder.agent_fingerprint(analyses, analysis, step)
-    if fingerprint is None:
-        return AgentReuseOut(reused=False)
-    reused = await analysis_carryover.reuse_agent_unit(analyses, analysis, step, fingerprint)
-    if reused is None:
-        return AgentReuseOut(reused=False)
-    return AgentReuseOut(reused=True, output=reused[1])
+    output = await reusable_agent_output(db, dossier_id, body.step_id)
+    return AgentReuseOut(reused=output is not None, output=output)
 
 
 @router.post("/analysis-units/{unit_id}/complete", response_model=AnalysisUnitRefOut)
@@ -611,27 +581,11 @@ async def get_internal_dossier(dossier_id: uuid.UUID, db: Annotated[AsyncSession
 @router.get("/analyses/{analyse_id}", response_model=InternalAnalyseOut)
 async def get_internal_analyse(analyse_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
     """Définitions de l'analyse (labels, entités, prompts de classification
-    et d'extraction) pour le worker agent_execution. Réservé à l'API
-    interne."""
+    et d'extraction) pour les workers. Réservé à l'API interne."""
     analyse = await AnalyseRepository(db).get(analyse_id)
     if analyse is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analyse introuvable")
-    return InternalAnalyseOut(
-        id=analyse.id,
-        classification=InternalClassificationOut(
-            prompt=analyse.classification_prompt,
-            multi_label=analyse.multi_label,
-            labels=[InternalLabelDefinitionOut.model_validate(label) for label in analyse.labels],
-        ),
-        extraction=InternalExtractionOut(
-            prompt=analyse.extraction_prompt,
-            entities=[InternalEntityDefinitionOut.model_validate(entity) for entity in analyse.entities],
-        ),
-        agents=[InternalAgentOut.model_validate(agent) for agent in analyse.agents],
-        knowledge_collections=[
-            InternalKnowledgeCollectionOut.model_validate(item) for item in analyse.knowledge_collections
-        ],
-    )
+    return build_internal_analyse(analyse)
 
 
 @router.put("/user-tasks/{task_id}", response_model=UserTaskOut)
