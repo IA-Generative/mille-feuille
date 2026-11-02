@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.agent import usage
 from app.agent.analysis_agents import AnalysisAgent, conversation_prompt, synthesis_of
+from app.agent.chat.agent_reply import mentioned
 from app.agent.chat.planner import agents_guide, parse
 from tests.test_agent_chat import Llm, Searcher, events, hit, messages, plan, run, use_searcher
 from tests.test_conversation_tools import open_chat
@@ -135,3 +136,33 @@ def test_the_agent_marker_encodes_the_name_without_breaking_the_html_comment() -
     assert agent_marker("Juriste") == "\n\n<!--agent:Juriste-->"
     marker = agent_marker("Agent -- n°2 > fin")
     assert "--" not in marker.removeprefix("\n\n<!--").removesuffix("-->") and ">" not in marker[:-3]
+
+
+def test_a_mention_calls_the_agent_without_asking_the_plan(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    ids = setup_chat(client, [JURIST, ACCOUNTANT], question="@comptable combien font les charges ?")
+    # Un seul tour de modèle : la réponse de l'agent. Le plan n'est pas appelé.
+    llm = Llm(monkeypatch, completions=["Les charges font 120 euros."])
+
+    run(client, ids)
+
+    assert len(llm.requests) == 1 and llm.stream_requests == []
+    assert ACCOUNTANT["prompt"] in llm.requests[0]["messages"][0]["content"]
+    [*_, reply] = messages(client, ids)
+    assert reply["content"] == "Les charges font 120 euros.\n\n<!--agent:Comptable-->"
+
+
+def test_a_mention_is_a_whole_name_and_not_an_email_address() -> None:
+    team = [
+        AnalysisAgent("1", "Agent 1", "p", [], None),
+        AnalysisAgent("2", "Agent 10", "p", [], None),
+        AnalysisAgent("3", "Juriste", "p", [], None),
+    ]
+    agent, rest = mentioned("Dis-moi @agent 10 ce que tu vois", team)
+    assert (
+        agent.ref == "2" and rest == "Dis-moi  ce que tu vois".replace("  ", " ") or rest == "Dis-moi  ce que tu vois"
+    )
+    assert mentioned("@Agent 1, une question", team)[0].ref == "1"
+    assert mentioned("@Juriste", team) == (team[2], "@Juriste")  # seule la mention : la question reste telle quelle
+    assert mentioned("écris à paul@Juriste.fr", team) is None
+    assert mentioned("@Inconnu bonjour", team) is None
+    assert mentioned("bonjour", []) is None

@@ -192,15 +192,20 @@ async def _respond(
         # Une erreur de la recherche spéculative est sans importance si le plan n'en veut pas.
         speculative.add_done_callback(lambda task: task.cancelled() or task.exception())
     agents = await load_agents(dossier.get("analyse_id"))
-    candidates = await agent_reply.shortlist(dossier.get("analyse_id"), question, agents)
-    plan = await make_plan(
-        question=question,
-        messages=history,
-        dossier=dossier,
-        abilities=_abilities(tools, extra),
-        model=model,
-        agents=agent_reply.agents_for_plan(candidates),
-    )
+    named = agent_reply.mentioned(question, agents)
+    if named is not None:
+        # Une mention appelle l'agent à coup sûr : pas d'appel au plan.
+        plan = Plan("agent", agent=named[0].ref, standalone_query=named[1])
+    else:
+        candidates = await agent_reply.shortlist(dossier.get("analyse_id"), question, agents)
+        plan = await make_plan(
+            question=question,
+            messages=history,
+            dossier=dossier,
+            abilities=_abilities(tools, extra),
+            model=model,
+            agents=agent_reply.agents_for_plan(candidates),
+        )
     logger.info("Plan du chat : %s", plan.mode)
 
     answer: str | None = None

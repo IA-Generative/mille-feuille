@@ -70,6 +70,8 @@ ses outils, la synthèse déjà produite, l'accès à son analyse et, s'il a l'o
   (nom + début du prompt, filtrée par analyse). L'index suit la création d'un agent et son changement de prompt (restauration
   comprise), et se synchronise au démarrage ; seul ce qui a changé est recalculé. Sans Qdrant ni modèle d'embeddings, ou en cas
   d'erreur, le plan reçoit tous les agents. La référence d'un agent reste son rang dans l'analyse.
+- **Mention** (`chat/agent_reply.mentioned`) : `@Nom` dans le message appelle l'agent à coup sûr, sans appel au plan (casse
+  ignorée, nom entier : « @Agent 10 » n'est pas « @Agent 1 », une adresse de courriel n'est pas une mention).
 - Dans le chat, `appel_agent` n'est pas proposé comme outil : c'est le plan qui choisit l'agent à interroger.
 
 ## Les agents d'analyse

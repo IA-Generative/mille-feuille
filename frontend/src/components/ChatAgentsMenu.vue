@@ -3,8 +3,8 @@ import { onBeforeUnmount, onMounted, ref } from "vue";
 
 import { useChatAgents } from "@/composables/useChatAgents";
 
-// Les agents de l'analyse, interrogeables dans le chat. Le plan du chat choisit lui-même celui qui répond ; ce menu
-// dit seulement qui est là, et propose d'adresser sa question à l'un d'eux (la phrase est placée dans la zone de saisie).
+// Les agents de l'analyse, interrogeables dans le chat. Sans mention, le plan du chat choisit lui-même celui qui répond ;
+// avec `@Nom`, l'agent nommé répond à coup sûr. Choisir un agent dans ce menu place sa mention dans la zone de saisie.
 const props = defineProps<{ dossierId: string }>();
 const emit = defineEmits<{ pick: [text: string] }>();
 
@@ -15,7 +15,7 @@ const root = ref<HTMLElement>();
 const opened = ref(false);
 
 function pick(name: string) {
-  emit("pick", `Demande à l'agent ${name} : `);
+  emit("pick", `@${name} `);
   opened.value = false;
 }
 
@@ -54,7 +54,8 @@ onBeforeUnmount(() => {
       <div class="chat-agents-menu__header">
         <p class="chat-agents-menu__title">Agents de l'analyse</p>
         <p class="chat-agents-menu__hint">
-          L'assistant choisit l'agent qui répond selon votre question. Vous pouvez aussi vous adresser à l'un d'eux.
+          L'assistant choisit l'agent qui répond selon votre question. Écrivez @Nom pour interroger directement l'un
+          d'eux.
         </p>
       </div>
       <ul class="chat-agents-menu__rows">
