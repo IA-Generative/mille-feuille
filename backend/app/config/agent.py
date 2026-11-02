@@ -4,6 +4,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class AgentSettings(BaseSettings):
     # Modèle texte pour les agents, le chat, les résumés et les propositions.
     LLM_MODEL: str = "llama-3.3-70b-instruct"
+    # Modèle du planificateur du chat (un petit modèle suffit : il ne fait que décider). Vide : le modèle du chat.
+    CHAT_PLAN_MODEL: str = ""
     # Nombre maximum d'itérations du graphe LangGraph (pour éviter les boucles infinies).
     AGENT_MAX_ITERATIONS: int = 10
     # Travaux de l'agent (agents d'analyse, chat, résumés...) menés en même temps dans un process du backend : les

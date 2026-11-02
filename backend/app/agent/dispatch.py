@@ -9,6 +9,7 @@ from functools import partial
 
 from sqlalchemy import select
 
+from app.agent.chat.job import run_chat
 from app.agent.jobs.document_fields import generate_document_fields
 from app.agent.jobs.note_proposals import propose_from_note
 from app.agent.jobs.suggestion import suggest_dossier_analyse
@@ -39,6 +40,10 @@ def _suggestion_name(dossier_id: str) -> str:
     return f"analyse-suggestion-{dossier_id}"
 
 
+def chat_job_name(conversation_id: str) -> str:
+    return f"chat-{conversation_id}"
+
+
 def _note_name(note_id: str) -> str:
     return f"note-proposals-{note_id}"
 
@@ -60,6 +65,11 @@ def dispatch_dossier_summary(dossier_id: str) -> None:
 def dispatch_analyse_suggestion(dossier_id: str) -> None:
     """Suggestions d'analyse pour un dossier « à ranger » (issue #54)."""
     agent_runner.start(_suggestion_name(dossier_id), partial(suggest_dossier_analyse, dossier_id))
+
+
+def dispatch_chat_response(conversation_id: str, dossier_id: str) -> None:
+    """Réponse du chat du dossier à un message (ou à la décision de la personne sur un appel d'outil)."""
+    agent_runner.start(chat_job_name(conversation_id), partial(run_chat, conversation_id, dossier_id))
 
 
 def dispatch_note_proposals(note_id: str) -> None:
