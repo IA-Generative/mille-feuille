@@ -24,7 +24,8 @@ from app.schemas.dossier_presentation import (
 )
 from app.schemas.question_answer import QuestionAnswerSourceOut
 
-# « Demande de logement (confiance : 94%) » : la sortie de l'étape de classification, lue comme le faisaient les cartes de résultats.
+# « Demande de logement (confiance : 94%) » : la sortie de l'étape de classification, telle que les cartes de résultats
+# la lisaient.
 _CONFIDENCE = re.compile(r"^(.*) \(confiance : (\d+)%\)$")
 
 _STATUS = {
