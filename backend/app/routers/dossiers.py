@@ -1,5 +1,6 @@
 import asyncio
 import json
+import time
 import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated, Literal
@@ -19,10 +20,16 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.dispatch import dispatch_analyse_suggestion, dispatch_document_summary, dispatch_dossier_summary
+from app.agent.dispatch import (
+    chat_job_name,
+    dispatch_analyse_suggestion,
+    dispatch_chat_response,
+    dispatch_document_summary,
+    dispatch_dossier_summary,
+)
+from app.agent.runner import agent_runner
 from app.celery_client import (
     dispatch_agent_execution,
-    dispatch_chat_response,
     dispatch_classification,
     dispatch_entity_extraction,
     dispatch_text_extraction,
@@ -81,6 +88,7 @@ from app.schemas.dossier import (
 )
 from app.schemas.ephemeral import DossierExtractedDocument
 from app.schemas.pagination import Page
+from app.services import chat_stream
 from app.services.custom_fields import normalize_value, validate_value
 from app.services.ephemeral_results import to_extracted_pages
 from app.services.prediction_validation import AnalysisFrozenError
@@ -1106,16 +1114,26 @@ async def stream_dossier_execution(dossier_id: uuid.UUID, db: Annotated[AsyncSes
 # _execution_events pour le streaming d'exécution de dossier).
 
 
+# Le flux attend un morceau de réponse au plus ce temps avant de relire la base : un morceau le réveille aussitôt.
+CHAT_STREAM_WAIT_MS = 250
+# Sans le moindre signe de vie pendant ce temps, on regarde si le travail tourne encore quelque part.
+CHAT_SILENCE_BEFORE_CHECK_SECONDS = 20
+CHAT_INTERRUPTED = json.dumps(
+    {"kind": "error", "data": {"message": "La réponse a été interrompue : le serveur qui la calculait s'est arrêté."}}
+)
+
+
 async def _chat_events(
     repository: DossierRepository,
     conversation_id: uuid.UUID,
     user_id: str,
 ) -> AsyncIterator[str]:
-    """Émet les événements de chat via SSE, jusqu'à recevoir l'événement
-    `done` ou `error` qui marque la fin de l'exécution. Polling DB léger
-    (500ms) : suffisant pour une UI réactive sans infrastructure de
-    pub/sub."""
+    """Émet les événements de chat via SSE, jusqu'à recevoir l'événement `done` ou `error` qui marque la fin de
+    l'exécution. Les étapes (appels d'outils...) viennent de la base ; les morceaux de la réponse, du flux Redis, que
+    l'on attend quelques dizaines de millisecondes : la réponse s'affiche à mesure qu'elle s'écrit."""
     last_seen_id: uuid.UUID | None = None
+    last_delta_id = "0"
+    last_sign_of_life = time.monotonic()
     while True:
         # Vérifie que la conversation appartient toujours à l'utilisateur
         # (sécurité : le SSE est authentifié mais on vérifie à chaque poll).
@@ -1127,6 +1145,12 @@ async def _chat_events(
         events = await repository.list_chat_events(conversation_id, after_id=last_seen_id)
         for event in events:
             last_seen_id = event.id
+            last_sign_of_life = time.monotonic()
+            if event.kind in ("done", "error"):
+                # Les derniers morceaux de la réponse passent avant la fin du flux.
+                for delta_id, text in await chat_stream.read(str(conversation_id), last_delta_id, 1):
+                    last_delta_id = delta_id
+                    yield f"event: chat-event\ndata: {json.dumps({'kind': 'delta', 'data': {'text': text}})}\n\n"
             payload = ChatEventOut.model_validate(event).model_dump(mode="json")
             data = json.dumps(payload)
             yield f"event: chat-event\ndata: {data}\n\n"
@@ -1136,7 +1160,19 @@ async def _chat_events(
             if event.kind in ("done", "error"):
                 yield "event: done\ndata: {}\n\n"
                 return
-        await asyncio.sleep(0.5)
+
+        deltas = await chat_stream.read(str(conversation_id), last_delta_id, CHAT_STREAM_WAIT_MS)
+        for delta_id, text in deltas:
+            last_delta_id = delta_id
+            last_sign_of_life = time.monotonic()
+            yield f"event: chat-event\ndata: {json.dumps({'kind': 'delta', 'data': {'text': text}})}\n\n"
+
+        if time.monotonic() - last_sign_of_life > CHAT_SILENCE_BEFORE_CHECK_SECONDS:
+            if not await agent_runner.is_alive(chat_job_name(str(conversation_id))):
+                yield f"event: chat-event\ndata: {CHAT_INTERRUPTED}\n\n"
+                yield "event: done\ndata: {}\n\n"
+                return
+            last_sign_of_life = time.monotonic()
 
 
 @router.get(

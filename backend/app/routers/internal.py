@@ -6,13 +6,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security.internal import verify_app_token
 from app.db import get_db
-from app.models.conversation import MessageRole
 from app.models.dossier import DossierStatus, ExecutionStep
 from app.models.dossier_analysis import AnalysisUnitStatus, DossierAnalysisStatus
-from app.models.message_external_source import MessageExternalSource
 from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.analysis_proposal_repository import AnalysisProposalRepository, ProposalTargetError
-from app.repositories.chat_tool_call_repository import ChatToolCallRepository
 from app.repositories.document_draft_repository import (
     DocumentDraftRepository,
     DraftError,
@@ -78,10 +75,10 @@ from app.schemas.dossier_analysis import (
 from app.schemas.dossier_note import InternalNoteAnalysisIn, InternalNoteCreateIn, InternalNoteOut
 from app.schemas.user_task import UserTaskOut, UserTaskUpdateIn
 from app.services import analysis_builder, analysis_carryover
+from app.services.chat_conversation import deposit_assistant_message, load_chat_conversation
 from app.services.document_fields import FieldValueError
 from app.services.draft_generation_context import build_draft_context
 from app.services.ephemeral_run_service import finalize_run
-from app.services.tools.conversation_tools import tool_ids_for_chat
 from app.services.user_task_service import update_task
 
 # Routes appelées par les workers Celery (pas par le navigateur) : le worker
@@ -554,30 +551,9 @@ async def add_assistant_message(
     body: InternalMessageIn,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    repository = DossierRepository(db)
-    conversation = await repository.get_conversation(conversation_id)
-    if conversation is None:
+    message = await deposit_assistant_message(db, conversation_id, body)
+    if message is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation introuvable")
-    conversation = await repository.add_message(
-        conversation,
-        MessageRole.ASSISTANT,
-        body.content,
-        sources=[s.model_dump() for s in body.sources],
-    )
-    message = conversation.messages[-1]
-    if body.external_sources:
-        for position, source in enumerate(body.external_sources):
-            message.external_sources.append(MessageExternalSource(position=position, **source.model_dump()))
-        await db.commit()
-        await db.refresh(message, attribute_names=["external_sources"])
-    if body.tool_calls:
-        await ChatToolCallRepository(db).add_batch(
-            conversation_id=conversation_id,
-            message_id=message.id,
-            calls=[call.model_dump() for call in body.tool_calls],
-        )
-        await db.refresh(message, attribute_names=["tool_calls"])
-    message.feedback = None
     return message
 
 
@@ -589,15 +565,9 @@ async def get_internal_conversation(
     """Conversation complète pour le worker : historique des messages +
     modèle LLM préféré. Le worker en a besoin pour construire le contexte
     du graphe LangGraph de chat."""
-    repository = DossierRepository(db)
-    conversation = await repository.get_conversation(conversation_id)
-    if conversation is None:
+    out = await load_chat_conversation(db, conversation_id)
+    if out is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation introuvable")
-    out = InternalConversationOut.model_validate(conversation)
-    dossier = await repository.get(conversation.dossier_id)
-    analyse = await AnalyseRepository(db).get(dossier.analyse_id) if dossier and dossier.analyse_id else None
-    if analyse is not None:
-        out.tool_ids = tool_ids_for_chat(analyse, conversation.excluded_tools)
     return out
 
 

@@ -230,18 +230,14 @@ class AgentTools:
 
     # --- Outils exposés au LLM ---
 
-    async def search_documents(self, query: str) -> str:
-        """Recherche dans les passages du dossier (sémantique et lexicale). Renvoie les pages les plus pertinentes,
-        avec le passage trouvé et son contexte."""
+    async def search_hits(self, query: str) -> list[SearchHit]:
+        """Les passages du dossier qui répondent à `query` (levée `NotIndexedError` sans index)."""
         if self._searcher is None:
-            return "La recherche n'est pas disponible : le dossier n'est pas encore indexé. Utilise read_page."
-        try:
-            hits = await self._searcher.search(query)
-        except NotIndexedError:
-            return "La recherche n'est pas disponible : le dossier n'est pas encore indexé. Utilise read_page."
-        except Exception:
-            logger.exception("Recherche dans le dossier impossible")
-            return "La recherche est momentanément indisponible. Utilise read_page pour lire les pages."
+            raise NotIndexedError("Le dossier n'est pas encore indexé")
+        return await self._searcher.search(query)
+
+    def format_hits(self, hits: list[SearchHit]) -> str:
+        """Les passages trouvés, un résultat par page, chacun avec son numéro de source (celui que le modèle citera)."""
         if not hits:
             return "Aucun résultat trouvé pour cette recherche."
         # Un résultat par page : plusieurs passages d'une même page se regroupent sous un seul numéro de source.
@@ -259,6 +255,18 @@ class AgentTools:
                 f"{label}📄 Page {best.page_number} ({best.document_name}) [score: {best.score:.2f}]\n   {excerpt}\n"
             )
         return "\n".join(lines)
+
+    async def search_documents(self, query: str) -> str:
+        """Recherche dans les passages du dossier (sémantique et lexicale). Renvoie les pages les plus pertinentes,
+        avec le passage trouvé et son contexte."""
+        try:
+            hits = await self.search_hits(query)
+        except NotIndexedError:
+            return "La recherche n'est pas disponible : le dossier n'est pas encore indexé. Utilise read_page."
+        except Exception:
+            logger.exception("Recherche dans le dossier impossible")
+            return "La recherche est momentanément indisponible. Utilise read_page pour lire les pages."
+        return self.format_hits(hits)
 
     def read_page(self, page_number: int) -> str:
         """Lit le contenu complet d'une page spécifique par son numéro."""
