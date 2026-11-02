@@ -89,7 +89,7 @@ async def _run_approved_calls(conversation: dict, tools: AgentTools, events: Cha
             )
             async with async_session_factory() as db:
                 await record_approved_result(db, uuid.UUID(call["id"]), result)
-            await events.emit("tool_result", {"tool_name": call["tool_name"], "preview": result[:200]})
+            await events.emit("tool_result", {"tool_name": call["tool_name"], "preview": result[:200], "full": result})
             call["status"], call["result"] = "executed", result
 
 
@@ -141,7 +141,7 @@ async def _answer_from_search(
         logger.warning("Recherche dans le dossier impossible : repli sur les outils", exc_info=True)
         return None
     preview = evidence.text[:200] + "..." if len(evidence.text) > 200 else evidence.text
-    await events.emit("tool_result", {"tool_name": "search_documents", "preview": preview})
+    await events.emit("tool_result", {"tool_name": "search_documents", "preview": preview, "full": evidence.text})
     if evidence.empty:
         return None
     system = answer_prompt(evidence=evidence.text, overview=_overview(tools), syntheses=syntheses, notes=notes or None)
@@ -182,10 +182,13 @@ async def _respond(
         result = await react.run_tool_loop(
             model=model, system_prompt=tool_loop_prompt(), messages=history, tools=tools, events=events
         )
+        events.meta["iterations"] = result.iterations
         return result.answer
 
+    events.meta["model"] = model or settings.LLM_MODEL
     # Une décision ou une réponse relance le chat sans nouveau message : le modèle reprend là où il s'était arrêté.
     if messages and messages[-1]["role"] == "assistant" and messages[-1].get("tool_calls"):
+        events.meta["mode"] = "resume"
         return await with_tools(), tools
 
     question = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
@@ -209,6 +212,7 @@ async def _respond(
             agents=agent_reply.agents_for_plan(candidates),
         )
     logger.info("Plan du chat : %s", plan.mode)
+    events.meta["mode"] = plan.mode
 
     answer: str | None = None
     source_tools = tools
@@ -221,6 +225,7 @@ async def _respond(
         answer = plan.answer or "L'assistant de l'application peut s'en charger."
     elif plan.mode == "agent":
         agent = next(agent for agent in agents if agent.ref == plan.agent)
+        events.meta["model"] = agent.model or model or settings.LLM_MODEL
         answer, source_tools = await agent_reply.answer_as_agent(
             agent=agent,
             others=[other for other in agents if other.ref != agent.ref],
@@ -247,6 +252,8 @@ async def _respond(
     if speculative is not None and not speculative.done():
         speculative.cancel()
     if answer is None:
+        if plan.mode == "search":
+            events.note("La recherche dans le dossier n'a rien donné : repli sur les outils.")
         answer = await with_tools()
 
     if not answer.strip():
@@ -315,6 +322,7 @@ async def run_chat(conversation_id: str, dossier_id: str) -> None:
             "sources": chat_history.sources_to_api(source_tools.consulted_sources()),
             "tool_calls": tools.confirmation_batch,
             "external_sources": source_tools.external_sources(),
+            "execution": events.execution(),
         }
         async with async_session_factory() as db:
             await deposit_assistant_message(db, uuid.UUID(conversation_id), InternalMessageIn.model_validate(message))

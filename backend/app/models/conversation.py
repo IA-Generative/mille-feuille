@@ -121,6 +121,9 @@ class Message(UUIDMixin, TimestampMixin, Base):
     )
     role: Mapped[MessageRole] = mapped_column(Enum(MessageRole, name="message_role"), nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    # Le détail de l'exécution d'une réponse de l'assistant (plan, outils appelés, relances) : voir
+    # `schemas/message_execution.py`. NULL pour un message de la personne et pour ceux d'avant cette colonne.
+    execution: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
 
     conversation: Mapped["Conversation"] = relationship(back_populates="messages")
     sources: Mapped[list["MessageSource"]] = relationship(
