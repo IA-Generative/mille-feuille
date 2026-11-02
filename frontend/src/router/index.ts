@@ -9,6 +9,7 @@ import AnalyseDetailPage from "@/pages/AnalyseDetailPage.vue";
 import AnalyseDocumentsTab from "@/pages/analyse/AnalyseDocumentsTab.vue";
 import AnalyseExtractionTab from "@/pages/analyse/AnalyseExtractionTab.vue";
 import AnalyseOcrTab from "@/pages/analyse/AnalyseOcrTab.vue";
+import AnalyseQuestionsTab from "@/pages/analyse/AnalyseQuestionsTab.vue";
 import AnalyseSearchTab from "@/pages/analyse/AnalyseSearchTab.vue";
 import AnalyseSourcesTab from "@/pages/analyse/AnalyseSourcesTab.vue";
 import AnalyseStatusesTab from "@/pages/analyse/AnalyseStatusesTab.vue";
@@ -69,6 +70,11 @@ export const router = createRouter({
           path: "lecture",
           name: "analyse-ocr",
           component: AnalyseOcrTab,
+        },
+        {
+          path: "questions",
+          name: "analyse-questions",
+          component: AnalyseQuestionsTab,
         },
         {
           path: "recherche",

@@ -23,6 +23,7 @@ from app.routers.analysis_collaboration import router as analysis_collaboration_
 from app.routers.analysis_knowledge import router as analysis_knowledge_router
 from app.routers.analysis_ocr import router as analysis_ocr_router
 from app.routers.analysis_proposals import router as analysis_proposals_router
+from app.routers.analysis_questions import router as analysis_questions_router
 from app.routers.analysis_search import router as analysis_search_router
 from app.routers.app_tokens import router as app_tokens_router
 from app.routers.assist import router as assist_router
@@ -201,6 +202,7 @@ app.include_router(knowledge_sources_router, prefix="/api")
 app.include_router(analysis_knowledge_router, prefix="/api")
 app.include_router(analysis_search_router, prefix="/api")
 app.include_router(analysis_ocr_router, prefix="/api")
+app.include_router(analysis_questions_router, prefix="/api")
 app.include_router(internal_ocr_router, prefix="/api")
 app.include_router(dossier_search_index_router, prefix="/api")
 app.include_router(tools_router, prefix="/api")
