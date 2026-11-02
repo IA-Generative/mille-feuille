@@ -3,6 +3,7 @@
  * Documents d'un dossier (backend issues #140, #143) : créer un brouillon à partir d'un modèle de l'analyse du
  * dossier, reprendre un brouillon, télécharger les documents générés (ODT et PDF). Interne : jamais montré aux usagers.
  */
+import BackLink from "@/components/BackLink.vue";
 import { computed, onMounted, ref } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
@@ -70,9 +71,9 @@ const draftOf = (id: string) => drafts.value.find((d) => d.id === id);
 
 <template>
   <div class="documents">
-    <RouterLink :to="`/dossiers/${dossierId}`" class="fr-link fr-icon-arrow-left-line fr-link--icon-left">
+    <BackLink :to="`/dossiers/${dossierId}`">
       Retour au dossier
-    </RouterLink>
+    </BackLink>
     <h1 class="fr-h2">Documents{{ dossier ? ` — ${dossier.name}` : "" }}</h1>
     <p class="fr-text--sm">
       Documents de fin d'instruction du dossier, produits à partir d'un modèle de son analyse. Ils restent internes : rien n'est

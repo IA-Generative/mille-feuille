@@ -6,6 +6,7 @@ import { RouterLink, useRoute } from "vue-router";
 
 import EventFilters from "@/components/history/EventFilters.vue";
 import EventTimeline from "@/components/history/EventTimeline.vue";
+import BackLink from "@/components/BackLink.vue";
 import { useDossierEvents } from "@/composables/useDossierEvents";
 import { useDossiers } from "@/composables/useDossiers";
 import { EVENT_CATEGORIES, type EventCategory } from "@/types/dossierEvent";
@@ -56,9 +57,9 @@ const noCategory = computed(() => categories.value.length === 0);
 
 <template>
   <div class="history">
-    <RouterLink :to="`/dossiers/${dossierId}`" class="fr-link fr-icon-arrow-left-line fr-link--icon-left">
+    <BackLink :to="`/dossiers/${dossierId}`">
       Retour au dossier
-    </RouterLink>
+    </BackLink>
 
     <header class="history__header">
       <h1 class="fr-h2">Historique</h1>

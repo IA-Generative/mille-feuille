@@ -244,9 +244,12 @@ function isUnassigned(dossier: Dossier) {
                       <RouterLink
                         v-if="dossier.status === 'terminé' || dossier.status === 'échec'"
                         :to="`/dossiers/${dossier.id}`"
-                        class="fr-btn fr-btn--tertiary fr-btn--sm fr-icon-eye-line"
+                        class="fr-btn fr-btn--tertiary fr-btn--sm"
                         title="Voir le résultat"
-                      />
+                        aria-label="Voir le résultat"
+                      >
+                        <VIcon name="ri-eye-line" />
+                      </RouterLink>
                     </div>
                   </td>
                 </tr>
