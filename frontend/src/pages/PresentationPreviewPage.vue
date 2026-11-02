@@ -3,7 +3,7 @@ import { onMounted, ref, watch } from "vue";
 
 import ChatWindow, { type ChatWindowMessage } from "@/components/ChatWindow.vue";
 import DossierPresentation from "@/components/presentation/DossierPresentation.vue";
-import { useDossierPresentation, type MockScenario } from "@/composables/useDossierPresentation";
+import { useMockDossierPresentation, type MockScenario } from "@/composables/mockDossierPresentation";
 import type { SuggestedQuestion } from "@/types/dossierPresentation";
 
 // Aperçu de la présentation du dossier sur données simulées (développement seulement) : on y valide le rendu et les
@@ -17,7 +17,7 @@ const SCENARIOS: { id: MockScenario; label: string }[] = [
   { id: "no-suggestions", label: "Sans suggestion" },
 ];
 
-const { presentation, load } = useDossierPresentation("apercu");
+const { presentation, load } = useMockDossierPresentation();
 const messages = ref<ChatWindowMessage[]>([]);
 const asked = ref<string[]>([]);
 

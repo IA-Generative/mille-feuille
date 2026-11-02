@@ -7,6 +7,10 @@ import WorkflowStatusPicker from "@/components/statuses/WorkflowStatusPicker.vue
 import AccessModal from "@/components/access/AccessModal.vue";
 import ModelPicker from "@/components/ModelPicker.vue";
 import ChatAgentsMenu from "@/components/ChatAgentsMenu.vue";
+import DossierPresentation from "@/components/presentation/DossierPresentation.vue";
+import PresentationDetailModal from "@/components/presentation/PresentationDetailModal.vue";
+import { useDossierPresentation } from "@/composables/useDossierPresentation";
+import type { SuggestedQuestion } from "@/types/dossierPresentation";
 import ChatWindow, { type ChatWindowSource } from "@/components/ChatWindow.vue";
 import SourceViewerModal from "@/components/SourceViewerModal.vue";
 import DueDatePicker from "@/components/dossiers/DueDatePicker.vue";
@@ -70,6 +74,7 @@ const {
   removeFeedback,
 } = useConversations(dossierId);
 const { fetchList: refreshSidebarConversations } = useMyConversations();
+const { presentation, load: loadPresentation, ask: askSuggestion } = useDossierPresentation(dossierId);
 
 // Pouce haut : bascule directement. Pouce bas : ouvre une modale pour
 // recueillir la/les raison(s) avant d'envoyer (comme Muffin).
@@ -214,6 +219,47 @@ const documentName = (documentId: string) => dossier.value?.documents.find((d) =
 const analyse = computed(() =>
   dossier.value?.analyseId ? getAnalyseById(dossier.value.analyseId) : undefined,
 );
+
+// La présentation du dossier en tête de la conversation : seulement pour les conversations qui s'ouvrent dessus (les
+// anciennes gardent les cartes de résultats). Recalculée par le serveur à chaque lecture ; on la relit quand le dossier
+// change d'état, et tant que le résumé ou les réponses prêtes se calculent encore (quelques secondes après la fin).
+const hasPresentation = computed(() => conversation.value?.withPresentation === true);
+const showPresentation = computed(() => hasPresentation.value && !!presentation.value && presentation.value.status !== "idle");
+watch(hasPresentation, (value) => value && loadPresentation(), { immediate: true });
+watch(() => dossier.value?.status, () => hasPresentation.value && loadPresentation());
+let presentationTimer: ReturnType<typeof setInterval> | undefined;
+let presentationPolls = 0;
+watch(
+  () => presentation.value?.refreshing,
+  (refreshing) => {
+    clearInterval(presentationTimer);
+    presentationPolls = 0;
+    if (!refreshing) return;
+    presentationTimer = setInterval(() => {
+      presentationPolls += 1;
+      if (presentationPolls > 30) clearInterval(presentationTimer);
+      else loadPresentation();
+    }, 4000);
+  },
+);
+onUnmounted(() => clearInterval(presentationTimer));
+
+// Les questions suggérées déjà posées ne sont plus proposées.
+const suggestions = computed(() => {
+  const asked = new Set(messages.value.filter((m) => m.role === "user").map((m) => m.content));
+  return (presentation.value?.suggestions ?? []).filter((q) => !asked.has(q.question));
+});
+const shownPresentation = computed(() =>
+  presentation.value ? { ...presentation.value, suggestions: suggestions.value } : null,
+);
+
+async function onAskSuggestion(question: SuggestedQuestion) {
+  const current = await ensureConversation();
+  if (await askSuggestion(current.id, question.id)) await refreshConversation();
+}
+
+// « Voir le détail » : les vues de classification et d'extraction que les cartes de résultats ouvraient.
+const detailKind = ref<"label" | "entity" | null>(null);
 
 // SSE : on s'abonne au flux du dossier pour suivre en temps réel l'état
 // d'extraction de texte des documents (et plus tard l'exécution). Le serveur
@@ -545,7 +591,12 @@ async function onDeleteConversation() {
     />
     <DsfrAlert v-if="relaunchError" type="error" :title="relaunchError" small class="fr-mb-2w" />
 
-    <DossierResults :dossier="dossier" :analyse="analyse" @regenerate-summary="regenerateDossierSummary(dossierId)" />
+    <DossierResults
+      v-if="conversation && !conversation.withPresentation"
+      :dossier="dossier"
+      :analyse="analyse"
+      @regenerate-summary="regenerateDossierSummary(dossierId)"
+    />
 
     <ChatWindow
       :messages="messages"
@@ -571,6 +622,15 @@ async function onDeleteConversation() {
           :message-id="message.id"
           :default-expanded="message.id === messages[messages.length - 1]?.id"
           @open="(source) => source.dossier && openSource(source.dossier.source)"
+        />
+      </template>
+
+      <template v-if="showPresentation && shownPresentation" #presentation>
+        <DossierPresentation
+          :presentation="shownPresentation"
+          detailable
+          @ask="onAskSuggestion"
+          @detail="detailKind = $event"
         />
       </template>
 
@@ -650,6 +710,15 @@ async function onDeleteConversation() {
     />
 
     <AccessModal v-if="isAccessOpened" :dossier-id="dossier.id" :dossier-name="dossier.name" @close="isAccessOpened = false" />
+
+    <PresentationDetailModal
+      v-if="detailKind"
+      :opened="!!detailKind"
+      :dossier-id="dossierId"
+      :kind="detailKind"
+      @close="detailKind = null"
+      @view-page="openSource"
+    />
 
     <SourceViewerModal
       :opened="isSourceOpened"

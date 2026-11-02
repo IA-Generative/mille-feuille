@@ -11,8 +11,12 @@ import type { DossierPresentation, SuggestedQuestion } from "@/types/dossierPres
 
 // La présentation d'un dossier, en tête de sa conversation : l'essentiel d'abord (nature, chiffres, résumé), le détail
 // dans des blocs repliés, puis les questions dont la réponse est déjà prête. Chaque bloc est un composant séparé.
-defineProps<{ presentation: DossierPresentation }>();
-const emit = defineEmits<{ ask: [question: SuggestedQuestion] }>();
+defineProps<{
+  presentation: DossierPresentation;
+  /** Les vues de détail existent (classification par fichier et par page, explorateur des entités). */
+  detailable?: boolean;
+}>();
+const emit = defineEmits<{ ask: [question: SuggestedQuestion]; detail: [kind: "label" | "entity"] }>();
 </script>
 
 <template>
@@ -33,6 +37,8 @@ const emit = defineEmits<{ ask: [question: SuggestedQuestion] }>();
           :entity-count="presentation.entities.length"
           :agent-count="presentation.agents.length"
           :document-count="presentation.documents.length"
+          :detailable="detailable"
+          @detail="emit('detail', 'label')"
         />
       </header>
 
@@ -45,7 +51,11 @@ const emit = defineEmits<{ ask: [question: SuggestedQuestion] }>();
           icon="ri-braces-line"
           :count="presentation.entities.length"
         >
-          <PresentationEntities :entities="presentation.entities" />
+          <PresentationEntities
+            :entities="presentation.entities"
+            :detailable="detailable"
+            @detail="emit('detail', 'entity')"
+          />
         </PresentationSection>
         <PresentationSection
           v-if="presentation.agents.length > 0"

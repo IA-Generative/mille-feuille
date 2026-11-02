@@ -39,6 +39,7 @@ from app.routers.dossier_agents import router as dossier_agents_router
 from app.routers.dossier_analyses import router as dossier_analyses_router
 from app.routers.dossier_events import router as dossier_events_router
 from app.routers.dossier_notes import router as dossier_notes_router
+from app.routers.dossier_presentation import router as dossier_presentation_router
 from app.routers.dossier_question_answers import router as dossier_question_answers_router
 from app.routers.dossier_search_index import router as dossier_search_index_router
 from app.routers.dossiers import router as dossiers_router
@@ -178,6 +179,7 @@ app.include_router(conversations_router, prefix="/api")
 app.include_router(conversation_tools_router, prefix="/api")
 app.include_router(dossier_agents_router, prefix="/api")
 app.include_router(dossier_question_answers_router, prefix="/api")
+app.include_router(dossier_presentation_router, prefix="/api")
 app.include_router(chat_tool_calls_router, prefix="/api")
 app.include_router(models_router, prefix="/api")
 app.include_router(assist_router, prefix="/api")
