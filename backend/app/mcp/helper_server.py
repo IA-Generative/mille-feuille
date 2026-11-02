@@ -20,11 +20,11 @@ from app.routers.dossiers import _creation_access
 from app.routers.dossiers import _get_or_404 as _get_dossier_or_404
 from app.routers.dossiers import create_dossier_for as _create_dossier
 from app.routers.dossiers import launch_dossier_for as _launch_dossier
-from app.routers.internal_agent import AgentDossierFileIn, AgentDossierFilesIn
-from app.routers.internal_agent import add_agent_dossier_files as _add_dossier_files
 from app.schemas.analyse import AnalyseCreate
 from app.schemas.dossier import DossierCreate, DossierOut
 from app.schemas.pagination import Page
+from app.services.agent_dossier_files import AgentDossierFileIn, AgentDossierFilesIn
+from app.services.agent_dossier_files import add_agent_dossier_files as _add_dossier_files
 
 # Ce serveur MCP tourne dans le process du backend (mêmes repositories/DB
 # que /api/analyses, /api/dossiers et /api/agent-conversations, pas

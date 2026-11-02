@@ -3,10 +3,11 @@ import uuid
 import pytest
 from fastapi.testclient import TestClient
 
+from app.db import async_session_factory
+from app.services.chat_tool_calls import record_approved_result
 from tests.access_support import As
+from tests.agent_support import deposit_message, internal_conversation
 from tests.test_conversation_tools import analyse_with_tools, open_chat
-
-INTERNAL = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
 
 
 @pytest.fixture(autouse=True)
@@ -37,11 +38,7 @@ def chat(client: TestClient) -> tuple[str, str]:
 
 
 def deposit(client: TestClient, conversation_id: str, calls: list[dict], content: str = "Je demande l'envoi.") -> dict:
-    response = client.post(
-        f"/api/internal/conversations/{conversation_id}/messages",
-        json={"content": content, "tool_calls": calls},
-        headers=INTERNAL,
-    )
+    response = deposit_message(client, conversation_id, {"content": content, "tool_calls": calls})
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -56,7 +53,7 @@ def messages(client: TestClient, dossier_id: str, conversation_id: str) -> list[
 
 
 def internal_calls(client: TestClient, conversation_id: str) -> list[dict]:
-    conversation = client.get(f"/api/internal/conversations/{conversation_id}", headers=INTERNAL).json()
+    conversation = internal_conversation(client, conversation_id)
     return [call for message in conversation["messages"] for call in message["tool_calls"]]
 
 
@@ -185,15 +182,13 @@ def test_a_read_only_call_of_the_same_turn_is_kept_executed_and_cannot_be_decide
 
 def test_a_batch_is_capped_at_five_calls(client: TestClient) -> None:
     _dossier_id, conversation_id = chat(client)
-    response = client.post(
-        f"/api/internal/conversations/{conversation_id}/messages",
-        json={"content": "x", "tool_calls": [call_in(f"t{i}") for i in range(6)]},
-        headers=INTERNAL,
+    response = deposit_message(
+        client, conversation_id, {"content": "x", "tool_calls": [call_in(f"t{i}") for i in range(6)]}
     )
     assert response.status_code == 422
 
 
-def test_the_worker_records_the_result_of_an_approved_call_only(client: TestClient) -> None:
+def test_the_result_is_recorded_for_an_approved_call_only(client: TestClient) -> None:
     dossier_id, conversation_id = chat(client)
     approved, refused, waiting = deposit(client, conversation_id, [call_in("a"), call_in("b"), call_in("c")])[
         "tool_calls"
@@ -201,13 +196,17 @@ def test_the_worker_records_the_result_of_an_approved_call_only(client: TestClie
     # « c » reste en attente : la décision d'un lot exige toutes les demandes, on dépose donc un second message
     decide(client, dossier_id, conversation_id, {approved["id"]: True, refused["id"]: False, waiting["id"]: False})
 
-    def result(call_id: str, text: str = "Courriel envoyé (REF-1)"):
-        return client.post(f"/api/internal/chat-tool-calls/{call_id}/result", json={"result": text}, headers=INTERNAL)
+    def result(call_id: str, text: str = "Courriel envoyé (REF-1)") -> str:
+        async def record() -> str:
+            async with async_session_factory() as db:
+                return await record_approved_result(db, uuid.UUID(call_id), text)
 
-    assert result(approved["id"]).status_code == 200
-    assert result(refused["id"]).status_code == 409  # un appel refusé ne s'exécute jamais
-    assert result(str(uuid.uuid4())).status_code == 404
-    assert result(approved["id"]).status_code == 409  # déjà exécuté
+        return client.portal.call(record)
+
+    assert result(approved["id"]) == "ok"
+    assert result(refused["id"]) == "not_approved"  # un appel refusé ne s'exécute jamais
+    assert result(str(uuid.uuid4())) == "not_found"
+    assert result(approved["id"]) == "not_approved"  # déjà exécuté
     stored = {c["tool_name"]: c for c in internal_calls(client, conversation_id)}
     assert (stored["a"]["status"], stored["a"]["result"]) == ("executed", "Courriel envoyé (REF-1)")
 
@@ -216,18 +215,9 @@ def test_a_pending_call_cannot_be_executed_before_it_is_approved(client: TestCli
     _dossier_id, conversation_id = chat(client)
     [call] = deposit(client, conversation_id, [call_in("a")])["tool_calls"]
 
-    response = client.post(f"/api/internal/chat-tool-calls/{call['id']}/result", json={"result": "x"}, headers=INTERNAL)
+    async def record() -> str:
+        async with async_session_factory() as db:
+            return await record_approved_result(db, uuid.UUID(call["id"]), "x")
 
-    assert response.status_code == 409
+    assert client.portal.call(record) == "not_approved"
     assert internal_calls(client, conversation_id)[0]["status"] == "pending"
-
-
-def test_the_internal_routes_need_the_worker_token(client: TestClient) -> None:
-    assert client.post(f"/api/internal/chat-tool-calls/{uuid.uuid4()}/result", json={"result": "x"}).status_code == 422
-    bad = {"X-App-Token": "nope"}
-    assert (
-        client.post(
-            f"/api/internal/chat-tool-calls/{uuid.uuid4()}/result", json={"result": "x"}, headers=bad
-        ).status_code
-        == 401
-    )

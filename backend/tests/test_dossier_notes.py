@@ -8,8 +8,7 @@ from fastapi.testclient import TestClient
 
 from app.db import async_session_factory
 from app.models.dossier_analysis import DossierAnalysis, DossierAnalysisStatus
-
-INTERNAL = {"X-App-Token": "dev-only-worker-token-not-for-prod"}
+from app.repositories.dossier_note_repository import DossierNoteRepository
 
 
 @pytest.fixture
@@ -220,95 +219,81 @@ def test_proposals_need_an_analysis_a_live_note_and_an_unfrozen_analysis(
     assert dispatched == []
 
 
-# --- API interne (worker) ---
+# --- Ce que l'agent lit et dépose (dépôt de données) ---
 
 
-def test_internal_notes_list_only_live_notes_with_their_current_content(
-    client: TestClient, dispatched: list[str]
-) -> None:
+def _notes(client: TestClient, work):  # noqa: ANN001, ANN202
+    """Exécute `work(repository)` sur la boucle de l'application, comme le font les travaux de l'agent."""
+
+    async def run_work():  # noqa: ANN202
+        async with async_session_factory() as session:
+            return await work(DossierNoteRepository(session))
+
+    return client.portal.call(run_work)
+
+
+def test_the_agent_lists_only_live_notes_with_their_current_content(client: TestClient, dispatched: list[str]) -> None:
     dossier_id = _dossier(client)
     kept = _note(client, dossier_id, "Gardée")
     gone = _note(client, dossier_id, "Archivée")
     client.put(_url(dossier_id, kept["id"]), json={"content": "Gardée (modifiée)"})
     client.post(_url(dossier_id, gone["id"], "/archive"))
 
-    notes = client.get(f"/api/internal/dossiers/{dossier_id}/notes", headers=INTERNAL).json()
+    async def read(repository: DossierNoteRepository) -> list[tuple]:
+        notes = await repository.list(uuid.UUID(dossier_id))
+        return [(str(n.id), n.current.content, n.current.version_number) for n in notes]
 
-    assert [(n["id"], n["content"], n["version_number"]) for n in notes] == [(kept["id"], "Gardée (modifiée)", 2)]
+    assert _notes(client, read) == [(kept["id"], "Gardée (modifiée)", 2)]
 
 
-def test_chat_adds_a_note_through_the_internal_route(client: TestClient) -> None:
+def test_a_note_written_by_the_chat_is_attributed_to_it(client: TestClient) -> None:
     dossier_id = _dossier(client)
-    url = f"/api/internal/dossiers/{dossier_id}/notes"
 
-    created = client.post(url, json={"content": "  Appel de l'avocat  ", "author": "chat-agent:u1"}, headers=INTERNAL)
-    assert created.status_code == 201, created.text
-    assert (created.json()["content"], created.json()["version_number"]) == ("Appel de l'avocat", 1)
+    async def write(repository: DossierNoteRepository) -> tuple[str, int]:
+        note = await repository.create(uuid.UUID(dossier_id), content="Appel de l'avocat", user_id="chat-agent:u1")
+        return str(note.id), note.current.version_number
 
-    # La note apparaît dans la liste côté utilisateur, attribuée au chat pour le compte de la personne.
-    [note] = [n for n in client.get(f"/api/dossiers/{dossier_id}/notes").json() if n["id"] == created.json()["id"]]
+    note_id, version = _notes(client, write)
+
+    assert version == 1
+    [note] = [n for n in client.get(f"/api/dossiers/{dossier_id}/notes").json() if n["id"] == note_id]
     assert (note["content"], note["created_by"], note["last_author_id"]) == (
         "Appel de l'avocat",
         "chat-agent:u1",
         "chat-agent:u1",
     )
 
-    assert client.post(url, json={"content": "", "author": "chat-agent:u1"}, headers=INTERNAL).status_code == 422
-    bad = {"X-App-Token": "wrong"}
-    assert client.post(url, json={"content": "x", "author": "chat-agent:u1"}, headers=bad).status_code == 401
-    unknown = f"/api/internal/dossiers/{uuid.uuid4()}/notes"
-    assert client.post(unknown, json={"content": "x", "author": "a"}, headers=INTERNAL).status_code == 404
 
-
-def test_internal_note_exposes_the_requester(client: TestClient, dispatched: list[str]) -> None:
+def test_the_note_the_agent_analyses_knows_who_asked(client: TestClient, dispatched: list[str]) -> None:
     dossier_id = _dossier(client)
     _launch(client, dossier_id)
     note = _note(client, dossier_id)
     client.post(_url(dossier_id, note["id"], "/propose"))
 
-    internal = client.get(f"/api/internal/notes/{note['id']}", headers=INTERNAL).json()
+    async def read(repository: DossierNoteRepository) -> tuple:
+        row = await repository.get_by_id(uuid.UUID(note["id"]))
+        return row.current.content, str(row.dossier_id), row.analysis_requested_by
 
-    assert internal["content"] == note["content"]
-    assert internal["dossier_id"] == dossier_id
-    assert internal["analysis_requested_by"] == note["created_by"]
+    content, noted_dossier, requested_by = _notes(client, read)
+
+    assert content == note["content"] and noted_dossier == dossier_id and requested_by == note["created_by"]
 
 
-def test_worker_reports_the_end_of_the_analysis(client: TestClient, dispatched: list[str]) -> None:
+def test_the_end_of_the_analysis_is_reported_on_the_note(client: TestClient, dispatched: list[str]) -> None:
     dossier_id = _dossier(client)
     _launch(client, dossier_id)
     note = _note(client, dossier_id)
     client.post(_url(dossier_id, note["id"], "/propose"))
 
-    done = client.post(
-        f"/api/internal/notes/{note['id']}/analysis", json={"status": "terminé", "proposal_count": 3}, headers=INTERNAL
-    )
-    assert done.status_code == 200
+    async def finish(repository: DossierNoteRepository, **result: object) -> None:
+        await repository.finish_analysis(await repository.get_by_id(uuid.UUID(note["id"])), **result)
+
+    _notes(client, lambda r: finish(r, status="terminé", proposal_count=3, error=None))
     shown = client.get(f"/api/dossiers/{dossier_id}/notes").json()[0]
     assert (shown["analysis_status"], shown["analysis_proposal_count"], shown["analysis_error"]) == ("terminé", 3, None)
     # Une nouvelle analyse est possible une fois la précédente terminée.
     assert client.post(_url(dossier_id, note["id"], "/propose")).status_code == 202
 
-    failed = client.post(
-        f"/api/internal/notes/{note['id']}/analysis",
-        json={"status": "échec", "error": "LLM indisponible"},
-        headers=INTERNAL,
-    )
-    assert failed.status_code == 200
+    _notes(client, lambda r: finish(r, status="échec", proposal_count=None, error="LLM indisponible"))
     shown = client.get(f"/api/dossiers/{dossier_id}/notes").json()[0]
     assert (shown["analysis_status"], shown["analysis_error"]) == ("échec", "LLM indisponible")
-
-
-def test_internal_note_routes_validate_and_require_the_token(client: TestClient, dispatched: list[str]) -> None:
-    dossier_id = _dossier(client)
-    note = _note(client, dossier_id)
-    bad = {"X-App-Token": "not-a-valid-token"}
-    assert client.get(f"/api/internal/dossiers/{dossier_id}/notes", headers=bad).status_code == 401
-    assert client.get(f"/api/internal/notes/{note['id']}", headers=bad).status_code == 401
-    assert (
-        client.post(f"/api/internal/notes/{note['id']}/analysis", json={"status": "terminé"}, headers=bad).status_code
-        == 401
-    )
-    unknown = client.post(f"/api/internal/notes/{uuid.uuid4()}/analysis", json={"status": "terminé"}, headers=INTERNAL)
-    invalid = client.post(f"/api/internal/notes/{note['id']}/analysis", json={"status": "en_cours"}, headers=INTERNAL)
-    assert (unknown.status_code, invalid.status_code) == (404, 422)
-    assert client.get(f"/api/internal/notes/{uuid.uuid4()}", headers=INTERNAL).status_code == 404

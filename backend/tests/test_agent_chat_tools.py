@@ -246,18 +246,12 @@ class Session:
 def record_results(monkeypatch: pytest.MonkeyPatch) -> list[tuple[str, str]]:
     recorded: list[tuple[str, str]] = []
 
-    class Repository:
-        def __init__(self, db) -> None:  # noqa: ANN001
-            pass
-
-        async def get(self, call_id):  # noqa: ANN001, ANN202
-            return SimpleNamespace(id=str(call_id))
-
-        async def record_result(self, row, result):  # noqa: ANN001, ANN202
-            recorded.append((row.id, result))
+    async def record(db, call_id, result):  # noqa: ANN001, ANN202
+        recorded.append((str(call_id), result))
+        return "ok"
 
     monkeypatch.setattr(job, "async_session_factory", Session)
-    monkeypatch.setattr(job, "ChatToolCallRepository", Repository)
+    monkeypatch.setattr(job, "record_approved_result", record)
     return recorded
 
 

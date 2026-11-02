@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
-from tests.test_chat_tool_calls import INTERNAL, chat, messages
+from tests.agent_support import deposit_message
+from tests.test_chat_tool_calls import chat, messages
 from tests.test_chat_tool_calls import dispatched as dispatched  # noqa: F401  (fixture autouse du module d'origine)
 
 
@@ -22,11 +23,7 @@ def external(index: int, **extra) -> dict:
 
 
 def deposit(client: TestClient, conversation_id: str, sources: list[dict]):
-    return client.post(
-        f"/api/internal/conversations/{conversation_id}/messages",
-        json={"content": "Un RIB est exigé [1].", "external_sources": sources},
-        headers=INTERNAL,
-    )
+    return deposit_message(client, conversation_id, {"content": "Un RIB est exigé [1].", "external_sources": sources})
 
 
 def test_the_sources_of_the_knowledge_base_come_with_the_message_in_order(client: TestClient) -> None:
@@ -67,14 +64,14 @@ def test_a_deposit_is_checked_like_the_contract(client: TestClient) -> None:
 def test_the_numbers_cited_in_the_answer_are_kept_for_both_kinds_of_source(client: TestClient) -> None:
     dossier_id, conversation_id = chat(client)
 
-    response = client.post(
-        f"/api/internal/conversations/{conversation_id}/messages",
-        json={
+    response = deposit_message(
+        client,
+        conversation_id,
+        {
             "content": "Un RIB est exigé [2], voir aussi la page 3 [1].",
             "sources": [{"number": 1, "excerpt": "Page 3 : le RIB est joint."}],
             "external_sources": [external(1, number=2), external(2, number=3)],
         },
-        headers=INTERNAL,
     )
 
     assert response.status_code == 200, response.text

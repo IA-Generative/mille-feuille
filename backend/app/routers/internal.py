@@ -8,71 +8,40 @@ from app.agent.dispatch import dispatch_document_summary, dispatch_index_documen
 from app.core.security.internal import verify_app_token
 from app.db import get_db
 from app.models.dossier import TextExtractionStatus
-from app.models.dossier_analysis import AnalysisUnitStatus, DossierAnalysisStatus
+from app.models.dossier_analysis import AnalysisUnitStatus
 from app.repositories.analyse_repository import AnalyseRepository
-from app.repositories.analysis_proposal_repository import AnalysisProposalRepository, ProposalTargetError
 from app.repositories.document_draft_repository import (
     DocumentDraftRepository,
-    DraftError,
-    UnknownFieldError,
-    ValidatedFieldError,
-    template_definitions,
 )
 from app.repositories.dossier_analysis_repository import DossierAnalysisRepository
-from app.repositories.dossier_note_repository import DossierNoteRepository
 from app.repositories.dossier_repository import DossierRepository
-from app.schemas.analysis_proposal import InternalProposalCreateIn, ProposalOut
-from app.schemas.document_draft import (
-    FieldVersionOut,
-    InternalDraftContextOut,
-    InternalGenerationIn,
-    InternalProposeIn,
-)
 from app.schemas.dossier import (
     BoundingBoxIn,
     BoundingBoxOut,
-    ChatEventIn,
-    ChatEventOut,
     DocumentPageIn,
     DocumentPageOut,
     DocumentPredictionIn,
     DocumentPredictionOut,
     DossierDocumentOut,
-    DossierSummaryOut,
     ExecutionLogIn,
     ExecutionStepCompleteIn,
     ExecutionStepOut,
     FileHashIn,
     InternalAnalyseOut,
-    InternalConversationOut,
     InternalDossierOut,
-    InternalMessageIn,
-    MessageOut,
     PageTextBoxIn,
     PageTextBoxOut,
-    SuggestionDepositIn,
-    SuggestionStatusIn,
-    SummaryDepositIn,
-    SummaryStatusIn,
     TextExtractionStatusIn,
 )
 from app.schemas.dossier_analysis import (
-    AgentReuseIn,
-    AgentReuseOut,
     AnalysisUnitCompleteIn,
     AnalysisUnitCreateIn,
     AnalysisUnitRefOut,
-    DossierAnalysisOut,
-    InvalidElementValueError,
     ReusedEntity,
 )
-from app.schemas.dossier_note import InternalNoteAnalysisIn, InternalNoteCreateIn, InternalNoteOut
 from app.schemas.user_task import UserTaskOut, UserTaskUpdateIn
 from app.services import analysis_builder, analysis_carryover
-from app.services.chat_conversation import deposit_assistant_message, load_chat_conversation
-from app.services.document_fields import FieldValueError
-from app.services.draft_generation_context import build_draft_context
-from app.services.execution_steps import complete_step, reusable_agent_output
+from app.services.execution_steps import complete_step
 from app.services.internal_analyse import build_internal_analyse
 from app.services.user_task_service import update_task
 
@@ -149,111 +118,6 @@ async def set_document_file_hash(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document introuvable")
     await repository.set_file_hash(document, body.file_hash)
     return document
-
-
-@router.put("/documents/{document_id}/summary-status", response_model=DossierDocumentOut)
-async def set_document_summary_status(
-    document_id: uuid.UUID,
-    body: SummaryStatusIn,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Met à jour le statut de génération du résumé d'un document."""
-    repository = DossierRepository(db)
-    document = await repository.get_document_by_id(document_id)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document introuvable")
-    await repository.set_document_summary_status(document, body.status, body.error)
-    return document
-
-
-@router.post(
-    "/documents/{document_id}/summaries",
-    response_model=DossierSummaryOut,
-    status_code=status.HTTP_201_CREATED,
-)
-async def deposit_document_summary(
-    document_id: uuid.UUID,
-    body: SummaryDepositIn,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Dépose un nouveau résumé pour un document (append-only). Le worker
-    appelle cette route après génération du résumé via LLM."""
-    repository = DossierRepository(db)
-    document = await repository.get_document_by_id(document_id)
-    if document is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document introuvable")
-    return await repository.add_document_summary(document, content=body.content, model=body.model)
-
-
-@router.put("/dossiers/{dossier_id}/summary-status", response_model=InternalDossierOut)
-async def set_dossier_summary_status(
-    dossier_id: uuid.UUID,
-    body: SummaryStatusIn,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Met à jour le statut de génération du résumé global d'un dossier."""
-    repository = DossierRepository(db)
-    dossier = await repository.get(dossier_id)
-    if dossier is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dossier introuvable")
-    await repository.set_dossier_summary_status(dossier, body.status, body.error)
-    return dossier
-
-
-@router.post(
-    "/dossiers/{dossier_id}/summaries",
-    response_model=DossierSummaryOut,
-    status_code=status.HTTP_201_CREATED,
-)
-async def deposit_dossier_summary(
-    dossier_id: uuid.UUID,
-    body: SummaryDepositIn,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Dépose un nouveau résumé global pour un dossier (append-only). Le
-    worker appelle cette route après génération du résumé via LLM."""
-    repository = DossierRepository(db)
-    dossier = await repository.get(dossier_id)
-    if dossier is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dossier introuvable")
-    return await repository.add_dossier_summary(dossier, content=body.content, model=body.model)
-
-
-@router.put("/dossiers/{dossier_id}/suggestion-status", response_model=InternalDossierOut)
-async def set_dossier_suggestion_status(
-    dossier_id: uuid.UUID,
-    body: SuggestionStatusIn,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Met à jour le statut de génération des suggestions d'analyse d'un
-    dossier « à ranger » (issue #54)."""
-    repository = DossierRepository(db)
-    dossier = await repository.get(dossier_id)
-    if dossier is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dossier introuvable")
-    await repository.set_suggestion_status(dossier, body.status, body.error)
-    return dossier
-
-
-@router.post(
-    "/dossiers/{dossier_id}/suggestions",
-    response_model=InternalDossierOut,
-    status_code=status.HTTP_200_OK,
-)
-async def deposit_dossier_suggestions(
-    dossier_id: uuid.UUID,
-    body: SuggestionDepositIn,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Dépose les suggestions d'analyse générées par le LLM pour un dossier
-    « à ranger » (issue #54). Le worker appelle cette route après avoir
-    comparé les résumés du dossier avec les analyses disponibles."""
-    repository = DossierRepository(db)
-    dossier = await repository.get(dossier_id)
-    if dossier is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dossier introuvable")
-    await repository.set_suggested_analyses(dossier, body.suggestions)
-    return dossier
 
 
 @router.post(
@@ -397,116 +261,6 @@ async def create_analysis_unit(
     return AnalysisUnitRefOut(id=unit.id, analysis_id=unit.analysis_id)
 
 
-@router.get("/dossiers/{dossier_id}/analysis", response_model=DossierAnalysisOut)
-async def get_current_analysis(dossier_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
-    """Analyse courante du dossier avec ses éléments : le chat s'en sert pour
-    savoir ce qu'il peut proposer de modifier. 404 si le dossier n'en a pas."""
-    analyses = DossierAnalysisRepository(db)
-    analysis = await analyses.get_current(dossier_id)
-    if analysis is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucune analyse pour ce dossier")
-    return await analyses.build_out(analysis)
-
-
-@router.post(
-    "/dossiers/{dossier_id}/analysis/proposals",
-    response_model=ProposalOut,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_analysis_proposal(
-    dossier_id: uuid.UUID,
-    body: InternalProposalCreateIn,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Dépose une proposition de modification de l'analyse courante pour le
-    compte d'un utilisateur. N'applique rien : l'utilisateur la valide."""
-    analyses = DossierAnalysisRepository(db)
-    analysis = await analyses.get_current(dossier_id)
-    if analysis is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucune analyse pour ce dossier")
-    if analysis.status == DossierAnalysisStatus.FIGEE:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cette analyse est figée")
-    try:
-        return await AnalysisProposalRepository(analyses).create(
-            analysis,
-            proposed_by=body.proposed_by,
-            value=body.value,
-            reason=body.reason,
-            element_id=body.element_id,
-            kind=body.kind,
-            definition_name=body.definition_name,
-            source_type=body.source_type,
-            source_id=body.source_id,
-            model=body.model,
-            prompt_version=body.prompt_version,
-        )
-    except ProposalTargetError as error:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-    except InvalidElementValueError as error:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
-
-
-def _internal_note(note) -> InternalNoteOut:
-    return InternalNoteOut(
-        id=note.id,
-        dossier_id=note.dossier_id,
-        content=note.current.content,
-        version_number=note.current.version_number,
-        archived=note.archived,
-        analysis_requested_by=note.analysis_requested_by,
-    )
-
-
-@router.get("/dossiers/{dossier_id}/notes", response_model=list[InternalNoteOut])
-async def list_dossier_notes(dossier_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
-    """Notes internes (non archivées) d'un dossier : contexte du chat (issue #117)."""
-    notes = await DossierNoteRepository(db).list(dossier_id)
-    return [_internal_note(note) for note in notes]
-
-
-@router.post("/dossiers/{dossier_id}/notes", response_model=InternalNoteOut, status_code=status.HTTP_201_CREATED)
-async def create_dossier_note(
-    dossier_id: uuid.UUID, body: InternalNoteCreateIn, db: Annotated[AsyncSession, Depends(get_db)]
-):
-    """Le chat du dossier ajoute une note interne à la demande de l'utilisateur (``author`` : ``chat-agent:<id>``)."""
-    if await DossierRepository(db).get(dossier_id) is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dossier introuvable")
-    note = await DossierNoteRepository(db).create(dossier_id, content=body.content.strip(), user_id=body.author)
-    return _internal_note(note)
-
-
-@router.get("/notes/{note_id}", response_model=InternalNoteOut)
-async def get_dossier_note(note_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
-    note = await DossierNoteRepository(db).get_by_id(note_id)
-    if note is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note introuvable")
-    return _internal_note(note)
-
-
-@router.post("/notes/{note_id}/analysis", response_model=InternalNoteOut)
-async def finish_note_analysis(
-    note_id: uuid.UUID, body: InternalNoteAnalysisIn, db: Annotated[AsyncSession, Depends(get_db)]
-):
-    """Le worker signale la fin de l'analyse d'une note (terminée ou en échec)."""
-    repository = DossierNoteRepository(db)
-    note = await repository.get_by_id(note_id)
-    if note is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Note introuvable")
-    return _internal_note(
-        await repository.finish_analysis(note, status=body.status, proposal_count=body.proposal_count, error=body.error)
-    )
-
-
-@router.post("/dossiers/{dossier_id}/agent-units/reuse", response_model=AgentReuseOut)
-async def reuse_agent_unit(dossier_id: uuid.UUID, body: AgentReuseIn, db: Annotated[AsyncSession, Depends(get_db)]):
-    """Relance incrémentale (#119) : l'agent d'une étape peut-il reprendre la
-    synthèse de l'analyse précédente ? Oui si son empreinte (configuration et ce
-    qu'il lit) est inchangée ; l'agent dépose alors cette synthèse sans appeler le
-    LLM. À appeler une fois la classification et l'extraction terminées."""
-    output = await reusable_agent_output(db, dossier_id, body.step_id)
-    return AgentReuseOut(reused=output is not None, output=output)
-
-
 @router.post("/analysis-units/{unit_id}/complete", response_model=AnalysisUnitRefOut)
 async def complete_analysis_unit(
     unit_id: uuid.UUID,
@@ -519,52 +273,6 @@ async def complete_analysis_unit(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Unité introuvable")
     status_value = AnalysisUnitStatus.TERMINE if body.status == "terminé" else AnalysisUnitStatus.ECHEC
     return await analyses.set_unit_status(unit, status_value)
-
-
-@router.post("/conversations/{conversation_id}/messages", response_model=MessageOut)
-async def add_assistant_message(
-    conversation_id: uuid.UUID,
-    body: InternalMessageIn,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    message = await deposit_assistant_message(db, conversation_id, body)
-    if message is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation introuvable")
-    return message
-
-
-@router.get("/conversations/{conversation_id}", response_model=InternalConversationOut)
-async def get_internal_conversation(
-    conversation_id: uuid.UUID,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Conversation complète pour le worker : historique des messages +
-    modèle LLM préféré. Le worker en a besoin pour construire le contexte
-    du graphe LangGraph de chat."""
-    out = await load_chat_conversation(db, conversation_id)
-    if out is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation introuvable")
-    return out
-
-
-@router.post(
-    "/conversations/{conversation_id}/chat-events",
-    response_model=ChatEventOut,
-    status_code=status.HTTP_201_CREATED,
-)
-async def add_chat_event(
-    conversation_id: uuid.UUID,
-    body: ChatEventIn,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Dépose un événement de chat (tool_call, tool_result, thinking, done,
-    error). Le worker appelle cette route pendant l'exécution du graphe
-    LangGraph pour streamer la progression au frontend via SSE."""
-    repository = DossierRepository(db)
-    conversation = await repository.get_conversation(conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation introuvable")
-    return await repository.add_chat_event(conversation_id, body.kind, body.data)
 
 
 @router.get("/dossiers/{dossier_id}", response_model=InternalDossierOut)
@@ -611,59 +319,3 @@ async def _draft_or_404(db: AsyncSession, draft_id: uuid.UUID):
     if draft is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Brouillon introuvable")
     return draft
-
-
-@router.get("/document-drafts/{draft_id}/context", response_model=InternalDraftContextOut)
-async def get_draft_generation_context(draft_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
-    """Ce qu'il faut au worker pour générer : champs et états courants, éléments de la **révision figée** du
-    brouillon, notes internes non archivées, métadonnées du dossier et prompt en vigueur."""
-    draft = await _draft_or_404(db, draft_id)
-    return await build_draft_context(db, draft)
-
-
-@router.post("/document-drafts/{draft_id}/fields/{name}/propose", response_model=FieldVersionOut)
-async def propose_draft_field(
-    draft_id: uuid.UUID, name: str, body: InternalProposeIn, db: Annotated[AsyncSession, Depends(get_db)]
-):
-    """Le worker dépose la proposition de l'agent pour un champ. **409** si le champ est validé : une valeur
-    validée n'est jamais réécrite automatiquement ; **422** si la valeur ne correspond pas au type du champ."""
-    repository = DocumentDraftRepository(db)
-    draft = await _draft_or_404(db, draft_id)
-    definition = next(
-        (d for d in template_definitions(await repository.template_version(draft)) if d.name == name), None
-    )
-    if definition is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Champ inconnu : {name}")
-    try:
-        return await repository.propose(
-            draft,
-            definition,
-            body.value,
-            sources=body.sources,
-            prompt_version=body.prompt_version,
-            model=body.model,
-            instruction=body.instruction,
-        )
-    except ValidatedFieldError as error:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
-    except UnknownFieldError as error:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
-    except (DraftError, FieldValueError) as error:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
-
-
-@router.post("/document-drafts/{draft_id}/generation", status_code=status.HTTP_204_NO_CONTENT)
-async def finish_draft_generation(
-    draft_id: uuid.UUID, body: InternalGenerationIn, db: Annotated[AsyncSession, Depends(get_db)]
-):
-    """Le worker signale la fin de la génération (terminée ou en échec), avec les champs sans valeur trouvée."""
-    draft = await _draft_or_404(db, draft_id)
-    await DocumentDraftRepository(db).finish_generation(
-        draft,
-        status=body.status,
-        proposal_count=body.proposal_count,
-        missing=body.missing,
-        truncated=body.truncated,
-        prompt_version=body.prompt_version,
-        error=body.error,
-    )

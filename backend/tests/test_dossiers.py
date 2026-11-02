@@ -2,6 +2,11 @@ import uuid
 
 from fastapi.testclient import TestClient
 
+from app.db import async_session_factory
+from app.models.dossier import SuggestionStatus
+from app.repositories.dossier_repository import DossierRepository
+from tests.agent_support import deposit_message
+
 
 def _create_analyse(client: TestClient, name: str = "Analyse dossier test") -> str:
     return client.post("/api/analyses", json={"name": name, "description": "Test"}).json()["id"]
@@ -629,9 +634,10 @@ def test_assistant_message_with_sources(client: TestClient) -> None:
     bbox = _create_bbox(client, page["id"], x_min=0.1, y_min=0.1, x_max=0.9, y_max=0.5)
     conversation = client.post(f"/api/dossiers/{dossier_id}/conversations").json()
 
-    message = client.post(
-        f"/api/internal/conversations/{conversation['id']}/messages",
-        json={
+    message = deposit_message(
+        client,
+        conversation["id"],
+        {
             "content": "Le document est une CNI.",
             "sources": [
                 # À minima : le document entier.
@@ -641,7 +647,6 @@ def test_assistant_message_with_sources(client: TestClient) -> None:
                 {"dossier_document_id": document_id, "bounding_box_ids": [bbox["id"]]},
             ],
         },
-        headers=INTERNAL_HEADERS,
     ).json()
     assert message["role"] == "assistant"
     assert len(message["sources"]) == 3
@@ -819,81 +824,48 @@ def test_assign_analyse_400_for_unknown_analyse(client: TestClient) -> None:
     assert response.status_code == 400
 
 
-def test_internal_set_suggestion_status(client: TestClient) -> None:
-    """PUT /internal/dossiers/{id}/suggestion-status met à jour le statut."""
+def test_the_suggestion_status_carries_its_error(client: TestClient) -> None:
     dossier = client.post("/api/dossiers", json={"name": "Dossier statut suggestion"}).json()
 
-    response = client.put(
-        f"/api/internal/dossiers/{dossier['id']}/suggestion-status",
-        json={"status": "en_cours"},
-        headers=INTERNAL_HEADERS,
-    )
-    assert response.status_code == 200
-    assert response.json()["suggestion_status"] == "en_cours"
+    async def work(repository: DossierRepository) -> str:
+        row = await repository.get(uuid.UUID(dossier["id"]))
+        await repository.set_suggestion_status(row, SuggestionStatus.EN_COURS)
+        started = (await repository.get(row.id)).suggestion_status
+        await repository.set_suggestion_status(row, SuggestionStatus.ECHEC, "LLM indisponible")
+        return started
 
-    response = client.put(
-        f"/api/internal/dossiers/{dossier['id']}/suggestion-status",
-        json={"status": "échec", "error": "LLM indisponible"},
-        headers=INTERNAL_HEADERS,
-    )
-    assert response.status_code == 200
-    assert response.json()["suggestion_status"] == "échec"
+    assert client.portal.call(_with_repository, work) == "en_cours"
 
-    # L'erreur est stockée dans summary_error (canal d'erreur partagé) :
-    # vérifiable via l'endpoint public qui expose ce champ.
     public = client.get(f"/api/dossiers/{dossier['id']}").json()
+    assert public["suggestion_status"] == "échec"
+    # L'erreur est stockée dans summary_error (canal d'erreur partagé) : l'endpoint public l'expose.
     assert public["summary_error"] == "LLM indisponible"
 
 
-def test_internal_deposit_suggested_analyses(client: TestClient) -> None:
-    """POST /internal/dossiers/{id}/suggestions dépose les suggestions du
-    worker et passe le statut à terminé."""
+def test_deposited_suggestions_end_the_generation(client: TestClient) -> None:
     analyse_id = _create_analyse(client, "Analyse suggérée")
     dossier = client.post("/api/dossiers", json={"name": "Dossier dépôt suggestions"}).json()
-
     suggestions = [
         {"analyse_id": analyse_id, "name": "Analyse suggérée", "score": 0.92, "rationale": "Correspondance forte."},
         {"analyse_id": str(uuid.uuid4()), "name": "Autre analyse", "score": 0.45, "rationale": "Moins pertinent."},
     ]
-    response = client.post(
-        f"/api/internal/dossiers/{dossier['id']}/suggestions",
-        json={"suggestions": suggestions},
-        headers=INTERNAL_HEADERS,
-    )
-    assert response.status_code == 200
-    body = response.json()
+
+    async def work(repository: DossierRepository) -> None:
+        await repository.set_suggested_analyses(await repository.get(uuid.UUID(dossier["id"])), suggestions)
+
+    client.portal.call(_with_repository, work)
+
+    body = client.get(f"/api/dossiers/{dossier['id']}").json()
     assert body["suggestion_status"] == "terminé"
     assert len(body["suggested_analyses"]) == 2
     assert body["suggested_analyses"][0]["analyse_id"] == analyse_id
     assert body["suggested_analyses"][0]["score"] == 0.92
 
 
-def test_internal_deposit_suggestions_404(client: TestClient) -> None:
-    response = client.post(
-        f"/api/internal/dossiers/{uuid.uuid4()}/suggestions",
-        json={"suggestions": []},
-        headers=INTERNAL_HEADERS,
-    )
-    assert response.status_code == 404
-
-
-def test_internal_suggestion_routes_require_app_token(client: TestClient) -> None:
-    dossier = client.post("/api/dossiers", json={"name": "Dossier token suggestion"}).json()
-
-    # Sans token : 401 (ou 422 si le header est absent selon FastAPI).
-    response = client.put(
-        f"/api/internal/dossiers/{dossier['id']}/suggestion-status",
-        json={"status": "en_cours"},
-    )
-    assert response.status_code in (401, 422)
-
-    # Mauvais token : 401.
-    response = client.put(
-        f"/api/internal/dossiers/{dossier['id']}/suggestion-status",
-        json={"status": "en_cours"},
-        headers={"X-App-Token": "wrong-token"},
-    )
-    assert response.status_code == 401
+async def _with_repository(work):  # noqa: ANN001, ANN202
+    """Exécute `work(repository)` sur la boucle de l'application, comme le font les travaux de l'agent."""
+    async with async_session_factory() as db:
+        return await work(DossierRepository(db))
 
 
 def test_page_text_boxes_are_replaced_and_listed_in_reading_order(client: TestClient) -> None:

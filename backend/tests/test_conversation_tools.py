@@ -3,6 +3,7 @@ import uuid
 from fastapi.testclient import TestClient
 
 from tests.access_support import As
+from tests.agent_support import internal_conversation
 from tests.test_agent_tools import add_agent
 from tests.test_dossier_access import _create
 from tests.tool_support import FakeLister, create_server, tool_id
@@ -133,6 +134,6 @@ def test_the_worker_receives_the_tools_to_give_the_model(client: TestClient, lis
     dossier_id, conversation_id = open_chat(client, analyse)
     client.put(tools_url(dossier_id, conversation_id), json={"excluded": ["calcul_dates"]})
 
-    internal = client.get(f"/api/internal/conversations/{conversation_id}", headers=INTERNAL).json()
+    internal = internal_conversation(client, conversation_id)
 
     assert internal["tool_ids"] == ["calculatrice", search]  # l'union de l'analyse, moins ce que la personne a retiré
