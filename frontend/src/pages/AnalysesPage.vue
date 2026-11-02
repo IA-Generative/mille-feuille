@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
+import { useRouter } from "vue-router";
 
 import CreateAnalyseModal from "@/components/analyses/CreateAnalyseModal.vue";
 import MarkdownText from "@/components/MarkdownText.vue";
@@ -12,6 +13,7 @@ const BROWSE_PAGE_SIZE = 6;
 // dépendre de la pagination normale.
 const SEARCH_PAGE_SIZE = 100;
 
+const router = useRouter();
 const { list, pageCount: serverPageCount, fetchList } = useAnalyses();
 
 const searchQuery = ref("");
@@ -55,8 +57,10 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
 }
 
-function onAnalyseCreated() {
+function onAnalyseCreated(id: string) {
   currentPage.value = 1;
+  // Une analyse fraîchement créée est vide : on enchaîne directement sur l'assistant pas à pas.
+  router.push({ name: "analyse-classification", params: { id }, query: { guide: "all" } });
 }
 </script>
 
@@ -90,7 +94,7 @@ function onAnalyseCreated() {
             </h3>
             <!-- Pas de <p> : le rendu markdown produit lui-même des blocs. -->
             <div class="fr-card__desc">
-              <MarkdownText :content="analyse.description" />
+              <MarkdownText :content="analyse.description" :lines="3" />
             </div>
             <div class="fr-card__start">
               <p class="fr-card__detail"><VIcon name="ri-calendar-line" scale="0.8" /> {{ formatDate(analyse.createdAt) }}</p>
@@ -131,13 +135,12 @@ function onAnalyseCreated() {
   gap: 1.5rem;
 }
 
-/* Tronque la description des cartes à 3 lignes maximum */
+/* La troncature à 3 lignes est portée par MarkdownText ; on neutralise celle du bloc DSFR qui coupait en pleine ligne. */
 .analyses-page__grid :deep(.fr-card__desc) {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  overflow: visible;
+  max-height: none;
+  font-size: 0.875rem;
+  line-height: 1.5rem;
 }
 
 .analyses-page__pagination {
