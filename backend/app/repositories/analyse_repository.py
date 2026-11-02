@@ -605,6 +605,23 @@ class AnalyseRepository:
     def ocr_settings_version(self, analyse: Analyse, version_id: uuid.UUID):
         return next((v for v in self.field_versions(analyse, VersionedField.OCR_SETTINGS) if v.id == version_id), None)
 
+    # --- Questions fréquentes ---
+
+    async def update_frequent_questions(self, analyse: Analyse, questions: list[str]) -> None:
+        """Remplace la liste ; la précédente est conservée dans l'historique (restaurable). Rien ne change : pas de
+        version inutile."""
+        if questions == analyse.frequent_questions:
+            return
+        self._record_version(analyse, VersionedField.FREQUENT_QUESTIONS, list(analyse.frequent_questions))
+        analyse.frequent_questions = questions
+        await self.db.commit()
+        await self.db.refresh(analyse)
+
+    def frequent_questions_version(self, analyse: Analyse, version_id: uuid.UUID):
+        return next(
+            (v for v in self.field_versions(analyse, VersionedField.FREQUENT_QUESTIONS) if v.id == version_id), None
+        )
+
     # --- Agents ---
 
     async def add_agent(

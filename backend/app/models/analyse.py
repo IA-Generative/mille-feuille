@@ -58,6 +58,8 @@ class VersionedField(enum.StrEnum):
     # Lecture des documents scannés : modèle du hub qui décrit les images et les tableaux (absent : celui de la
     # plateforme).
     OCR_SETTINGS = "ocr_settings"
+    # Questions fréquentes de l'analyse (liste de textes) : chaque dossier en reçoit la réponse (#418).
+    FREQUENT_QUESTIONS = "frequent_questions"
 
 
 class Analyse(UUIDMixin, TimestampMixin, Base):
@@ -90,6 +92,9 @@ class Analyse(UUIDMixin, TimestampMixin, Base):
     # (`VersionedField.OCR_SETTINGS`). Le worker document_process les lit à l'extraction ; absents, ceux de la
     # plateforme.
     ocr_settings: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    # Questions fréquentes de l'analyse : le texte de chacune, dans l'ordre. Versionnées
+    # (`VersionedField.FREQUENT_QUESTIONS`) ; la réponse de chaque dossier est calculée à la fin de son analyse.
+    frequent_questions: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
 
     classification_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
     # Classification multi-label : plusieurs labels possibles par page (sinon un seul). Fixé à la création
