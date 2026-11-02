@@ -83,6 +83,9 @@ function mapAnalyse(api: any): Analyse {
     id: api.id,
     name: api.name,
     description: api.description,
+    createdBy: api.created_by ?? null,
+    nameVersions: (api.name_versions ?? []).map((v: any) => mapVersion(v, identity<string>)),
+    descriptionVersions: (api.description_versions ?? []).map((v: any) => mapVersion(v, identity<string>)),
     createdAt: api.created_at,
     version: api.version,
     classification: {
@@ -120,6 +123,7 @@ function mapSummary(api: any): AnalyseSummary {
     id: api.id,
     name: api.name,
     description: api.description,
+    createdBy: api.created_by ?? null,
     createdAt: api.created_at,
     agentCount: api.agent_count,
     statuses: (api.statuses ?? []).map(mapStatus),
@@ -176,6 +180,39 @@ export function useAnalyses() {
     cache[analyse.id] = analyse;
     await fetchList(1, pageSize.value);
     return analyse;
+  };
+
+  // --- Nom, description, suppression (le créateur et les administrateurs) ---
+
+  const updateIdentity = async (analyseId: string, name: string, description: string) => {
+    const data = await apiFetch<any>(`/api/analyses/${analyseId}`, {
+      method: "PUT",
+      body: JSON.stringify({ name, description }),
+    });
+    cache[analyseId] = mapAnalyse(data);
+  };
+
+  const restoreNameVersion = async (analyseId: string, versionId: string) => {
+    const data = await apiFetch<any>(`/api/analyses/${analyseId}/name/restore/${versionId}`, { method: "POST" });
+    cache[analyseId] = mapAnalyse(data);
+  };
+
+  const restoreDescriptionVersion = async (analyseId: string, versionId: string) => {
+    const data = await apiFetch<any>(`/api/analyses/${analyseId}/description/restore/${versionId}`, { method: "POST" });
+    cache[analyseId] = mapAnalyse(data);
+  };
+
+  /**
+   * Lève ApiError (409) tant que l'analyse a des dossiers : le message dit pourquoi. L'analyse reste en cache jusqu'à
+   * `forget` : la page qui l'affiche ne doit pas disparaître avant d'avoir navigué ailleurs.
+   */
+  const remove = async (analyseId: string) => {
+    await apiFetch<void>(`/api/analyses/${analyseId}`, { method: "DELETE" });
+    await fetchList(1, pageSize.value);
+  };
+
+  const forget = (analyseId: string) => {
+    delete cache[analyseId];
   };
 
   // --- Classification ---
@@ -424,6 +461,11 @@ export function useAnalyses() {
     fetchAnalyse,
     fetchList,
     create,
+    updateIdentity,
+    restoreNameVersion,
+    restoreDescriptionVersion,
+    remove,
+    forget,
     updateClassificationPrompt,
     restoreClassificationPromptVersion,
     updateClassificationLabels,
