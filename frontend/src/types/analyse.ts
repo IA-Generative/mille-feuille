@@ -107,6 +107,11 @@ export interface Analyse {
   id: string;
   name: string;
   description: string;
+  /** Qui a créé l'analyse (sub Keycloak) ; null si inconnu. Seuls lui et les admins peuvent la modifier/supprimer. */
+  createdBy: string | null;
+  /** Anciens noms et anciennes descriptions (historique restaurable). */
+  nameVersions: Version<string>[];
+  descriptionVersions: Version<string>[];
   createdAt: string;
   /** Version courante (v1, v2...) ; un dossier garde celle de son dernier lancement. */
   version: string;
@@ -127,6 +132,7 @@ export interface AnalyseSummary {
   id: string;
   name: string;
   description: string;
+  createdBy: string | null;
   createdAt: string;
   agentCount: number;
   /** Statuts de dossier de l'analyse : la liste des dossiers s'en sert pour son filtre (#170). */

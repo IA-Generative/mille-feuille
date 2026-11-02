@@ -1,20 +1,40 @@
 <script setup lang="ts">
-import { computed, onMounted } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 
 import MarkdownText from "@/components/MarkdownText.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import AnalyseGuideBar from "@/components/analyses/AnalyseGuideBar.vue";
+import AnalyseIdentityModal from "@/components/analyses/AnalyseIdentityModal.vue";
+import DeleteAnalyseModal from "@/components/analyses/DeleteAnalyseModal.vue";
 import BackLink from "@/components/BackLink.vue";
 import { useAuth } from "@/composables/useAuth";
+import { useCanManageAnalyse } from "@/composables/useCanManageAnalyse";
 import { visibleGroups } from "@/pages/analyse/analyseGroups";
 
 const route = useRoute();
 const router = useRouter();
-const { getById, fetchAnalyse } = useAnalyses();
+const { getById, fetchAnalyse, forget } = useAnalyses();
 const { isAdmin } = useAuth();
 
 const analyse = computed(() => getById(String(route.params.id)));
+
+// Modifier / supprimer : le créateur et les administrateurs (le backend reste juge).
+const canManageAnalyse = useCanManageAnalyse();
+const canManage = computed(() => (analyse.value ? canManageAnalyse(analyse.value.createdBy) : false));
+const isEditing = ref(false);
+const isDeleting = ref(false);
+
+async function onDeleted() {
+  const id = String(route.params.id);
+  await router.push("/analyses");
+  forget(id);
+}
+
+function askDelete() {
+  isEditing.value = false;
+  isDeleting.value = true;
+}
 
 onMounted(() => {
   if (!analyse.value) fetchAnalyse(String(route.params.id));
@@ -76,7 +96,13 @@ function quitGuide() {
         <h1 class="fr-h2">{{ analyse.name }}</h1>
         <MarkdownText :content="analyse.description" class="fr-text--lead" />
       </div>
+      <DsfrButton v-if="canManage" label="Modifier l'analyse" icon="ri-edit-line" tertiary size="sm" @click="isEditing = true" />
     </div>
+
+    <template v-if="canManage">
+      <AnalyseIdentityModal v-model:opened="isEditing" :analyse="analyse" @delete="askDelete" />
+      <DeleteAnalyseModal v-model:opened="isDeleting" :analyse="analyse" @deleted="onDeleted" />
+    </template>
 
     <DsfrTabs
       :model-value="activeTabIndex"
@@ -156,6 +182,10 @@ function quitGuide() {
 }
 
 .analyse-detail__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 2rem;
 }
 </style>
