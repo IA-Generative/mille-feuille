@@ -48,6 +48,9 @@ class Llm:
 
 
 def open_conversation(client: TestClient, text: str) -> str:
+    # L'assistant agit avec les droits que l'annuaire connaît : sur une base vierge (CI), la personne des tests n'y est
+    # pas encore tant qu'elle ne s'est pas connectée.
+    client.get("/api/auth/me")
     conversation = client.post("/api/agent-conversations", json={}).json()
     response = client.post(f"/api/agent-conversations/{conversation['id']}/messages", json={"content": text})
     assert response.status_code == 200, response.text
