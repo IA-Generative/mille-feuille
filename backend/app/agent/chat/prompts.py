@@ -4,6 +4,12 @@
 from urllib.parse import quote
 
 
+def agent_marker(name: str) -> str:
+    """Marqueur ajouté à la fin de la réponse d'un agent de l'analyse (commentaire HTML invisible) que le frontend
+    montre en étiquette « Réponse de l'agent … ». Ajouté par le chat, pas par le LLM, pour rester fiable."""
+    return f"\n\n<!--agent:{quote(name, safe='').replace('-', '%2D')}-->"
+
+
 def assistant_suggestion_marker(question: str) -> str:
     """Marqueur ajouté à la fin de la réponse (commentaire HTML invisible) que
     le frontend transforme en bouton « Ouvrir l'assistant » avec la question

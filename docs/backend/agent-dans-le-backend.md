@@ -46,7 +46,8 @@ message → plan ─┬─ direct       réponse du plan
   prompt) et en choisit un quand la question relève de son rôle ; une référence inconnue ramène à `search`. L'agent
   répond en direct (réponse non streamée) avec ses outils, sans ceux qui modifient des données (ils demandent l'accord
   de la personne, ce que sa boucle ne sait pas faire), et relit sa synthèse déjà produite. Ses appels d'outils portent
-  son nom dans les événements du chat.
+  son nom dans les événements du chat, et la réponse se termine par un marqueur invisible `<!--agent:Nom-->` que
+  le frontend montre en étiquette « Réponse de l'agent … » (comme les marqueurs de suggestion et de propositions).
 - La recherche de la question brute part **pendant** le plan ; ses résultats rejoignent ceux du plan.
 - Les morceaux de la réponse passent par un flux Redis (`chat:<conversation>:deltas`, `services/chat_stream.py`), lu par le SSE
   en plus de la base : pas de table, pas de migration. Le message final est en base ; le navigateur le recharge à la fin.
