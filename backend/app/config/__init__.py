@@ -1,3 +1,4 @@
+from .agent import AgentSettings
 from .collaboration import CollaborationSettings
 from .database import DatabaseSettings
 from .ephemeral import EphemeralSettings
@@ -11,6 +12,7 @@ from .storage import StorageSettings
 from .tools import ToolSettings
 
 __all__ = [
+    "AgentSettings",
     "CollaborationSettings",
     "DatabaseSettings",
     "DossierEventSettings",
