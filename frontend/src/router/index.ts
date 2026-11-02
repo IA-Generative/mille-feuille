@@ -21,6 +21,7 @@ import DossierDocumentsPage from "@/pages/DossierDocumentsPage.vue";
 import DossierHistoryPage from "@/pages/DossierHistoryPage.vue";
 import DossierDetailPage from "@/pages/DossierDetailPage.vue";
 import DossiersPage from "@/pages/DossiersPage.vue";
+import PresentationPreviewPage from "@/pages/PresentationPreviewPage.vue";
 import ProfilePage from "@/pages/ProfilePage.vue";
 import ToolsPage from "@/pages/ToolsPage.vue";
 import TrackingPage from "@/pages/TrackingPage.vue";
@@ -32,6 +33,17 @@ export const router = createRouter({
   routes: [
     { path: "/", redirect: "/dashboard" },
     { path: "/welcome", name: "welcome", component: WelcomePage, meta: { public: true } },
+    // Aperçu de la présentation du dossier sur données simulées : développement seulement.
+    ...(import.meta.env.DEV
+      ? [
+          {
+            path: "/apercu/presentation",
+            name: "apercu-presentation",
+            component: PresentationPreviewPage,
+            meta: { public: true },
+          },
+        ]
+      : []),
     { path: "/dashboard", name: "dashboard", component: DashboardPage },
     { path: "/analyses", name: "analyses", component: AnalysesPage },
     {
