@@ -10,14 +10,17 @@ from functools import partial
 from sqlalchemy import select
 
 from app.agent.jobs.document_fields import generate_document_fields
+from app.agent.jobs.note_proposals import propose_from_note
 from app.agent.jobs.suggestion import suggest_dossier_analyse
 from app.agent.jobs.summary import run_document_summary, run_dossier_summary
 from app.agent.runner import IsAlive, agent_runner
 from app.db import async_session_factory
 from app.models.document_draft import DocumentDraft
 from app.models.dossier import Dossier, DossierDocument, SuggestionStatus
+from app.models.dossier_note import DossierNote
 from app.models.summary import SummaryStatus
 from app.repositories.document_draft_repository import GENERATION_FAILED, GENERATION_RUNNING
+from app.repositories.dossier_note_repository import NOTE_ANALYSIS_FAILED, NOTE_ANALYSIS_RUNNING
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +37,10 @@ def _dossier_summary_name(dossier_id: str) -> str:
 
 def _suggestion_name(dossier_id: str) -> str:
     return f"analyse-suggestion-{dossier_id}"
+
+
+def _note_name(note_id: str) -> str:
+    return f"note-proposals-{note_id}"
 
 
 def _generation_name(draft_id: str) -> str:
@@ -53,6 +60,11 @@ def dispatch_dossier_summary(dossier_id: str) -> None:
 def dispatch_analyse_suggestion(dossier_id: str) -> None:
     """Suggestions d'analyse pour un dossier « à ranger » (issue #54)."""
     agent_runner.start(_suggestion_name(dossier_id), partial(suggest_dossier_analyse, dossier_id))
+
+
+def dispatch_note_proposals(note_id: str) -> None:
+    """Propositions de mise à jour de l'analyse que justifie une note (issue #117)."""
+    agent_runner.start(_note_name(note_id), partial(propose_from_note, note_id))
 
 
 def dispatch_document_generation(draft_id: str, names: list[str] | None, instruction: str | None) -> None:
@@ -112,5 +124,24 @@ async def _fail_stale_generations(is_alive: IsAlive) -> None:
         await db.commit()
 
 
-for _sweep in (_fail_stale_summaries, _fail_stale_suggestions, _fail_stale_generations):
+async def _fail_stale_note_analyses(is_alive: IsAlive) -> None:
+    async with async_session_factory() as db:
+        notes = (
+            (await db.execute(select(DossierNote).where(DossierNote.analysis_status == NOTE_ANALYSIS_RUNNING)))
+            .scalars()
+            .all()
+        )
+        for note in notes:
+            if not await is_alive(_note_name(str(note.id))):
+                note.analysis_status = NOTE_ANALYSIS_FAILED
+                note.analysis_error = _INTERRUPTED
+        await db.commit()
+
+
+for _sweep in (
+    _fail_stale_summaries,
+    _fail_stale_suggestions,
+    _fail_stale_generations,
+    _fail_stale_note_analyses,
+):
     agent_runner.register_sweep(_sweep)
