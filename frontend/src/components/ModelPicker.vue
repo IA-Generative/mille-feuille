@@ -6,7 +6,7 @@
  * lui lier la valeur. "" = pas de préférence (modèle par défaut du hub).
  * Construit avec les classes et jetons du DSFR plutôt qu'avec un <select>.
  */
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 
 import { useModels } from "@/composables/useModels";
 
@@ -36,15 +36,51 @@ const options = computed(() => [
 
 const rootRef = ref<HTMLElement | null>(null);
 const triggerRef = ref<HTMLElement | null>(null);
+const menuRef = ref<HTMLElement | null>(null);
 const isOpen = ref(false);
+const menuStyle = ref<Record<string, string>>({});
 const listId = `model-picker-${Math.random().toString(36).slice(2, 8)}`;
 
 const selectedText = computed(
   () => options.value.find((option) => option.value === props.modelValue)?.text ?? props.modelValue,
 );
 
+const MENU_GAP = 4;
+const MENU_MARGIN = 8;
+const MENU_MAX_HEIGHT = 320;
+
+/**
+ * La liste est téléportée dans <body> en position fixe : elle n'est ainsi jamais rognée par un parent
+ * scrollable (corps de modale, carte) et n'agrandit pas la page. Elle s'ouvre vers le haut quand il
+ * n'y a pas la place en dessous.
+ */
+function positionMenu() {
+  const trigger = triggerRef.value;
+  if (!trigger) return;
+  const rect = trigger.getBoundingClientRect();
+  const below = window.innerHeight - rect.bottom - MENU_GAP - MENU_MARGIN;
+  const above = rect.top - MENU_GAP - MENU_MARGIN;
+  const openUp = below < Math.min(MENU_MAX_HEIGHT, 160) && above > below;
+  const maxHeight = Math.max(120, Math.min(MENU_MAX_HEIGHT, openUp ? above : below));
+  const style: Record<string, string> = { maxHeight: `${maxHeight}px` };
+  if (openUp) style.bottom = `${window.innerHeight - rect.top + MENU_GAP}px`;
+  else style.top = `${rect.bottom + MENU_GAP}px`;
+  if (props.block) {
+    style.maxWidth = "none";
+    style.left = `${rect.left}px`;
+    style.width = `${rect.width}px`;
+  } else if (props.align === "right") {
+    style.right = `${window.innerWidth - rect.right}px`;
+  } else {
+    style.left = `${rect.left}px`;
+  }
+  menuStyle.value = style;
+}
+
 function open() {
+  positionMenu();
   isOpen.value = true;
+  nextTick(positionMenu);
 }
 
 function close() {
@@ -66,7 +102,15 @@ function select(value: string, event?: Event) {
 }
 
 function onDocumentClick(event: MouseEvent) {
-  if (isOpen.value && rootRef.value && !rootRef.value.contains(event.target as Node)) close();
+  if (!isOpen.value) return;
+  const target = event.target as Node;
+  if (rootRef.value?.contains(target) || menuRef.value?.contains(target)) return;
+  close();
+}
+
+function onViewportChange(event: Event) {
+  // Le défilement de la liste elle-même ne doit pas la repositionner.
+  if (isOpen.value && !menuRef.value?.contains(event.target as Node)) positionMenu();
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -78,8 +122,16 @@ function onKeydown(event: KeyboardEvent) {
   }
 }
 
-onMounted(() => document.addEventListener("click", onDocumentClick));
-onBeforeUnmount(() => document.removeEventListener("click", onDocumentClick));
+onMounted(() => {
+  document.addEventListener("click", onDocumentClick);
+  window.addEventListener("resize", onViewportChange);
+  window.addEventListener("scroll", onViewportChange, true);
+});
+onBeforeUnmount(() => {
+  document.removeEventListener("click", onDocumentClick);
+  window.removeEventListener("resize", onViewportChange);
+  window.removeEventListener("scroll", onViewportChange, true);
+});
 </script>
 
 <template>
@@ -101,13 +153,16 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocumentClick));
       <VIcon name="ri-arrow-down-s-line" class="model-picker__chevron" :class="{ 'model-picker__chevron--open': isOpen }" />
     </button>
 
+    <Teleport to="body">
     <ul
       v-if="isOpen"
       :id="listId"
+      ref="menuRef"
       class="model-picker__menu"
-      :class="{ 'model-picker__menu--right': align === 'right', 'model-picker__menu--block': block }"
+      :style="menuStyle"
       role="listbox"
       :aria-label="label"
+      @keydown="onKeydown"
     >
       <li
         v-for="option in options"
@@ -125,6 +180,7 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocumentClick));
         <VIcon v-if="option.value === modelValue" name="ri-check-line" />
       </li>
     </ul>
+    </Teleport>
   </div>
 </template>
 
@@ -173,15 +229,12 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocumentClick));
   transform: rotate(180deg);
 }
 
-/* Ancrée sous le bouton (le wrapper est en position: relative). */
+/* Position fixe calculée depuis le bouton (voir positionMenu), au-dessus des modales DSFR. */
 .model-picker__menu {
-  position: absolute;
+  position: fixed;
   z-index: 2000;
-  top: calc(100% + 0.25rem);
-  left: 0;
   min-width: 14rem;
   max-width: min(22rem, 90vw);
-  max-height: 20rem;
   overflow-y: auto;
   margin: 0;
   padding: 0.375rem;
@@ -190,16 +243,6 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocumentClick));
   border: 1px solid var(--border-default-grey);
   border-radius: 0.75rem;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
-}
-
-.model-picker__menu--right {
-  left: auto;
-  right: 0;
-}
-
-.model-picker__menu--block {
-  right: 0;
-  max-width: none;
 }
 
 .model-picker__option {
