@@ -26,6 +26,7 @@ from app.models.dossier import (
     SuggestionStatus,
 )
 from app.models.dossier_note import DossierNote
+from app.models.question_answer import DossierQuestionAnswer, QuestionAnswerStatus
 from app.models.search_index import DossierSearchIndex, IndexRebuild, IndexRebuildStatus, SearchIndexStatus
 from app.models.summary import SummaryStatus
 from app.repositories.document_draft_repository import GENERATION_FAILED, GENERATION_RUNNING
@@ -34,6 +35,10 @@ from app.repositories.dossier_note_repository import NOTE_ANALYSIS_FAILED, NOTE_
 logger = logging.getLogger(__name__)
 
 _INTERRUPTED = "Le calcul a été interrompu : le serveur qui l'exécutait s'est arrêté."
+
+
+def _question_answers_name(dossier_id: str) -> str:
+    return f"question-answers-{dossier_id}"
 
 
 def _agent_index_name(analyse_id: str) -> str:
@@ -151,6 +156,14 @@ def dispatch_dossier_pipeline(document_ids: list[str], dossier_id: str) -> None:
     (chaîne Celery), et les agents, qui attendent la fin de ces deux étapes."""
     celery_client.dispatch_dossier_pipeline(document_ids, dossier_id)
     dispatch_agent_execution(dossier_id)
+
+
+def dispatch_question_answers(dossier_id: str, full: bool = True) -> None:
+    """Calcule les réponses aux questions fréquentes de l'analyse pour ce dossier (issue #422). `full` : fin d'une
+    analyse (la liste de l'analyse fait foi) ; sinon une correction, qui ne rafraîchit que les réponses existantes."""
+    from app.agent.jobs.question_answers import answer_questions
+
+    agent_runner.start(_question_answers_name(dossier_id), partial(answer_questions, dossier_id, full))
 
 
 def dispatch_index_agents(analyse_id: str) -> None:
@@ -301,6 +314,25 @@ async def _fail_stale_agents(is_alive: IsAlive) -> None:
                 await complete_step(db, step_id, ExecutionStepStatus.ECHEC, _INTERRUPTED)
 
 
+async def _fail_stale_question_answers(is_alive: IsAlive) -> None:
+    async with async_session_factory() as db:
+        rows = (
+            (
+                await db.execute(
+                    select(DossierQuestionAnswer).where(DossierQuestionAnswer.status == QuestionAnswerStatus.EN_COURS)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        for row in rows:
+            if not await is_alive(_question_answers_name(str(row.dossier_id))):
+                row.status = QuestionAnswerStatus.ECHEC
+                row.error = _INTERRUPTED
+                row.fingerprint = ""
+        await db.commit()
+
+
 async def _sync_agent_indexes(is_alive: IsAlive) -> None:
     """Au démarrage, les agents créés avant l'index (ou pendant une panne) sont indexés ; à jour, cela ne coûte rien."""
     from app.services.search import agent_index
@@ -315,6 +347,7 @@ async def _sync_agent_indexes(is_alive: IsAlive) -> None:
 
 for _sweep in (
     _sync_agent_indexes,
+    _fail_stale_question_answers,
     _fail_stale_agents,
     _resume_stale_rebuilds,
     _fail_stale_indexing,

@@ -84,6 +84,7 @@ from .generation_prompt import GenerationPromptVersion
 from .knowledge_source import KnowledgeSource
 from .message_external_source import MessageExternalSource
 from .notification import Notification, NotificationCursor
+from .question_answer import DossierQuestionAnswer, QuestionAnswerStatus
 from .report import Report, ReportStatus, ReportType
 from .search_index import (
     ACTIVE_REBUILD_STATUSES,
@@ -101,6 +102,8 @@ from .work_slot import WorkSlot
 
 __all__ = [
     "DocumentDraft",
+    "DossierQuestionAnswer",
+    "QuestionAnswerStatus",
     "DocumentFieldEvent",
     "DocumentFieldVersion",
     "DocumentTemplate",

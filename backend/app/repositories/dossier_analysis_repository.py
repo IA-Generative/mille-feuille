@@ -9,6 +9,7 @@ Règles portées ici :
   « dernière version du modèle », cf. #119).
 """
 
+import logging
 import uuid
 from datetime import datetime
 from typing import Any
@@ -36,6 +37,8 @@ from app.schemas.dossier_analysis import (
     RelationValue,
     validate_element_value,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class DossierAnalysisRepository:
@@ -393,7 +396,21 @@ class DossierAnalysisRepository:
                 element.review_reason = None
                 await self._flag_stale_syntheses(element)
         await self._finish(commit)
+        if origin == ElementVersionOrigin.INSTRUCTOR:
+            await self._refresh_question_answers(element)
         return version
+
+    async def _refresh_question_answers(self, element: AnalysisElement) -> None:
+        """Une correction de l'instructeur change ce que les réponses prêtes ont lu : on les rafraîchit (celles qui
+        existent, pas de nouvelle question avant la relance). N'empêche jamais la correction."""
+        from app.agent.dispatch import dispatch_question_answers
+
+        try:
+            analysis = await self.db.get(DossierAnalysis, element.analysis_id)
+            if analysis is not None:
+                dispatch_question_answers(str(analysis.dossier_id), full=False)
+        except Exception:
+            logger.warning("Réponses prêtes non rafraîchies après la correction de %s", element.id, exc_info=True)
 
     async def restore_version(
         self,
