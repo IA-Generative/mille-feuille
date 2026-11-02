@@ -134,8 +134,10 @@ class AnalyseRepository:
         result = await self.db.execute(self._base_query().where(Analyse.id == analyse_id))
         return result.scalar_one_or_none()
 
-    async def create(self, *, name: str, description: str, multi_label: bool = False) -> Analyse:
-        analyse = Analyse(name=name, description=description, multi_label=multi_label)
+    async def create(
+        self, *, name: str, description: str, multi_label: bool = False, created_by: str | None = None
+    ) -> Analyse:
+        analyse = Analyse(name=name, description=description, multi_label=multi_label, created_by=created_by)
         analyse.statuses = [
             StatusDefinition(name=status_name, color=color, position=position, is_initial=initial, is_final=final)
             for position, (status_name, color, initial, final) in enumerate(DEFAULT_STATUSES)
@@ -605,6 +607,23 @@ class AnalyseRepository:
     def ocr_settings_version(self, analyse: Analyse, version_id: uuid.UUID):
         return next((v for v in self.field_versions(analyse, VersionedField.OCR_SETTINGS) if v.id == version_id), None)
 
+    # --- Nom et description ---
+
+    async def update_identity(self, analyse: Analyse, *, name: str, description: str) -> None:
+        """Remplace le nom et la description ; l'ancienne valeur de chacun de ceux qui changent est conservée dans
+        l'historique (restaurable). Rien ne change : pas de version inutile."""
+        if name != analyse.name:
+            self._record_version(analyse, VersionedField.NAME, analyse.name)
+            analyse.name = name
+        if description != analyse.description:
+            self._record_version(analyse, VersionedField.DESCRIPTION, analyse.description)
+            analyse.description = description
+        await self.db.commit()
+        await self.db.refresh(analyse)
+
+    def identity_version(self, analyse: Analyse, field: VersionedField, version_id: uuid.UUID):
+        return next((v for v in self.field_versions(analyse, field) if v.id == version_id), None)
+
     # --- Questions fréquentes ---
 
     async def update_frequent_questions(self, analyse: Analyse, questions: list[str]) -> None:
@@ -696,8 +715,9 @@ class AnalyseRepository:
 
     def get_version_label(self, analyse: Analyse) -> str:
         """v1 at the start, +1 per saved change - every FieldVersion row,
-        prompt/labels/entities/agents alike, counts once."""
-        return f"v{len(analyse.field_versions) + 1}"
+        prompt/labels/entities/agents alike, counts once. Renaming the analyse does not count: it changes nothing of
+        how a dossier is processed (the description does, it is the agents' global instruction)."""
+        return f"v{len([v for v in analyse.field_versions if v.field != VersionedField.NAME]) + 1}"
 
     # --- Serialization: the ORM shape (flat field_versions) doesn't match the
     # API's nested shape (promptVersions/labelsVersions per field), so it's
@@ -787,6 +807,15 @@ class AnalyseRepository:
             id=analyse.id,
             name=analyse.name,
             description=analyse.description,
+            created_by=analyse.created_by,
+            name_versions=[
+                Version(id=v.id, content=v.content, created_at=v.created_at)
+                for v in self.field_versions(analyse, VersionedField.NAME)
+            ],
+            description_versions=[
+                Version(id=v.id, content=v.content, created_at=v.created_at)
+                for v in self.field_versions(analyse, VersionedField.DESCRIPTION)
+            ],
             created_at=analyse.created_at,
             version=self.get_version_label(analyse),
             classification=classification,

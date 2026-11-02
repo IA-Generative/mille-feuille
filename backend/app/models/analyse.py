@@ -60,6 +60,9 @@ class VersionedField(enum.StrEnum):
     OCR_SETTINGS = "ocr_settings"
     # Questions fréquentes de l'analyse (liste de textes) : chaque dossier en reçoit la réponse (#418).
     FREQUENT_QUESTIONS = "frequent_questions"
+    # Nom et description de l'analyse : leur ancienne valeur est gardée à chaque modification.
+    NAME = "name"
+    DESCRIPTION = "description"
 
 
 class Analyse(UUIDMixin, TimestampMixin, Base):
@@ -67,6 +70,10 @@ class Analyse(UUIDMixin, TimestampMixin, Base):
 
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # Qui a créé l'analyse (sub Keycloak) : elle seule, avec les administrateurs, peut la modifier ou la supprimer.
+    # NULL pour les analyses créées sans session utilisateur (clé d'API, jeton d'application) et celles d'avant cette
+    # colonne : seuls les administrateurs les gèrent.
+    created_by: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Classification et extraction sont des analyses simples (un prompt
     # appliqué systématiquement, pas un agent) : un seul jeu de labels/

@@ -1,7 +1,9 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import KeycloakSettings, SharingSettings
@@ -15,6 +17,7 @@ from app.models.analyse import (
     VersionedField,
 )
 from app.models.analyse_share import AnalyseShareKind
+from app.models.dossier import Dossier
 from app.repositories.analyse_repository import AnalyseRepository, StatusInUseError, StatusValidationError
 from app.repositories.document_source_repository import DocumentSourceRepository, SourceNameTakenError
 from app.schemas.analyse import (
@@ -25,6 +28,7 @@ from app.schemas.analyse import (
     AnalyseOut,
     AnalyseShareCreate,
     AnalyseShareOut,
+    AnalyseUpdate,
     CustomFieldOut,
     CustomFieldsUpdate,
     DueSettingsIn,
@@ -58,6 +62,17 @@ async def _get_or_404(repository: AnalyseRepository, analyse_id: uuid.UUID) -> A
     if analyse is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analyse introuvable")
     return analyse
+
+
+def _require_can_manage(analyse: Analyse, user: RequestContext) -> None:
+    """Modifier le nom et la description, restaurer une version, supprimer : le créateur de l'analyse et les
+    administrateurs. Une analyse sans créateur connu n'est gérée que par les administrateurs."""
+    if user.is_admin or (analyse.created_by is not None and analyse.created_by == user.user_id):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Seuls le créateur de l'analyse et les administrateurs peuvent la modifier ou la supprimer.",
+    )
 
 
 async def _validated_tools(
@@ -103,6 +118,7 @@ async def list_analyses(
             id=a.id,
             name=a.name,
             description=a.description,
+            created_by=a.created_by,
             created_at=a.created_at,
             agent_count=len(a.agents),
             statuses=[StatusDefinitionOut.model_validate(s) for s in a.statuses],
@@ -113,9 +129,13 @@ async def list_analyses(
 
 
 @router.post("", response_model=AnalyseOut, status_code=status.HTTP_201_CREATED)
-async def create_analyse(body: AnalyseCreate, db: Annotated[AsyncSession, Depends(get_db)]) -> AnalyseOut:
+async def create_analyse(
+    body: AnalyseCreate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> AnalyseOut:
     repository = AnalyseRepository(db)
-    analyse = await repository.create(name=body.name, description=body.description)
+    analyse = await repository.create(name=body.name, description=body.description, created_by=user.user_id or None)
     analyse = await _get_or_404(repository, analyse.id)
     return repository.to_schema(analyse)
 
@@ -125,6 +145,90 @@ async def get_analyse(analyse_id: uuid.UUID, db: Annotated[AsyncSession, Depends
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
     return repository.to_schema(analyse)
+
+
+@router.put("/{analyse_id}", response_model=AnalyseOut)
+async def update_analyse(
+    analyse_id: uuid.UUID,
+    body: AnalyseUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> AnalyseOut:
+    """Remplace le nom et la description (le créateur et les administrateurs). Ce qui change est conservé dans
+    l'historique (restaurable). La description sert d'instruction aux agents : elle compte comme une nouvelle version
+    de l'analyse, pas le nom."""
+    repository = AnalyseRepository(db)
+    analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(analyse, user)
+    await repository.update_identity(analyse, name=body.name, description=body.description)
+    return repository.to_schema(analyse)
+
+
+async def _restore_identity(
+    analyse_id: uuid.UUID, field: VersionedField, version_id: uuid.UUID, db: AsyncSession, user: RequestContext
+) -> AnalyseOut:
+    repository = AnalyseRepository(db)
+    analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(analyse, user)
+    version = repository.identity_version(analyse, field, version_id)
+    if version is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version introuvable")
+    restored = str(version.content)
+    await repository.update_identity(
+        analyse,
+        name=restored if field is VersionedField.NAME else analyse.name,
+        description=restored if field is VersionedField.DESCRIPTION else analyse.description,
+    )
+    return repository.to_schema(analyse)
+
+
+@router.post("/{analyse_id}/name/restore/{version_id}", response_model=AnalyseOut)
+async def restore_name_version(
+    analyse_id: uuid.UUID,
+    version_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> AnalyseOut:
+    """Restaure un ancien nom ; le nom courant devient lui-même une version."""
+    return await _restore_identity(analyse_id, VersionedField.NAME, version_id, db, user)
+
+
+@router.post("/{analyse_id}/description/restore/{version_id}", response_model=AnalyseOut)
+async def restore_description_version(
+    analyse_id: uuid.UUID,
+    version_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> AnalyseOut:
+    """Restaure une ancienne description ; la description courante devient elle-même une version."""
+    return await _restore_identity(analyse_id, VersionedField.DESCRIPTION, version_id, db, user)
+
+
+@router.delete("/{analyse_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_analyse(
+    analyse_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> Response:
+    """Supprime l'analyse avec son contenu (agents, labels, statuts, historique, partages, modèles de document).
+    Refusée (409) tant qu'elle a des dossiers : on ne perd jamais un dossier par ce chemin."""
+    repository = AnalyseRepository(db)
+    analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(analyse, user)
+    dossier_count = await db.scalar(select(func.count()).select_from(Dossier).where(Dossier.analyse_id == analyse_id))
+    if dossier_count:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Cette analyse a encore {dossier_count} dossier(s) : elle ne peut pas être supprimée.",
+        )
+    try:
+        await repository.delete(analyse)
+    except IntegrityError as error:  # un dossier créé entre le comptage et la suppression
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Des dossiers référencent encore cette analyse."
+        ) from error
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{analyse_id}/sources", response_model=list[DocumentSourceOut])
