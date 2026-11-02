@@ -131,7 +131,7 @@ async function onSuggestAnalyse() {
 // Source citée par l'assistant, ouverte dans une modale (page + passage surligné).
 const viewedSource = ref<ChatWindowSource | null>(null);
 
-// Une phrase placée dans la zone de saisie du chat (adresser sa question à un agent) : on la vide aussitôt pour que
+// Un texte placé dans la zone de saisie du chat (la mention d'un agent, @Nom) : on la vide aussitôt pour que
 // choisir deux fois le même agent la replace.
 const chatPrefill = ref("");
 function onPickAgent(text: string) {

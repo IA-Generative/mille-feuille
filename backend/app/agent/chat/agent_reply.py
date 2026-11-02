@@ -6,6 +6,7 @@ a déjà produite sur ce dossier. Tout ce qui le concerne (outils, accès à l'a
 `analysis_agents.py`, commun à l'exécution de l'analyse."""
 
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -44,6 +45,18 @@ async def shortlist(analyse_id: str | None, question: str, agents: list[Analysis
     by_id = {agent.id: agent for agent in agents}
     found = [by_id[agent_id] for agent_id in ranked if agent_id in by_id]
     return found or agents
+
+
+def mentioned(question: str, agents: list[AnalysisAgent]) -> tuple[AnalysisAgent, str] | None:
+    """L'agent que la personne a nommé avec `@Nom` (sans tenir compte de la casse), et sa question sans la mention. Une
+    mention appelle l'agent à coup sûr : le plan n'a pas à le choisir. Le nom le plus long l'emporte (« @Agent 10 » n'est
+    pas « @Agent 1 »), et un `@` collé à un mot (une adresse de courriel) n'est pas une mention."""
+    for agent in sorted(agents, key=lambda candidate: len(candidate.name), reverse=True):
+        found = re.search(rf"(?<!\w)@{re.escape(agent.name)}(?!\w)", question, flags=re.IGNORECASE)
+        if found:
+            rest = " ".join(f"{question[: found.start()]} {question[found.end() :]}".split())
+            return agent, rest or question
+    return None
 
 
 def agents_for_plan(agents: list[AnalysisAgent]) -> list[dict]:
