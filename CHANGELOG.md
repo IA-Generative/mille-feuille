@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.39.0](https://github.com/IA-Generative/mille-feuille/compare/v0.38.0...v0.39.0) (2026-11-02)
+
+
+### Features
+
+* **chat:** bouton de détail de l'exécution à côté des pouces ([1a84482](https://github.com/IA-Generative/mille-feuille/commit/1a844821db043800d05736b0b4f1af279160a3dc))
+* **chat:** détail de l'exécution gardé avec chaque réponse de l'assistant ([cb85c01](https://github.com/IA-Generative/mille-feuille/commit/cb85c01b026c76bae646b3fe5344f06c01075661))
+
 ## [0.38.0](https://github.com/IA-Generative/mille-feuille/compare/v0.37.1...v0.38.0) (2026-11-02)
 
 
