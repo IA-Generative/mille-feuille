@@ -19,13 +19,11 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.dispatch import dispatch_analyse_suggestion, dispatch_document_summary, dispatch_dossier_summary
 from app.celery_client import (
     dispatch_agent_execution,
-    dispatch_analyse_suggestion,
     dispatch_chat_response,
     dispatch_classification,
-    dispatch_document_summary,
-    dispatch_dossier_summary,
     dispatch_entity_extraction,
     dispatch_text_extraction,
 )

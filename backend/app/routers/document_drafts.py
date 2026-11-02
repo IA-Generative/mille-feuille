@@ -14,10 +14,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent.dispatch import dispatch_document_generation
 from app.celery_client import (
     RenderFailedError,
     RenderWorkerUnavailableError,
-    dispatch_document_generation,
     render_preview,
 )
 from app.connectors import s3_connector

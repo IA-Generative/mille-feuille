@@ -28,9 +28,6 @@ from app.schemas.analysis_proposal import InternalProposalCreateIn, ProposalOut
 from app.schemas.document_draft import (
     FieldVersionOut,
     InternalDraftContextOut,
-    InternalDraftNoteOut,
-    InternalElementOut,
-    InternalFieldOut,
     InternalGenerationIn,
     InternalProposeIn,
 )
@@ -80,8 +77,9 @@ from app.schemas.dossier_analysis import (
 )
 from app.schemas.dossier_note import InternalNoteAnalysisIn, InternalNoteCreateIn, InternalNoteOut
 from app.schemas.user_task import UserTaskOut, UserTaskUpdateIn
-from app.services import analysis_builder, analysis_carryover, generation_prompt
-from app.services.document_fields import FieldValueError, load_revision_elements
+from app.services import analysis_builder, analysis_carryover
+from app.services.document_fields import FieldValueError
+from app.services.draft_generation_context import build_draft_context
 from app.services.ephemeral_run_service import finalize_run
 from app.services.tools.conversation_tools import tool_ids_for_chat
 from app.services.user_task_service import update_task
@@ -689,64 +687,8 @@ async def _draft_or_404(db: AsyncSession, draft_id: uuid.UUID):
 async def get_draft_generation_context(draft_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
     """Ce qu'il faut au worker pour générer : champs et états courants, éléments de la **révision figée** du
     brouillon, notes internes non archivées, métadonnées du dossier et prompt en vigueur."""
-    repository = DocumentDraftRepository(db)
     draft = await _draft_or_404(db, draft_id)
-    template_version = await repository.template_version(draft)
-    current = await repository.current_versions(draft.id)
-    dossier = await DossierRepository(db).get(draft.dossier_id)
-    prompt_number, prompt = await generation_prompt.current(db)
-    notes = await DossierNoteRepository(db).list(draft.dossier_id)
-
-    def day(moment) -> str | None:
-        return moment.date().isoformat() if moment else None
-
-    return InternalDraftContextOut(
-        draft_id=draft.id,
-        dossier_id=draft.dossier_id,
-        status=draft.status,
-        requested_by=draft.generation_requested_by,
-        template_name=template_version.name,
-        generation_instructions=template_version.generation_instructions,
-        fields=[
-            InternalFieldOut(
-                name=d.name,
-                label=d.label,
-                type=d.type,
-                required=d.required,
-                instruction=d.instruction,
-                source=d.source.model_dump(),
-                status=current[d.name].status,
-                value=current[d.name].value,
-                origin=current[d.name].origin,
-            )
-            for d in template_definitions(template_version)
-        ],
-        elements=[
-            InternalElementOut(
-                id=e.element.id,
-                version_id=e.version.id,
-                kind=e.element.kind,
-                name=e.element.definition_name,
-                text=e.text,
-                page=e.element.first_page_number,
-                document_id=e.element.document_id,
-            )
-            for e in await load_revision_elements(db, draft.revision_id)
-        ],
-        notes=[
-            InternalDraftNoteOut(id=n.id, version_number=n.current.version_number, content=n.current.content)
-            for n in notes
-        ],
-        metadata={
-            "dossier_name": dossier.name if dossier else None,
-            "dossier_created_at": day(dossier.created_at) if dossier else None,
-            "dossier_started_at": day(dossier.started_at) if dossier else None,
-            "dossier_ended_at": day(dossier.ended_at) if dossier else None,
-        },
-        prompt_version_number=prompt_number,
-        prompt_label=generation_prompt.version_label(prompt_number),
-        prompt=prompt,
-    )
+    return await build_draft_context(db, draft)
 
 
 @router.post("/document-drafts/{draft_id}/fields/{name}/propose", response_model=FieldVersionOut)
