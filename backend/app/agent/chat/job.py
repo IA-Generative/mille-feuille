@@ -25,7 +25,7 @@ from app.agent.chat import history as chat_history
 from app.agent.chat.answer import stream_answer
 from app.agent.chat.events import ChatEvents
 from app.agent.chat.planner import Plan, make_plan
-from app.agent.chat.prompts import answer_prompt, assistant_suggestion_marker, build_system_prompt
+from app.agent.chat.prompts import agent_marker, answer_prompt, assistant_suggestion_marker, build_system_prompt
 from app.agent.chat.research import research
 from app.agent.documents import load_dossier
 from app.agent.knowledge_tools import TOOL_ID as KNOWLEDGE_TOOL_ID
@@ -225,6 +225,7 @@ async def _respond(
             knowledge=await _knowledge_context(dossier.get("analyse_id"), agent.tools),
             model=model,
         )
+        answer += agent_marker(agent.name)
     elif plan.mode == "search":
         answer = await _answer_from_search(
             plan=plan,

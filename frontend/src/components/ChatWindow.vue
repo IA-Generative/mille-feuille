@@ -44,7 +44,7 @@ import type { ExternalSource } from "@/types/knowledge";
 // Ajout de l'util et du component pour le tool_call / tool_result
 import { computed } from "vue";
 import ToolSteps from "@/components/ToolSteps.vue";
-import { parseAssistantSuggestion } from "@/utils/assistantSuggestion";
+import { parseAssistantSuggestion, parseMessageMarkers } from "@/utils/assistantSuggestion";
 import { linkCitations } from "@/utils/chatSources";
 import { groupToolEvents } from "@/utils/groupToolEvents";
 
@@ -133,6 +133,14 @@ function onTextClick(event: MouseEvent, message: ChatWindowMessage) {
 }
 
 const toolSteps = computed(() => groupToolEvents(props.streamEvents));
+
+// L'agent de l'analyse qui répond : son nom accompagne la réponse affichée, et les étapes en cours quand il travaille.
+const agentOf = (message: ChatWindowMessage) =>
+  message.role === "assistant" ? parseMessageMarkers(message.content).agent : null;
+const workingAgent = computed(() => {
+  const named = props.streamEvents.find((event) => typeof event.data?.agent === "string");
+  return named ? (named.data.agent as string) : null;
+});
 
 const emit = defineEmits<{
   submit: [content: string];
@@ -315,6 +323,10 @@ defineExpose({ resizeTextarea });
           :class="{ 'chat-message--assistant': message.role === 'assistant' }"
         >
           <div class="chat-message__bubble">
+            <p v-if="agentOf(message)" class="chat-message__agent">
+              <VIcon name="ri-robot-2-line" aria-hidden="true" />
+              <span>Réponse de l'agent {{ agentOf(message) }}</span>
+            </p>
             <MarkdownText
               :content="textOf(message)"
               class="chat-message__text"
@@ -379,11 +391,15 @@ defineExpose({ resizeTextarea });
             </div>
           </div> -->
           <div class="chat-message__bubble">
+            <p v-if="workingAgent" class="chat-message__agent">
+              <VIcon name="ri-robot-2-line" aria-hidden="true" />
+              <span>Agent {{ workingAgent }}</span>
+            </p>
             <ToolSteps :steps="toolSteps" />
             <MarkdownText v-if="streamText" :content="streamText" class="chat-message__text" />
             <div v-else-if="toolSteps.length === 0" class="chat-message__event chat-message__event--pending">
               <VIcon name="ri-loader-4-line" class="spin" />
-              <span>Réflexion en cours…</span>
+              <span>{{ workingAgent ? `L'agent ${workingAgent} réfléchit…` : "Réflexion en cours…" }}</span>
             </div>
           </div>
         </div>
@@ -606,6 +622,15 @@ defineExpose({ resizeTextarea });
 }
 
 /* Sources citées par l'assistant (bloc repliable) */
+.chat-message__agent {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--text-mention-grey);
+}
+
 .chat-message__sources {
   margin-top: 0.5rem;
   padding-top: 0.5rem;

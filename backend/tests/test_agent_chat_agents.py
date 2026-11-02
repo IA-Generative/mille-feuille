@@ -66,7 +66,9 @@ def test_the_plan_can_hand_the_question_to_an_agent_which_answers_with_its_promp
     # L'agent répond lui-même : pas d'appel de réponse en streaming.
     assert llm.stream_requests == []
     [*_, reply] = messages(client, ids)
-    assert reply["role"] == "assistant" and reply["content"] == "La clause prévoit un préavis de trois mois."
+    # Le nom de l'agent suit la réponse, en marqueur invisible que le frontend montre en étiquette.
+    assert reply["role"] == "assistant"
+    assert reply["content"] == "La clause prévoit un préavis de trois mois.\n\n<!--agent:Juriste-->"
     kinds = events(client, ids)
     assert ("thinking", {"agent": "Juriste"}) in kinds and kinds[-1][0] == "done"
 
@@ -125,3 +127,11 @@ def test_the_prompt_of_an_agent_carries_its_synthesis() -> None:
     assert "Bail de trois ans." in conversation_prompt(agent, synthesis, [])
     other = {"execution_steps": [{"kind": "agent", "label": "Comptable", "output": "Autre."}]}
     assert synthesis_of(other, agent) is None
+
+
+def test_the_agent_marker_encodes_the_name_without_breaking_the_html_comment() -> None:
+    from app.agent.chat.prompts import agent_marker
+
+    assert agent_marker("Juriste") == "\n\n<!--agent:Juriste-->"
+    marker = agent_marker("Agent -- n°2 > fin")
+    assert "--" not in marker.removeprefix("\n\n<!--").removesuffix("-->") and ">" not in marker[:-3]
