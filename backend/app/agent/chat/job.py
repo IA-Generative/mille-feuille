@@ -15,7 +15,7 @@ import logging
 import uuid
 from typing import Any
 
-from app.agent import usage
+from app.agent import model_output, usage
 from app.agent.agent_tool_set import ExtraTools, build_extra_tools
 from app.agent.analysis_agents import load_agents
 from app.agent.analysis_reader import AnalysisReader
@@ -145,7 +145,9 @@ async def _answer_from_search(
     if evidence.empty:
         return None
     system = answer_prompt(evidence=evidence.text, overview=_overview(tools), syntheses=syntheses, notes=notes or None)
-    return await stream_answer(model=model, system=system, messages=_answer_messages(history), events=events)
+    answer = await stream_answer(model=model, system=system, messages=_answer_messages(history), events=events)
+    # Rien n'a été écrit : le chat se replie sur les outils plutôt que de déposer des sources sans réponse.
+    return answer if answer.strip() else None
 
 
 async def _respond(
@@ -247,6 +249,9 @@ async def _respond(
     if answer is None:
         answer = await with_tools()
 
+    if not answer.strip():
+        logger.warning("Chat: réponse vide, repli sur le message d'excuse")
+        answer = model_output.FALLBACK_ANSWER
     assistant_question = tools.assistant_question()
     if assistant_question:
         answer += assistant_suggestion_marker(assistant_question)

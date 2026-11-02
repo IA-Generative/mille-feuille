@@ -7,7 +7,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.agent import llm
+from app.agent import llm, model_output
 from app.agent.runner import settings
 
 logger = logging.getLogger(__name__)
@@ -48,11 +48,13 @@ async def run_agent(
         {"role": "system", "content": prompt},
         *(history if history is not None else [{"role": "user", "content": TASK}]),
     ]
+    retried = False
     for iteration in range(1, settings.AGENT_MAX_ITERATIONS + 1):
+        definitions = tools.tool_definitions()
         response = await llm.complete(
             model=model or settings.LLM_MODEL,
             messages=messages,
-            tools=tools.tool_definitions(),
+            tools=definitions,
             tool_choice="auto",
             parallel_tool_calls=False,
             temperature=0.2,
@@ -69,8 +71,24 @@ async def run_agent(
             for call in message.tool_calls or []
         ]
         if not calls:
-            logger.info("Agent terminé en %d itération(s) : %d caractères", iteration, len(content))
-            return content or NO_ANSWER
+            # Un appel d'outil écrit en texte est exécuté comme s'il avait été fait par l'API ; une réponse vide ou en
+            # JSON est redemandée une fois.
+            recovered = model_output.recovered_call(content, model_output.tool_names(definitions))
+            if recovered:
+                logger.warning("Agent : appel d'outil écrit en texte repris (%s)", recovered["function"]["name"])
+                calls, content = [recovered], ""
+            elif model_output.unusable(content) and not retried:
+                logger.warning(
+                    "Agent : réponse inexploitable du modèle (%d caractères), nouvelle demande", len(content)
+                )
+                retried = True
+                if content.strip():
+                    messages.append({"role": "assistant", "content": content})
+                messages.append({"role": "user", "content": model_output.RETRY_NOTICE})
+                continue
+            else:
+                logger.info("Agent terminé en %d itération(s) : %d caractères", iteration, len(content))
+                return content if not model_output.unusable(content) else NO_ANSWER
         messages.append({"role": "assistant", "content": content, "tool_calls": calls})
         for call in calls:
             name, arguments = call["function"]["name"], _arguments_of(call)

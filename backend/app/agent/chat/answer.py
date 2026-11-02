@@ -1,7 +1,7 @@
 """Le second appel du chat : écrire la réponse à partir des passages trouvés, en streaming (chaque morceau part vers le
 navigateur dès qu'il est écrit)."""
 
-from app.agent import llm, usage
+from app.agent import llm, model_output, usage
 from app.agent.chat.events import ChatEvents
 from app.agent.runner import settings
 
@@ -15,7 +15,8 @@ async def stream_answer(*, model: str | None, system: str, messages: list[dict],
         temperature=0.2,
         max_tokens=2000,
     )
-    parts: list[str] = []
+    written = ""  # tout ce que le modèle a écrit
+    shown = ""  # ce que le navigateur en a reçu : jamais du JSON, seulement le texte de la réponse
     used = None
     served_by = model
     async for chunk in stream:
@@ -23,9 +24,17 @@ async def stream_answer(*, model: str | None, system: str, messages: list[dict],
         if chunk.usage:
             used = chunk.usage
         if chunk.choices and chunk.choices[0].delta.content:
-            text = chunk.choices[0].delta.content
-            parts.append(text)
-            await events.delta(text)
+            written += chunk.choices[0].delta.content
+            visible = model_output.visible_answer(written)
+            if visible != shown and visible.startswith(shown):
+                await events.delta(visible[len(shown) :])
+                shown = visible
     await events.flush()
     await usage.record(served_by, used)
-    return "".join(parts)
+    # Ce qui a été montré et ce qui est déposé sont le même texte ; vide (JSON sans réponse, rien écrit) quand il n'y a
+    # rien à montrer : l'appelant se replie alors sur les outils.
+    answer = model_output.final_answer(written)
+    if answer.startswith(shown) and len(answer) > len(shown):
+        await events.delta(answer[len(shown) :])
+        await events.flush()
+    return answer
