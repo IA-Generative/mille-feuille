@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.41.0](https://github.com/IA-Generative/mille-feuille/compare/v0.40.0...v0.41.0) (2026-11-03)
+
+
+### Features
+
+* **frontend:** adapt light/dark mode button to profil page ([16d483b](https://github.com/IA-Generative/mille-feuille/commit/16d483b7ccc4ef962c6518f19183267351423e15))
+* **frontend:** add light/dark mode button in Welcome Page ([adac05a](https://github.com/IA-Generative/mille-feuille/commit/adac05a3c7565cb092cdda34827fd2a2866efa44))
+* **frontend:** add pictos to light/dark mode button ([6797acd](https://github.com/IA-Generative/mille-feuille/commit/6797acd7521ca8b3e969b8400e7d19cd12dc3dc1))
+* **frontend:** adding Theme settings button configuration ([1ca86ae](https://github.com/IA-Generative/mille-feuille/commit/1ca86ae53c949d78cdd712b80f61efe173f48d3b))
+* **frontend:** configuring light and dark mode ([1f1564e](https://github.com/IA-Generative/mille-feuille/commit/1f1564e790cdfd1f563bafbbe514e715e93fd6ff))
+* **frontend:** create new component ThemeChoice ([f7f27da](https://github.com/IA-Generative/mille-feuille/commit/f7f27da79a58d1dbc441401fb6b1ee7e6ec88f46))
+
 ## [0.40.0](https://github.com/IA-Generative/mille-feuille/compare/v0.39.0...v0.40.0) (2026-11-03)
 
 
