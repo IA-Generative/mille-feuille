@@ -74,6 +74,8 @@ function submit() {
 }
 
 .vb__chip {
+  --hover: var(--background-alt-grey-hover);
+  --active: var(--background-alt-grey-active);
   padding: 0.25rem 0.875rem;
   border: none;
   border-radius: 1rem;
@@ -85,6 +87,8 @@ function submit() {
 }
 
 .vb__chip--on {
+  --hover: var(--background-action-high-blue-france-hover);
+  --active: var(--background-action-high-blue-france-active);
   background: var(--background-action-high-blue-france);
   color: var(--text-inverted-blue-france);
   font-weight: 600;
