@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.42.0](https://github.com/IA-Generative/mille-feuille/compare/v0.41.0...v0.42.0) (2026-11-03)
+
+
+### Features
+
+* **frontend:** create new footer but keeping old links ([fa4c29a](https://github.com/IA-Generative/mille-feuille/commit/fa4c29ad063971acddb5e1f48881905e92da5e97))
+* **frontend:** create new footer but keeping old links again ([5bb905d](https://github.com/IA-Generative/mille-feuille/commit/5bb905d22c92d12521bfa3cce8426e6104979051))
+
+
+### Bug Fixes
+
+* **frontend:** clean code to avoid bugs ([2176342](https://github.com/IA-Generative/mille-feuille/commit/217634234864b922be7b7f81963b23f4b8d903d5))
+* **ui:** make some buttons more visible when selected and hover ([ef9deb2](https://github.com/IA-Generative/mille-feuille/commit/ef9deb25ee27f5929f87db5451fc3b58712a5372))
+
 ## [0.41.0](https://github.com/IA-Generative/mille-feuille/compare/v0.40.0...v0.41.0) (2026-11-03)
 
 
