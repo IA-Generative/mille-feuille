@@ -3,24 +3,16 @@ import { onMounted, ref } from "vue";
 
 import { useAuth } from "@/composables/useAuth";
 import { useProfile } from "@/composables/useProfile";
-import { useTheme } from "@/composables/useTheme";
-import type { Theme } from "@/types/profile";
+import ThemeChoice from "@/components/ThemeChoice.vue";
 
 const { profile, userName } = useAuth();
 const { stats, loading, fetchStats } = useProfile();
-const { theme, setTheme } = useTheme();
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeStyle: "short" });
 function formatDate(iso: string | null) {
   if (!iso) return "—";
   return dateFormatter.format(new Date(iso));
 }
-
-const themeOptions: { label: string; value: Theme; icon: string }[] = [
-  { label: "Clair", value: "light", icon: "ri-sun-line" },
-  { label: "Sombre", value: "dark", icon: "ri-moon-line" },
-  { label: "Système", value: "system", icon: "ri-contrast-line" },
-];
 
 const statCards = ref<{ label: string; value: number; icon: string }[]>([]);
 
@@ -82,20 +74,7 @@ function initials(name: string): string {
           <p class="fr-text--sm fr-text--muted fr-mb-2w">
             Choisissez le thème de l'interface. Le thème « système » s'adapte automatiquement à vos préférences système.
           </p>
-          <div class="profile-page__theme-options">
-            <button
-              v-for="option in themeOptions"
-              :key="option.value"
-              type="button"
-              class="profile-page__theme-option"
-              :class="{ 'profile-page__theme-option--active': theme === option.value }"
-              :aria-pressed="theme === option.value"
-              @click="setTheme(option.value)"
-            >
-              <VIcon :name="option.icon" class="profile-page__theme-icon" />
-              <span>{{ option.label }}</span>
-            </button>
-          </div>
+          <ThemeChoice />
         </div>
       </div>
 
@@ -154,39 +133,6 @@ function initials(name: string): string {
   color: var(--text-title-grey, #161616);
   font-weight: 700;
   font-size: 1.5rem;
-}
-
-.profile-page__theme-options {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.profile-page__theme-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  border: 1px solid var(--border-default-grey, #ddd);
-  border-radius: 0.25rem;
-  background: var(--background-default-grey, #fff);
-  color: var(--text-title-grey, #161616);
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.profile-page__theme-option:hover {
-  border-color: var(--border-action-high-blue-france, #000091);
-}
-
-.profile-page__theme-option--active {
-  border-color: var(--border-action-high-blue-france, #000091);
-  background: var(--background-action-high-blue-france, #000091);
-  color: var(--text-inverted-blue-france, #fff);
-}
-
-.profile-page__theme-icon {
-  font-size: 1.25rem;
 }
 
 .profile-page__stat {
