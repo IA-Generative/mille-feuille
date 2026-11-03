@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.40.0](https://github.com/IA-Generative/mille-feuille/compare/v0.39.0...v0.40.0) (2026-11-03)
+
+
+### Features
+
+* **frontend:** improving landing page in Template and CSS ([5c40d5b](https://github.com/IA-Generative/mille-feuille/commit/5c40d5b429601a979b8f57a497f9990f5f74a50f))
+
 ## [0.39.0](https://github.com/IA-Generative/mille-feuille/compare/v0.38.0...v0.39.0) (2026-11-02)
 
 
