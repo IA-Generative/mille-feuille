@@ -596,7 +596,6 @@ const footerLinks = [
   margin: 0 0 2rem;
 }
 
-
 /* ── Cas d'usage ──────────────────────────────────────── */
 .welcome__usecase-grid {
   display: grid;
