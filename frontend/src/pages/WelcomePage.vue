@@ -130,6 +130,25 @@ const useCases = [
       "Analyse de dossiers de remboursement : lecture de ordonnances, factures et courriers médicaux avec extraction structurée.",
   },
 ];
+
+// Les liens du pied de page. `aria-label` indique l'ouverture dans un nouvel onglet (le composant
+// n'applique pas `title`). Le CGU est un fichier statique : une URL absolue est nécessaire.
+const footerLinks = [
+  {
+    label: "Conditions d'utilisation",
+    href: new URL("/cgu.md", window.location.origin).href,
+    target: "_blank",
+    rel: "noopener noreferrer",
+    "arial-label": "Conditions d'utilisation - nouvelle fenêtre",
+  },
+  {
+    label: "Code source",
+    href: "https://github.com/IA-Generative/mille-feuille",
+    target: "_blank",
+    rel: "noopener noreferrer",
+    "arial-label": "Code source - nouvelle fenêtre",
+  },
+]
 </script>
 
 <template>
@@ -273,7 +292,7 @@ const useCases = [
       </div>
     </section>
 
-    <footer class="welcome__footer">
+    <!-- <footer class="welcome__footer">
       <div class="fr-container welcome__footer-inner">
         <div class="welcome__footer-brand">
           <DsfrLogo small logo-text="MilleFeuille" />
@@ -284,7 +303,15 @@ const useCases = [
         </nav>
         <p class="welcome__footer-copy">© 2026 MilleFeuille — Instruction assistée des dossiers usagers</p>
       </div>
-    </footer>
+    </footer> -->
+    <DsfrFooter
+      logo-text="MilleFeuille"
+      desc-text="© 2026 MilleFeuille — Instruction assistée des dossiers usagers"
+      :mandatory-links="[]"
+      :after-mandatory-links="footerLinks"
+      licence-text=""
+    />
+
   </div>
 </template>
 
@@ -569,40 +596,6 @@ const useCases = [
   margin: 0 0 2rem;
 }
 
-/* ── Footer ───────────────────────────────────────────── */
-.welcome__footer {
-  padding: 2rem 0;
-  background: var(--background-default-grey);
-  border-top: 1px solid var(--border-default-grey);
-}
-
-.welcome__footer-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.welcome__footer-brand {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-weight: 600;
-  color: var(--text-title-grey);
-}
-
-.welcome__footer-links {
-  display: flex;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-}
-
-.welcome__footer-copy {
-  font-size: 0.8125rem;
-  color: var(--text-mention-grey);
-  margin: 0;
-}
 
 /* ── Cas d'usage ──────────────────────────────────────── */
 .welcome__usecase-grid {
