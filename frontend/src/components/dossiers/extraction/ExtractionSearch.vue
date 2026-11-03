@@ -96,8 +96,10 @@ const emit = defineEmits<{ toggle: [name: string]; goto: [index: number]; reset:
 }
 
 .extraction-search__page[aria-current="page"] {
+  --hover: var(--background-action-high-blue-france-hover);
+  --active: var(--background-action-high-blue-france-active);
   background: var(--background-action-high-blue-france);
   border-color: var(--background-action-high-blue-france);
-  color: #fff;
+  color: var(--text-inverted-blue-france);
 }
 </style>
