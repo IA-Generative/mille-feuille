@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, type ComponentPublicInstance } from "vue";
 import { useRouter } from "vue-router";
+import ThemeSettings from "@/components/ThemeSettings.vue";
 
 import { useAuth } from "@/composables/useAuth";
 
@@ -133,6 +134,11 @@ const useCases = [
 
 <template>
   <div class="welcome">
+    <div class="welcome__toolbar">
+      <div class="fr-container welcome__toolbar-inner">
+        <ThemeSettings />
+      </div>
+    </div>
     <!-- Hero -->
     <section class="welcome__hero">
       <div class="fr-container welcome__hero-inner">
@@ -286,6 +292,18 @@ const useCases = [
 .welcome {
   min-height: 100vh;
   background: var(--background-default-grey);
+}
+
+/* ── Barre d'outils ───────────────────────────────────── */
+.welcome__toolbar{
+  background: var(--background-default-grey);
+  border-bottom: 1px solid var(--border-default-grey);
+}
+
+.welcome__toolbar-inner {
+  display: flex;
+  justify-content: flex-end;
+  padding-block: 0.25rem;
 }
 
 /* ── Hero ─────────────────────────────────────────────── */
