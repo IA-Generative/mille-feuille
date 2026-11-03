@@ -12,9 +12,23 @@ const STORAGE_KEY = "mille-feuille-theme";
 const theme = ref<Theme>("system");
 let initialized = false;
 
-function applyThemeToDom(value: Theme) {
-  document.documentElement.dataset.frTheme = value;
+const darkQuery = window.matchMedia("(prefers-color-scheme: dark)")
+
+/** DSFR ne connaît que « light » et « dark » : « system » est résolu ici d'après l'appareil. */
+function resolveTheme(value: Theme): "light" | "dark" {
+  if (value === "system") return darkQuery.matches ? "dark" : "light";
+  return value
 }
+
+function applyThemeToDom(value: Theme) {
+  document.documentElement.dataset.frScheme = value; // choix de la personne (convention DSFR)
+  document.documentElement.dataset.frTheme = resolveTheme(value); // thème réellement appliqué
+}
+
+// Si l'appareil bascule (coucher du soleil, réglage système) alors que « Système » est choisi.
+darkQuery.addEventListener("change", () => {
+  if (theme.value === "system") applyThemeToDom("system");
+});
 
 /** Applique le thème au chargement de l'app, avant tout rendu, pour éviter
  *  le flash. Lit localStorage en premier (synchrone), puis tente de

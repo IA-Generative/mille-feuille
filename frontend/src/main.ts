@@ -1,4 +1,5 @@
 import "@gouvfr/dsfr/dist/dsfr.min.css";
+import "@gouvfr/dsfr/dist/utility/icons/icons-system/icons-system.min.css";
 import VueDsfr from "@gouvminint/vue-dsfr";
 import { createApp } from "vue";
 
