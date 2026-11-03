@@ -139,16 +139,16 @@ const footerLinks = [
     href: new URL("/cgu.md", window.location.origin).href,
     target: "_blank",
     rel: "noopener noreferrer",
-    "arial-label": "Conditions d'utilisation - nouvelle fenêtre",
+    "aria-label": "Conditions d'utilisation - nouvelle fenêtre",
   },
   {
     label: "Code source",
     href: "https://github.com/IA-Generative/mille-feuille",
     target: "_blank",
     rel: "noopener noreferrer",
-    "arial-label": "Code source - nouvelle fenêtre",
+    "aria-label": "Code source - nouvelle fenêtre",
   },
-]
+];
 </script>
 
 <template>
@@ -292,18 +292,6 @@ const footerLinks = [
       </div>
     </section>
 
-    <!-- <footer class="welcome__footer">
-      <div class="fr-container welcome__footer-inner">
-        <div class="welcome__footer-brand">
-          <DsfrLogo small logo-text="MilleFeuille" />
-        </div>
-        <nav class="welcome__footer-links">
-          <a href="/cgu.md" target="_blank" class="fr-link">Conditions d'utilisation</a>
-          <a href="https://github.com/IA-Generative/mille-feuille" target="_blank" rel="noopener" class="fr-link">Code source</a>
-        </nav>
-        <p class="welcome__footer-copy">© 2026 MilleFeuille — Instruction assistée des dossiers usagers</p>
-      </div>
-    </footer> -->
     <DsfrFooter
       logo-text="MilleFeuille"
       desc-text="© 2026 MilleFeuille — Instruction assistée des dossiers usagers"
@@ -311,7 +299,6 @@ const footerLinks = [
       :after-mandatory-links="footerLinks"
       licence-text=""
     />
-
   </div>
 </template>
 
