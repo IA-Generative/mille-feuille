@@ -200,20 +200,18 @@ const useCases = [
         <p class="welcome__section-subtitle">
           Quatre étapes, de l'import du document à l'export du dossier validé.
         </p>
-        <div class="welcome__step-grid">
-          <div
-            v-for="step in steps"
-            :key="step.num"
-            class="welcome__step"
-          >
-            <div class="welcome__step-header">
+        <ol class="fr-raw-list welcome__steps" role="list">
+          <li v-for="step in steps" :key="step.num" class="welcome__step">
+            <div class="welcome__step-visual" aria-hidden="true">
+              <span class="welcome__step-tile">
+                <VIcon :name="step.icon" class="welcome__step-icon" />
+              </span>
               <span class="welcome__step-num">{{ step.num }}</span>
-              <VIcon :name="step.icon" class="welcome__step-icon" />
             </div>
             <h3 class="welcome__step-title">{{ step.title }}</h3>
             <p class="welcome__step-desc">{{ step.description }}</p>
-          </div>
-        </div>
+          </li>
+        </ol>
       </div>
     </section>
 
@@ -420,40 +418,95 @@ const useCases = [
   margin: 0;
 }
 
+/* Alternance : les cartes paires ont un fond bleu pâle. La tuile devient blanche pour rester
+   distincte du fond, et l'icône garde sa couleur de base (bleu foncé). */
+.welcome__feature-card:nth-child(even) {
+  background: var(--background-alt-blue-france);
+  border-color: var(--border-action-low-blue-france);
+}
+
+.welcome__feature-card:nth-child(even):hover {
+  border-color: var(--border-action-high-blue-france);
+}
+
+.welcome__feature-card:nth-child(even) .welcome__feature-icon-wrapper {
+  background: var(--background-default-grey);
+}
+
+.welcome__feature-card:nth-child(even) .welcome__feature-desc {
+  color: var(--text-default-grey);
+}
+
 /* ── Étapes ───────────────────────────────────────────── */
-.welcome__step-grid {
+.welcome__steps {
+  --step-gap: 2rem;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: 2rem;
+  grid-template-columns: 1fr;
+  gap: var(--step-gap);
 }
 
 .welcome__step {
+  position: relative;
   text-align: center;
 }
 
-.welcome__step-header {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+.welcome__step-visual {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 1.25rem;
 }
 
-.welcome__step-num {
-  display: inline-flex;
+.welcome__step-tile {
+  display: flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 50%;
-  background: var(--background-action-high-blue-france);
-  color: var(--text-inverted-blue-france);
-  font-size: 1rem;
-  font-weight: 700;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 1rem;
+  background: var(--background-action-low-blue-france);
 }
 
 .welcome__step-icon {
-  font-size: 1.5rem;
+  font-size: 2rem;
   color: var(--text-action-high-blue-france);
+}
+
+/* Pastille de numéro posée sur le coin de la tuile. La bordure reprend le fond de la section pour « découper » la pastille. */
+.welcome__step-num {
+  position: absolute;
+  top: -0.5rem;
+  right: -0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
+  border: 2px solid var(--background-alt-grey);
+  background: var(--background-action-high-blue-france);
+  color: var(--text-inverted-blue-france);
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+/* Trait pointillé entre deux tuiles, uniquement quand les 4 étapes tiennent sur une ligne. */
+@media (min-width: 62em) {
+  .welcome__steps {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .welcome__step:not(:last-child)::after {
+    content: "";
+    position: absolute;
+    top: 2.25rem;                                  /* milieu de la tuile */
+    left: calc(50% + 3rem);                        /* bord droit de la tuile + marge */
+    right: calc(-50% - var(--step-gap) + 3rem);    /* bord gauche de la tuile suivante - marge */
+    border-top: 2px dashed var(--border-action-low-blue-france);
+  }
+}
+
+@media (min-width: 36em) and (max-width: 61.99em) {
+  .welcome__steps { grid-template-columns: repeat(2, 1fr); }
 }
 
 .welcome__step-title {
@@ -545,25 +598,26 @@ const useCases = [
   flex-direction: column;
   align-items: flex-start;
   padding: 1.75rem;
-  background: var(--background-alt-blue-france);
+  background: var(--background-default-grey);
+  border: 1px solid var(--border-default-grey);
+  border-top: 4px solid var(--border-plain-blue-france);
   border-radius: 0.5rem;
-  border: 1px solid var(--border-action-high-blue-france);
 }
 
 .welcome__usecase-icon-wrapper {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  border-radius: 0.5rem;
-  background: var(--background-action-high-blue-france);
-  margin-bottom: 1rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 0.75rem;
+  background: var(--background-action-low-blue-france);
+  margin-bottom: 1.25rem;
 }
 
 .welcome__usecase-icon {
-  font-size: 1.375rem;
-  color: var(--text-inverted-blue-france);
+  font-size: 1.75rem;
+  color: var(--text-action-high-blue-france);
 }
 
 .welcome__usecase-title {
