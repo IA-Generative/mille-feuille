@@ -5,10 +5,12 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from openai import AsyncOpenAI
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import LlmSettings
 from app.connectors import redis_connector
 from app.core.security.factory import RequestContext, get_current_user
+from app.db import get_db
 from app.schemas.models import (
     LlmEmbeddingModel,
     LlmEmbeddingModelsResponse,
@@ -16,6 +18,7 @@ from app.schemas.models import (
     LlmModelsCacheCleared,
     LlmModelsResponse,
 )
+from app.services import llm_models
 
 router = APIRouter(prefix="/models", tags=["Models"])
 
@@ -105,7 +108,14 @@ def _cache_models(model_ids: list[str]) -> None:
 
 
 @router.get("", summary="List the LLM hub's models that support chat completions", response_model=LlmModelsResponse)
-async def list_models(_: Annotated[RequestContext, Depends(get_current_user)]) -> LlmModelsResponse:
+async def list_models(
+    _: Annotated[RequestContext, Depends(get_current_user)], db: Annotated[AsyncSession, Depends(get_db)]
+) -> LlmModelsResponse:
+    # Les modèles que l'administrateur a enregistrés et activés (voir /admin/llm-models), quand il y en a : ce sont
+    # ceux qu'on propose. Sinon, ceux que le hub sert et qui savent compléter du texte.
+    registered = await llm_models.enabled_models(db)
+    if registered:
+        return LlmModelsResponse(models=[LlmModel(id=model.name) for model in registered])
     if _openai_client is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="LLM hub is not configured")
 

@@ -141,7 +141,7 @@ async def make_plan(
     )
     try:
         response = await llm.complete(
-            model=settings.CHAT_PLAN_MODEL or model or await model_router.light_model(),
+            model=settings.CHAT_PLAN_MODEL or model or await model_router.planner_model(),
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT + agents_guide(agents or [])},
                 {"role": "user", "content": user},

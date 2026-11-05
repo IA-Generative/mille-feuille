@@ -110,7 +110,7 @@ async def _compute(question: str, dossier_id: str, dossier: dict, description: s
         + _JSON_INSTRUCTION
     )
     response = await llm.complete(
-        model=await model_router.for_difficulty(2),
+        model=await model_router.default_model(),
         messages=[{"role": "system", "content": system}, {"role": "user", "content": question}],
         response_format={"type": "json_object"},
         temperature=0,
@@ -153,7 +153,7 @@ async def _answer_one(
             answer=None,
             sources=[],
             fingerprint=fingerprint,
-            model=await model_router.for_difficulty(2),
+            model=await model_router.default_model(),
         )
     else:
         await _write(
@@ -162,7 +162,7 @@ async def _answer_one(
             answer=answer,
             sources=sources,
             fingerprint=fingerprint,
-            model=await model_router.for_difficulty(2),
+            model=await model_router.default_model(),
         )
 
 
