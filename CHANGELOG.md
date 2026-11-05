@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.46.0](https://github.com/IA-Generative/mille-feuille/compare/v0.45.0...v0.46.0) (2026-11-05)
+
+
+### Features
+
+* **admin:** onglet Modèles (capacités, modèles, hub, mode) branché sur le backend ([e10cff5](https://github.com/IA-Generative/mille-feuille/commit/e10cff547ca1658e0f68504ef121fa6ed30dceb6))
+* **llm:** « Auto » remplace « Modèle par défaut » dans les sélecteurs ([d1ac2d1](https://github.com/IA-Generative/mille-feuille/commit/d1ac2d18e7fb5aebd0c030734064cb31e0485b15))
+* **llm:** capacités définies par l'administrateur, hub en noms, mode en base ([bab199f](https://github.com/IA-Generative/mille-feuille/commit/bab199f32902bdee75b12109895d102f518042c7))
+* **llm:** modèles en base avec capacités et niveau, mode auto ([953e935](https://github.com/IA-Generative/mille-feuille/commit/953e935cca690aede2d74250042fbe26c798c753))
+* **llm:** type des modèles lu sur le hub par le backend ([90f17c6](https://github.com/IA-Generative/mille-feuille/commit/90f17c65b51af528a7120aba985e74083c5a43f3))
+
+
+### Bug Fixes
+
+* **dossier:** supprimer un dossier tout juste créé ([ba72500](https://github.com/IA-Generative/mille-feuille/commit/ba72500b4c48b29a9b5456c17b523dd1374ef152))
+* **tests:** des tests anyio empoisonnaient le moteur de base pour la suite ([e278ecf](https://github.com/IA-Generative/mille-feuille/commit/e278ecf962d0819138a203ec363518f6ef8a6cc5))
+
 ## [0.45.0](https://github.com/IA-Generative/mille-feuille/compare/v0.44.0...v0.45.0) (2026-11-05)
 
 
