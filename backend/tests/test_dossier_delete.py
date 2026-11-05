@@ -31,7 +31,7 @@ def test_an_administrator_can_delete_any_dossier(client: TestClient, world: dict
 def test_someone_else_who_can_see_the_dossier_cannot_delete_it(client: TestClient, world: dict, analyse: dict) -> None:
     with As(world["alice"]):
         dossier = _create(client, analyse)
-    with As(world["bob"]):
+    with As(world["carol"]):
         assert client.get(f"/api/dossiers/{dossier['id']}").json()["can_delete"] is False
         assert client.delete(f"/api/dossiers/{dossier['id']}").status_code == 403
     with As(world["alice"]):

@@ -1111,14 +1111,16 @@ class DossierRepository:
         préfère risquer un fichier orphelin sur S3 plutôt qu'une ligne DB
         pointant vers des fichiers déjà supprimés.
 
-        Un dossier encore actif (en_attente/en_cours) ne peut pas être
+        Un dossier dont l'analyse tourne (en_cours) ne peut pas être
         supprimé directement : il doit d'abord être arrêté (stop()) - à
         l'appelant (endpoint, tâche de purge) de le faire avant d'appeler
-        cette méthode, pas à elle de le faire implicitement.
+        cette méthode, pas à elle de le faire implicitement. Un dossier en
+        attente n'a pas été lancé (c'est l'état d'un dossier tout juste
+        créé) : rien ne tourne, et stop() n'y changerait rien.
 
         `keep_screenshots` : conserve les captures de page sur S3 (résultat d'un run éphémère persist=false, qui les
         garde jusqu'à son expiration) ; le fichier d'origine est supprimé dans tous les cas."""
-        if dossier.status in (DossierStatus.EN_ATTENTE, DossierStatus.EN_COURS):
+        if dossier.status == DossierStatus.EN_COURS:
             raise ValueError(f"Cannot delete dossier {dossier.id}: still {dossier.status} - stop it first")
         for document in dossier.documents:
             await asyncio.to_thread(s3_connector.delete, document.s3_key)
