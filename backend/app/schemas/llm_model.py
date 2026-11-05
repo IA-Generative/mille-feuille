@@ -4,8 +4,9 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-def _stripped(value: str) -> str:
-    return value.strip()
+def _stripped(value):  # noqa: ANN001, ANN202
+    """Avant la validation de longueur : un nom fait d'espaces est vide."""
+    return value.strip() if isinstance(value, str) else value
 
 
 class LlmCapabilityIn(BaseModel):
@@ -16,14 +17,14 @@ class LlmCapabilityIn(BaseModel):
         description="Ce que la capacité permet : lue par le modèle qui choisit le modèle d'une demande (mode auto).",
     )
 
-    _strip = field_validator("name", "description")(_stripped)
+    _strip = field_validator("name", "description", mode="before")(_stripped)
 
 
 class LlmCapabilityUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=80)
     description: str | None = Field(default=None, min_length=1, max_length=500)
 
-    _strip = field_validator("name", "description")(lambda value: value.strip() if value else value)
+    _strip = field_validator("name", "description", mode="before")(_stripped)
 
 
 class LlmCapabilityOut(BaseModel):
@@ -39,7 +40,7 @@ class LlmModelCreate(BaseModel):
     capability_ids: list[uuid.UUID] = Field(default_factory=list)
     enabled: bool = True
 
-    _strip = field_validator("name")(_stripped)
+    _strip = field_validator("name", mode="before")(_stripped)
 
 
 class LlmModelUpdate(BaseModel):
