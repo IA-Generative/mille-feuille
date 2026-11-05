@@ -129,3 +129,11 @@ async def test_a_failing_classification_leaves_the_first_model(monkeypatch) -> N
     monkeypatch.setattr(llm, "complete", failing)
 
     assert await model_router.classify("Question", Catalogue([FIRST], [HEAVY], True)) == set()
+
+
+async def test_the_registered_default_is_none_without_models_and_the_first_otherwise(catalogue) -> None:
+    catalogue()
+    assert await model_router.registered_default() is None
+
+    catalogue(STRONG, FIRST)
+    assert await model_router.registered_default() == "costaud"

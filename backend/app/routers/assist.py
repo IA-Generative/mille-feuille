@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agent import model_router
 from app.config import LlmSettings
 from app.connectors import redis_connector
 from app.core.security.factory import RequestContext, get_current_user
@@ -52,7 +53,11 @@ async def _discover_models(probe: Callable[[str], Awaitable[bool]]) -> list[str]
 async def _default_chat_model() -> str | None:
     """Premier modèle chat-capable du hub - utilisé quand l'appelant ne
     précise pas de modèle, pour que l'aide LLM fonctionne sans configuration
-    préalable d'un modèle par défaut côté utilisateur."""
+    préalable d'un modèle par défaut côté utilisateur. Avec des modèles enregistrés par l'administrateur, c'est le
+    premier d'entre eux."""
+    registered = await model_router.registered_default()
+    if registered:
+        return registered
     cached = redis_connector.client.get(_CHAT_MODELS_CACHE_KEY)
     if cached is not None:
         model_ids = json.loads(cached)
@@ -77,7 +82,11 @@ async def complete(
     if _openai_client is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="LLM hub is not configured")
 
-    model = body.model or await _default_chat_model()
+    # Sans modèle choisi (« Auto ») : celui que le routeur choisit pour cette demande, ou à défaut le premier du hub.
+    model = body.model
+    if not model and await model_router.registered_default():
+        model = await model_router.for_query(body.prompt)
+    model = model or await _default_chat_model()
     if model is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No chat-capable model available on the hub"

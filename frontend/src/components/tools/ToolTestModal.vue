@@ -17,7 +17,7 @@ const { servers } = useTools();
 const server = computed(() => servers.value.find((candidate) => candidate.id === props.tool.serverId));
 
 const prompt = ref("");
-// "" = le modèle par défaut du hub.
+// "" = « Auto ».
 const model = ref("");
 const error = ref("");
 const run = ref<ToolTestRun | null>(null);

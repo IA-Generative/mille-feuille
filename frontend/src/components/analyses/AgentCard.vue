@@ -28,7 +28,7 @@ function restoreModelVersion(versionId: string) {
 }
 
 function formatModelVersionContent(model: string | null) {
-  return model ?? "Modèle par défaut du hub";
+  return model ?? "Auto";
 }
 
 function savePrompt(prompt: string) {
