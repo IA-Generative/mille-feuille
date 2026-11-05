@@ -1,38 +1,52 @@
-"""Les modèles du hub LLM que l'application connaît, avec ce qu'ils savent faire.
+"""Les modèles du hub LLM que l'application connaît, et ce que l'administrateur dit qu'ils savent faire.
 
-Un modèle est enregistré par son nom (celui du hub, tel que renvoyé par `GET /models`), avec ses **capacités**
-(complétion de texte, embeddings, audio, vision, vidéo) et son **niveau** : 1 pour un modèle léger, 3 pour le plus
-puissant. Par défaut, le premier modèle de complétion (le plus petit `position`) fait tout ; en mode auto
-(`LLM_AUTO_MODE`), le modèle est choisi selon la difficulté de la demande (voir `app/agent/model_router.py`)."""
+Une **capacité** est définie par l'administrateur : un nom et une description (« Tâches lourdes » : capable de raisonner
+sur plusieurs documents ; « Outils » : capable de répondre en appelant des outils). Rien n'est déduit du modèle. Un
+modèle est enregistré par son nom (celui du hub) avec ses capacités et son ordre de préférence : par défaut, le premier
+modèle actif fait tout ; en mode auto, le modèle est choisi selon les capacités que la demande demande (voir
+`app/agent/model_router.py`)."""
 
-import enum
-
-from sqlalchemy import Boolean, Integer, String
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table, Text
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
 
+llm_model_capabilities = Table(
+    "llm_model_capabilities",
+    Base.metadata,
+    Column("model_id", PG_UUID(as_uuid=True), ForeignKey("llm_models.id", ondelete="CASCADE"), primary_key=True),
+    Column(
+        "capability_id", PG_UUID(as_uuid=True), ForeignKey("llm_capabilities.id", ondelete="CASCADE"), primary_key=True
+    ),
+)
 
-class LlmCapability(enum.StrEnum):
-    COMPLETION = "completion"
-    EMBEDDING = "embedding"
-    AUDIO = "audio"
-    VISION = "vision"
-    VIDEO = "video"
 
+class LlmCapabilityConfig(UUIDMixin, TimestampMixin, Base):
+    __tablename__ = "llm_capabilities"
 
-MIN_LEVEL, MAX_LEVEL = 1, 3
+    name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    # Lue par le modèle qui classe les demandes en mode auto : ce que la capacité permet de faire.
+    description: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class LlmModelConfig(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "llm_models"
 
     name: Mapped[str] = mapped_column(String, nullable=False, unique=True)
-    # Liste de LlmCapability (en texte : en ajouter une ne demande pas de migration).
-    capabilities: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
-    # 1 (léger) à 3 (puissant) : la difficulté la plus haute que le modèle prend en charge en mode auto.
-    level: Mapped[int] = mapped_column(Integer, nullable=False, default=MIN_LEVEL)
-    # Ordre de préférence : le premier modèle de complétion actif est celui de tout le monde hors mode auto.
+    # Ordre de préférence : le premier modèle actif est celui de tout le monde hors mode auto.
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    capabilities: Mapped[list[LlmCapabilityConfig]] = relationship(
+        secondary=llm_model_capabilities, order_by=LlmCapabilityConfig.name, lazy="selectin"
+    )
+
+
+class LlmRoutingSettings(Base):
+    """Le réglage du choix du modèle : une seule ligne (`id` = 1)."""
+
+    __tablename__ = "llm_routing_settings"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    # Faux : le premier modèle actif fait tout. Vrai : le modèle suit les capacités que la demande demande.
+    auto_mode: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

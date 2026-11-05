@@ -81,7 +81,7 @@ async def generate_document_fields(
                             value,
                             sources=sources,
                             prompt_version=prompt_label,
-                            model=await model_router.for_difficulty(3),
+                            model=await model_router.default_model(),
                             instruction=regeneration,
                         )
                         count += 1

@@ -48,7 +48,7 @@ async def propose_from_note(note_id: str) -> None:
         proposer = AnalysisProposer(
             dossier_id=dossier_id,
             user_id=requested_by or "",
-            model=await model_router.for_difficulty(2),
+            model=await model_router.default_model(),
             source_message_id=note_id,
             source_type="note",
             actor="note-agent",

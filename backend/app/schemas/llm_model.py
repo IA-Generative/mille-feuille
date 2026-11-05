@@ -1,37 +1,54 @@
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.models.llm_model import MAX_LEVEL, MIN_LEVEL, LlmCapability
+
+def _stripped(value: str) -> str:
+    return value.strip()
 
 
-def _known(capabilities: list[LlmCapability] | None) -> list[str] | None:
-    return None if capabilities is None else sorted({capability.value for capability in capabilities})
+class LlmCapabilityIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80, description="Par exemple « Tâches lourdes ».")
+    description: str = Field(
+        min_length=1,
+        max_length=500,
+        description="Ce que la capacité permet : lue par le modèle qui choisit le modèle d'une demande (mode auto).",
+    )
+
+    _strip = field_validator("name", "description")(_stripped)
+
+
+class LlmCapabilityUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    description: str | None = Field(default=None, min_length=1, max_length=500)
+
+    _strip = field_validator("name", "description")(lambda value: value.strip() if value else value)
+
+
+class LlmCapabilityOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    description: str
 
 
 class LlmModelCreate(BaseModel):
-    name: str = Field(min_length=1, description="Le nom du modèle, tel que le hub le renvoie (GET /models).")
-    capabilities: list[LlmCapability] = Field(default_factory=lambda: [LlmCapability.COMPLETION])
-    level: int = Field(default=MIN_LEVEL, ge=MIN_LEVEL, le=MAX_LEVEL, description="1 : léger, 3 : puissant.")
+    name: str = Field(min_length=1, description="Le nom du modèle, tel que le hub le renvoie.")
+    capability_ids: list[uuid.UUID] = Field(default_factory=list)
     enabled: bool = True
 
-    @field_validator("name")
-    @classmethod
-    def _strip(cls, value: str) -> str:
-        return value.strip()
+    _strip = field_validator("name")(_stripped)
 
 
 class LlmModelUpdate(BaseModel):
-    capabilities: list[LlmCapability] | None = None
-    level: int | None = Field(default=None, ge=MIN_LEVEL, le=MAX_LEVEL)
+    capability_ids: list[uuid.UUID] | None = None
     enabled: bool | None = None
-    position: int | None = Field(default=None, ge=0)
 
-    def changes(self) -> dict:
-        changes = self.model_dump(exclude_none=True)
-        if self.capabilities is not None:
-            changes["capabilities"] = _known(self.capabilities)
-        return changes
+
+class LlmModelOrder(BaseModel):
+    model_ids: list[uuid.UUID] = Field(description="Tous les modèles, dans l'ordre voulu : le premier est le défaut.")
 
 
 class LlmModelOut(BaseModel):
@@ -39,7 +56,27 @@ class LlmModelOut(BaseModel):
 
     id: uuid.UUID
     name: str
-    capabilities: list[str]
-    level: int
     position: int
     enabled: bool
+    capability_ids: list[uuid.UUID]
+
+    @classmethod
+    def of(cls, model) -> "LlmModelOut":  # noqa: ANN001
+        return cls(
+            id=model.id,
+            name=model.name,
+            position=model.position,
+            enabled=model.enabled,
+            capability_ids=[capability.id for capability in model.capabilities],
+        )
+
+
+class LlmRoutingOut(BaseModel):
+    auto_mode: bool
+
+
+class LlmHubModelsOut(BaseModel):
+    """Les noms que le hub sert et que la liste n'a pas encore, et quand le hub a été lu pour la dernière fois."""
+
+    models: list[str]
+    read_at: datetime

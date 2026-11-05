@@ -56,7 +56,7 @@ async def run_document_summary(dossier_id: str, document_id: str) -> None:
             if not pages:
                 logger.warning("No pages for document %s, skipping summary", document_id)
                 await repository.add_document_summary(
-                    document_row, content="(document sans contenu textuel)", model=await model_router.for_difficulty(1)
+                    document_row, content="(document sans contenu textuel)", model=await model_router.default_model()
                 )
                 return
 
@@ -67,7 +67,7 @@ async def run_document_summary(dossier_id: str, document_id: str) -> None:
             logger.info("Summarizing document %s (%d pages, %d chars)", document_id, len(pages), len(content))
             summary = await summarize_text(content)
             await repository.add_document_summary(
-                document_row, content=summary, model=await model_router.for_difficulty(1)
+                document_row, content=summary, model=await model_router.default_model()
             )
             logger.info("Document summary deposited for %s", document_id)
         except Exception as error:
@@ -111,16 +111,14 @@ async def run_dossier_summary(dossier_id: str) -> None:
             if not parts:
                 logger.warning("No content to summarize for dossier %s", dossier_id)
                 await repository.add_dossier_summary(
-                    dossier_row, content="(dossier sans contenu)", model=await model_router.for_difficulty(1)
+                    dossier_row, content="(dossier sans contenu)", model=await model_router.default_model()
                 )
                 return
 
             content = _truncate("\n\n".join(parts))
             logger.info("Summarizing dossier %s (%d chars)", dossier_id, len(content))
             summary = await summarize_text(content)
-            await repository.add_dossier_summary(
-                dossier_row, content=summary, model=await model_router.for_difficulty(1)
-            )
+            await repository.add_dossier_summary(dossier_row, content=summary, model=await model_router.default_model())
             logger.info("Dossier summary deposited for %s", dossier_id)
         except DossierNotFoundError:
             logger.warning("Dossier %s supprimé pendant son résumé", dossier_id)

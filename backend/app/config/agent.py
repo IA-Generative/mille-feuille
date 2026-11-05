@@ -6,9 +6,6 @@ class AgentSettings(BaseSettings):
     LLM_MODEL: str = "llama-3.3-70b-instruct"
     # Modèle du planificateur du chat (un petit modèle suffit : il ne fait que décider). Vide : le modèle du chat.
     CHAT_PLAN_MODEL: str = ""
-    # Mode auto : le modèle est choisi selon la difficulté de la demande (niveau de chaque modèle, table llm_models).
-    # Désactivé, le premier modèle de complétion de la table fait tout. Sans modèle en table : LLM_MODEL.
-    LLM_AUTO_MODE: bool = False
     # Nombre maximum d'itérations du graphe LangGraph (pour éviter les boucles infinies).
     AGENT_MAX_ITERATIONS: int = 10
     # Travaux de l'agent (agents d'analyse, chat, résumés...) menés en même temps dans un process du backend : les
