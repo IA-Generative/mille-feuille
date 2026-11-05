@@ -490,7 +490,36 @@ async def get_dossier(
     # consultation ne s'affiche pas en plus parmi celles des membres.
     if not getattr(request.state, "admin_only", False):
         await repository.events.record_consultation(dossier_id, user)
+    dossier.can_delete = await _can_delete(repository, dossier, user)
     return dossier
+
+
+async def _can_delete(repository: DossierRepository, dossier: Dossier, user: RequestContext) -> bool:
+    """Un administrateur, ou la personne qui a créé (déposé) le dossier."""
+    return user.is_admin or await repository.events.creator_id(dossier.id) == user.user_id
+
+
+@router.delete("/{dossier_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_dossier(
+    dossier_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> None:
+    """Supprime le dossier, ses documents (fichiers compris), ses conversations et son index de recherche. Réservé à un
+    administrateur et à la personne qui a créé le dossier. Un dossier dont l'analyse tourne doit d'abord être arrêté
+    (409)."""
+    repository = DossierRepository(db)
+    dossier = await _get_or_404(repository, dossier_id, user)
+    if not await _can_delete(repository, dossier, user):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Seul un administrateur ou la personne qui a créé le dossier peut le supprimer.",
+        )
+    if dossier.status in (DossierStatus.EN_ATTENTE, DossierStatus.EN_COURS):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="L'analyse du dossier est en cours : arrêtez-la d'abord."
+        )
+    await repository.delete_dossier(dossier)
 
 
 @router.post("/{dossier_id}/documents", response_model=DossierOut)

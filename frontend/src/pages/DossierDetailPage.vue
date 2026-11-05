@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
-import { RouterLink, useRoute } from "vue-router";
+import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import AccessBadge from "@/components/access/AccessBadge.vue";
 import WorkflowStatusPicker from "@/components/statuses/WorkflowStatusPicker.vue";
@@ -44,6 +44,7 @@ import {
 } from "@/types/dossier";
 
 const route = useRoute();
+const router = useRouter();
 const dossierId = String(route.params.id);
 const { openHelper } = useHelperAgent();
 const {
@@ -56,6 +57,7 @@ const {
   setWorkflowStatus,
   setDueAt,
   launch,
+  remove: removeDossier,
 } = useDossiers();
 const { getById: getAnalyseById, fetchAnalyse } = useAnalyses();
 const {
@@ -392,6 +394,26 @@ async function onChatSubmit(content: string) {
   startChatStream(`/api/dossiers/${dossierId}/conversations/${current.id}/stream`);
 }
 
+const deleteError = ref("");
+
+async function onDeleteDossier() {
+  const current = dossier.value;
+  if (!current) return;
+  if (
+    !confirm(
+      `Supprimer le dossier « ${current.name} » ? Ses documents, ses conversations et son analyse seront définitivement supprimés.`,
+    )
+  )
+    return;
+  deleteError.value = "";
+  try {
+    await removeDossier(dossierId);
+    await router.push({ name: "dossiers" });
+  } catch (e) {
+    deleteError.value = e instanceof Error ? e.message : "La suppression a échoué.";
+  }
+}
+
 async function onDeleteConversation() {
   if (!confirm("Supprimer cette conversation ? Le dossier et ses documents ne seront pas affectés.")) return;
   // Ne supprime que la conversation : le dossier reste ouvert, on en
@@ -522,8 +544,19 @@ async function onDeleteConversation() {
         >
           <VIcon name="ri-delete-bin-line" />
         </button>
+        <button
+          v-if="dossier.canDelete"
+          type="button"
+          class="dossier-detail__icon-button"
+          aria-label="Supprimer le dossier"
+          title="Supprimer le dossier et ses documents"
+          @click="onDeleteDossier"
+        >
+          <VIcon name="ri-delete-bin-2-line" />
+        </button>
       </div>
     </div>
+    <p v-if="deleteError" class="fr-error-text" role="alert">{{ deleteError }}</p>
 
     <!-- Suggestions d'analyse pour les dossiers « à ranger » (issue #54) -->
     <div v-if="isUnassigned" class="dossier-detail__suggestions">

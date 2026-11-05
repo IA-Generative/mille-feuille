@@ -836,6 +836,9 @@ class DossierOut(BaseModel):
     due_at: date | None = None
     due: DueInfoOut | None = None
     closed_before_due: bool | None = None
+    # La personne peut-elle supprimer ce dossier (administrateur, ou celle qui l'a créé) ? Calculé par la route de
+    # lecture d'un dossier ; absent ailleurs (listes, flux).
+    can_delete: bool | None = None
     summary_status: SummaryStatus
     summary_error: str | None
     # Dernier résumé global du dossier (le plus récent), ou None.
