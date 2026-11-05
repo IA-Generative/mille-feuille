@@ -207,6 +207,9 @@ class MessageSourceIn(BaseModel):
     # un ensemble de bbox (déjà créées) sur ces pages.
     page_ids: list[uuid.UUID] = []
     bounding_box_ids: list[uuid.UUID] = []
+    # Les passages cités, en intervalles de caractères du contenu de la page : le dépôt du message en tire les bbox
+    # (une par ligne) de la source, voir services/source_boxes.py.
+    char_ranges: list[tuple[int, int]] = []
 
 
 class InternalMessageIn(BaseModel):

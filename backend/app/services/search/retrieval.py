@@ -101,6 +101,8 @@ class DossierSearcher:
                 document_name=point.payload["document_name"],
                 score=float(point.score),
                 excerpt=excerpt,
+                char_start=point.payload.get("char_start"),
+                char_end=point.payload.get("char_end"),
             )
             for point, excerpt in zip(points, excerpts, strict=True)
         ]

@@ -10,6 +10,7 @@ from app.repositories.analyse_repository import AnalyseRepository
 from app.repositories.chat_tool_call_repository import ChatToolCallRepository
 from app.repositories.dossier_repository import DossierRepository
 from app.schemas.dossier import InternalConversationOut, InternalMessageIn
+from app.services.source_boxes import attach_bounding_boxes
 from app.services.tools.conversation_tools import tool_ids_for_chat
 
 
@@ -35,12 +36,9 @@ async def deposit_assistant_message(db: AsyncSession, conversation_id: uuid.UUID
     conversation = await repository.get_conversation(conversation_id)
     if conversation is None:
         return None
-    conversation = await repository.add_message(
-        conversation,
-        MessageRole.ASSISTANT,
-        body.content,
-        sources=[s.model_dump() for s in body.sources],
-    )
+    sources = [s.model_dump() for s in body.sources]
+    await attach_bounding_boxes(db, sources)
+    conversation = await repository.add_message(conversation, MessageRole.ASSISTANT, body.content, sources=sources)
     message = conversation.messages[-1]
     if body.external_sources:
         for position, source in enumerate(body.external_sources):

@@ -90,6 +90,7 @@ def sources_to_api(sources: list) -> list[dict]:
                 "page_ids": src.page_ids,
                 "excerpt": src.excerpt,
                 "number": src.number,
+                "char_ranges": [list(r) for r in src.char_ranges],
             }
         )
     return result

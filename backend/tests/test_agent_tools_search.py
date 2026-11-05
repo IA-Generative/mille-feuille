@@ -229,3 +229,15 @@ async def test_tools_suggest_assistant_memorizes_question() -> None:
     result = await tools.dispatch_tool("suggest_assistant", {"question": " Crée une analyse CNI "})
     assert "assistant" in result
     assert tools.assistant_question() == "Crée une analyse CNI"
+
+
+async def test_the_passages_found_keep_where_they_are_in_the_page() -> None:
+    first = SearchHit("page-1", 1, "doc-1", "CNI.pdf", 0.5, "Nom: Dupont", 28, 39)
+    second = SearchHit("page-1", 1, "doc-1", "CNI.pdf", 0.4, "Prénom: Jean", 41, 53)
+    tools = AgentTools(_make_dossier(), searcher=FakeSearcher([first, second]))
+
+    await tools.search_documents("identité")
+    await tools.search_documents("identité")  # la même page trouvée deux fois : une source, sans doublon
+
+    (source,) = tools.consulted_sources()
+    assert source.char_ranges == [(28, 39), (41, 53)]
