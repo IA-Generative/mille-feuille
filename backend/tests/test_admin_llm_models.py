@@ -11,9 +11,21 @@ from tests.access_support import As, _person  # noqa: F401
 
 @pytest.fixture
 def admin(client: TestClient):
+    """Un administrateur ; ce que le test crée (modèles, capacités) est retiré ensuite : la base de test est partagée,
+    et des modèles enregistrés changent ce que `GET /api/models` répond aux autres tests."""
     person = _person("admin", [], admin=True)
     with As(person):
+        before = {
+            "models": {m["id"] for m in client.get("/api/admin/llm-models").json()},
+            "capabilities": {c["id"] for c in client.get("/api/admin/llm-capabilities").json()},
+        }
         yield person
+        for model in client.get("/api/admin/llm-models").json():
+            if model["id"] not in before["models"]:
+                client.delete(f"/api/admin/llm-models/{model['id']}")
+        for capability in client.get("/api/admin/llm-capabilities").json():
+            if capability["id"] not in before["capabilities"]:
+                client.delete(f"/api/admin/llm-capabilities/{capability['id']}")
 
 
 def _suffix() -> str:
