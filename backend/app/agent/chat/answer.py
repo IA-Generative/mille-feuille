@@ -1,14 +1,13 @@
 """Le second appel du chat : écrire la réponse à partir des passages trouvés, en streaming (chaque morceau part vers le
 navigateur dès qu'il est écrit)."""
 
-from app.agent import llm, model_output, usage
+from app.agent import llm, model_output, model_router, usage
 from app.agent.chat.events import ChatEvents
-from app.agent.runner import settings
 
 
 async def stream_answer(*, model: str | None, system: str, messages: list[dict], events: ChatEvents) -> str:
     stream = await llm.client().chat.completions.create(
-        model=model or settings.LLM_MODEL,
+        model=model or await model_router.default_model(),
         messages=[{"role": "system", "content": system}, *messages],
         stream=True,
         stream_options={"include_usage": True},

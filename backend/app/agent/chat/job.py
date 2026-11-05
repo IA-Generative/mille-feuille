@@ -15,7 +15,7 @@ import logging
 import uuid
 from typing import Any
 
-from app.agent import model_output, usage
+from app.agent import model_output, model_router, usage
 from app.agent.agent_tool_set import ExtraTools, build_extra_tools
 from app.agent.analysis_agents import load_agents
 from app.agent.analysis_reader import AnalysisReader
@@ -31,7 +31,6 @@ from app.agent.documents import load_dossier
 from app.agent.knowledge_tools import TOOL_ID as KNOWLEDGE_TOOL_ID
 from app.agent.knowledge_tools import KnowledgeContext
 from app.agent.note_tools import NoteWriter
-from app.agent.runner import settings
 from app.agent.tools import AgentTools, NotIndexedError
 from app.db import async_session_factory
 from app.repositories.analyse_repository import AnalyseRepository
@@ -162,7 +161,7 @@ async def _respond(
     """Le texte de la réponse (les marqueurs en plus) et les outils qui ont lu le dossier pour l'écrire (ceux du chat,
     ou ceux de l'agent qui a répondu) : de là viennent les sources du message. Les appels qui attendent la personne
     sont dans `tools.confirmation_batch`."""
-    model = conversation.get("model")
+    explicit_model = conversation.get("model")
     history = chat_history.build_conversation_history(conversation)
     syntheses = chat_history.extract_syntheses(dossier)
     messages = conversation.get("messages", [])
@@ -185,13 +184,16 @@ async def _respond(
         events.meta["iterations"] = result.iterations
         return result.answer
 
-    events.meta["model"] = model or settings.LLM_MODEL
+    question = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
+    # Le modèle de la conversation s'il y en a un ; sinon le premier modèle de la table, ou (mode auto) celui que la
+    # difficulté de la question demande.
+    model = await model_router.for_query(question, explicit=explicit_model)
+    events.meta["model"] = model
     # Une décision ou une réponse relance le chat sans nouveau message : le modèle reprend là où il s'était arrêté.
     if messages and messages[-1]["role"] == "assistant" and messages[-1].get("tool_calls"):
         events.meta["mode"] = "resume"
         return await with_tools(), tools
 
-    question = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
     speculative = asyncio.ensure_future(tools.search_hits(question)) if question.strip() else None
     if speculative is not None:
         # Une erreur de la recherche spéculative est sans importance si le plan n'en veut pas.
@@ -212,7 +214,7 @@ async def _respond(
             messages=history,
             dossier=dossier,
             abilities=_abilities(tools, extra),
-            model=model,
+            model=explicit_model,
             agents=agent_reply.agents_for_plan(candidates),
         )
     logger.info("Plan du chat : %s", plan.mode)
@@ -229,7 +231,7 @@ async def _respond(
         answer = plan.answer or "L'assistant de l'application peut s'en charger."
     elif plan.mode == "agent":
         agent = next(agent for agent in agents if agent.ref == plan.agent)
-        events.meta["model"] = agent.model or model or settings.LLM_MODEL
+        events.meta["model"] = agent.model or model or await model_router.default_model()
         answer, source_tools = await agent_reply.answer_as_agent(
             agent=agent,
             others=[other for other in agents if other.ref != agent.ref],
@@ -288,7 +290,7 @@ async def run_chat(conversation_id: str, dossier_id: str) -> None:
         proposer = AnalysisProposer(
             dossier_id=dossier_id,
             user_id=user_id,
-            model=model or settings.LLM_MODEL,
+            model=model or await model_router.default_model(),
             source_message_id=chat_history.last_user_message_id(conversation),
         )
         # Les outils que l'analyse autorise (ses agents), moins ceux que la personne a retirés : calculatrice, dates,

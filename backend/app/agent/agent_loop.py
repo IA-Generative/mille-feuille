@@ -7,7 +7,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from typing import Any
 
-from app.agent import llm, model_output
+from app.agent import llm, model_output, model_router
 from app.agent.runner import settings
 from app.agent.wrap_up import wrap_up
 
@@ -53,7 +53,7 @@ async def run_agent(
     for iteration in range(1, settings.AGENT_MAX_ITERATIONS + 1):
         definitions = tools.tool_definitions()
         response = await llm.complete(
-            model=model or settings.LLM_MODEL,
+            model=model or await model_router.default_model(),
             messages=messages,
             tools=definitions,
             tool_choice="auto",
@@ -108,5 +108,7 @@ async def run_agent(
     logger.warning("Agent : %d itérations atteintes, réponse finale demandée", settings.AGENT_MAX_ITERATIONS)
     if on_event:
         await on_event("note", {"text": "Limite d'appels d'outils atteinte : une réponse finale a été demandée."})
-    final = await wrap_up(model=model or settings.LLM_MODEL, messages=messages, definitions=tools.tool_definitions())
+    final = await wrap_up(
+        model=model or await model_router.default_model(), messages=messages, definitions=tools.tool_definitions()
+    )
     return final if not model_output.unusable(final) else NO_ANSWER

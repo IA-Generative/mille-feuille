@@ -82,6 +82,7 @@ from .feedback import Feedback, FeedbackReason, FeedbackReasonCode, FeedbackValu
 from .generated_document import VISIBILITY_INTERNAL, GeneratedDocument
 from .generation_prompt import GenerationPromptVersion
 from .knowledge_source import KnowledgeSource
+from .llm_model import LlmCapability, LlmModelConfig
 from .message_external_source import MessageExternalSource
 from .notification import Notification, NotificationCursor
 from .question_answer import DossierQuestionAnswer, QuestionAnswerStatus
@@ -109,6 +110,8 @@ __all__ = [
     "DocumentTemplate",
     "GeneratedDocument",
     "GenerationPromptVersion",
+    "LlmCapability",
+    "LlmModelConfig",
     "VISIBILITY_INTERNAL",
     "DraftStatus",
     "FieldEventKind",

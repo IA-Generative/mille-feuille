@@ -8,10 +8,9 @@ Le résultat est déposé en base (append-only : chaque génération crée une n
 import logging
 import uuid
 
-from app.agent import usage
+from app.agent import model_router, usage
 from app.agent.documents import DossierNotFoundError, document_label, load_dossier
 from app.agent.llm import summarize_text
-from app.agent.runner import settings
 from app.db import async_session_factory
 from app.models.summary import SummaryStatus
 from app.repositories.dossier_repository import DossierRepository
@@ -57,7 +56,7 @@ async def run_document_summary(dossier_id: str, document_id: str) -> None:
             if not pages:
                 logger.warning("No pages for document %s, skipping summary", document_id)
                 await repository.add_document_summary(
-                    document_row, content="(document sans contenu textuel)", model=settings.LLM_MODEL
+                    document_row, content="(document sans contenu textuel)", model=await model_router.for_difficulty(1)
                 )
                 return
 
@@ -67,7 +66,9 @@ async def run_document_summary(dossier_id: str, document_id: str) -> None:
             content = _source_header(document) + _truncate(content)
             logger.info("Summarizing document %s (%d pages, %d chars)", document_id, len(pages), len(content))
             summary = await summarize_text(content)
-            await repository.add_document_summary(document_row, content=summary, model=settings.LLM_MODEL)
+            await repository.add_document_summary(
+                document_row, content=summary, model=await model_router.for_difficulty(1)
+            )
             logger.info("Document summary deposited for %s", document_id)
         except Exception as error:
             logger.exception("Document summary failed for %s", document_id)
@@ -110,14 +111,16 @@ async def run_dossier_summary(dossier_id: str) -> None:
             if not parts:
                 logger.warning("No content to summarize for dossier %s", dossier_id)
                 await repository.add_dossier_summary(
-                    dossier_row, content="(dossier sans contenu)", model=settings.LLM_MODEL
+                    dossier_row, content="(dossier sans contenu)", model=await model_router.for_difficulty(1)
                 )
                 return
 
             content = _truncate("\n\n".join(parts))
             logger.info("Summarizing dossier %s (%d chars)", dossier_id, len(content))
             summary = await summarize_text(content)
-            await repository.add_dossier_summary(dossier_row, content=summary, model=settings.LLM_MODEL)
+            await repository.add_dossier_summary(
+                dossier_row, content=summary, model=await model_router.for_difficulty(1)
+            )
             logger.info("Dossier summary deposited for %s", dossier_id)
         except DossierNotFoundError:
             logger.warning("Dossier %s supprimé pendant son résumé", dossier_id)

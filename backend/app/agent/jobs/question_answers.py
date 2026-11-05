@@ -19,12 +19,11 @@ import uuid
 
 from sqlalchemy import delete, select
 
-from app.agent import llm, usage
+from app.agent import llm, model_router, usage
 from app.agent.chat.history import extract_syntheses, sources_to_api
 from app.agent.chat.prompts import answer_prompt
 from app.agent.chat.research import research
 from app.agent.documents import load_dossier
-from app.agent.runner import settings
 from app.agent.tools import AgentTools, NotIndexedError
 from app.db import async_session_factory
 from app.models.question_answer import DossierQuestionAnswer, QuestionAnswerStatus
@@ -111,7 +110,7 @@ async def _compute(question: str, dossier_id: str, dossier: dict, description: s
         + _JSON_INSTRUCTION
     )
     response = await llm.complete(
-        model=settings.LLM_MODEL,
+        model=await model_router.for_difficulty(2),
         messages=[{"role": "system", "content": system}, {"role": "user", "content": question}],
         response_format={"type": "json_object"},
         temperature=0,
@@ -154,7 +153,7 @@ async def _answer_one(
             answer=None,
             sources=[],
             fingerprint=fingerprint,
-            model=settings.LLM_MODEL,
+            model=await model_router.for_difficulty(2),
         )
     else:
         await _write(
@@ -163,7 +162,7 @@ async def _answer_one(
             answer=answer,
             sources=sources,
             fingerprint=fingerprint,
-            model=settings.LLM_MODEL,
+            model=await model_router.for_difficulty(2),
         )
 
 
