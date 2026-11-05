@@ -99,14 +99,23 @@ def test_the_message_of_the_person_has_no_execution(client: TestClient, monkeypa
     assert asked["role"] == "user" and asked["execution"] is None and answered["execution"] is not None
 
 
-@pytest.mark.anyio
-async def test_a_result_arguments_and_the_number_of_steps_are_bounded() -> None:
+# Ces tests déposent des événements par `ChatEvents.emit`, qui écrit en base avec le moteur de l'application : ils
+# tournent sur la boucle de l'application (`client.portal`). Sur la boucle d'un test `anyio`, le moteur recevrait des
+# connexions liées à une autre boucle, et les tests qui suivent échoueraient (« Could not refresh instance »).
+
+
+def test_a_result_arguments_and_the_number_of_steps_are_bounded(client: TestClient) -> None:
     trace = ChatEvents(str(uuid.uuid4()))
 
-    await trace.emit("tool_call", {"tool_name": "lire", "arguments": {"texte": "x" * (MAX_ARGUMENTS_CHARS + 500)}})
-    await trace.emit("tool_result", {"tool_name": "lire", "preview": "début", "full": "y" * (MAX_RESULT_CHARS + 500)})
-    for number in range(MAX_STEPS + 5):
-        await trace.emit("tool_call", {"tool_name": f"outil-{number}", "arguments": {}})
+    async def emit() -> None:
+        await trace.emit("tool_call", {"tool_name": "lire", "arguments": {"texte": "x" * (MAX_ARGUMENTS_CHARS + 500)}})
+        await trace.emit(
+            "tool_result", {"tool_name": "lire", "preview": "début", "full": "y" * (MAX_RESULT_CHARS + 500)}
+        )
+        for number in range(MAX_STEPS + 5):
+            await trace.emit("tool_call", {"tool_name": f"outil-{number}", "arguments": {}})
+
+    client.portal.call(emit)
 
     execution = trace.execution()
     first = execution["steps"][0]
@@ -115,24 +124,28 @@ async def test_a_result_arguments_and_the_number_of_steps_are_bounded() -> None:
     assert len(execution["steps"]) == MAX_STEPS and execution["omitted_steps"] == 6
 
 
-@pytest.mark.anyio
-async def test_a_result_goes_with_the_last_call_of_that_tool_that_has_none() -> None:
+def test_a_result_goes_with_the_last_call_of_that_tool_that_has_none(client: TestClient) -> None:
     trace = ChatEvents(str(uuid.uuid4()))
 
-    await trace.emit("tool_call", {"tool_name": "lire", "arguments": {"n": 1}, "agent": "Agent 1"})
-    await trace.emit("tool_result", {"tool_name": "lire", "preview": "un"})
-    await trace.emit("tool_call", {"tool_name": "lire", "arguments": {"n": 2}})
-    await trace.emit("tool_result", {"tool_name": "lire", "preview": "deux"})
+    async def emit() -> None:
+        await trace.emit("tool_call", {"tool_name": "lire", "arguments": {"n": 1}, "agent": "Agent 1"})
+        await trace.emit("tool_result", {"tool_name": "lire", "preview": "un"})
+        await trace.emit("tool_call", {"tool_name": "lire", "arguments": {"n": 2}})
+        await trace.emit("tool_result", {"tool_name": "lire", "preview": "deux"})
+
+    client.portal.call(emit)
 
     steps = trace.execution()["steps"]
     assert [(s["arguments"]["n"], s["result"], s["agent"]) for s in steps] == [(1, "un", "Agent 1"), (2, "deux", None)]
 
 
-@pytest.mark.anyio
-async def test_a_note_is_kept_once_and_is_not_an_event() -> None:
+def test_a_note_is_kept_once_and_is_not_an_event(client: TestClient) -> None:
     trace = ChatEvents(str(uuid.uuid4()))
 
-    await trace.emit("note", {"text": "Réponse redemandée."})
+    async def emit() -> None:
+        await trace.emit("note", {"text": "Réponse redemandée."})
+
+    client.portal.call(emit)
     trace.note("Réponse redemandée.")
 
     assert trace.execution()["notes"] == ["Réponse redemandée."] and trace.execution()["steps"] == []
