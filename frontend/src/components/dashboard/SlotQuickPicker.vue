@@ -79,7 +79,7 @@ onMounted(() =>
   border: 1px solid var(--border-default-grey);
   border-radius: 0.75rem;
   background: var(--background-default-grey);
-  box-shadow: 0 8px 24px rgb(0 0 0 / 18%);
+  box-shadow: var(--lifted-shadow);
 }
 
 .qp__head {
