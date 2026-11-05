@@ -46,6 +46,9 @@ class ConsultedSource:
     excerpt: str | None = None
     # Le numéro que le modèle a vu pour cette source (suite commune avec la base de connaissances externe).
     number: int | None = None
+    # Les intervalles `[début, fin)` de caractères, dans le contenu de la page, des passages trouvés : de quoi retrouver
+    # les lignes de la page à entourer (voir services/source_boxes.py).
+    char_ranges: list[tuple[int, int]] = field(default_factory=list)
 
 
 class NotIndexedError(Exception):
@@ -61,6 +64,9 @@ class SearchHit:
     score: float
     # Le passage trouvé, entouré de ses voisins.
     excerpt: str
+    # Où est le passage lui-même (sans ses voisins) dans le contenu de la page ; None si l'index ne le dit pas.
+    char_start: int | None = None
+    char_end: int | None = None
 
 
 class Searcher(Protocol):
@@ -221,16 +227,21 @@ class AgentTools:
     def consulted_sources(self) -> list[ConsultedSource]:
         """Renvoie la liste des sources consultées pendant l'exécution.
         Dédupliquée par (document_id, page_ids) pour éviter les doublons."""
-        seen: set[str] = set()
-        result: list[ConsultedSource] = []
+        seen: dict[str, ConsultedSource] = {}
         for src in self._consulted_sources:
             key = f"{src.dossier_document_id}:{'|'.join(sorted(src.page_ids))}"
-            if key not in seen:
-                seen.add(key)
-                result.append(src)
-        return result
+            kept = seen.setdefault(key, src)
+            if kept is not src:  # la même page trouvée par une autre recherche : ses passages s'ajoutent
+                kept.char_ranges.extend(r for r in src.char_ranges if r not in kept.char_ranges)
+        return list(seen.values())
 
-    def _record_source(self, *, page_id: str | None = None, excerpt: str | None = None) -> int | None:
+    def _record_source(
+        self,
+        *,
+        page_id: str | None = None,
+        excerpt: str | None = None,
+        char_ranges: list[tuple[int, int]] | None = None,
+    ) -> int | None:
         """Enregistre une source consultée (page d'un document) et renvoie son numéro, celui que le modèle citera."""
         if page_id is None:
             return None
@@ -244,6 +255,7 @@ class AgentTools:
                 page_ids=[page_id],
                 excerpt=excerpt,
                 number=number,
+                char_ranges=list(char_ranges or []),
             )
         )
         return number
@@ -269,7 +281,10 @@ class AgentTools:
             best = page_hits[0]
             excerpt = " […] ".join(dict.fromkeys(hit.excerpt for hit in page_hits))
             # Enregistre chaque page trouvée comme source consultée ; son numéro est celui à citer.
-            number = self._record_source(page_id=page_id, excerpt=excerpt)
+            ranges = [
+                (hit.char_start, hit.char_end) for hit in page_hits if hit.char_start is not None and hit.char_end
+            ]
+            number = self._record_source(page_id=page_id, excerpt=excerpt, char_ranges=ranges)
             label = f"[{number}] " if number else ""
             lines.append(
                 f"{label}📄 Page {best.page_number} ({best.document_name}) [score: {best.score:.2f}]\n   {excerpt}\n"
