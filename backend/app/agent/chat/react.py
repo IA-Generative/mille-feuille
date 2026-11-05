@@ -8,7 +8,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from app.agent import llm, model_output
+from app.agent import llm, model_output, model_router
 from app.agent.ask_user import ASK_USER
 from app.agent.chat.events import ChatEvents
 from app.agent.runner import settings
@@ -98,7 +98,7 @@ async def run_tool_loop(
     while True:
         definitions = tools.tool_definitions()
         response = await llm.complete(
-            model=model or settings.LLM_MODEL,
+            model=model or await model_router.default_model(),
             messages=conversation,
             tools=definitions,
             tool_choice="auto",
@@ -138,7 +138,9 @@ async def run_tool_loop(
         if iterations >= settings.AGENT_MAX_ITERATIONS:
             logger.warning("Chat: %d itérations atteintes, réponse finale demandée", settings.AGENT_MAX_ITERATIONS)
             events.note("Limite d'appels d'outils atteinte : une réponse finale a été demandée sans outil.")
-            final = await wrap_up(model=model or settings.LLM_MODEL, messages=conversation, definitions=definitions)
+            final = await wrap_up(
+                model=model or await model_router.default_model(), messages=conversation, definitions=definitions
+            )
             return LoopResult(answer=model_output.shown(final or content), iterations=iterations)
 
         for call in calls:

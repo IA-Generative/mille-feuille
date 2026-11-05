@@ -6,9 +6,8 @@ import logging
 from openai import AsyncOpenAI, OpenAI
 from pydantic import BaseModel, Field
 
-from app.agent import usage
+from app.agent import model_router, usage
 from app.agent.document_generation import GeneratedFields
-from app.agent.runner import settings
 from app.config import LlmSettings
 from app.models.token_usage import TokenUsageKind
 
@@ -105,7 +104,7 @@ async def propose_updates_from_note(*, note: str, elements: str) -> ProposedUpda
     (structured output). Les propositions renvoyées sont ensuite validées et
     déposées en attente : rien n'est appliqué."""
     response = await parse(
-        model=settings.LLM_MODEL,
+        model=await model_router.for_difficulty(2),
         messages=[
             {"role": "system", "content": _NOTE_SYSTEM_PROMPT},
             {"role": "user", "content": f"--- Éléments de l'analyse ---\n{elements}\n\n--- Note ---\n{note}"},
@@ -126,7 +125,7 @@ async def generate_field_values(messages: list[dict[str, str]]) -> GeneratedFiel
     ``app.agent.document_generation`` (prompt versionné + garde-fous, contexte borné) ; la réponse est ensuite
     filtrée : seuls les champs demandés, avec des sources connues, sont retenus."""
     response = await parse(
-        model=settings.LLM_MODEL, messages=messages, response_format=GeneratedFields, temperature=0.1
+        model=await model_router.for_difficulty(3), messages=messages, response_format=GeneratedFields, temperature=0.1
     )
     return response.choices[0].message.parsed or GeneratedFields()
 
@@ -150,7 +149,7 @@ async def summarize_text(content: str, *, max_tokens: int = 500) -> str:
     if not content or not content.strip():
         return ""
     response = await complete(
-        model=settings.LLM_MODEL,
+        model=await model_router.for_difficulty(1),
         messages=[
             {"role": "system", "content": _SUMMARY_SYSTEM_PROMPT},
             {"role": "user", "content": content},
@@ -209,7 +208,7 @@ async def suggest_analyses(*, dossier_summary: str, analyses: list[dict]) -> Sug
         f"justification. Trie par score décroissant."
     )
     response = await parse(
-        model=settings.LLM_MODEL,
+        model=await model_router.for_difficulty(2),
         messages=[
             {"role": "system", "content": _SUGGESTION_SYSTEM_PROMPT},
             {"role": "user", "content": user_content},

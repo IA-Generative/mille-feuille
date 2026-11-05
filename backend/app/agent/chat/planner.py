@@ -11,7 +11,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.agent import llm
+from app.agent import llm, model_router
 from app.agent.ask_user import normalize_questions
 from app.agent.runner import settings
 
@@ -141,7 +141,7 @@ async def make_plan(
     )
     try:
         response = await llm.complete(
-            model=settings.CHAT_PLAN_MODEL or model or settings.LLM_MODEL,
+            model=settings.CHAT_PLAN_MODEL or model or await model_router.light_model(),
             messages=[
                 {"role": "system", "content": _SYSTEM_PROMPT + agents_guide(agents or [])},
                 {"role": "user", "content": user},

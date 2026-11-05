@@ -16,7 +16,7 @@ import uuid
 
 from sqlalchemy import select
 
-from app.agent import model_output, usage
+from app.agent import model_output, model_router, usage
 from app.agent.agent_call import FUNCTION_NAME, NOTICE
 from app.agent.agent_loop import run_agent
 from app.agent.agent_tool_set import ExtraTools
@@ -142,7 +142,9 @@ async def _run_single_agent(
         others=[other for other in others if other.name != definition.name],
     )
     await _log_missing_tools(step_id, extra)
-    answer = await run_agent(prompt=_with_notice(agent["prompt"], extra), tools=tools, model=agent.get("model"))
+    # Le modèle de l'agent s'il en a un ; sinon le modèle par défaut, ou (mode auto) celui que sa consigne demande.
+    model = await model_router.for_query(agent["prompt"], explicit=agent.get("model"))
+    answer = await run_agent(prompt=_with_notice(agent["prompt"], extra), tools=tools, model=model)
     await _complete(step_id, ExecutionStepStatus.TERMINE, answer)
     logger.info("Agent '%s' terminé : %d caractères", agent["name"], len(answer))
 

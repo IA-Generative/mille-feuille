@@ -9,7 +9,7 @@ le champ tel quel (« non renseigné »), jamais inventée. Le résultat est sig
 import logging
 import uuid
 
-from app.agent import document_generation, llm, usage
+from app.agent import document_generation, llm, model_router, usage
 from app.agent.runner import settings
 from app.db import async_session_factory
 from app.repositories.document_draft_repository import (
@@ -81,7 +81,7 @@ async def generate_document_fields(
                             value,
                             sources=sources,
                             prompt_version=prompt_label,
-                            model=settings.LLM_MODEL,
+                            model=await model_router.for_difficulty(3),
                             instruction=regeneration,
                         )
                         count += 1

@@ -8,9 +8,8 @@ est signalé sur la note (terminé avec le nombre de propositions, ou échec ave
 import logging
 import uuid
 
-from app.agent import llm, usage
+from app.agent import llm, model_router, usage
 from app.agent.analysis_tools import AnalysisProposer
-from app.agent.runner import settings
 from app.db import async_session_factory
 from app.repositories.dossier_note_repository import NOTE_ANALYSIS_DONE, NOTE_ANALYSIS_FAILED, DossierNoteRepository
 
@@ -49,7 +48,7 @@ async def propose_from_note(note_id: str) -> None:
         proposer = AnalysisProposer(
             dossier_id=dossier_id,
             user_id=requested_by or "",
-            model=settings.LLM_MODEL,
+            model=await model_router.for_difficulty(2),
             source_message_id=note_id,
             source_type="note",
             actor="note-agent",
