@@ -14,17 +14,18 @@ defineEmits<{
   "open-activity": [];
 }>();
 
-const todayLabel = formatDayLabel(new Date());
+// Majuscule initiale en JS : le titre commence par un texte pour lecteur d'écran, ce qui gênerait ::first-letter.
+const todayLabel = (() => {
+  const label = formatDayLabel(new Date());
+  return label.charAt(0).toUpperCase() + label.slice(1);
+})();
 
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 </script>
 
 <template>
   <header class="head">
-    <div>
-      <h1 class="head__title">Aujourd'hui</h1>
-      <p class="head__date">{{ todayLabel }}</p>
-    </div>
+    <h1 class="head__title"><span class="fr-sr-only">Aujourd'hui, </span>{{ todayLabel }}</h1>
 
     <div class="head__actions">
       <button
@@ -60,25 +61,16 @@ const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : 
 <style scoped>
 .head {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .head__title {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.5rem;
   font-weight: 800;
-}
-
-.head__date {
-  margin: 0;
-  color: var(--text-mention-grey);
-}
-
-.head__date::first-letter {
-  text-transform: uppercase;
 }
 
 .head__actions {
