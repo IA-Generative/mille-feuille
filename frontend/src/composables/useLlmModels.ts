@@ -1,6 +1,6 @@
 import { computed, ref } from "vue";
 
-import type { HubModel, LlmCapability, LlmModel, RoutingMode } from "@/types/llmModel";
+import type { HubModel, LlmCapability, LlmModel, LlmType, RoutingMode } from "@/types/llmModel";
 import { apiFetch } from "@/utils/api";
 
 // Administration des modèles LLM (backend : /api/admin/llm-capabilities, llm-models, llm-hub-models, llm-routing).
@@ -12,6 +12,7 @@ interface ApiModel {
   position: number;
   enabled: boolean;
   capability_ids: string[];
+  types: LlmType[] | null;
 }
 
 const mapModel = (api: ApiModel): LlmModel => ({
@@ -20,6 +21,7 @@ const mapModel = (api: ApiModel): LlmModel => ({
   position: api.position,
   enabled: api.enabled,
   capabilityIds: api.capability_ids,
+  types: api.types,
 });
 
 const capabilities = ref<LlmCapability[]>([]);
@@ -48,13 +50,13 @@ async function loadCore() {
   mode.value = routing.auto_mode ? "auto" : "first";
 }
 
-/** Le hub : seulement les noms. Une erreur (hub non configuré, injoignable) n'empêche pas de gérer la liste. */
+/** Le hub : ses modèles et leurs types. Une erreur (hub non configuré, injoignable) n'empêche pas de gérer la liste. */
 async function loadHub(refresh: boolean) {
   try {
-    const data = await apiFetch<{ models: string[]; read_at: string }>(
+    const data = await apiFetch<{ models: HubModel[]; read_at: string }>(
       `/api/admin/llm-hub-models${refresh ? "?refresh=true" : ""}`,
     );
-    hubModels.value = data.models.map((name) => ({ name }));
+    hubModels.value = data.models;
     hubReadAt.value = new Date(data.read_at);
     hubError.value = "";
   } catch (e) {
@@ -151,8 +153,11 @@ export function useLlmModels() {
       "La suppression de la capacité a échoué.",
     );
 
-  /** Relit les noms du hub (le hub est interrogé) ; les modèles déjà enregistrés n'y sont pas proposés. */
-  const refreshHub = () => loadHub(true);
+  /** Relit le hub (chaque modèle est sondé pour connaître ses types) ; les modèles déjà enregistrés n'y sont pas proposés. */
+  const refreshHub = async () => {
+    await loadHub(true);
+    await loadCore(); // les modèles enregistrés ont pris les types de cette lecture
+  };
 
   const setMode = (value: RoutingMode) =>
     change(

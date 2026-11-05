@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 
+import ModelTypeChips from "@/components/admin/models/ModelTypeChips.vue";
 import type { LlmCapability, LlmModel } from "@/types/llmModel";
 
 const props = defineProps<{ model: LlmModel | null; capabilities: LlmCapability[] }>();
@@ -19,6 +20,8 @@ watch(
 
 <template>
   <DsfrModal :opened="!!model" :title="model?.name ?? ''" icon="ri-cpu-line" @close="emit('close')">
+    <ModelTypeChips v-if="model" :types="model.types" class="edit-modal__types" />
+
     <fieldset class="edit-modal__group">
       <legend class="fr-text--sm">Capacités de ce modèle</legend>
       <p v-if="!capabilities.length" class="edit-modal__empty">
@@ -41,6 +44,10 @@ watch(
 </template>
 
 <style scoped>
+.edit-modal__types {
+  margin-bottom: 1rem;
+}
+
 .edit-modal__group {
   display: flex;
   flex-direction: column;

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ModelCapabilityChips from "@/components/admin/models/ModelCapabilityChips.vue";
+import ModelTypeChips from "@/components/admin/models/ModelTypeChips.vue";
 import type { LlmCapability, LlmModel } from "@/types/llmModel";
 
 defineProps<{
@@ -28,6 +29,7 @@ const emit = defineEmits<{ edit: []; move: [direction: -1 | 1]; toggle: [enabled
         <strong>{{ model.name }}</strong>
         <DsfrBadge v-if="isDefault" label="Par défaut" type="info" small no-icon />
       </div>
+      <ModelTypeChips :types="model.types" />
       <ModelCapabilityChips :capabilities="capabilities" />
     </div>
 

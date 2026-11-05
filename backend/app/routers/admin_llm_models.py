@@ -16,6 +16,7 @@ from app.schemas.llm_model import (
     LlmCapabilityIn,
     LlmCapabilityOut,
     LlmCapabilityUpdate,
+    LlmHubModelOut,
     LlmHubModelsOut,
     LlmModelCreate,
     LlmModelOrder,
@@ -85,7 +86,11 @@ async def list_llm_models(db: Annotated[AsyncSession, Depends(get_db)]):
 async def add_llm_model(body: LlmModelCreate, db: Annotated[AsyncSession, Depends(get_db)]):
     try:
         model = await llm_models.create_model(
-            db, name=body.name, capability_ids=body.capability_ids, enabled=body.enabled
+            db,
+            name=body.name,
+            capability_ids=body.capability_ids,
+            enabled=body.enabled,
+            types=llm_hub.cached_types(body.name),
         )
     except llm_models.DuplicateError:
         raise _DUPLICATE from None
@@ -126,20 +131,28 @@ async def delete_llm_model(model_id: uuid.UUID, db: Annotated[AsyncSession, Depe
     model_router.forget()
 
 
-# --- Le hub : seulement les noms ---
+# --- Le hub : ses modèles et leurs types ---
 
 
 @router.get("/llm-hub-models", response_model=LlmHubModelsOut)
 async def hub_models(db: Annotated[AsyncSession, Depends(get_db)], refresh: bool = False):
-    """Les modèles que le hub sert et que la liste n'a pas encore. `refresh` relit le hub, sinon : dernière lecture."""
+    """Les modèles que le hub sert et que la liste n'a pas encore, avec leurs types. `refresh` relit le hub (et sonde
+    chaque modèle), sinon : dernière lecture."""
     try:
-        names, read_at = await llm_hub.read(refresh=refresh)
+        found, read_at = await llm_hub.read(refresh=refresh)
     except RuntimeError:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Le hub LLM n'est pas configuré"
         ) from None
+    if refresh:
+        # Les modèles déjà enregistrés prennent les types que cette lecture leur donne.
+        await llm_models.set_detected_types(db, {model.name: model.types for model in found})
+        model_router.forget()
     registered = {model.name for model in await llm_models.list_models(db)}
-    return LlmHubModelsOut(models=[name for name in names if name not in registered], read_at=read_at)
+    return LlmHubModelsOut(
+        models=[LlmHubModelOut(name=model.name, types=model.types) for model in found if model.name not in registered],
+        read_at=read_at,
+    )
 
 
 # --- Un seul modèle / auto ---

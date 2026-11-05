@@ -59,6 +59,8 @@ class LlmModelOut(BaseModel):
     position: int
     enabled: bool
     capability_ids: list[uuid.UUID]
+    # Ce que le hub a révélé du modèle (completion, embedding, audio, image, video) ; null : pas encore lu.
+    types: list[str] | None
 
     @classmethod
     def of(cls, model) -> "LlmModelOut":  # noqa: ANN001
@@ -68,6 +70,7 @@ class LlmModelOut(BaseModel):
             position=model.position,
             enabled=model.enabled,
             capability_ids=[capability.id for capability in model.capabilities],
+            types=model.types,
         )
 
 
@@ -75,8 +78,13 @@ class LlmRoutingOut(BaseModel):
     auto_mode: bool
 
 
-class LlmHubModelsOut(BaseModel):
-    """Les noms que le hub sert et que la liste n'a pas encore, et quand le hub a été lu pour la dernière fois."""
+class LlmHubModelOut(BaseModel):
+    name: str
+    types: list[str]
 
-    models: list[str]
+
+class LlmHubModelsOut(BaseModel):
+    """Les modèles que le hub sert et que la liste n'a pas encore (avec leurs types), et quand il a été lu."""
+
+    models: list[LlmHubModelOut]
     read_at: datetime
