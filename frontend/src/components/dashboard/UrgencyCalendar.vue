@@ -20,8 +20,10 @@ const timeOf = (d: Date) => d.toLocaleTimeString("fr-FR", { hour: "2-digit", min
 const MAX_CHIPS = 2;
 const HOUR_START = 8;
 const HOUR_END = 20;
-const HOUR_REM = 2.75;
 const HOURS = Array.from({ length: HOUR_END - HOUR_START }, (_, i) => HOUR_START + i);
+
+/** Position verticale dans la frise, en % de sa hauteur (elle s'adapte à l'écran). `hours` = heures depuis HOUR_START. */
+const pct = (hours: number) => `${(hours / HOURS.length) * 100}%`;
 
 /** « Jour » (journée heure par heure) ou « Mois » : choisi par le parent. */
 const mode = computed(() => props.view);
@@ -39,12 +41,15 @@ function onRemove() {
   editing.value = null;
 }
 
+/** Frise horaire : sa hauteur réelle sert à convertir un glisser (pixels) en minutes. */
+const timelineEl = ref<HTMLElement | null>(null);
+
 /** Heure touchée dans la journée : ouvre le choix rapide d'un dossier à y placer. */
 const pickerHour = ref<number | null>(null);
 
 /** La fenêtre s'ouvre juste sous l'heure touchée, qui reste visible et surlignée. */
 const pickerTop = computed(() =>
-  pickerHour.value === null ? "0" : `${(pickerHour.value - HOUR_START + 1) * HOUR_REM}rem`,
+  pickerHour.value === null ? "0" : pct(pickerHour.value - HOUR_START + 1),
 );
 const hourLabel = (h: number) => `${String(h).padStart(2, "0")}:00`;
 
@@ -67,7 +72,7 @@ function openDay(key: string) {
 const nowTop = computed(() => {
   if (selectedKey.value !== todayKey) return null;
   const h = today.getHours() + today.getMinutes() / 60;
-  return h >= HOUR_START && h <= HOUR_END ? `${(h - HOUR_START) * HOUR_REM}rem` : null;
+  return h >= HOUR_START && h <= HOUR_END ? pct(h - HOUR_START) : null;
 });
 const WEEKDAYS = ["lun.", "mar.", "mer.", "jeu.", "ven.", "sam.", "dim."];
 
@@ -216,11 +221,10 @@ const blocks = computed(() => {
   });
   return placed.map(({ u, startH, endH, lane }) => ({
     e: u,
-    /** Bloc court (≤ 1 h) : heure et titre sur une seule ligne pour que rien ne soit coupé. */
-    compact: (endH - startH) * HOUR_REM < 3.2,
+    startH,
     style: {
-      top: `${(startH - HOUR_START) * HOUR_REM}rem`,
-      height: `${Math.max(endH - startH, 0.5) * HOUR_REM}rem`,
+      top: pct(startH - HOUR_START),
+      height: pct(Math.max(endH - startH, 0.5)),
       left: `${(lane / laneEnds.length) * 100}%`,
       width: `${100 / laneEnds.length}%`,
     },
@@ -266,8 +270,9 @@ function onBlockMove(ev: PointerEvent) {
   const dy = ev.clientY - dragOrigin.y;
   if (!dragOrigin.moved && Math.abs(dy) < 4) return;
   dragOrigin.moved = true;
-  const remPx = parseFloat(getComputedStyle(document.documentElement).fontSize);
-  const raw = (dy / (HOUR_REM * remPx)) * 60;
+  const hourPx = (timelineEl.value?.clientHeight ?? 0) / HOURS.length;
+  if (!hourPx) return;
+  const raw = (dy / hourPx) * 60;
   const minutes = clampShift(dragOrigin.entry, Math.round(raw / SNAP_MIN) * SNAP_MIN);
   drag.value = { key: dragOrigin.entry.key, minutes };
 }
@@ -409,39 +414,39 @@ function cellLabel(c: (typeof cells.value)[number]) {
       <p class="cal__hint">
         <VIcon name="ri-cursor-line" /> Touchez une heure pour y placer un dossier. Cliquez sur un bloc pour le modifier, glissez-le pour le déplacer.
       </p>
-      <div class="cal__timeline" :style="{ height: `${HOURS.length * HOUR_REM}rem` }">
+      <div class="cal__scroll">
+      <div ref="timelineEl" class="cal__timeline" :style="{ '--hours': HOURS.length }">
         <button
           v-for="h in HOURS"
           :key="h"
           type="button"
           class="cal__hour"
           :class="{ 'cal__hour--active': pickerHour === h }"
-          :style="{ height: `${HOUR_REM}rem` }"
           :aria-label="`Planifier un dossier à ${hourLabel(h)}`"
           @click="pickerHour = h"
         >
           <span class="cal__hour-label">{{ hourLabel(h) }}</span>
           <span class="cal__add" aria-hidden="true"><VIcon name="ri-add-line" /> Planifier un dossier</span>
         </button>
-        <div v-if="nowTop" class="cal__now" :style="{ top: nowTop }" aria-hidden="true" />
+      <div v-if="nowTop" class="cal__now" :style="{ top: nowTop }" aria-hidden="true" />
         <div class="cal__blocks">
-          <div
-            v-for="b in blocks"
-            :key="b.e.key"
-            class="cal__block"
-            :class="[
-              b.e.u.level === 'overdue' ? 'cal__block--overdue' : 'cal__block--soon',
-              { 'cal__block--drag': drag?.key === b.e.key, 'cal__block--compact': b.compact },
-            ]"
-            :style="{ ...b.style, transform: `translateY(${(shiftOf(b.e) / 60) * HOUR_REM}rem)` }"
-            title="Cliquer pour modifier · glisser pour déplacer (Alt + flèches au clavier)"
-            @pointerdown="onBlockDown($event, b.e)"
-            @pointermove="onBlockMove"
-            @pointerup="onBlockUp"
-            @pointercancel="onBlockUp"
-            @keydown="onBlockKey($event, b.e)"
-            @click="onBlockClick(b.e)"
-          >
+            <div
+              v-for="b in blocks"
+              :key="b.e.key"
+              class="cal__block"
+              :class="[
+                b.e.u.level === 'overdue' ? 'cal__block--overdue' : 'cal__block--soon',
+                { 'cal__block--drag': drag?.key === b.e.key },
+              ]"
+              :style="{ ...b.style, top: pct(b.startH - HOUR_START + shiftOf(b.e) / 60) }"
+              title="Cliquer pour modifier · glisser pour déplacer (Alt + flèches au clavier)"
+              @pointerdown="onBlockDown($event, b.e)"
+              @pointermove="onBlockMove"
+              @pointerup="onBlockUp"
+              @pointercancel="onBlockUp"
+              @keydown="onBlockKey($event, b.e)"
+              @click="onBlockClick(b.e)"
+            >
             <button type="button" class="cal__block-main">
               <span class="cal__block-time">
                 {{ timeOf(shownStart(b.e)) }}–{{ timeOf(shownEnd(b.e)) }}
@@ -471,6 +476,7 @@ function cellLabel(c: (typeof cells.value)[number]) {
           @close="pickerHour = null"
         />
       </div>
+    </div>
 
       <details v-if="toPlan.length" class="cal__toplan">
         <summary>
@@ -487,41 +493,43 @@ function cellLabel(c: (typeof cells.value)[number]) {
 
     <!-- Vue Mois -->
     <template v-else>
-    <div class="cal__grid" role="grid" :aria-label="`Calendrier de ${monthLabel}`">
-      <div v-for="w in WEEKDAYS" :key="w" class="cal__weekday" role="columnheader">{{ w }}</div>
-      <button
-        v-for="c in cells"
-        :key="c.key"
-        type="button"
-        role="gridcell"
-        class="cal__cell"
-        :class="{
-          'cal__cell--out': !c.inMonth,
-          'cal__cell--today': c.isToday,
-          'cal__cell--selected': c.key === selectedKey,
-          'cal__cell--drop': chipDrag?.overKey === c.key,
-        }"
-        :data-day="c.key"
-        :aria-label="cellLabel(c)"
-        :aria-selected="c.key === selectedKey"
-        @click="onCellClick(c.key)"
-      >
-        <span class="cal__day">{{ c.day }}</span>
-        <span v-if="c.items.length" class="cal__chips" aria-hidden="true">
-          <span
-            v-for="e in c.items.slice(0, MAX_CHIPS)"
-            :key="e.key"
-            class="cal__chip"
-            :class="[e.u.level === 'overdue' ? 'cal__chip--overdue' : 'cal__chip--soon', { 'cal__chip--movable': e.start }]"
-            @pointerdown="onChipDown($event, e)"
-            @pointermove="onChipMove"
-            @pointerup="onChipUp"
-            @pointercancel="onChipUp"
-          ><span v-if="e.start" class="cal__chip-time">{{ timeOf(e.start) }}</span>{{ e.u.dossierName }}</span>
-          <span v-if="c.items.length > MAX_CHIPS" class="cal__more">+{{ c.items.length - MAX_CHIPS }} autre{{ c.items.length - MAX_CHIPS > 1 ? "s" : "" }}</span>
-        </span>
-        <span v-if="c.items.length" class="cal__dot" aria-hidden="true">{{ c.items.length }}</span>
-      </button>
+    <div class="cal__scroll">
+      <div class="cal__grid" role="grid" :aria-label="`Calendrier de ${monthLabel}`">
+        <div v-for="w in WEEKDAYS" :key="w" class="cal__weekday" role="columnheader">{{ w }}</div>
+        <button
+          v-for="c in cells"
+          :key="c.key"
+          type="button"
+          role="gridcell"
+          class="cal__cell"
+          :class="{
+            'cal__cell--out': !c.inMonth,
+            'cal__cell--today': c.isToday,
+            'cal__cell--selected': c.key === selectedKey,
+            'cal__cell--drop': chipDrag?.overKey === c.key,
+          }"
+          :data-day="c.key"
+          :aria-label="cellLabel(c)"
+          :aria-selected="c.key === selectedKey"
+          @click="onCellClick(c.key)"
+        >
+          <span class="cal__day">{{ c.day }}</span>
+          <span v-if="c.items.length" class="cal__chips" aria-hidden="true">
+            <span
+              v-for="e in c.items.slice(0, MAX_CHIPS)"
+              :key="e.key"
+              class="cal__chip"
+              :class="[e.u.level === 'overdue' ? 'cal__chip--overdue' : 'cal__chip--soon', { 'cal__chip--movable': e.start }]"
+              @pointerdown="onChipDown($event, e)"
+              @pointermove="onChipMove"
+              @pointerup="onChipUp"
+              @pointercancel="onChipUp"
+            ><span v-if="e.start" class="cal__chip-time">{{ timeOf(e.start) }}</span>{{ e.u.dossierName }}</span>
+            <span v-if="c.items.length > MAX_CHIPS" class="cal__more">+{{ c.items.length - MAX_CHIPS }} autre{{ c.items.length - MAX_CHIPS > 1 ? "s" : "" }}</span>
+          </span>
+          <span v-if="c.items.length" class="cal__dot" aria-hidden="true">{{ c.items.length }}</span>
+        </button>
+      </div>
     </div>
     <p v-if="chipDrag" class="cal__ghost" :style="{ left: `${chipDrag.x + 12}px`, top: `${chipDrag.y + 12}px` }" aria-hidden="true">
       {{ chipDrag.name }}
@@ -543,6 +551,22 @@ function cellLabel(c: (typeof cells.value)[number]) {
 </template>
 
 <style scoped>
+/* Vue Jour : .cal et .cal__day-view transmettent la hauteur à la frise (sans effet quand la page n'est pas bornée). */
+.cal,
+.cal__day-view {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* La frise défile ici quand l'écran est trop bas ; min-height évite que l'ouverture de « À planifier » l'écrase. */
+.cal__scroll {
+  flex: 1;
+  min-height: 14rem;
+  overflow-y: auto;
+}
+
 .cal__toolbar {
   display: flex;
   align-items: center;
@@ -553,6 +577,10 @@ function cellLabel(c: (typeof cells.value)[number]) {
 
 .cal__timeline {
   position: relative;
+  display: grid;
+  grid-template-rows: repeat(var(--hours), 1fr);
+  height: 100%;
+  min-height: calc(var(--hours) * 1.75rem); /* sous ce seuil, .cal__scroll défile */
   border-top: 1px solid var(--border-default-grey);
 }
 
@@ -637,6 +665,8 @@ function cellLabel(c: (typeof cells.value)[number]) {
 
 .cal__block {
   position: absolute;
+  container-type: size;
+  container-name: block;
   display: flex;
   align-items: flex-start;
   overflow: hidden;
@@ -668,12 +698,14 @@ function cellLabel(c: (typeof cells.value)[number]) {
   cursor: inherit;
 }
 
-/* Bloc court : « 09:00–10:00  Titre » sur une ligne. */
-.cal__block--compact .cal__block-main {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.5rem;
-  padding-block: 0.125rem;
+/* Bloc court (< 3,2 rem de haut) : « 09:00–10:00  Titre » sur une ligne. Remplace l'ancien calcul en JS. */
+@container block (max-height: 3.2rem) {
+  .cal__block-main {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    padding-block: 0.125rem;
+  }
 }
 
 .cal__block-open {
@@ -788,6 +820,9 @@ function cellLabel(c: (typeof cells.value)[number]) {
 .cal__grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-template-rows: auto; /* ligne des jours de la semaine */
+  grid-auto-rows: minmax(4.5rem, 1fr); /* les semaines se partagent la hauteur disponible */
+  min-height: 100%;
   border-top: 1px solid var(--border-default-grey);
   border-left: 1px solid var(--border-default-grey);
 }
@@ -806,6 +841,8 @@ function cellLabel(c: (typeof cells.value)[number]) {
 
 .cal__cell {
   position: relative;
+  container-type: size;
+  container-name: cell;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -935,10 +972,21 @@ function cellLabel(c: (typeof cells.value)[number]) {
 }
 
 @media (max-width: 48em) {
-  .cal__cell {
-    min-height: 3.5rem;
+  .cal__grid {
+    grid-auto-rows: minmax(3.5rem, 1fr);
   }
 
+  .cal__chips {
+    display: none;
+  }
+
+  .cal__dot {
+    display: block;
+  }
+}
+
+/* Case trop basse pour les pastilles (jour + 2 dossiers + « +N autres » ≈ 5,75 rem) : le compteur les remplace. */
+@container cell (max-height: 5.75rem) {
   .cal__chips {
     display: none;
   }

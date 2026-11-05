@@ -50,7 +50,7 @@ async function onSchedule(dossierId: string, slot: SlotDraft | null) {
 </script>
 
 <template>
-  <div class="dashboard">
+  <div class="dashboard" :class="{ 'dashboard--fit': view !== 'list' }">
     <DashboardHeader
       :unread-count="unreadCount"
       :unassigned-count="data?.unassigned?.length ?? null"
@@ -112,6 +112,16 @@ async function onSchedule(dossierId: string, slot: SlotDraft | null) {
 .dashboard {
   max-width: 56rem;
   margin: 0 auto;
+}
+
+/* Vue Jour et Mois sur grand écran : la page occupe exactement la hauteur utile (4rem = padding vertical de
+   .app-shell__content). En dessous, ou sur petit écran, la page garde son défilement naturel (reflow). */
+@media (min-width: 62.5rem) and (min-height: 38rem) {
+  .dashboard--fit {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 4rem);
+  }
 }
 
 .dashboard__state {
