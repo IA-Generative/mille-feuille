@@ -23,7 +23,7 @@ class ToolCallOut(BaseModel):
 
 class ToolTestIn(BaseModel):
     prompt: str = Field(min_length=1, max_length=2000, description="La demande, en langage naturel.")
-    # Identifiant de modèle tel que renvoyé par GET /models ; None = le premier modèle de chat du hub.
+    # Identifiant de modèle tel que renvoyé par GET /models ; None = « Auto » (choisi par le backend).
     model: str | None = None
     # Obligatoire pour un tool qui modifie des données : le test l'exécute pour de vrai.
     confirmed: bool = False

@@ -99,6 +99,12 @@ async def default_model() -> str:
     return catalogue.models[0].name if catalogue.models else settings.LLM_MODEL
 
 
+async def registered_default() -> str | None:
+    """Le premier modèle actif de la table, ou None quand l'administrateur n'en a enregistré aucun."""
+    catalogue = await _catalogue()
+    return catalogue.models[0].name if catalogue.models else None
+
+
 async def planner_model() -> str:
     return settings.CHAT_PLAN_MODEL or await default_model()
 

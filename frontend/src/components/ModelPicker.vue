@@ -3,7 +3,7 @@
  * Sélecteur de modèle LLM, le même partout dans l'application : un bouton
  * (nom du modèle + chevron) qui ouvre une liste flottante avec le choix
  * courant coché. Charge lui-même le catalogue du hub (useModels), il suffit de
- * lui lier la valeur. "" = pas de préférence (modèle par défaut du hub).
+ * lui lier la valeur. "" = « Auto » : le modèle est choisi par le backend.
  * Construit avec les classes et jetons du DSFR plutôt qu'avec un <select>.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
@@ -30,7 +30,7 @@ const { models, fetchModels } = useModels();
 onMounted(fetchModels);
 
 const options = computed(() => [
-  { value: "", text: "Modèle par défaut" },
+  { value: "", text: "Auto" },
   ...models.value.map((id) => ({ value: id, text: id })),
 ]);
 

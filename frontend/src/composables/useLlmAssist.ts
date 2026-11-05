@@ -1,7 +1,7 @@
 // Aides LLM ("Aide à la rédaction...") : chaque fonction construit un
 // prompt d'instruction et l'envoie à POST /api/llm/complete (voir
 // useLlmComplete.ts). `model` vient du LlmAssistButton qui a déclenché
-// l'appel (null = modèle par défaut du hub côté backend).
+// l'appel (null = « Auto », choisi côté backend).
 import { completeChat, parseJsonFromCompletion } from "@/composables/useLlmComplete";
 import type { EntityDefinition, EntityType, LabelDefinition } from "@/types/analyse";
 

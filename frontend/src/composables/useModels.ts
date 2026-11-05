@@ -9,8 +9,7 @@ const models = reactive<string[]>([]);
 let fetched = false;
 
 // Préférence de modèle pour les boutons d'aide LLM (LlmAssistButton) :
-// une seule sélection partagée par toute l'application ("" = modèle par
-// défaut du hub), modifiable depuis n'importe quel bouton non compact.
+// une seule sélection partagée par toute l'application ("" = « Auto »), modifiable depuis n'importe quel bouton non compact.
 const assistModel = ref("");
 
 async function fetchModels() {

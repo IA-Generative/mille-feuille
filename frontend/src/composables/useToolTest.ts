@@ -17,7 +17,7 @@ interface ToolTestOut {
 export const examplePromptOf = (tool: Tool) => `Utilise l'outil « ${tool.name} » sur un exemple simple.`;
 
 export interface ToolTestOptions {
-  /** Identifiant de modèle (voir GET /api/models) ; vide = le modèle par défaut du hub. */
+  /** Identifiant de modèle (voir GET /api/models) ; vide = « Auto ». */
   model: string;
   /** Obligatoire pour un tool qui modifie des données : le test l'exécute pour de vrai. */
   confirmed: boolean;
