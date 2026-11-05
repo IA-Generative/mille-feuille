@@ -111,9 +111,9 @@ def _cache_models(model_ids: list[str]) -> None:
 async def list_models(
     _: Annotated[RequestContext, Depends(get_current_user)], db: Annotated[AsyncSession, Depends(get_db)]
 ) -> LlmModelsResponse:
-    # Les modèles que l'administrateur a enregistrés et activés (voir /admin/llm-models), quand il y en a : ce sont
-    # ceux qu'on propose. Sinon, ceux que le hub sert et qui savent compléter du texte.
-    registered = await llm_models.enabled_models(db)
+    # Les modèles que l'administrateur a enregistrés et activés (voir /admin/llm-models) et qui savent compléter du
+    # texte (leur type, lu sur le hub), quand il y en a : ce sont ceux qu'on propose. Sinon, ceux que le hub sert.
+    registered = [model for model in await llm_models.enabled_models(db) if llm_models.can_complete(model)]
     if registered:
         return LlmModelsResponse(models=[LlmModel(id=model.name) for model in registered])
     if _openai_client is None:

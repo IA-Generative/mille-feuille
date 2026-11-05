@@ -72,7 +72,7 @@ def test_the_mode_is_one_model_by_default_and_can_be_switched(client: TestClient
     client.put("/api/admin/llm-routing", json={"auto_mode": False})
 
 
-def test_the_hub_only_gives_names_and_hides_registered_models(
+def test_the_hub_gives_models_with_their_types_and_hides_registered_ones(
     client: TestClient, admin, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     registered = f"deja-{_suffix()}"
@@ -83,13 +83,21 @@ def test_the_hub_only_gives_names_and_hides_registered_models(
         from datetime import UTC, datetime
 
         read.append(refresh)
-        return [registered, "nouveau-modele"], datetime.now(UTC)
+        found = [
+            llm_hub.HubModel(registered, ["completion"]),
+            llm_hub.HubModel("nouveau-modele", ["completion", "audio"]),
+        ]
+        return found, datetime.now(UTC)
 
     monkeypatch.setattr(llm_hub, "read", fake_read)
 
     body = client.get("/api/admin/llm-hub-models", params={"refresh": True}).json()
+    listed = {m["name"]: m for m in client.get("/api/admin/llm-models").json()}
 
-    assert body["models"] == ["nouveau-modele"] and body["read_at"] and read == [True]
+    assert body["models"] == [{"name": "nouveau-modele", "types": ["completion", "audio"]}]
+    assert body["read_at"] and read == [True]
+    # Un modèle déjà enregistré prend les types que la lecture lui donne : on ne les saisit pas.
+    assert listed[registered]["types"] == ["completion"]
 
 
 def test_only_administrators_can_manage_models(client: TestClient) -> None:

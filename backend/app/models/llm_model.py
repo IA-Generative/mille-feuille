@@ -1,12 +1,16 @@
 """Les modèles du hub LLM que l'application connaît, et ce que l'administrateur dit qu'ils savent faire.
 
-Une **capacité** est définie par l'administrateur : un nom et une description (« Tâches lourdes » : capable de raisonner
+Le **type** d'un modèle (complétion, embeddings, audio, image, vidéo) est lu par le backend sur le hub. Une
+**capacité** est définie par l'administrateur : un nom et une description (« Tâches lourdes » : capable de raisonner
 sur plusieurs documents ; « Outils » : capable de répondre en appelant des outils). Rien n'est déduit du modèle. Un
 modèle est enregistré par son nom (celui du hub) avec ses capacités et son ordre de préférence : par défaut, le premier
 modèle actif fait tout ; en mode auto, le modèle est choisi selon les capacités que la demande demande (voir
 `app/agent/model_router.py`)."""
 
+import enum
+
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Table, Text
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +24,16 @@ llm_model_capabilities = Table(
         "capability_id", PG_UUID(as_uuid=True), ForeignKey("llm_capabilities.id", ondelete="CASCADE"), primary_key=True
     ),
 )
+
+
+class LlmModelType(enum.StrEnum):
+    """Ce qu'un modèle sait faire techniquement. Le backend le lit sur le hub : l'administrateur ne le saisit pas."""
+
+    COMPLETION = "completion"
+    EMBEDDING = "embedding"
+    AUDIO = "audio"
+    IMAGE = "image"  # traite ou produit des images
+    VIDEO = "video"
 
 
 class LlmCapabilityConfig(UUIDMixin, TimestampMixin, Base):
@@ -37,6 +51,8 @@ class LlmModelConfig(UUIDMixin, TimestampMixin, Base):
     # Ordre de préférence : le premier modèle actif est celui de tout le monde hors mode auto.
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, index=True)
     enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Les LlmModelType que le hub a révélés (voir services/llm_hub.py) ; NULL : pas encore lus, on ne sait pas.
+    types: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
     capabilities: Mapped[list[LlmCapabilityConfig]] = relationship(
         secondary=llm_model_capabilities, order_by=LlmCapabilityConfig.name, lazy="selectin"
     )

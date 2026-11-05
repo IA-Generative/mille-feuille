@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import ModelTypeChips from "@/components/admin/models/ModelTypeChips.vue";
 import type { HubModel } from "@/types/llmModel";
 
 const props = defineProps<{ models: HubModel[]; readAt: Date | null; error: string; refreshing: boolean }>();
@@ -18,7 +19,7 @@ const readAgo = computed(() => {
     <div class="hub-panel__header">
       <div>
         <h3 id="hub-title" class="hub-panel__title">Modèles du hub</h3>
-        <p class="hub-panel__note">Dernière lecture du hub : {{ readAgo }}. Seuls les noms sont lus : vous donnez vous-même ses capacités à chaque modèle ajouté.</p>
+        <p class="hub-panel__note">Dernière lecture du hub : {{ readAgo }}. Les types sont lus sur le hub ; vous donnez vous-même ses capacités à chaque modèle ajouté.</p>
       </div>
       <DsfrButton
         label="Relire le hub"
@@ -34,7 +35,10 @@ const readAgo = computed(() => {
     <p v-else-if="!models.length" class="hub-panel__empty">Tous les modèles du hub sont déjà dans la liste.</p>
     <ul v-else class="hub-panel__list">
       <li v-for="model in models" :key="model.name" class="hub-panel__item">
-        <strong>{{ model.name }}</strong>
+        <div class="hub-panel__info">
+          <strong>{{ model.name }}</strong>
+          <ModelTypeChips :types="model.types" />
+        </div>
         <DsfrButton label="Ajouter" icon="ri-add-line" tertiary size="sm" @click="emit('add', model)" />
       </li>
     </ul>
@@ -86,5 +90,11 @@ const readAgo = computed(() => {
 
 .hub-panel__item + .hub-panel__item {
   border-top: 1px dashed var(--border-default-grey, #ddd);
+}
+
+.hub-panel__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
 }
 </style>

@@ -91,7 +91,12 @@ async def _capabilities_of(db: AsyncSession, capability_ids: list[uuid.UUID]) ->
 
 
 async def create_model(
-    db: AsyncSession, *, name: str, capability_ids: list[uuid.UUID], enabled: bool = True
+    db: AsyncSession,
+    *,
+    name: str,
+    capability_ids: list[uuid.UUID],
+    enabled: bool = True,
+    types: list[str] | None = None,
 ) -> LlmModelConfig:
     existing = await list_models(db)
     if any(model.name == name for model in existing):
@@ -100,6 +105,7 @@ async def create_model(
     model = LlmModelConfig(
         name=name,
         enabled=enabled,
+        types=types,
         position=max((model.position for model in existing), default=-1) + 1,
         capabilities=await _capabilities_of(db, capability_ids),
     )
@@ -120,6 +126,24 @@ async def update_model(
     await db.commit()
     await db.refresh(model)
     return model
+
+
+async def set_detected_types(db: AsyncSession, by_name: dict[str, list[str]]) -> None:
+    """Met à jour les types des modèles enregistrés d'après la dernière lecture du hub (qui les révèle : on ne les
+    saisit pas)."""
+    changed = False
+    for model in await list_models(db):
+        if model.name in by_name and model.types != by_name[model.name]:
+            model.types = by_name[model.name]
+            changed = True
+    if changed:
+        await db.commit()
+
+
+def can_complete(model: LlmModelConfig) -> bool:
+    """Le modèle peut-il répondre à du texte ? Vrai aussi quand ses types ne sont pas encore lus : on ne l'écarte pas
+    sur une absence d'information."""
+    return model.types is None or "completion" in model.types
 
 
 async def reorder_models(db: AsyncSession, model_ids: list[uuid.UUID]) -> list[LlmModelConfig]:
