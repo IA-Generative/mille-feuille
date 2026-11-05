@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.44.0](https://github.com/IA-Generative/mille-feuille/compare/v0.43.1...v0.44.0) (2026-11-05)
+
+
+### Features
+
+* **chat:** bbox par ligne sur les sources citées dans le chat ([d915a68](https://github.com/IA-Generative/mille-feuille/commit/d915a68fcafd7ec2a3ed3719846dc3da3c42b98c))
+* **dossier:** supprimer un dossier (administrateur ou créateur) ([de62d05](https://github.com/IA-Generative/mille-feuille/commit/de62d0511e1be33fe4634b6f34e7230601d55e31))
+
 ## [0.43.1](https://github.com/IA-Generative/mille-feuille/compare/v0.43.0...v0.43.1) (2026-11-05)
 
 
