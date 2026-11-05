@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onMounted } from "vue";
 
 import { useAuth } from "@/composables/useAuth";
 import { useProfile } from "@/composables/useProfile";
@@ -14,24 +14,21 @@ function formatDate(iso: string | null) {
   return dateFormatter.format(new Date(iso));
 }
 
-const statCards = ref<{ label: string; value: number; icon: string }[]>([]);
-
-function refreshStats() {
-  if (!stats.value) return;
-  statCards.value = [
-    { label: "Conversations (dossiers)", value: stats.value.conversations_count, icon: "ri-chat-3-line" },
-    { label: "Messages envoyés", value: stats.value.messages_sent_count, icon: "ri-mail-send-line" },
-    { label: "Conversations avec l'assistant", value: stats.value.agent_conversations_count, icon: "ri-robot-2-line" },
-    { label: "Messages à l'assistant", value: stats.value.agent_messages_sent_count, icon: "ri-message-3-line" },
-    { label: "Dossiers accessibles", value: stats.value.dossiers_count, icon: "ri-folder-line" },
-    { label: "Analyses partagées", value: stats.value.analyses_shared_count, icon: "ri-share-line" },
+// computed plutôt que ref + refreshStats() : plus d'état dupliqué à resynchroniser
+const statCards = computed(() => {
+  const s = stats.value;
+  if (!s) return [];
+  return [
+    { label: "Conversations (dossiers)", value: s.conversations_count, icon: "ri-chat-3-line" },
+    { label: "Messages envoyés", value: s.messages_sent_count, icon: "ri-mail-send-line" },
+    { label: "Conversations avec l'assistant", value: s.agent_conversations_count, icon: "ri-robot-2-line" },
+    { label: "Messages à l'assistant", value: s.agent_messages_sent_count, icon: "ri-message-3-line" },
+    { label: "Dossiers accessibles", value: s.dossiers_count, icon: "ri-folder-line" },
+    { label: "Analyses partagées", value: s.analyses_shared_count, icon: "ri-share-line" },
   ];
-}
-
-onMounted(async () => {
-  await fetchStats();
-  refreshStats();
 });
+
+onMounted(fetchStats);
 
 function initials(name: string): string {
   return name
@@ -45,125 +42,150 @@ function initials(name: string): string {
 
 <template>
   <div class="profile-page">
-    <div class="fr-container fr-py-6w">
-      <h1 class="fr-h2">Mon profil</h1>
+    <h1 class="fr-h2">Mon profil</h1>
 
-      <!-- Carte identité -->
-      <div class="fr-card fr-mb-4w">
-        <div class="fr-card__body">
-          <div class="fr-grid-row fr-grid-row--middle">
-            <div class="fr-col-auto">
-              <span class="profile-page__avatar" aria-hidden="true">{{ initials(userName) }}</span>
-            </div>
-            <div class="fr-col fr-ml-3w">
-              <h2 class="fr-h3 fr-mb-0">{{ userName }}</h2>
-              <p v-if="profile?.email" class="fr-text--sm fr-mb-0 fr-text--muted">{{ profile.email }}</p>
-              <DsfrBadge v-if="profile?.isAdmin" label="Administrateur" type="info" />
-            </div>
-          </div>
-        </div>
+    <!-- Identité : pleine largeur, sans cadre -->
+    <section class="profile-page__identity fr-mb-4w" aria-labelledby="profile-identity-title">
+      <span class="profile-page__avatar" aria-hidden="true">{{ initials(userName) }}</span>
+      <div>
+        <h2 id="profile-identity-title" class="fr-h3 fr-mb-1v">{{ userName }}</h2>
+        <p v-if="profile?.email" class="fr-text--sm fr-mb-1w fr-text-mention--grey">{{ profile.email }}</p>
+        <DsfrBadge v-if="profile?.isAdmin" label="Administrateur" type="info" />
       </div>
+    </section>
 
-      <!-- Sélecteur de thème -->
-      <div class="fr-card fr-mb-4w">
-        <div class="fr-card__body">
-          <h3 class="fr-h4 fr-mb-2w">
-            <VIcon name="ri-palette-line" class="fr-mr-1w" />
+    <div class="fr-grid-row fr-grid-row--gutters">
+      <!-- Colonne gauche : Apparence, dans un panneau bleu pâle -->
+      <div class="fr-col-12 fr-col-lg-5">
+        <section class="profile-page__panel" aria-labelledby="profile-theme-title">
+          <h2 id="profile-theme-title" class="fr-h4 fr-mb-2w">
+            <VIcon name="ri-palette-line" class="fr-mr-1w" aria-hidden="true" />
             Apparence
-          </h3>
-          <p class="fr-text--sm fr-text--muted fr-mb-2w">
+          </h2>
+          <p class="fr-text--sm fr-text-mention--grey fr-mb-2w">
             Choisissez le thème de l'interface. Le thème « système » s'adapte automatiquement à vos préférences système.
           </p>
           <ThemeChoice />
-        </div>
+        </section>
       </div>
 
-      <!-- Statistiques -->
-      <div class="fr-card">
-        <div class="fr-card__body">
-          <h3 class="fr-h4 fr-mb-2w">
-            <VIcon name="ri-bar-chart-2-line" class="fr-mr-1w" />
+      <!-- Colonne droite : Statistiques, au même niveau qu'Apparence -->
+      <div class="fr-col-12 fr-col-lg-7">
+        <section aria-labelledby="profile-stats-title">
+          <h2 id="profile-stats-title" class="fr-h4 fr-mb-2w">
+            <VIcon name="ri-bar-chart-2-line" class="fr-mr-1w" aria-hidden="true" />
             Statistiques
-          </h3>
+          </h2>
 
-          <div v-if="loading" class="fr-text--muted">Chargement des statistiques…</div>
+          <!-- Toujours dans le DOM : c'est le changement de contenu que le lecteur d'écran annonce -->
+          <div role="status">
+            <p v-if="loading" class="fr-text-mention--grey">Chargement des statistiques…</p>
+          </div>
 
-          <template v-else>
-            <div class="fr-grid-row fr-grid-row--gutters fr-mb-3w">
-              <div v-for="card in statCards" :key="card.label" class="fr-col-12 fr-col-md-6 fr-col-lg-4">
-                <div class="profile-page__stat">
-                  <VIcon :name="card.icon" class="profile-page__stat-icon" />
-                  <div>
-                    <div class="profile-page__stat-value">{{ card.value }}</div>
-                    <div class="profile-page__stat-label">{{ card.label }}</div>
-                  </div>
+          <template v-if="!loading">
+            <ul class="profile-page__stats">
+              <li v-for="card in statCards" :key="card.label" class="profile-page__stat">
+                <div class="profile-page__stat-head">
+                  <span class="profile-page__stat-icon" aria-hidden="true">
+                    <VIcon :name="card.icon" aria-hidden="true" />
+                  </span>
+                  <span class="profile-page__stat-value">{{ card.value }}</span>
                 </div>
-              </div>
-            </div>
+                <span class="profile-page__stat-label">{{ card.label }}</span>
+              </li>
+            </ul>
 
-            <div class="fr-grid-row fr-grid-row--middle">
-              <div class="fr-col-auto">
-                <VIcon name="ri-time-line" class="fr-mr-1w" />
-                <span class="fr-text--bold">Dernière activité :</span>
-              </div>
-              <div class="fr-col fr-ml-1w">
-                {{ formatDate(stats?.last_activity_at ?? null) }}
-              </div>
-            </div>
+            <p class="fr-text--sm fr-mt-3w fr-mb-0">
+              <VIcon name="ri-time-line" class="fr-mr-1w" aria-hidden="true" />
+              <span class="fr-text--bold">Dernière activité : </span>
+              <time v-if="stats?.last_activity_at" :datetime="stats.last_activity_at">
+                {{ formatDate(stats.last_activity_at) }}
+              </time>
+              <span v-else>—</span>
+            </p>
           </template>
-        </div>
+        </section>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.profile-page {
-  min-height: calc(100vh - var(--header-height, 0px));
+.profile-page__identity {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
 }
 
 .profile-page__avatar {
   display: inline-flex;
+  flex-shrink: 0;
   align-items: center;
   justify-content: center;
-  width: 4rem;
-  height: 4rem;
+  width: 5rem;
+  height: 5rem;
   border-radius: 50%;
-  background: var(--background-contrast-grey, #f6f6f6);
-  color: var(--text-title-grey, #161616);
+  background: var(--background-action-low-blue-france);
+  color: var(--text-action-high-blue-france);
+  font-size: 1.75rem;
   font-weight: 700;
-  font-size: 1.5rem;
 }
 
+/* Panneau « Apparence » : même rayon que les tuiles, fond bleu pâle pour le distinguer des aplats gris */
+.profile-page__panel {
+  padding: 1.5rem;
+  border-radius: 0.75rem;
+  background: var(--background-alt-blue-france);
+}
+
+.profile-page__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Même recette que MetricCard : aplat sans bordure, rayon 0.75rem */
 .profile-page__stat {
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--border-default-grey, #ddd);
-  border-radius: 0.25rem;
-  background: var(--background-default-grey, #fff);
-  height: 100%;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 1rem 1.25rem;
+  border-radius: 0.75rem;
+  background: var(--background-alt-grey);
+  color: var(--text-default-grey);
 }
 
+.profile-page__stat-head {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Pastille bleu pâle, comme .welcome__step-tile sur la landing page */
 .profile-page__stat-icon {
-  font-size: 2rem;
-  color: var(--text-action-high-blue-france, #000091);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  background: var(--background-action-low-blue-france);
+  color: var(--text-action-high-blue-france);
 }
 
 .profile-page__stat-value {
   font-size: 1.75rem;
-  font-weight: 700;
+  font-weight: 800;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .profile-page__stat-label {
   font-size: 0.875rem;
-  color: var(--text-mention-grey, #666);
-  margin-top: 0.25rem;
-}
-
-.fr-text--muted {
-  color: var(--text-mention-grey, #666);
+  color: var(--text-mention-grey);
 }
 </style>
