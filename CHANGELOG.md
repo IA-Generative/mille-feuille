@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.0](https://github.com/IA-Generative/mille-feuille/compare/v0.42.0...v0.43.0) (2026-11-05)
+
+
+### Features
+
+* **ui:** harminazing the Profil page presentation with the rest of the app ([8d221c6](https://github.com/IA-Generative/mille-feuille/commit/8d221c67565bbe10e65db15aebaceeaea855be06))
+
 ## [0.42.0](https://github.com/IA-Generative/mille-feuille/compare/v0.41.0...v0.42.0) (2026-11-03)
 
 
