@@ -6,6 +6,7 @@ import AdminStatsTab from "@/components/admin/AdminStatsTab.vue";
 import AdminTasksTab from "@/components/admin/AdminTasksTab.vue";
 import AdminCguTab from "@/components/admin/AdminCguTab.vue";
 import AdminDocumentGenerationTab from "@/components/admin/AdminDocumentGenerationTab.vue";
+import AdminModelsTab from "@/components/admin/AdminModelsTab.vue";
 import AdminUsageTab from "@/components/admin/AdminUsageTab.vue";
 
 // ── Onglets ─────────────────────────────────────────────────────────────
@@ -19,6 +20,7 @@ const tabs = [
   { title: "CGU", icon: "ri-file-text-line", tabId: "tab-cgu", panelId: "panel-cgu" },
   { title: "Génération des documents", icon: "ri-file-word-2-line", tabId: "tab-generation", panelId: "panel-generation" },
   { title: "Consommation", icon: "ri-drop-line", tabId: "tab-usage", panelId: "panel-usage" },
+  { title: "Modèles", icon: "ri-cpu-line", tabId: "tab-models", panelId: "panel-models" },
 ] as const;
 
 const loadedTabs = ref(new Set<number>());
@@ -30,6 +32,7 @@ const tasksTabRef = ref<InstanceType<typeof AdminTasksTab>>();
 const cguTabRef = ref<InstanceType<typeof AdminCguTab>>();
 const generationTabRef = ref<InstanceType<typeof AdminDocumentGenerationTab>>();
 const usageTabRef = ref<InstanceType<typeof AdminUsageTab>>();
+const modelsTabRef = ref<InstanceType<typeof AdminModelsTab>>();
 
 watch(selectedTab, (idx) => {
   if (loadedTabs.value.has(idx)) return;
@@ -40,6 +43,7 @@ watch(selectedTab, (idx) => {
   if (idx === 3) cguTabRef.value?.reload();
   if (idx === 4) generationTabRef.value?.reload();
   if (idx === 5) usageTabRef.value?.reload();
+  if (idx === 6) modelsTabRef.value?.reload();
 }, { immediate: true });
 </script>
 
@@ -74,6 +78,10 @@ watch(selectedTab, (idx) => {
 
       <DsfrTabContent :panel-id="tabs[5].panelId" :tab-id="tabs[5].tabId">
         <AdminUsageTab ref="usageTabRef" />
+      </DsfrTabContent>
+
+      <DsfrTabContent :panel-id="tabs[6].panelId" :tab-id="tabs[6].tabId">
+        <AdminModelsTab ref="modelsTabRef" />
       </DsfrTabContent>
     </DsfrTabs>
   </div>
