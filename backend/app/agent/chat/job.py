@@ -198,9 +198,13 @@ async def _respond(
         speculative.add_done_callback(lambda task: task.cancelled() or task.exception())
     agents = await load_agents(dossier.get("analyse_id"))
     named = agent_reply.mentioned(question, agents)
+    ongoing = agent_reply.previous_agent(messages, agents)
     if named is not None:
         # Une mention appelle l'agent à coup sûr : pas d'appel au plan.
         plan = Plan("agent", agent=named[0].ref, standalone_query=named[1])
+    elif ongoing is not None:
+        # La conversation est avec un agent : elle continue avec lui.
+        plan = Plan("agent", agent=ongoing.ref, standalone_query=question)
     else:
         candidates = await agent_reply.shortlist(dossier.get("analyse_id"), question, agents)
         plan = await make_plan(
