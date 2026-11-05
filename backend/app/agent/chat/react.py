@@ -120,7 +120,7 @@ async def run_tool_loop(
         if not calls:
             # Un appel d'outil écrit en texte est exécuté comme s'il avait été fait par l'API ; une réponse vide ou en
             # JSON est redemandée une fois.
-            recovered = model_output.recovered_call(content, model_output.tool_names(definitions))
+            recovered = model_output.recovered_call(content, model_output.tool_names(definitions), definitions)
             if recovered:
                 logger.warning("Chat: appel d'outil écrit en texte repris (%s)", recovered["function"]["name"])
                 events.note("Le modèle a écrit un appel d'outil en texte : il a été repris et exécuté.")

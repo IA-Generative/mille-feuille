@@ -16,7 +16,7 @@ import uuid
 
 from sqlalchemy import select
 
-from app.agent import usage
+from app.agent import model_output, usage
 from app.agent.agent_call import FUNCTION_NAME, NOTICE
 from app.agent.agent_loop import run_agent
 from app.agent.agent_tool_set import ExtraTools
@@ -184,7 +184,8 @@ async def run_agents(dossier_id: str, acting_user: str | None = None) -> None:
         if step_id:
             async with async_session_factory() as db:
                 reused = await reusable_agent_output(db, uuid.UUID(dossier_id), uuid.UUID(step_id))
-            if reused is not None:
+            # Une synthèse vide ou en JSON (appel d'outil écrit en texte) ne se reprend pas.
+            if reused is not None and not model_output.unusable(reused):
                 await _log(step_id, "Synthèse reprise de l'exécution précédente (entrées inchangées)")
                 await _complete(step_id, ExecutionStepStatus.TERMINE, reused)
                 logger.info("Agent '%s' repris pour le dossier %s", agent["name"], dossier_id)

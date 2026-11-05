@@ -85,7 +85,7 @@ async def test_the_chat_runs_a_tool_call_the_model_wrote_as_text(monkeypatch: py
 
 
 async def test_the_chat_asks_again_once_when_the_answer_is_json_without_a_tool(monkeypatch: pytest.MonkeyPatch) -> None:
-    llm = ScriptedLlm(monkeypatch, [([], '{"query": "entités"}'), ([], "Voici les entités.")])
+    llm = ScriptedLlm(monkeypatch, [([], '{"sujet": "entités"}'), ([], "Voici les entités.")])
 
     result = await run_chat()
 
@@ -104,7 +104,7 @@ async def test_the_chat_asks_again_once_when_the_answer_is_empty(monkeypatch: py
 
 
 async def test_the_chat_never_shows_json_or_nothing_after_the_retry(monkeypatch: pytest.MonkeyPatch) -> None:
-    ScriptedLlm(monkeypatch, [([], '{"query": "a"}'), ([], '{"query": "b"}')])
+    ScriptedLlm(monkeypatch, [([], '{"sujet": "a"}'), ([], '{"sujet": "b"}')])
     assert (await run_chat()).answer == model_output.FALLBACK_ANSWER
 
     ScriptedLlm(monkeypatch, [([], ""), ([], "")])
@@ -302,3 +302,46 @@ async def test_the_agent_loop_gives_the_usual_sentence_when_the_final_answer_is_
     ScriptedLlm(monkeypatch, search_turns(final=""))
 
     assert await agent_loop.run_agent(prompt="p", tools=new_tools()) == agent_loop.NO_ANSWER
+
+
+SEARCH = {
+    "type": "function",
+    "function": {
+        "name": "search_documents",
+        "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]},
+    },
+}
+OTHER = {
+    "type": "function",
+    "function": {
+        "name": "search_knowledge_base",
+        "parameters": {"type": "object", "properties": {"query": {"type": "string"}, "top": {"type": "integer"}}},
+    },
+}
+
+
+def test_arguments_alone_are_recovered_when_one_tool_takes_them() -> None:
+    call = model_output.recovered_call('{"query": "OQTF"}', {"search_documents"}, [SEARCH])
+
+    assert call is not None and call["function"]["name"] == "search_documents"
+    assert json.loads(call["function"]["arguments"]) == {"query": "OQTF"}
+
+
+def test_arguments_alone_are_not_guessed_when_several_tools_take_them() -> None:
+    assert model_output.recovered_call('{"query": "x"}', {"a", "b"}, [SEARCH, {**OTHER}]) is None
+
+
+def test_the_conversation_stays_with_the_agent_that_answered_last() -> None:
+    from app.agent.analysis_agents import AnalysisAgent
+    from app.agent.chat import agent_reply
+    from app.agent.chat.prompts import agent_marker
+
+    agents = [AnalysisAgent("1", "Pré-analyse", "p", [], None), AnalysisAgent("2", "Autre", "p", [], None)]
+    messages = [
+        {"role": "user", "content": "q"},
+        {"role": "assistant", "content": "Réponse." + agent_marker("Pré-analyse")},
+        {"role": "user", "content": "et ensuite ?"},
+    ]
+
+    assert agent_reply.previous_agent(messages, agents) is agents[0]
+    assert agent_reply.previous_agent([{"role": "assistant", "content": "Réponse."}], agents) is None

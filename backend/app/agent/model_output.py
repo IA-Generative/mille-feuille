@@ -33,23 +33,45 @@ def _json_of(content: str) -> Any | None:
         return None
 
 
-def recovered_call(content: str, tool_names: set[str]) -> dict[str, Any] | None:
-    """L'appel d'outil que le modèle a écrit en texte, au format des appels de l'API ; None si ce n'en est pas un. Seul
-    un appel qui nomme un outil connu est repris : des arguments seuls ne disent pas quel outil appeler."""
+def _tool_taking(arguments: dict[str, Any], definitions: list[dict[str, Any]]) -> str | None:
+    """Le seul outil dont les paramètres conviennent à ces arguments (tous connus de l'outil, tous ceux qu'il exige
+    présents) ; None s'il y en a zéro ou plusieurs : on ne devine pas."""
+    found = []
+    for definition in definitions:
+        function = definition["function"]
+        parameters = function.get("parameters") or {}
+        known = set(parameters.get("properties") or {})
+        if arguments and set(arguments) <= known and set(parameters.get("required") or []) <= set(arguments):
+            found.append(function["name"])
+    return found[0] if len(found) == 1 else None
+
+
+def recovered_call(
+    content: str, tool_names: set[str], definitions: list[dict[str, Any]] | None = None
+) -> dict[str, Any] | None:
+    """L'appel d'outil que le modèle a écrit en texte, au format des appels de l'API ; None si ce n'en est pas un. Un
+    appel qui nomme un outil connu est repris. Des arguments seuls (`{"query": "…"}`) ne le sont que si `definitions`
+    est donné et qu'un seul outil les accepte."""
     data = _json_of(content)
     if isinstance(data, dict) and isinstance(data.get("function"), dict):
         data = data["function"]
-    if not isinstance(data, dict) or data.get("name") not in tool_names:
+    if not isinstance(data, dict):
         return None
-    arguments = data.get("arguments", data.get("parameters", {}))
-    if isinstance(arguments, str):
-        arguments = _json_of(arguments)
-    if not isinstance(arguments, dict):
+    name = data.get("name")
+    if name in tool_names:
+        arguments = data.get("arguments", data.get("parameters", {}))
+        if isinstance(arguments, str):
+            arguments = _json_of(arguments)
+    elif definitions and "name" not in data:
+        arguments, name = data, _tool_taking(data, definitions)
+    else:
+        return None
+    if name is None or not isinstance(arguments, dict):
         return None
     return {
         "id": f"recovered-{uuid.uuid4().hex[:8]}",
         "type": "function",
-        "function": {"name": data["name"], "arguments": json.dumps(arguments)},
+        "function": {"name": name, "arguments": json.dumps(arguments)},
     }
 
 

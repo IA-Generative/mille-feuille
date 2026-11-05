@@ -9,6 +9,7 @@ import logging
 import re
 import uuid
 from typing import Any
+from urllib.parse import unquote
 
 from app.agent.analysis_agents import AnalysisAgent, converse
 from app.agent.chat.events import ChatEvents
@@ -57,6 +58,19 @@ def mentioned(question: str, agents: list[AnalysisAgent]) -> tuple[AnalysisAgent
             rest = " ".join(f"{question[: found.start()]} {question[found.end() :]}".split())
             return agent, rest or question
     return None
+
+
+_AGENT_MARKER = re.compile(r"<!--agent:(.*?)-->\s*$", re.DOTALL)
+
+
+def previous_agent(messages: list[dict], agents: list[AnalysisAgent]) -> AnalysisAgent | None:
+    """L'agent qui a répondu au dernier message de l'assistant (son marqueur, voir prompts.agent_marker), s'il est
+    toujours dans l'analyse : la conversation avec un agent continue avec lui, sans repasser par le plan (qui renverrait
+    vers la recherche ou vers l'assistant de l'application). Une mention `@Autre` change d'agent."""
+    last = next((m for m in reversed(messages) if m.get("role") == "assistant"), None)
+    found = _AGENT_MARKER.search(last.get("content") or "") if last else None
+    name = unquote(found.group(1)) if found else ""
+    return next((agent for agent in agents if agent.name == name), None)
 
 
 def agents_for_plan(agents: list[AnalysisAgent]) -> list[dict]:
