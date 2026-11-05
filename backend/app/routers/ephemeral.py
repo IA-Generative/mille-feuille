@@ -476,9 +476,7 @@ async def delete_ephemeral_run(
     if dossier.status == DossierStatus.EN_COURS:
         await dossier_repository.stop(dossier)
         dossier = await dossier_repository.get(run_id)
-    # delete_dossier refuse encore en_attente/en_cours : un run éphémère est
-    # toujours lancé immédiatement à la création (_create_run), en_attente
-    # ne devrait jamais se produire en pratique - pas de branche dédiée.
+    # delete_dossier ne refuse que en_cours, que stop() vient de régler.
     await dossier_repository.delete_dossier(dossier)
 
 

@@ -515,7 +515,7 @@ async def delete_dossier(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Seul un administrateur ou la personne qui a créé le dossier peut le supprimer.",
         )
-    if dossier.status in (DossierStatus.EN_ATTENTE, DossierStatus.EN_COURS):
+    if dossier.status == DossierStatus.EN_COURS:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="L'analyse du dossier est en cours : arrêtez-la d'abord."
         )
