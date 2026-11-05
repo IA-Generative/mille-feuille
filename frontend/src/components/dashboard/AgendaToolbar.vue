@@ -70,7 +70,7 @@ const VIEWS: { value: AgendaView; label: string }[] = [
 
 .bar__seg--on {
   background: var(--background-default-grey);
-  box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
+  box-shadow: var(--raised-shadow);
   font-weight: 600;
 }
 

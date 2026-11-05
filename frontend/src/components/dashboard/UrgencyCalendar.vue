@@ -718,7 +718,7 @@ function cellLabel(c: (typeof cells.value)[number]) {
   height: 1.75rem;
   margin: 0.125rem 0.125rem 0 0;
   border-radius: 0.375rem;
-  background: rgb(255 255 255 / 70%);
+  background: var(--background-default-grey);
   background-image: none;
   color: var(--text-action-high-blue-france);
 }
@@ -771,7 +771,7 @@ function cellLabel(c: (typeof cells.value)[number]) {
 .cal__block--drag {
   z-index: 4;
   cursor: grabbing;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 25%);
+  box-shadow: var(--lifted-shadow);
 }
 
 .cal__block--overdue {
@@ -943,7 +943,7 @@ function cellLabel(c: (typeof cells.value)[number]) {
   font-size: 0.8125rem;
   text-overflow: ellipsis;
   white-space: nowrap;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 25%);
+  box-shadow: var(--lifted-shadow);
   pointer-events: none;
 }
 
