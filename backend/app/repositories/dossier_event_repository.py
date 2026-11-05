@@ -100,6 +100,16 @@ class DossierEventRepository:
         self.add(dossier_id, DossierEventType.ADMIN_ACCESS, user, {"method": method, "write": write})
         await self.db.commit()
 
+    async def creator_id(self, dossier_id: uuid.UUID) -> str | None:
+        """Qui a créé (déposé) le dossier : l'auteur de son événement de création ; None si le système (dossier créé
+        par un connecteur) ou si le journal n'a pas cet événement."""
+        return await self.db.scalar(
+            select(DossierEvent.actor_id)
+            .where(DossierEvent.dossier_id == dossier_id, DossierEvent.type == DossierEventType.CREATED.value)
+            .order_by(DossierEvent.seq)
+            .limit(1)
+        )
+
     async def list_actors(
         self, dossier_id: uuid.UUID, *, include_admin_access: bool = False
     ) -> list[tuple[str, str | None]]:
