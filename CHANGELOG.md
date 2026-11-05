@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.45.0](https://github.com/IA-Generative/mille-feuille/compare/v0.44.0...v0.45.0) (2026-11-05)
+
+
+### Features
+
+* **frontend:** compact header in dashboard ([b4d1b5f](https://github.com/IA-Generative/mille-feuille/commit/b4d1b5f15a140782d1b8386273e52bbfc7d54b92))
+* **frontend:** make date and calendar fit the page as much as possible ([235efdf](https://github.com/IA-Generative/mille-feuille/commit/235efdf25c589342b7e3cba2ec320770ce9b802b))
+
+
+### Bug Fixes
+
+* **frontend:** fix dates, turn single number into minimum two numbers ([61761ed](https://github.com/IA-Generative/mille-feuille/commit/61761ed26406f809755695794fad64d8eeabc286))
+* **frontend:** replace hard-coded colors and shadows in the dashboard with DSFR tokens ([dcc9225](https://github.com/IA-Generative/mille-feuille/commit/dcc922573dc9f3f4d9bf33a1530021cc6f0be7b2))
+
 ## [0.44.0](https://github.com/IA-Generative/mille-feuille/compare/v0.43.1...v0.44.0) (2026-11-05)
 
 
