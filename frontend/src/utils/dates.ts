@@ -14,13 +14,20 @@ export function dayOffset(iso: string): number {
   return Math.round((startOfDay(new Date(iso)) - startOfDay(new Date())) / 86_400_000);
 }
 
+const dayLabelFormatter = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "2-digit", month: "long" });
+
+/** « jeudi 05 novembre » : jour de la semaine, jour du mois sur 2 chiffres, mois. */
+export function formatDayLabel(date: Date): string {
+  return dayLabelFormatter.format(date);
+}
+
 /** Titre de groupe d'agenda : « En retard », « Aujourd'hui », « Demain » ou la date. */
 export function dayLabel(iso: string): string {
   const offset = dayOffset(iso);
   if (offset < 0) return "En retard";
   if (offset === 0) return "Aujourd'hui";
   if (offset === 1) return "Demain";
-  return new Date(iso).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  return formatDayLabel(new Date(iso));
 }
 
 /** « dans 3 j », « demain », « 2 j de retard »… */

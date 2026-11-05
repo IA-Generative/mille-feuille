@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatDayLabel } from '@/utils/dates';
+
 // En-tête : titre, date du jour et boutons ronds (notifications, dossiers
 // non affectés, activité récente). Chaque bouton ouvre une fenêtre.
 defineProps<{
@@ -12,7 +14,7 @@ defineEmits<{
   "open-activity": [];
 }>();
 
-const todayLabel = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+const todayLabel = formatDayLabel(new Date());
 
 const plural = (n: number, one: string, many: string) => `${n} ${n > 1 ? many : one}`;
 </script>

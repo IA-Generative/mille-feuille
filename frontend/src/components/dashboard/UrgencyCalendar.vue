@@ -7,6 +7,7 @@ import SlotEditorModal from "@/components/dashboard/SlotEditorModal.vue";
 import SlotQuickPicker from "@/components/dashboard/SlotQuickPicker.vue";
 import type { SlotDraft } from "@/types/schedule";
 import { occurrenceStarts, slotOfUrgency } from "@/utils/recurrence";
+import { formatDayLabel } from "@/utils/dates";
 
 const props = defineProps<{ urgencies: DashboardUrgency[]; view: "day" | "month" }>();
 const emit = defineEmits<{
@@ -153,7 +154,7 @@ const cells = computed(() => {
       isToday: key === todayKey,
       isPast: key < todayKey,
       items: byDay.value.get(key) ?? [],
-      label: date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }),
+      label: formatDayLabel(date),
     };
   });
 });
@@ -161,7 +162,7 @@ const cells = computed(() => {
 const selectedItems = computed(() => byDay.value.get(selectedKey.value) ?? []);
 const selectedLabel = computed(() => {
   const [y, m, d] = selectedKey.value.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  return formatDayLabel(new Date(y, m - 1, d));
 });
 
 const isSelectedToday = computed(() => selectedKey.value === todayKey);

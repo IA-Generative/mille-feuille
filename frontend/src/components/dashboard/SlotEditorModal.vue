@@ -14,6 +14,7 @@ import {
   type SlotDraft,
 } from "@/types/schedule";
 import { summarizeRecurrence, summarizeReminders, weekdayOf } from "@/utils/recurrence";
+import { formatDayLabel } from "@/utils/dates";
 
 const props = defineProps<{
   dossierName: string;
@@ -245,7 +246,7 @@ const reminders = computed(() =>
 
 const summary = computed(() => {
   if (!date.value || !start.value) return "";
-  const when = startDateTime.value.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const when = formatDayLabel(startDateTime.value);
   const rec = buildRecurrence();
   return [
     `${when}, ${start.value}–${end.value}`,
