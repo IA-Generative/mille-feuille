@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.43.1](https://github.com/IA-Generative/mille-feuille/compare/v0.43.0...v0.43.1) (2026-11-05)
+
+
+### Bug Fixes
+
+* **agent:** appels d'outil écrits en texte repris, conversation gardée avec l'agent ([b359807](https://github.com/IA-Generative/mille-feuille/commit/b359807728e923c2f56035b53f36300949f87945))
+
 ## [0.43.0](https://github.com/IA-Generative/mille-feuille/compare/v0.42.0...v0.43.0) (2026-11-05)
 
 
