@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.47.0](https://github.com/IA-Generative/mille-feuille/compare/v0.46.0...v0.47.0) (2026-11-09)
+
+
+### Features
+
+* **ui:** add changes in description box for analysis ([c68688f](https://github.com/IA-Generative/mille-feuille/commit/c68688f19a5ecc6aab84cda08909ee46d3229309))
+* **ui:** edit description in one analysis so it doesn't take too much space ([11cf480](https://github.com/IA-Generative/mille-feuille/commit/11cf4805ec392b17ebf84dda9814a65ab682d53c))
+
 ## [0.46.0](https://github.com/IA-Generative/mille-feuille/compare/v0.45.0...v0.46.0) (2026-11-05)
 
 
