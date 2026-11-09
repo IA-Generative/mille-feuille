@@ -92,9 +92,16 @@ function quitGuide() {
     </BackLink>
 
     <div class="analyse-detail__header">
-      <div>
+      <div class="analyse-detail__intro">
         <h1 class="fr-h2">{{ analyse.name }}</h1>
-        <MarkdownText :content="analyse.description" class="fr-text--lead" />
+        <div 
+        class="analyse-detail__description"
+        role="region"
+        aria-label="Description de l'analyse"
+        tabindex="0"
+        >
+          <MarkdownText :content="analyse.description" class="fr-text--lead" />
+        </div>
       </div>
       <DsfrButton v-if="canManage" label="Modifier l'analyse" icon="ri-edit-line" tertiary size="sm" @click="isEditing = true" />
     </div>
@@ -187,5 +194,28 @@ function quitGuide() {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 2rem;
+}
+
+/* Colonne de gauche : prend la place restante sans pousser le bouton « Modifier l'analyse ». */
+.analyse-detail__intro{
+  flex: 1;
+  min-width: 0;
+}
+
+/* Description plafonnée en hauteur : le texte défile dans le bloc, les onglets restent visibles. */
+.analyse-detail__description{
+  max-height: 18rem;
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-default-grey);
+  border-radius: 0.75rem;
+  background:
+    /* caches : suivent le contenu et masquent l'ombre quand on est tout en haut ou tout en bas */
+    linear-gradient(var(--background-alt-grey) 30%, transparent) top / 100% 2rem no-repeat local,
+    linear-gradient(transparent, var(--background-alt-grey) 70%) bottom / 100% 2rem no-repeat local,
+    /* ombres : fixes sur les bords du bloc */
+    radial-gradient(farthest-side at 50% 0, var(--border-default-grey), transparent) top / 100% 0.5rem no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, var(--border-default-grey), transparent) bottom / 100% 0.5rem no-repeat scroll,
+    var(--background-alt-grey);
 }
 </style>
