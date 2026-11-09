@@ -94,11 +94,11 @@ function quitGuide() {
     <div class="analyse-detail__header">
       <div class="analyse-detail__intro">
         <h1 class="fr-h2">{{ analyse.name }}</h1>
-        <div 
-        class="analyse-detail__description"
-        role="region"
-        aria-label="Description de l'analyse"
-        tabindex="0"
+        <div
+          class="analyse-detail__description"
+          role="region"
+          aria-label="Description de l'analyse"
+          tabindex="0"
         >
           <MarkdownText :content="analyse.description" class="fr-text--lead" />
         </div>
@@ -197,13 +197,13 @@ function quitGuide() {
 }
 
 /* Colonne de gauche : prend la place restante sans pousser le bouton « Modifier l'analyse ». */
-.analyse-detail__intro{
+.analyse-detail__intro {
   flex: 1;
   min-width: 0;
 }
 
 /* Description plafonnée en hauteur : le texte défile dans le bloc, les onglets restent visibles. */
-.analyse-detail__description{
+.analyse-detail__description {
   max-height: 18rem;
   overflow-y: auto;
   padding: 0.5rem 0.75rem;
@@ -214,8 +214,31 @@ function quitGuide() {
     linear-gradient(var(--background-alt-grey) 30%, transparent) top / 100% 2rem no-repeat local,
     linear-gradient(transparent, var(--background-alt-grey) 70%) bottom / 100% 2rem no-repeat local,
     /* ombres : fixes sur les bords du bloc */
-    radial-gradient(farthest-side at 50% 0, var(--border-default-grey), transparent) top / 100% 0.5rem no-repeat scroll,
-    radial-gradient(farthest-side at 50% 100%, var(--border-default-grey), transparent) bottom / 100% 0.5rem no-repeat scroll,
+    radial-gradient(farthest-side at 50% 0, var(--border-plain-grey), transparent) top / 100% 0.5rem no-repeat scroll,
+    radial-gradient(farthest-side at 50% 100%, var(--border-plain-grey), transparent) bottom / 100% 0.5rem no-repeat scroll,
     var(--background-alt-grey);
+}
+
+/* Barre de défilement toujours visible, y compris sur macOS (qui masque la barre native tant qu'on ne défile pas). */
+.analyse-detail__description::-webkit-scrollbar {
+  width: 0.75rem;
+}
+
+.analyse-detail__description::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.analyse-detail__description::-webkit-scrollbar-thumb {
+  border: 3px solid var(--background-alt-grey);
+  border-radius: 999px;
+  background: var(--border-plain-grey);
+}
+
+/* Firefox : pas de ::-webkit-scrollbar, on utilise les propriétés standard. */
+@supports not selector(::-webkit-scrollbar) {
+  .analyse-detail__description {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-plain-grey) transparent;
+  }
 }
 </style>
