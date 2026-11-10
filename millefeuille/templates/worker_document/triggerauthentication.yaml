@@ -1,0 +1,15 @@
+{{- if .Values.enabled }}
+{{- $k := .Values.worker_document.kedaAutoscaler }}
+{{- if and $k.enabled $k.redis.secretRef $k.redis.secretKey }}
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: {{ $k.redis.authenticationRef | default (include "helper.componentFullname" (dict "root" . "componentName" "worker_document")) }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_document")) | nindent 4 }}
+spec:
+  secretTargetRef:
+  - parameter: "password"
+    name: {{ tpl $k.redis.secretRef . | quote }}
+    key: {{ $k.redis.secretKey | quote }}
+{{- end }}
+{{- end }}
