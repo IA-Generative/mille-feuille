@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.47.1](https://github.com/IA-Generative/mille-feuille/compare/v0.47.0...v0.47.1) (2026-11-10)
+
+
+### Bug Fixes
+
+* **ui:** make buttons visible when hover ([a694974](https://github.com/IA-Generative/mille-feuille/commit/a694974fe60494dd97417db6625ef014e9dc3193))
+
 ## [0.47.0](https://github.com/IA-Generative/mille-feuille/compare/v0.46.0...v0.47.0) (2026-11-09)
 
 
