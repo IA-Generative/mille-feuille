@@ -2,10 +2,12 @@
 import { ref, watch } from "vue";
 
 import CollapsibleText from "@/components/analyses/CollapsibleText.vue";
+import LabelExamples from "@/components/analyses/LabelExamples.vue";
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import PaginationBar from "@/components/PaginationBar.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import { useListView } from "@/composables/useListView";
+import { useLabelExamples } from "@/composables/useLabelExamples";
 import { suggestLabelDefinition, suggestLabels } from "@/composables/useLlmAssist";
 import type { LabelDefinition, Version } from "@/types/analyse";
 
@@ -18,6 +20,7 @@ const editingId = ref<string | null>(null);
 const { query, pageIndex, pageSize, hasSearch, filtered, paged, reveal } = useListView(draftLabels, (item) => `${item.name} ${item.definition}`);
 const isSuggestingList = ref(false);
 const suggestingDefinitionId = ref<string | null>(null);
+const { countOf } = useLabelExamples();
 
 function cloneLabels(labels: LabelDefinition[]): LabelDefinition[] {
   return labels.map((label) => ({ ...label }));
@@ -110,7 +113,9 @@ function formatVersionContent(labels: LabelDefinition[]) {
           <div class="labels-editor__text">
             <p class="labels-editor__name">
               <span>{{ item.name || "(sans nom)" }}</span>
-              
+              <span v-if="countOf(item.id) > 0" class="fr-badge fr-badge--sm fr-badge--info fr-badge--no-icon">
+                {{ countOf(item.id) }} exemple{{ countOf(item.id) > 1 ? "s" : "" }}
+              </span>
             </p>
             <CollapsibleText v-if="item.definition" :text="item.definition" />
           </div>
@@ -134,6 +139,7 @@ function formatVersionContent(labels: LabelDefinition[]) {
             
           </div>
           <DsfrInput v-model="item.definition" label="Définition" label-visible is-textarea rows="3" />
+          <LabelExamples :label-id="item.id" />
           <div class="labels-editor__form-actions">
             <LlmAssistButton
               compact
