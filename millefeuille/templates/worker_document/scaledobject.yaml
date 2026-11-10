@@ -1,0 +1,50 @@
+{{- if .Values.enabled }}
+{{- $k := .Values.worker_document.kedaAutoscaler }}
+{{- if $k.enabled }}
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_document") }}
+  labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_document")) | nindent 4 }}
+spec:
+  scaleTargetRef:
+    name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_document") }}
+    kind: {{ $k.scaleTargetKind | default .Values.worker_document.deploymentType }}
+    apiVersion: {{ default "apps/v1" $k.scaleTargetApiVersion }}
+  minReplicaCount: {{ $k.minReplicaCount }}
+  maxReplicaCount: {{ $k.maxReplicaCount }}
+{{- if $k.idleReplicaCount }}
+  idleReplicaCount: {{ $k.idleReplicaCount }}
+{{- end }}
+{{- if $k.pollingInterval }}
+  pollingInterval: {{ $k.pollingInterval }}
+{{- end }}
+{{- if $k.cooldownPeriod }}
+  cooldownPeriod: {{ $k.cooldownPeriod }}
+{{- end }}
+{{- if $k.fallback }}
+  fallback:
+    failureThreshold: {{ $k.fallback.failureThreshold }}
+    replicas: {{ $k.fallback.replicas }}
+{{- end }}
+{{- if $k.behavior }}
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior: {{- toYaml $k.behavior | nindent 8 }}
+{{- end }}
+  triggers:
+  - type: redis
+    metricType: AverageValue
+    metadata:
+      address: {{ tpl $k.redis.address . | default (printf "%s.%s.svc.cluster.local:6379" .Values.redis.fullnameOverride .Release.Namespace) | quote }}
+      listName: {{ $k.redis.listName | quote }}
+      listLength: {{ $k.redis.listLength | quote }}
+      {{- if $k.redis.password }}
+      password: {{ $k.redis.password | quote }}
+      {{- end }}
+    {{- if and $k.redis.secretRef $k.redis.secretKey }}
+    authenticationRef:
+      name: {{ $k.redis.authenticationRef | default (include "helper.componentFullname" (dict "root" . "componentName" "worker_document")) }}
+    {{- end }}
+{{- end }}
+{{- end }}

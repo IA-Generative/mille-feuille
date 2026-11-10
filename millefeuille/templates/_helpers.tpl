@@ -348,6 +348,9 @@ Parameters:
 {{- if and $component.autoscaling.enabled (not $component.autoscaling.targetCPUUtilizationPercentage) (not $component.autoscaling.targetMemoryUtilizationPercentage) -}}
 {{- fail (printf "%s.autoscaling needs targetCPUUtilizationPercentage and/or targetMemoryUtilizationPercentage - an HPA with no metric never scales" $name) -}}
 {{- end -}}
+{{- if and $component.kedaAutoscaler $component.kedaAutoscaler.enabled $component.autoscaling.enabled -}}
+{{- fail (printf "%s.kedaAutoscaler.enabled and %s.autoscaling.enabled are mutually exclusive - KEDA creates its own HPA, a second one fights it" $name $name) -}}
+{{- end -}}
 {{- if and $component.image.digest (not (regexMatch "^[a-z0-9]+:[a-fA-F0-9]{32,}$" $component.image.digest)) -}}
 {{- fail (printf "%s.image.digest must be a full digest such as \"sha256:<hex>\", got %q" $name (toString $component.image.digest)) -}}
 {{- end -}}

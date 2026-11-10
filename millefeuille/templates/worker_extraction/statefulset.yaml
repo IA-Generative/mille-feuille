@@ -6,7 +6,7 @@ metadata:
   name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_extraction") }}
   labels: {{- include "helper.labels" (dict "root" . "componentName" "worker_extraction") | nindent 4 }}
 spec:
-  {{- if not .Values.worker_extraction.autoscaling.enabled }}
+  {{- if not (or .Values.worker_extraction.autoscaling.enabled .Values.worker_extraction.kedaAutoscaler.enabled) }}
   replicas: {{ .Values.worker_extraction.replicaCount }}
   {{- end }}
   revisionHistoryLimit: {{ .Values.worker_extraction.revisionHistoryLimit | default 10 }}

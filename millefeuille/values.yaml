@@ -4427,6 +4427,63 @@ worker_classification:
     # -- Average memory utilization percentage for the app.
     # @section -- Worker_classification
     targetMemoryUtilizationPercentage: 80
+  kedaAutoscaler:
+    # -- Enable KEDA autoscaling on the Celery Redis queue (ScaledObject + TriggerAuthentication).
+    # Mutually exclusive with `autoscaling.enabled` (KEDA manages its own HPA).
+    # @section -- Worker_classification
+    enabled: false
+    # -- Minimum number of replicas.
+    # @section -- Worker_classification
+    minReplicaCount: 1
+    # -- Maximum number of replicas.
+    # @section -- Worker_classification
+    maxReplicaCount: 4
+    # -- Interval between trigger checks (in seconds).
+    # @section -- Worker_classification
+    pollingInterval: 30
+    # -- Cooldown period before scaling down (in seconds).
+    # @section -- Worker_classification
+    cooldownPeriod: 300
+    fallback:
+      # -- Failure threshold to activate fallback.
+      # @section -- Worker_classification
+      failureThreshold: 3
+      # -- Number of replicas during fallback.
+      # @section -- Worker_classification
+      replicas: 1
+    behavior:
+      scaleUp:
+        # -- Stabilization window for scaling up (in seconds).
+        # @section -- Worker_classification
+        stabilizationWindowSeconds: 30
+      scaleDown:
+        # -- Stabilization window for scaling down (in seconds).
+        # @section -- Worker_classification
+        stabilizationWindowSeconds: 300
+    redis:
+      # -- Name of the KEDA `TriggerAuthentication` created when `secretRef`/`secretKey` are set.
+      # Defaults to the component full name.
+      # @section -- Worker_classification
+      authenticationRef: ""
+      # -- Redis address. KEDA runs in its own namespace, so it must be a FQDN. Leave empty to use
+      # `<redis.fullnameOverride>.<namespace>.svc.cluster.local:6379` (KEDA is not Sentinel-aware).
+      # @section -- Worker_classification
+      address: ""
+      # -- Redis list (Celery queue) to monitor.
+      # @section -- Worker_classification
+      listName: "classification"
+      # -- Target list length per replica.
+      # @section -- Worker_classification
+      listLength: "5"
+      # -- Redis password (optional, prefer `secretRef`).
+      # @section -- Worker_classification
+      password: ""
+      # -- Name of the Secret holding the Redis password (templated).
+      # @section -- Worker_classification
+      secretRef: ""
+      # -- Key of the Redis password in that Secret.
+      # @section -- Worker_classification
+      secretKey: ""
   # -- Revision history limit for the app.
   # @section -- Worker_classification
   revisionHistoryLimit: 10
@@ -5261,6 +5318,63 @@ worker_document:
     # -- Average memory utilization percentage for the app.
     # @section -- Worker_document
     targetMemoryUtilizationPercentage: 80
+  kedaAutoscaler:
+    # -- Enable KEDA autoscaling on the Celery Redis queue (ScaledObject + TriggerAuthentication).
+    # Mutually exclusive with `autoscaling.enabled` (KEDA manages its own HPA).
+    # @section -- Worker_document
+    enabled: false
+    # -- Minimum number of replicas.
+    # @section -- Worker_document
+    minReplicaCount: 1
+    # -- Maximum number of replicas.
+    # @section -- Worker_document
+    maxReplicaCount: 4
+    # -- Interval between trigger checks (in seconds).
+    # @section -- Worker_document
+    pollingInterval: 30
+    # -- Cooldown period before scaling down (in seconds).
+    # @section -- Worker_document
+    cooldownPeriod: 300
+    fallback:
+      # -- Failure threshold to activate fallback.
+      # @section -- Worker_document
+      failureThreshold: 3
+      # -- Number of replicas during fallback.
+      # @section -- Worker_document
+      replicas: 1
+    behavior:
+      scaleUp:
+        # -- Stabilization window for scaling up (in seconds).
+        # @section -- Worker_document
+        stabilizationWindowSeconds: 30
+      scaleDown:
+        # -- Stabilization window for scaling down (in seconds).
+        # @section -- Worker_document
+        stabilizationWindowSeconds: 300
+    redis:
+      # -- Name of the KEDA `TriggerAuthentication` created when `secretRef`/`secretKey` are set.
+      # Defaults to the component full name.
+      # @section -- Worker_document
+      authenticationRef: ""
+      # -- Redis address. KEDA runs in its own namespace, so it must be a FQDN. Leave empty to use
+      # `<redis.fullnameOverride>.<namespace>.svc.cluster.local:6379` (KEDA is not Sentinel-aware).
+      # @section -- Worker_document
+      address: ""
+      # -- Redis list (Celery queue) to monitor.
+      # @section -- Worker_document
+      listName: "document_processing"
+      # -- Target list length per replica.
+      # @section -- Worker_document
+      listLength: "5"
+      # -- Redis password (optional, prefer `secretRef`).
+      # @section -- Worker_document
+      password: ""
+      # -- Name of the Secret holding the Redis password (templated).
+      # @section -- Worker_document
+      secretRef: ""
+      # -- Key of the Redis password in that Secret.
+      # @section -- Worker_document
+      secretKey: ""
   # -- Revision history limit for the app.
   # @section -- Worker_document
   revisionHistoryLimit: 10
@@ -6097,6 +6211,63 @@ worker_extraction:
     # -- Average memory utilization percentage for the app.
     # @section -- Worker_extraction
     targetMemoryUtilizationPercentage: 80
+  kedaAutoscaler:
+    # -- Enable KEDA autoscaling on the Celery Redis queue (ScaledObject + TriggerAuthentication).
+    # Mutually exclusive with `autoscaling.enabled` (KEDA manages its own HPA).
+    # @section -- Worker_extraction
+    enabled: false
+    # -- Minimum number of replicas.
+    # @section -- Worker_extraction
+    minReplicaCount: 1
+    # -- Maximum number of replicas.
+    # @section -- Worker_extraction
+    maxReplicaCount: 4
+    # -- Interval between trigger checks (in seconds).
+    # @section -- Worker_extraction
+    pollingInterval: 30
+    # -- Cooldown period before scaling down (in seconds).
+    # @section -- Worker_extraction
+    cooldownPeriod: 300
+    fallback:
+      # -- Failure threshold to activate fallback.
+      # @section -- Worker_extraction
+      failureThreshold: 3
+      # -- Number of replicas during fallback.
+      # @section -- Worker_extraction
+      replicas: 1
+    behavior:
+      scaleUp:
+        # -- Stabilization window for scaling up (in seconds).
+        # @section -- Worker_extraction
+        stabilizationWindowSeconds: 30
+      scaleDown:
+        # -- Stabilization window for scaling down (in seconds).
+        # @section -- Worker_extraction
+        stabilizationWindowSeconds: 300
+    redis:
+      # -- Name of the KEDA `TriggerAuthentication` created when `secretRef`/`secretKey` are set.
+      # Defaults to the component full name.
+      # @section -- Worker_extraction
+      authenticationRef: ""
+      # -- Redis address. KEDA runs in its own namespace, so it must be a FQDN. Leave empty to use
+      # `<redis.fullnameOverride>.<namespace>.svc.cluster.local:6379` (KEDA is not Sentinel-aware).
+      # @section -- Worker_extraction
+      address: ""
+      # -- Redis list (Celery queue) to monitor.
+      # @section -- Worker_extraction
+      listName: "entity_extraction"
+      # -- Target list length per replica.
+      # @section -- Worker_extraction
+      listLength: "5"
+      # -- Redis password (optional, prefer `secretRef`).
+      # @section -- Worker_extraction
+      password: ""
+      # -- Name of the Secret holding the Redis password (templated).
+      # @section -- Worker_extraction
+      secretRef: ""
+      # -- Key of the Redis password in that Secret.
+      # @section -- Worker_extraction
+      secretKey: ""
   # -- Revision history limit for the app.
   # @section -- Worker_extraction
   revisionHistoryLimit: 10
@@ -10283,6 +10454,63 @@ worker_render:
     # -- Average memory utilization percentage for the app.
     # @section -- Worker_render
     targetMemoryUtilizationPercentage: 80
+  kedaAutoscaler:
+    # -- Enable KEDA autoscaling on the Celery Redis queue (ScaledObject + TriggerAuthentication).
+    # Mutually exclusive with `autoscaling.enabled` (KEDA manages its own HPA).
+    # @section -- Worker_render
+    enabled: false
+    # -- Minimum number of replicas.
+    # @section -- Worker_render
+    minReplicaCount: 1
+    # -- Maximum number of replicas.
+    # @section -- Worker_render
+    maxReplicaCount: 4
+    # -- Interval between trigger checks (in seconds).
+    # @section -- Worker_render
+    pollingInterval: 30
+    # -- Cooldown period before scaling down (in seconds).
+    # @section -- Worker_render
+    cooldownPeriod: 300
+    fallback:
+      # -- Failure threshold to activate fallback.
+      # @section -- Worker_render
+      failureThreshold: 3
+      # -- Number of replicas during fallback.
+      # @section -- Worker_render
+      replicas: 1
+    behavior:
+      scaleUp:
+        # -- Stabilization window for scaling up (in seconds).
+        # @section -- Worker_render
+        stabilizationWindowSeconds: 30
+      scaleDown:
+        # -- Stabilization window for scaling down (in seconds).
+        # @section -- Worker_render
+        stabilizationWindowSeconds: 300
+    redis:
+      # -- Name of the KEDA `TriggerAuthentication` created when `secretRef`/`secretKey` are set.
+      # Defaults to the component full name.
+      # @section -- Worker_render
+      authenticationRef: ""
+      # -- Redis address. KEDA runs in its own namespace, so it must be a FQDN. Leave empty to use
+      # `<redis.fullnameOverride>.<namespace>.svc.cluster.local:6379` (KEDA is not Sentinel-aware).
+      # @section -- Worker_render
+      address: ""
+      # -- Redis list (Celery queue) to monitor.
+      # @section -- Worker_render
+      listName: "document_render"
+      # -- Target list length per replica.
+      # @section -- Worker_render
+      listLength: "5"
+      # -- Redis password (optional, prefer `secretRef`).
+      # @section -- Worker_render
+      password: ""
+      # -- Name of the Secret holding the Redis password (templated).
+      # @section -- Worker_render
+      secretRef: ""
+      # -- Key of the Redis password in that Secret.
+      # @section -- Worker_render
+      secretKey: ""
   # -- Revision history limit for the app.
   # @section -- Worker_render
   revisionHistoryLimit: 10

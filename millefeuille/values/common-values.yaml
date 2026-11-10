@@ -105,14 +105,19 @@ worker_document:
   serviceAccount:
     enabled: true
     create: true
-  # KEDA ScaledObject on the Celery Redis queue replaces the chart-native HPA - the millefeuille
-  # chart has no KEDA support, so ScaledObjects + TriggerAuthentications are declared in
-  # `extraObjects` below. Scales on actual queue length instead of CPU.
+  # KEDA ScaledObject on the Celery Redis queue replaces the chart-native HPA (`kedaAutoscaler` below). Scales on actual queue length instead of CPU.
   #
   # Probes disabled: the chart default uses `celery inspect ping` exec probes, but these
   # can cause false-positive restarts under load (the inspect call itself can timeout when
   # the worker is busy processing a long task). KEDA on queue length is the real liveness
   # signal here - if the queue drains, the worker is healthy by definition.
+  kedaAutoscaler:
+    enabled: true
+    minReplicaCount: 1
+    maxReplicaCount: 4
+    redis:
+      secretRef: "millefeuille-redis"
+      secretKey: "REDIS_PASSWORD"
   probes:
     startupProbe: null
     readinessProbe: null
@@ -148,6 +153,13 @@ worker_render:
     create: true
   # KEDA ScaledObject on the Celery Redis queue (`document_render`) - see document_process above.
   # Probes disabled - see document_process above for rationale (a conversion can keep the worker busy).
+  kedaAutoscaler:
+    enabled: true
+    minReplicaCount: 1
+    maxReplicaCount: 3
+    redis:
+      secretRef: "millefeuille-redis"
+      secretKey: "REDIS_PASSWORD"
   probes:
     startupProbe: null
     readinessProbe: null
@@ -184,6 +196,13 @@ worker_classification:
     create: true
   # KEDA ScaledObject on the Celery Redis queue (`classification`) - see document_process above.
   # Probes disabled - see document_process above for rationale.
+  kedaAutoscaler:
+    enabled: true
+    minReplicaCount: 1
+    maxReplicaCount: 4
+    redis:
+      secretRef: "millefeuille-redis"
+      secretKey: "REDIS_PASSWORD"
   probes:
     startupProbe: null
     readinessProbe: null
@@ -221,6 +240,13 @@ worker_extraction:
     create: true
   # KEDA ScaledObject on the Celery Redis queue (`entity_extraction`) - see document_process above.
   # Probes disabled - see document_process above for rationale.
+  kedaAutoscaler:
+    enabled: true
+    minReplicaCount: 1
+    maxReplicaCount: 4
+    redis:
+      secretRef: "millefeuille-redis"
+      secretKey: "REDIS_PASSWORD"
   probes:
     startupProbe: null
     readinessProbe: null
@@ -791,21 +817,21 @@ extraObjects:
         name: millefeuille-db-backups
         create: true
   # --- KEDA ScaledObjects (Redis queue length autoscaling for Celery workers) ---
-  # The millefeuille chart has no native KEDA support, so ScaledObjects + TriggerAuthentications are
-  # declared here as extraObjects. Each worker has its own Celery queue (listName) and scales
-  # independently based on the number of pending messages in its Redis list.
+  # ScaledObjects + TriggerAuthentications are rendered by the chart from each worker's
+  # `kedaAutoscaler` block (same mechanism as ocr). Each worker has its own Celery queue
+  # (`kedaAutoscaler.redis.listName`) and scales independently on the pending messages in its list.
   # KEDA polls the Redis Service directly (not Sentinel-aware, same pattern as ocr). The
   # address MUST be a FQDN (`millefeuille-redis.<namespace>.svc.cluster.local`), not the short
   # name `millefeuille-redis`: KEDA runs in its own namespace (`keda-system`) and can't resolve
   # short names from millefeuille's namespace. Same pattern as ocr's chart, which builds the
   # address as `<fullname>-master.<Release.Namespace>:6379`.
-  # The TriggerAuthentication references `millefeuille-redis` (same Vault-managed secret as the
+  # Each worker's TriggerAuthentication references `millefeuille-redis` (same Vault-managed secret as the
   # app's envFrom) for the REDIS_PASSWORD - KEDA resolves the Secret by name across
   # namespaces only if the Secret is in the same namespace as the ScaledObject, which is
   # why the ScaledObjects are deployed in millefeuille's namespace (not keda-system).
   #
-  # Per-env overrides (minReplicaCount, maxReplicaCount, pollingInterval, listLength) live
-  # in `values-<env>.yaml` under `extraObjects.<name>.spec`.
+  # Per-env overrides (minReplicaCount, maxReplicaCount, pollingInterval, redis.listLength) live
+  # in `values-<env>.yaml` under `<worker>.kedaAutoscaler`.
 
   # NetworkPolicy: allows the KEDA operator (namespace `keda-system`) to reach the Redis pods on
   # port 6379. Without it, a default-deny namespace policy (common on DSO/managed platforms) drops
@@ -833,115 +859,6 @@ extraObjects:
         ports:
         - protocol: TCP
           port: 6379
-
-  # TriggerAuthentication: shared by all the worker ScaledObjects.
-  millefeuille-keda-triggerauth:
-    apiVersion: keda.sh/v1alpha1
-    kind: TriggerAuthentication
-    metadata:
-      name: millefeuille-keda-triggerauth
-    spec:
-      secretTargetRef:
-      - parameter: "password"
-        name: "millefeuille-redis"
-        key: "REDIS_PASSWORD"
-
-  # ScaledObject for document_process (queue: document_processing)
-  millefeuille-keda-document-process:
-    apiVersion: keda.sh/v1alpha1
-    kind: ScaledObject
-    metadata:
-      name: millefeuille-worker-document
-    spec:
-      scaleTargetRef:
-        name: millefeuille-worker-document
-        kind: Deployment
-        apiVersion: apps/v1
-      minReplicaCount: 1
-      maxReplicaCount: 4
-      pollingInterval: 30
-      triggers:
-      - type: redis
-        metricType: AverageValue
-        metadata:
-          address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
-          listName: "document_processing"
-          listLength: "5"
-        authenticationRef:
-          name: millefeuille-keda-triggerauth
-
-  # ScaledObject for classification (queue: classification)
-  millefeuille-keda-classification:
-    apiVersion: keda.sh/v1alpha1
-    kind: ScaledObject
-    metadata:
-      name: millefeuille-worker-classification
-    spec:
-      scaleTargetRef:
-        name: millefeuille-worker-classification
-        kind: Deployment
-        apiVersion: apps/v1
-      minReplicaCount: 1
-      maxReplicaCount: 4
-      pollingInterval: 30
-      triggers:
-      - type: redis
-        metricType: AverageValue
-        metadata:
-          address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
-          listName: "classification"
-          listLength: "5"
-        authenticationRef:
-          name: millefeuille-keda-triggerauth
-
-  # ScaledObject for entity_extraction (queue: entity_extraction)
-  millefeuille-keda-extraction:
-    apiVersion: keda.sh/v1alpha1
-    kind: ScaledObject
-    metadata:
-      name: millefeuille-worker-extraction
-    spec:
-      scaleTargetRef:
-        name: millefeuille-worker-extraction
-        kind: Deployment
-        apiVersion: apps/v1
-      minReplicaCount: 1
-      maxReplicaCount: 4
-      pollingInterval: 30
-      triggers:
-      - type: redis
-        metricType: AverageValue
-        metadata:
-          address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
-          listName: "entity_extraction"
-          listLength: "5"
-        authenticationRef:
-          name: millefeuille-keda-triggerauth
-
-  # ScaledObject for document_render (queue: document_render). A conversion takes about a second, so a
-  # short queue is fine: scale up when more than 5 documents wait.
-  millefeuille-keda-document-render:
-    apiVersion: keda.sh/v1alpha1
-    kind: ScaledObject
-    metadata:
-      name: millefeuille-worker-render
-    spec:
-      scaleTargetRef:
-        name: millefeuille-worker-render
-        kind: Deployment
-        apiVersion: apps/v1
-      minReplicaCount: 1
-      maxReplicaCount: 3
-      pollingInterval: 30
-      triggers:
-      - type: redis
-        metricType: AverageValue
-        metadata:
-          address: "millefeuille-redis.{{ .Release.Namespace }}.svc.cluster.local:6379"
-          listName: "document_render"
-          listLength: "5"
-        authenticationRef:
-          name: millefeuille-keda-triggerauth
 
 # A known external S3 (s3.fr-par.scw.cloud, same one used for cnpg backups) is used instead -
 # no need to self-host object storage.
