@@ -11,20 +11,20 @@ RUN uv sync --no-dev
 # The models come from PaddlePaddle's own Hugging Face organization (its official ONNX exports), at pinned
 # revisions and checked against their hashes: the pod never downloads anything when it runs.
 FROM builder AS model
-ARG DET_MODEL_REPO=PaddlePaddle/PP-OCRv5_mobile_det_onnx
-ARG DET_MODEL_REVISION=e6f4fa85f00e168c862bc462aebca69eef9b3d3d
-ARG DET_MODEL_SHA256=a431985659dc921974177a95adcfbb90fd9e51989a5e04d70d0b75f597b6e61d
-ARG REC_MODEL_REPO=PaddlePaddle/latin_PP-OCRv5_mobile_rec_onnx
-ARG REC_MODEL_REVISION=89d3a50e2c27e2e7cceeab0e944c25c807d5db4f
-ARG REC_MODEL_SHA256=7888113072263cb471b93f66dd5e2ad70548dc526fa1ace760d0d973dd121498
+ARG DET_MODEL_REPO=PaddlePaddle/PP-OCRv6_tiny_det_onnx
+ARG DET_MODEL_REVISION=2ba1506c0380b8f0b03dd142459aac66d4421f6c
+ARG DET_MODEL_SHA256=193bab7a04fca699a6c82e6abb5b81bdb28177f0abd4062552b04908dafb19f8
+ARG REC_MODEL_REPO=PaddlePaddle/PP-OCRv6_tiny_rec_onnx
+ARG REC_MODEL_REVISION=2612ab37152ae0a677521bae4e1e3d4fb4cf7c30
+ARG REC_MODEL_SHA256=9ef676d6ed3c88256a2d92c640c44f25b0c40947e111b14b8be8f594091563e6
 RUN /app/.venv/bin/python -c "\
 from huggingface_hub import snapshot_download; \
 snapshot_download('${DET_MODEL_REPO}', revision='${DET_MODEL_REVISION}', \
-local_dir='/models/PP-OCRv5_mobile_det_onnx', allow_patterns=['inference.onnx', 'inference.yml']); \
+local_dir='/models/PP-OCRv6_tiny_det_onnx', allow_patterns=['inference.onnx', 'inference.yml']); \
 snapshot_download('${REC_MODEL_REPO}', revision='${REC_MODEL_REVISION}', \
-local_dir='/models/latin_PP-OCRv5_mobile_rec_onnx', allow_patterns=['inference.onnx', 'inference.yml'])" \
-    && echo "${DET_MODEL_SHA256}  /models/PP-OCRv5_mobile_det_onnx/inference.onnx" | sha256sum -c - \
-    && echo "${REC_MODEL_SHA256}  /models/latin_PP-OCRv5_mobile_rec_onnx/inference.onnx" | sha256sum -c - \
+local_dir='/models/PP-OCRv6_tiny_rec_onnx', allow_patterns=['inference.onnx', 'inference.yml'])" \
+    && echo "${DET_MODEL_SHA256}  /models/PP-OCRv6_tiny_det_onnx/inference.onnx" | sha256sum -c - \
+    && echo "${REC_MODEL_SHA256}  /models/PP-OCRv6_tiny_rec_onnx/inference.onnx" | sha256sum -c - \
     && rm -rf /models/*/.cache
 
 FROM python:3.12-slim AS runtime

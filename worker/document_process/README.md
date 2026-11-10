@@ -19,7 +19,7 @@ par Celery, `OCR_PAGE_WINDOW` à la fois, à des pods qui ont chacun leur file :
 
 ```
 layout (worker/layout, PP-DocLayoutV3)  ->  régions typées, boîtes, ordre de lecture
-   ├─ ocr   (worker/ocr,   PP-OCRv5)       texte des régions de texte : lignes et mots positionnés
+   ├─ ocr   (worker/ocr,   PP-OCRv6)       texte des régions de texte : lignes et mots positionnés
    ├─ table (worker/table, SLANet_plus)    structure et cellules des tableaux
    └─ vision (worker/vision, VLM du hub)   description des images et des tableaux
 ```

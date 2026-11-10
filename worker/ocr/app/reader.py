@@ -1,4 +1,4 @@
-"""PP-OCRv5 mobile (the official ONNX exports, run by ONNX Runtime through PaddleOCR's own pre and post processing):
+"""PP-OCRv6 tiny (the official ONNX exports, run by ONNX Runtime through PaddleOCR's own pre and post processing):
 the lines and words of the text regions of a page.
 
 A region is read from its own crop of the page, so what the layout found around it is not read with it: every region
@@ -15,7 +15,7 @@ import numpy as np
 from app.config import settings
 from app.contracts import Box, OcrLine, OcrWord, PageText, Region, RegionText, RegionType
 
-MODEL_VERSION = "PP-OCRv5_mobile_det+latin_PP-OCRv5_mobile_rec"
+MODEL_VERSION = "PP-OCRv6_tiny_det+PP-OCRv6_tiny_rec"
 
 # Painted white in a crop before it is read. Not OTHER: a formula inside a line is an OTHER region that lies
 # inside the text region, and erasing it would cut the sentence.
@@ -47,9 +47,9 @@ def _make_model() -> Any:
     if settings.ONNX_INTRA_OP_THREADS > 0:
         engine_config["intra_op_num_threads"] = settings.ONNX_INTRA_OP_THREADS
     return PaddleOCR(
-        text_detection_model_name="PP-OCRv5_mobile_det",
+        text_detection_model_name="PP-OCRv6_tiny_det",
         text_detection_model_dir=str(det_dir),
-        text_recognition_model_name="latin_PP-OCRv5_mobile_rec",
+        text_recognition_model_name="PP-OCRv6_tiny_rec",
         text_recognition_model_dir=str(rec_dir),
         # The layout already gave the page's regions: a crop is read as it is.
         use_doc_orientation_classify=False,

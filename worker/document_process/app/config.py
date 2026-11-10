@@ -28,7 +28,7 @@ class WorkerSettings(BaseSettings):
     TESSDATA_PATH: str | None = None
 
     # Ce qui lit une page scannée : "tesseract" (l'OCR de liteparse, par défaut) ou "layout" (les pods PaddleOCR :
-    # layout PP-DocLayoutV3, texte PP-OCRv5, tableaux SLANet_plus, et le VLM du hub pour décrire images et tableaux).
+    # layout PP-DocLayoutV3, texte PP-OCRv6 tiny, tableaux SLANet_plus, et le VLM du hub pour décrire images et tableaux).
     # Une page que les pods ne savent pas lire retombe sur Tesseract : le fichier n'échoue que si celui-ci échoue aussi.
     OCR_ENGINE: Literal["tesseract", "layout"] = "tesseract"
     # Files Celery des pods d'OCR (voir app/ocr/) : ce worker leur envoie des tâches, il ne les consomme pas.

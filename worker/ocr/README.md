@@ -1,4 +1,4 @@
-# worker/ocr - texte des régions d'une page scannée (PP-OCRv5 mobile)
+# worker/ocr - texte des régions d'une page scannée (PP-OCRv6 tiny)
 
 Worker Celery qui lit le texte des **régions de texte** (texte, titre, liste, légende) d'une page scannée, régions que
 `worker/layout` a trouvées, et rend des **lignes et des mots positionnés** dans le repère de la page (boîtes
@@ -7,8 +7,8 @@ l'extraction par layout.
 
 - Tâche `app.tasks.ocr_regions(document_id, page_number, image_key, regions)` sur la queue `document_ocr`. `regions` est
   la liste `regions` du `PageLayout` ; le résultat est un `PageText` en JSON (`app/contracts.py`).
-- Modèles : les exports **ONNX officiels** de PaddlePaddle - détecteur `PP-OCRv5_mobile_det_onnx` et reconnaisseur des
-  écritures latines `latin_PP-OCRv5_mobile_rec_onnx` (Apache 2.0) - lancés par ONNX Runtime à travers le pré- et
+- Modèles : les exports **ONNX officiels** de PaddlePaddle - détecteur `PP-OCRv6_tiny_det_onnx` et reconnaisseur
+  `PP-OCRv6_tiny_rec_onnx` (49 langues, dont le français) (Apache 2.0) - lancés par ONNX Runtime à travers le pré- et
   post-traitement de PaddleOCR. PaddlePaddle lui-même n'est pas installé. Chargés **une fois par processus enfant**.
 - **Chaque région est lue depuis son propre recadrage.** Dedans, les régions qui ne sont pas du texte (tableau, image,
   formule, sigle, tampon, en-tête, pied de page, numéro) sont **peintes en blanc** : ce qui les entoure ne se mélange pas
