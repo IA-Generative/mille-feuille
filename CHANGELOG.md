@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.48.0](https://github.com/IA-Generative/mille-feuille/compare/v0.47.2...v0.48.0) (2026-11-10)
+
+
+### Features
+
+* **ui:** precising what every number means in my consommation page ([e2a4ed0](https://github.com/IA-Generative/mille-feuille/commit/e2a4ed0a97c7a21574441909f7ddf93d3adef76d))
+
+
+### Bug Fixes
+
+* **front:** edit gitignore ([e6aa2d7](https://github.com/IA-Generative/mille-feuille/commit/e6aa2d7e097698c67eb19726e08cb6a10dbf70d9))
+* **ui:** delete comments ([38c6f1c](https://github.com/IA-Generative/mille-feuille/commit/38c6f1c7acaf4d3c6cbb16e5fbbdda6602a3d429))
+
 ## [0.47.2](https://github.com/IA-Generative/mille-feuille/compare/v0.47.1...v0.47.2) (2026-11-10)
 
 
