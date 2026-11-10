@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.49.0](https://github.com/IA-Generative/mille-feuille/compare/v0.48.0...v0.49.0) (2026-11-10)
+
+
+### Features
+
+* **classification:** maquette des documents d'exemple par label ([2222327](https://github.com/IA-Generative/mille-feuille/commit/222232703952179e6864ce9231ea37fb088a32ea))
+* **extraction:** maquette du label où chercher et des zones par entité ([80a2860](https://github.com/IA-Generative/mille-feuille/commit/80a286035875a203ee0c8e4ee48f1fc47627cb6d))
+
 ## [0.48.0](https://github.com/IA-Generative/mille-feuille/compare/v0.47.2...v0.48.0) (2026-11-10)
 
 
