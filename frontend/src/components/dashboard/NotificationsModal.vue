@@ -153,6 +153,8 @@ function open(id: string) {
 }
 
 .notifs__chip {
+  --hover: var(--background-alt-grey-hover);
+  --active: var(--background-alt-grey-active);
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
@@ -167,6 +169,8 @@ function open(id: string) {
 }
 
 .notifs__chip--on {
+  --hover: var(--background-action-high-blue-france-hover);
+  --active: var(--background-action-high-blue-france-active);
   background: var(--background-action-high-blue-france);
   color: var(--text-inverted-blue-france);
 }

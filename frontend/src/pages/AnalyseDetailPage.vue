@@ -185,7 +185,23 @@ function quitGuide() {
 
 .analyse-detail__section--active {
   background: var(--background-action-high-blue-france);
-  color: #fff;
+  color: var(--text-inverted-blue-france);
+}
+
+.analyse-detail__section:hover {
+  background-color: var(--background-alt-grey-hover);
+}
+
+.analyse-detail__section:active {
+  background-color: var(--background-alt-grey-active);
+}
+
+.analyse-detail__section--active:hover {
+  background-color: var(--background-action-high-blue-france-hover);
+}
+
+.analyse-detail__section--active:active {
+  background-color: var(--background-action-high-blue-france-active);
 }
 
 .analyse-detail__header {
