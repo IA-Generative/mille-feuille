@@ -80,24 +80,39 @@ function barWidth(row: UsageSums, rows: UsageSums[]) {
 
 <template>
   <div class="usage-charts">
-    <div class="usage-charts__stats">
+    <div class="usage-charts__stats">                                       <!-- ← remis -->
       <div class="usage-charts__stat">
-        <span class="usage-charts__stat-label">Tokens</span>
+        <span class="usage-charts__stat-label">
+          Tokens
+          <DsfrTooltip content="Total des tokens consommés : entrée + sortie.">
+            Précision sur les tokens
+          </DsfrTooltip>
+        </span>
         <span class="usage-charts__stat-value">{{ count(usage.totals.totalTokens) }}</span>
       </div>
       <div class="usage-charts__stat">
-        <span class="usage-charts__stat-label">Entrée (prompt)</span>
+        <span class="usage-charts__stat-label">
+          Entrée (prompt)
+          <DsfrTooltip content="Nombre de tokens contenus dans les prompts envoyés au modèle.">
+            Précision sur l'entrée
+          </DsfrTooltip>
+        </span>
         <span class="usage-charts__stat-value">{{ count(usage.totals.inputTokens) }}</span>
       </div>
       <div class="usage-charts__stat">
-        <span class="usage-charts__stat-label">Sortie (réponse)</span>
+        <span class="usage-charts__stat-label">
+          Sortie (réponse)
+          <DsfrTooltip content="Nombre de tokens générés par le modèle dans sa réponse.">
+            Précision sur la sortie
+          </DsfrTooltip>
+        </span>
         <span class="usage-charts__stat-value">{{ count(usage.totals.outputTokens) }}</span>
       </div>
-      <div class="usage-charts__stat">
+      <div class="usage-charts__stat">                                      <!-- ← remis -->
         <span class="usage-charts__stat-label">Appels au modèle</span>
         <span class="usage-charts__stat-value">{{ count(usage.totals.calls) }}</span>
       </div>
-    </div>
+    </div>                                                                  <!-- ← remis -->
 
     <WaterBottles :total-tokens="usage.totals.totalTokens" :period="period" />
 
@@ -240,7 +255,14 @@ function barWidth(row: UsageSums, rows: UsageSums[]) {
   gap: 0.75rem;
 }
 
-.usage-charts__stat-label,
+.usage-charts__stat-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-mention-grey);
+}
+
 .usage-charts__day-info,
 .usage-charts__axis,
 .usage-charts__legend,
