@@ -1,7 +1,7 @@
 """Les pages scannées d'un fichier, lues par les pods d'OCR (OCR_ENGINE=layout) à la place du Tesseract de liteparse.
 
 liteparse lit le fichier sans OCR et dit, page par page, si un OCR est nécessaire. Ces pages partent vers les pods -
-leur layout (PP-DocLayoutV3), puis le texte de ses régions (PP-OCRv5), ses tableaux (SLANet_plus) et la description de
+leur layout (PP-DocLayoutV3), puis le texte de ses régions (PP-OCRv6 tiny), ses tableaux (SLANet_plus) et la description de
 ses images (VLM du hub) - quelques-unes à la fois, et ce qui revient est assemblé en markdown de page et en lignes
 positionnées (app/ocr/assemble.py). Une page qui ne peut pas être lue - un pod absent ou lent, une page sans région, une
 où rien n'a été lu - retombe sur liteparse et Tesseract, et le fichier continue : il n'échoue que si celui-ci échoue

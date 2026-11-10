@@ -19,10 +19,9 @@ class OcrSettings(BaseSettings):
 
     # Where the models are in the image: read-only, nothing is downloaded when the pod runs.
     MODELS_DIR: str = "/models"
-    # PP-OCRv5 mobile: the text detector, and the recognizer of the Latin scripts (French accents, ligatures, the
-    # euro sign and the typographic dashes and apostrophes included).
-    OCR_DET_MODEL_NAME: str = "PP-OCRv5_mobile_det_onnx"
-    OCR_REC_MODEL_NAME: str = "latin_PP-OCRv5_mobile_rec_onnx"
+    # PP-OCRv6 tiny: the text detector, and the recognizer (49 languages, French included).
+    OCR_DET_MODEL_NAME: str = "PP-OCRv6_tiny_det_onnx"
+    OCR_REC_MODEL_NAME: str = "PP-OCRv6_tiny_rec_onnx"
     # A region is read from a crop a few pixels wider than it, or the edge of a glyph is cut off.
     OCR_REGION_PADDING_PIXELS: int = 8
     # White around a crop: a very flat crop (a title, a single line) is otherwise cut into pieces by the detector
