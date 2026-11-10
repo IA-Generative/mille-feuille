@@ -16,6 +16,16 @@ export interface LabelDefinition {
   definition: string;
 }
 
+/** Document d'exemple d'un label (PDF ou image), utilisé pour le rapprochement visuel. */
+export interface LabelExample {
+  id: string;
+  name: string;
+  kind: "image" | "pdf";
+  size: number;
+  /** Aperçu local (URL d'objet) : n'existe que pour une image, tant que la page est ouverte. */
+  previewUrl: string | null;
+}
+
 export interface EntityDefinition {
   id: string;
   name: string;
