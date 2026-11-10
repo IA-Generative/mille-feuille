@@ -536,8 +536,6 @@ const actions = computed(() => [
 }
 
 .slot__day {
-  --hover: var(--background-default-grey-hover);
-  --active: var(--background-default-grey-active);
   width: 2.25rem;
   height: 2.25rem;
   border: 1px solid var(--border-default-grey);
@@ -550,8 +548,6 @@ const actions = computed(() => [
 }
 
 .slot__day--on {
-  --hover: var(--background-action-high-blue-france-hover);
-  --active: var(--background-action-high-blue-france-active);
   border-color: var(--background-action-high-blue-france);
   background: var(--background-action-high-blue-france);
   color: var(--text-inverted-blue-france);

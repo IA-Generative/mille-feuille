@@ -145,8 +145,6 @@ function sendOther(index: number) {
 }
 
 .tool-question__tab {
-  --hover: var(--background-alt-grey-hover);
-  --active: var(--background-alt-grey-active);
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
@@ -159,10 +157,8 @@ function sendOther(index: number) {
 }
 
 .tool-question__tab--selected {
-  --hover: var(--background-action-high-blue-france-hover);
-  --active: var(--background-action-high-blue-france-active);
-  background: var(--background-action-high-blue-france);
-  color: var(--text-inverted-blue-france);
+  background: #4b3fd9;
+  color: #fff;
 }
 
 .tool-question__tab:focus-visible {

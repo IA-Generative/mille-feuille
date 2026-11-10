@@ -582,8 +582,6 @@ const downloadUrl = computed(() => (current.value ? api.fileUrl(current.value.id
 }
 
 .template-editor__chip {
-  --hover: var(--background-default-grey-hover);
-  --active: var(--background-default-grey-active);
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
@@ -605,21 +603,17 @@ const downloadUrl = computed(() => (current.value ? api.fileUrl(current.value.id
 }
 
 .template-editor__chip--active {
-  --hover: var(--background-action-high-blue-france-hover);
-  --active: var(--background-action-high-blue-france-active);
   background: var(--background-action-high-blue-france);
   border-color: var(--background-action-high-blue-france);
-  color: var(--text-inverted-blue-france);
+  color: #fff;
   font-weight: 700;
 }
 
 /* Pastille active **et** en erreur : fond d'erreur plein, pour rester lisible. */
 .template-editor__chip--active.template-editor__chip--ko {
-  --hover: var(--background-action-high-error-hover);
-  --active: var(--background-action-high-error-active);
-  background: var(--background-flat-error);
-  border-color: var(--background-flat-error);
-  color: var(--text-inverted-error);
+  background: var(--background-flat-error, #ce0500);
+  border-color: var(--background-flat-error, #ce0500);
+  color: #fff;
 }
 
 .template-editor__carousel-caption {

@@ -30,8 +30,6 @@ const sourceId = defineModel<string>({ required: true });
 }
 
 .collection-source-choice__tab {
-  --hover: var(--background-alt-grey-hover);
-  --active: var(--background-alt-grey-active);
   padding: 0.25rem 0.75rem;
   border: 0;
   border-radius: 999px;
@@ -41,10 +39,8 @@ const sourceId = defineModel<string>({ required: true });
 }
 
 .collection-source-choice__tab--selected {
-  --hover: var(--background-action-high-blue-france-hover);
-  --active: var(--background-action-high-blue-france-active);
-  background: var(--background-action-high-blue-france);
-  color: var(--text-inverted-blue-france);
+  background: #4b3fd9;
+  color: #fff;
 }
 
 .collection-source-choice__tab:focus-visible {
