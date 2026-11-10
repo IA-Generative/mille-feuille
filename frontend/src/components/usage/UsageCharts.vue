@@ -80,7 +80,7 @@ function barWidth(row: UsageSums, rows: UsageSums[]) {
 
 <template>
   <div class="usage-charts">
-    <div class="usage-charts__stats">                                       <!-- ← remis -->
+    <div class="usage-charts__stats">
       <div class="usage-charts__stat">
         <span class="usage-charts__stat-label">
           Tokens
@@ -108,11 +108,11 @@ function barWidth(row: UsageSums, rows: UsageSums[]) {
         </span>
         <span class="usage-charts__stat-value">{{ count(usage.totals.outputTokens) }}</span>
       </div>
-      <div class="usage-charts__stat">                                      <!-- ← remis -->
+      <div class="usage-charts__stat">
         <span class="usage-charts__stat-label">Appels au modèle</span>
         <span class="usage-charts__stat-value">{{ count(usage.totals.calls) }}</span>
       </div>
-    </div>                                                                  <!-- ← remis -->
+    </div>
 
     <WaterBottles :total-tokens="usage.totals.totalTokens" :period="period" />
 
