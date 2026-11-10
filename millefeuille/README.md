@@ -1314,6 +1314,27 @@ Kubernetes: `>=1.25.0-0`
 | worker_classification.ingress.labels | object | `{}` | Additional ingress labels. |
 | worker_classification.ingress.tls | list | `[]` | Enable TLS configuration. |
 
+#### KedaAutoscaler
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_classification.kedaAutoscaler.behavior.scaleDown.stabilizationWindowSeconds | int | `300` | Stabilization window for scaling down (in seconds). |
+| worker_classification.kedaAutoscaler.behavior.scaleUp.stabilizationWindowSeconds | int | `30` | Stabilization window for scaling up (in seconds). |
+| worker_classification.kedaAutoscaler.cooldownPeriod | int | `300` | Cooldown period before scaling down (in seconds). |
+| worker_classification.kedaAutoscaler.enabled | bool | `false` | Enable KEDA autoscaling on the Celery Redis queue (ScaledObject + TriggerAuthentication). Mutually exclusive with `autoscaling.enabled` (KEDA manages its own HPA). |
+| worker_classification.kedaAutoscaler.fallback.failureThreshold | int | `3` | Failure threshold to activate fallback. |
+| worker_classification.kedaAutoscaler.fallback.replicas | int | `1` | Number of replicas during fallback. |
+| worker_classification.kedaAutoscaler.maxReplicaCount | int | `4` | Maximum number of replicas. |
+| worker_classification.kedaAutoscaler.minReplicaCount | int | `1` | Minimum number of replicas. |
+| worker_classification.kedaAutoscaler.pollingInterval | int | `30` | Interval between trigger checks (in seconds). |
+| worker_classification.kedaAutoscaler.redis.address | string | `""` | Redis address. KEDA runs in its own namespace, so it must be a FQDN. Leave empty to use `<redis.fullnameOverride>.<namespace>.svc.cluster.local:6379` (KEDA is not Sentinel-aware). |
+| worker_classification.kedaAutoscaler.redis.authenticationRef | string | `""` | Name of the KEDA `TriggerAuthentication` created when `secretRef`/`secretKey` are set. Defaults to the component full name. |
+| worker_classification.kedaAutoscaler.redis.listLength | string | `"5"` | Target list length per replica. |
+| worker_classification.kedaAutoscaler.redis.listName | string | `"classification"` | Redis list (Celery queue) to monitor. |
+| worker_classification.kedaAutoscaler.redis.password | string | `""` | Redis password (optional, prefer `secretRef`). |
+| worker_classification.kedaAutoscaler.redis.secretKey | string | `""` | Key of the Redis password in that Secret. |
+| worker_classification.kedaAutoscaler.redis.secretRef | string | `""` | Name of the Secret holding the Redis password (templated). |
+
 #### Metrics
 
 | Key | Type | Default | Description |
@@ -1536,6 +1557,27 @@ Kubernetes: `>=1.25.0-0`
 | worker_document.ingress.labels | object | `{}` | Additional ingress labels. |
 | worker_document.ingress.tls | list | `[]` | Enable TLS configuration. |
 
+#### KedaAutoscaler
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_document.kedaAutoscaler.behavior.scaleDown.stabilizationWindowSeconds | int | `300` | Stabilization window for scaling down (in seconds). |
+| worker_document.kedaAutoscaler.behavior.scaleUp.stabilizationWindowSeconds | int | `30` | Stabilization window for scaling up (in seconds). |
+| worker_document.kedaAutoscaler.cooldownPeriod | int | `300` | Cooldown period before scaling down (in seconds). |
+| worker_document.kedaAutoscaler.enabled | bool | `false` | Enable KEDA autoscaling on the Celery Redis queue (ScaledObject + TriggerAuthentication). Mutually exclusive with `autoscaling.enabled` (KEDA manages its own HPA). |
+| worker_document.kedaAutoscaler.fallback.failureThreshold | int | `3` | Failure threshold to activate fallback. |
+| worker_document.kedaAutoscaler.fallback.replicas | int | `1` | Number of replicas during fallback. |
+| worker_document.kedaAutoscaler.maxReplicaCount | int | `4` | Maximum number of replicas. |
+| worker_document.kedaAutoscaler.minReplicaCount | int | `1` | Minimum number of replicas. |
+| worker_document.kedaAutoscaler.pollingInterval | int | `30` | Interval between trigger checks (in seconds). |
+| worker_document.kedaAutoscaler.redis.address | string | `""` | Redis address. KEDA runs in its own namespace, so it must be a FQDN. Leave empty to use `<redis.fullnameOverride>.<namespace>.svc.cluster.local:6379` (KEDA is not Sentinel-aware). |
+| worker_document.kedaAutoscaler.redis.authenticationRef | string | `""` | Name of the KEDA `TriggerAuthentication` created when `secretRef`/`secretKey` are set. Defaults to the component full name. |
+| worker_document.kedaAutoscaler.redis.listLength | string | `"5"` | Target list length per replica. |
+| worker_document.kedaAutoscaler.redis.listName | string | `"document_processing"` | Redis list (Celery queue) to monitor. |
+| worker_document.kedaAutoscaler.redis.password | string | `""` | Redis password (optional, prefer `secretRef`). |
+| worker_document.kedaAutoscaler.redis.secretKey | string | `""` | Key of the Redis password in that Secret. |
+| worker_document.kedaAutoscaler.redis.secretRef | string | `""` | Name of the Secret holding the Redis password (templated). |
+
 #### Metrics
 
 | Key | Type | Default | Description |
@@ -1757,6 +1799,27 @@ Kubernetes: `>=1.25.0-0`
 | worker_extraction.ingress.hosts[0].paths[0].pathType | string | `"Prefix"` | Path type of the host record. |
 | worker_extraction.ingress.labels | object | `{}` | Additional ingress labels. |
 | worker_extraction.ingress.tls | list | `[]` | Enable TLS configuration. |
+
+#### KedaAutoscaler
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_extraction.kedaAutoscaler.behavior.scaleDown.stabilizationWindowSeconds | int | `300` | Stabilization window for scaling down (in seconds). |
+| worker_extraction.kedaAutoscaler.behavior.scaleUp.stabilizationWindowSeconds | int | `30` | Stabilization window for scaling up (in seconds). |
+| worker_extraction.kedaAutoscaler.cooldownPeriod | int | `300` | Cooldown period before scaling down (in seconds). |
+| worker_extraction.kedaAutoscaler.enabled | bool | `false` | Enable KEDA autoscaling on the Celery Redis queue (ScaledObject + TriggerAuthentication). Mutually exclusive with `autoscaling.enabled` (KEDA manages its own HPA). |
+| worker_extraction.kedaAutoscaler.fallback.failureThreshold | int | `3` | Failure threshold to activate fallback. |
+| worker_extraction.kedaAutoscaler.fallback.replicas | int | `1` | Number of replicas during fallback. |
+| worker_extraction.kedaAutoscaler.maxReplicaCount | int | `4` | Maximum number of replicas. |
+| worker_extraction.kedaAutoscaler.minReplicaCount | int | `1` | Minimum number of replicas. |
+| worker_extraction.kedaAutoscaler.pollingInterval | int | `30` | Interval between trigger checks (in seconds). |
+| worker_extraction.kedaAutoscaler.redis.address | string | `""` | Redis address. KEDA runs in its own namespace, so it must be a FQDN. Leave empty to use `<redis.fullnameOverride>.<namespace>.svc.cluster.local:6379` (KEDA is not Sentinel-aware). |
+| worker_extraction.kedaAutoscaler.redis.authenticationRef | string | `""` | Name of the KEDA `TriggerAuthentication` created when `secretRef`/`secretKey` are set. Defaults to the component full name. |
+| worker_extraction.kedaAutoscaler.redis.listLength | string | `"5"` | Target list length per replica. |
+| worker_extraction.kedaAutoscaler.redis.listName | string | `"entity_extraction"` | Redis list (Celery queue) to monitor. |
+| worker_extraction.kedaAutoscaler.redis.password | string | `""` | Redis password (optional, prefer `secretRef`). |
+| worker_extraction.kedaAutoscaler.redis.secretKey | string | `""` | Key of the Redis password in that Secret. |
+| worker_extraction.kedaAutoscaler.redis.secretRef | string | `""` | Name of the Secret holding the Redis password (templated). |
 
 #### Metrics
 
@@ -2872,6 +2935,27 @@ Kubernetes: `>=1.25.0-0`
 | worker_render.ingress.labels | object | `{}` | Additional ingress labels. |
 | worker_render.ingress.tls | list | `[]` | Enable TLS configuration. |
 
+#### KedaAutoscaler
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| worker_render.kedaAutoscaler.behavior.scaleDown.stabilizationWindowSeconds | int | `300` | Stabilization window for scaling down (in seconds). |
+| worker_render.kedaAutoscaler.behavior.scaleUp.stabilizationWindowSeconds | int | `30` | Stabilization window for scaling up (in seconds). |
+| worker_render.kedaAutoscaler.cooldownPeriod | int | `300` | Cooldown period before scaling down (in seconds). |
+| worker_render.kedaAutoscaler.enabled | bool | `false` | Enable KEDA autoscaling on the Celery Redis queue (ScaledObject + TriggerAuthentication). Mutually exclusive with `autoscaling.enabled` (KEDA manages its own HPA). |
+| worker_render.kedaAutoscaler.fallback.failureThreshold | int | `3` | Failure threshold to activate fallback. |
+| worker_render.kedaAutoscaler.fallback.replicas | int | `1` | Number of replicas during fallback. |
+| worker_render.kedaAutoscaler.maxReplicaCount | int | `4` | Maximum number of replicas. |
+| worker_render.kedaAutoscaler.minReplicaCount | int | `1` | Minimum number of replicas. |
+| worker_render.kedaAutoscaler.pollingInterval | int | `30` | Interval between trigger checks (in seconds). |
+| worker_render.kedaAutoscaler.redis.address | string | `""` | Redis address. KEDA runs in its own namespace, so it must be a FQDN. Leave empty to use `<redis.fullnameOverride>.<namespace>.svc.cluster.local:6379` (KEDA is not Sentinel-aware). |
+| worker_render.kedaAutoscaler.redis.authenticationRef | string | `""` | Name of the KEDA `TriggerAuthentication` created when `secretRef`/`secretKey` are set. Defaults to the component full name. |
+| worker_render.kedaAutoscaler.redis.listLength | string | `"5"` | Target list length per replica. |
+| worker_render.kedaAutoscaler.redis.listName | string | `"document_render"` | Redis list (Celery queue) to monitor. |
+| worker_render.kedaAutoscaler.redis.password | string | `""` | Redis password (optional, prefer `secretRef`). |
+| worker_render.kedaAutoscaler.redis.secretKey | string | `""` | Key of the Redis password in that Secret. |
+| worker_render.kedaAutoscaler.redis.secretRef | string | `""` | Name of the Secret holding the Redis password (templated). |
+
 #### Metrics
 
 | Key | Type | Default | Description |
@@ -2996,5 +3080,3 @@ Kubernetes: `>=1.25.0-0`
 
 * <https://github.com/IA-Generative/mille-feuille>
 
-----------------------------------------------
-Autogenerated from chart metadata using [helm-docs v1.14.2](https://github.com/norwoodj/helm-docs/releases/v1.14.2)
