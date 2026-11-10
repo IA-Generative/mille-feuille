@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.50.0](https://github.com/IA-Generative/mille-feuille/compare/v0.49.0...v0.50.0) (2026-11-10)
+
+
+### Features
+
+* **ocr:** passage de l'ocr à pp-ocrv6 tiny en onnx ([b873b3e](https://github.com/IA-Generative/mille-feuille/commit/b873b3ea41ff589334699cc96e3a77b001b2683e))
+
 ## [0.49.0](https://github.com/IA-Generative/mille-feuille/compare/v0.48.0...v0.49.0) (2026-11-10)
 
 
