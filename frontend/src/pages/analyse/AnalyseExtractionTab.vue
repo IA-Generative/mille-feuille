@@ -36,6 +36,7 @@ onMounted(() => {
     <hr class="analyse-tab__divider" />
     <EntitiesEditor
       :entities="analyse.extraction.entities"
+      :labels="analyse.classification.labels"
       :versions="analyse.extraction.entitiesVersions"
       @save="(entities) => updateExtractionEntities(analyse!.id, entities)"
       @restore="(versionId) => restoreExtractionEntitiesVersion(analyse!.id, versionId)"

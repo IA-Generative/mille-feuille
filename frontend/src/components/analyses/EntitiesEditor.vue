@@ -2,14 +2,18 @@
 import { ref, watch } from "vue";
 
 import CollapsibleText from "@/components/analyses/CollapsibleText.vue";
+import EntityLocation from "@/components/analyses/EntityLocation.vue";
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import PaginationBar from "@/components/PaginationBar.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import { useListView } from "@/composables/useListView";
+import { useEntityLocations } from "@/composables/useEntityLocations";
 import { suggestEntities, suggestEntityDefinition } from "@/composables/useLlmAssist";
-import type { EntityDefinition, EntityType, Version } from "@/types/analyse";
+import type { EntityDefinition, EntityType, LabelDefinition, Version } from "@/types/analyse";
 
-const props = defineProps<{ entities: EntityDefinition[]; versions: Version<EntityDefinition[]>[] }>();
+const props = withDefaults(defineProps<{ entities: EntityDefinition[]; versions: Version<EntityDefinition[]>[]; labels?: LabelDefinition[] }>(), {
+  labels: () => [],
+});
 const emit = defineEmits<{ save: [EntityDefinition[]]; restore: [string] }>();
 
 const entityTypes: EntityType[] = ["texte", "date", "nombre", "booléen", "identifiant"];
@@ -20,6 +24,12 @@ const editingId = ref<string | null>(null);
 const { query, pageIndex, pageSize, hasSearch, filtered, paged, reveal } = useListView(draftEntities, (item) => `${item.name} ${item.definition}`);
 const isSuggestingList = ref(false);
 const suggestingDefinitionId = ref<string | null>(null);
+const { locationOf, zoneCount, forget } = useEntityLocations();
+
+function labelNameOf(entityId: string): string | null {
+  const id = locationOf(entityId).labelId;
+  return id ? (props.labels.find((label) => label.id === id)?.name ?? null) : null;
+}
 
 function cloneEntities(entities: EntityDefinition[]): EntityDefinition[] {
   return entities.map((entity) => ({ ...entity }));
@@ -49,6 +59,7 @@ function addEntity() {
 }
 
 function removeEntity(id: string) {
+  forget(id);
   draftEntities.value = draftEntities.value.filter((entity) => entity.id !== id);
   if (editingId.value === id) editingId.value = null;
 }
@@ -117,6 +128,10 @@ function formatVersionContent(entities: EntityDefinition[]) {
             <p class="entities-editor__name">
               <span>{{ item.name || "(sans nom)" }}</span>
               <span class="fr-badge fr-badge--sm fr-badge--blue-ecume">{{ item.type }}</span>
+              <span v-if="labelNameOf(item.id)" class="fr-badge fr-badge--sm fr-badge--info fr-badge--no-icon">{{ labelNameOf(item.id) }}</span>
+              <span v-if="zoneCount(item.id) > 0" class="fr-badge fr-badge--sm fr-badge--no-icon">
+                {{ zoneCount(item.id) }} zone{{ zoneCount(item.id) > 1 ? "s" : "" }}
+              </span>
             </p>
             <CollapsibleText v-if="item.definition" :text="item.definition" />
           </div>
@@ -140,6 +155,7 @@ function formatVersionContent(entities: EntityDefinition[]) {
             <DsfrSelect v-model="item.type" label="Type" :options="entityTypes" />
           </div>
           <DsfrInput v-model="item.definition" label="Définition" label-visible is-textarea rows="3" />
+          <EntityLocation :entity-id="item.id" :labels="labels" />
           <div class="entities-editor__form-actions">
             <LlmAssistButton
               compact
