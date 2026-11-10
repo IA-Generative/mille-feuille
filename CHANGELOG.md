@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.47.2](https://github.com/IA-Generative/mille-feuille/compare/v0.47.1...v0.47.2) (2026-11-10)
+
+
+### Bug Fixes
+
+* **chart:** kedaAutoscaler natif sur les workers Celery, comme ocr ([d1718ad](https://github.com/IA-Generative/mille-feuille/commit/d1718ad31816d20d923fe081d0324629580d1931))
+
 ## [0.47.1](https://github.com/IA-Generative/mille-feuille/compare/v0.47.0...v0.47.1) (2026-11-10)
 
 
