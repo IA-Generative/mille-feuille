@@ -45,7 +45,7 @@ onMounted(load);
       D'où viennent les fichiers déposés dans les dossiers de cette analyse (courrier, guichet, autre administration…).
       La description est transmise à l'IA avec chaque document.
     </p>
-    <DsfrAlert v-if="error" type="error" :title="error" small class="fr-mb-2w" />
+    <DsfrAlert v-if="error" alert type="error" :description="error" small class="fr-mb-2w" />
     <SourcesEditor
       :sources="sources"
       :busy="busy"
