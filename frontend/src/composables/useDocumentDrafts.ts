@@ -10,7 +10,7 @@ import type {
   FieldVersion,
   GeneratedDocument,
 } from "@/types/documentDraft";
-import { API_BASE_URL, ApiError, apiFetch } from "@/utils/api";
+import { API_BASE_URL, ApiError, apiFetch, userMessage } from "@/utils/api";
 
 function mapVersion(api: any): FieldVersion {
   return {
@@ -93,9 +93,9 @@ export function incompleteFieldsFrom(error: unknown): string[] | null {
   return detail && typeof detail === "object" && Array.isArray(detail.incomplete_fields) ? detail.incomplete_fields : null;
 }
 
-/** Message lisible d'une erreur d'API (texte du serveur, sinon `fallback`). */
+/** Message lisible d'une erreur d'API (texte du serveur en français, sinon une phrase de `userMessage`). */
 export function draftErrorMessage(error: unknown, fallback: string): string {
-  return error instanceof ApiError && typeof error.message === "string" && error.message ? error.message : fallback;
+  return userMessage(error, fallback);
 }
 
 /**

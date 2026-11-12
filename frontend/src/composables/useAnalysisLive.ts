@@ -1,7 +1,7 @@
 import { computed, onBeforeUnmount, ref, type Ref } from "vue";
 
 import { useAuth } from "@/composables/useAuth";
-import { API_BASE_URL, ApiError, apiFetch } from "@/utils/api";
+import { API_BASE_URL, apiFetch, userMessage } from "@/utils/api";
 
 // Travail à plusieurs sur l'analyse de dossier (backend issue #118) : présence
 // des autres instructeurs, verrou court par élément et flux temps réel (SSE).
@@ -125,7 +125,7 @@ export function useAnalysisLive(dossierId: string, analysisId: Ref<string | unde
     try {
       await apiFetch(`${base(id)}/elements/${elementId}/lock`, { method: "POST" });
     } catch (e) {
-      return { ok: false, message: e instanceof ApiError ? e.message : "Impossible de verrouiller cet élément" };
+      return { ok: false, message: userMessage(e, "Impossible de verrouiller cet élément.") };
     }
     heldLock = elementId;
     lastActivity = Date.now();

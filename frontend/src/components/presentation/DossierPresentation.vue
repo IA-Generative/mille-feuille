@@ -29,10 +29,13 @@ const emit = defineEmits<{
   <article class="dossier-presentation" aria-label="Présentation du dossier">
     <PresentationPending v-if="presentation.status === 'pending'" :dossier-name="presentation.dossierName" />
 
-    <div v-else-if="presentation.status === 'failed'" class="dossier-presentation__failed" role="alert">
-      <p class="dossier-presentation__failed-title">L'analyse a échoué</p>
-      <p class="dossier-presentation__failed-text">{{ presentation.error }}</p>
-    </div>
+    <DsfrAlert
+      v-else-if="presentation.status === 'failed'"
+      alert
+      type="error"
+      title="L'analyse a échoué"
+      :description="presentation.error"
+    />
 
     <template v-else>
       <header class="dossier-presentation__header">
@@ -157,16 +160,5 @@ const emit = defineEmits<{
 
 .dossier-presentation__retry:hover {
   text-decoration: underline;
-}
-
-.dossier-presentation__failed-title {
-  margin: 0 0 0.25rem;
-  font-weight: 600;
-}
-
-.dossier-presentation__failed-text {
-  margin: 0;
-  font-size: 0.875rem;
-  color: var(--text-mention-grey);
 }
 </style>

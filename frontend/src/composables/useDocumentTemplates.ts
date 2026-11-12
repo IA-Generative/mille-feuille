@@ -14,7 +14,7 @@ import type {
   TemplateInspection,
 } from "@/types/documentTemplate";
 import type { PromptVersion } from "@/types/analyse";
-import { API_BASE_URL, ApiError, apiFetch } from "@/utils/api";
+import { API_BASE_URL, ApiError, apiFetch, userMessage } from "@/utils/api";
 
 const BASE = "/api/admin/document-templates";
 const PROMPT_BASE = "/api/admin/generation-prompt";
@@ -155,9 +155,8 @@ export function errorMessage(error: unknown, fallback: string): string {
         .map((e) => (Array.isArray(e.loc) && e.loc.length ? `${e.loc.join(" › ")} : ${e.msg}` : e.msg))
         .join(" ; ");
     }
-    return error.message || fallback;
   }
-  return fallback;
+  return userMessage(error, fallback);
 }
 
 /**

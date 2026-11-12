@@ -1,6 +1,6 @@
 import { onBeforeUnmount, ref } from "vue";
 
-import { ApiError, apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 import type { DossierNote, NoteVersion } from "@/types/dossierNote";
 
 function mapNote(api: any): DossierNote {
@@ -50,10 +50,6 @@ export function useDossierNotes(dossierId: string, onAnalysisFinished?: (note: D
   const base = `/api/dossiers/${dossierId}/notes`;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
-  function message(e: unknown, fallback: string): string {
-    return e instanceof ApiError ? e.message : fallback;
-  }
-
   function stopPolling() {
     if (timer) clearTimeout(timer);
     timer = undefined;
@@ -79,7 +75,7 @@ export function useDossierNotes(dossierId: string, onAnalysisFinished?: (note: D
       notes.value = (await apiFetch<any[]>(`${base}${suffix}`)).map(mapNote);
       error.value = undefined;
     } catch (e) {
-      error.value = message(e, "Impossible de charger les notes");
+      error.value = userMessage(e, "Impossible de charger les notes.");
     } finally {
       isLoading.value = false;
     }
