@@ -5,6 +5,7 @@ import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { FIELD_TYPE_LABELS, type CustomField, type CustomValue, type FieldType } from "@/types/tracking";
 import { userMessage } from "@/utils/api";
+import ErrorList from "@/components/ErrorList.vue";
 
 // Définition des colonnes personnalisées (administrateurs). Versionnée avec historique et restauration, comme les
 // autres champs d'une analyse (cf. VersionHistory). Le serveur valide la définition (noms uniques, au plus 20 champs,
@@ -215,11 +216,7 @@ const defaultAsString = (v: CustomValue) => (v === null ? "" : String(v));
       les valeurs déjà saisies dans ce champ.
     </p>
 
-    <DsfrAlert v-if="errors.length" alert type="error" small class="fr-mt-2w">
-      <ul class="fr-my-0 fr-pl-2w">
-        <li v-for="e in errors" :key="e">{{ e }}</li>
-      </ul>
-    </DsfrAlert>
+    <ErrorList :errors="errors" class="fr-mt-2w" />
 
     <DsfrAlert v-if="saveError" alert type="error" small :description="saveError" class="fr-mt-2w" />
 

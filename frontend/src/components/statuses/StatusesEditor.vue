@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
+import ErrorList from "@/components/ErrorList.vue";
 import WorkflowStatusBadge from "@/components/statuses/WorkflowStatusBadge.vue";
 import type { StatusDraft, Version, WorkflowStatus } from "@/types/analyse";
 
@@ -131,11 +132,7 @@ function formatVersion(statuses: WorkflowStatus[]) {
       </li>
     </ul>
 
-    <DsfrAlert v-if="errors.length" alert type="error" small class="fr-my-2w">
-      <ul class="fr-my-0 fr-pl-2w">
-        <li v-for="e in errors" :key="e">{{ e }}</li>
-      </ul>
-    </DsfrAlert>
+    <ErrorList :errors="errors" class="fr-my-2w" />
 
     <div class="se__actions">
       <DsfrButton label="Ajouter un statut" tertiary icon="ri-add-line" size="sm" @click="addStatus" />

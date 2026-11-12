@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 
 import GroupPicker from "@/components/access/GroupPicker.vue";
+import ErrorList from "@/components/ErrorList.vue";
 import { useDossierAccess } from "@/composables/useDossierAccess";
 import {
   VISIBILITY_HINTS,
@@ -146,7 +147,7 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
       <label class="am__confirm"><input v-model="confirmed" type="checkbox" /> J'ai compris</label>
     </div>
 
-    <DsfrAlert v-if="errors.length" alert type="error" small :description="errors.join(' ')" class="fr-mb-2w" />
+    <ErrorList :errors="errors" class="fr-mb-2w" />
     <DsfrAlert v-if="saveError" alert type="error" small :description="saveError" class="fr-mb-2w" />
 
     <section v-if="state.details.length" class="am__history" aria-labelledby="am-groups">

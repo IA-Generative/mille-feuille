@@ -120,5 +120,4 @@ const actions = () => [
   opacity: 0.3;
   cursor: default;
 }
-
 </style>

@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { RouterLink } from "vue-router";
 
+import ErrorList from "@/components/ErrorList.vue";
 import {
   MAX_REMINDERS,
   REMINDER_PRESETS,
@@ -420,11 +421,7 @@ const actions = computed(() => [
       </button>
     </section>
 
-    <DsfrAlert v-if="errors.length" alert type="error" small class="fr-mt-2w">
-      <ul class="fr-my-0 fr-pl-2w">
-        <li v-for="e in errors" :keys="e">{{ e }}</li>
-      </ul>
-    </DsfrAlert>
+    <ErrorList :errors="errors" class="fr-mt-2w" />
   </DsfrModal>
 </template>
 

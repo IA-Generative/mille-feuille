@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
+import ErrorList from "@/components/ErrorList.vue";
 import ModelPicker from "@/components/ModelPicker.vue";
 import type { Version } from "@/types/analyse";
 import type { ChunkStrategy, EmbeddingModel, SearchImpact, SearchSettings } from "@/types/search";
@@ -156,11 +157,7 @@ const impactText = computed(() => {
       </select>
     </div>
 
-    <DsfrAlert v-if="errors.length" alert type="error" small class="fr-mb-2w">
-      <ul class="fr-my-0 fr-pl-2w">
-        <li></li>
-      </ul>
-    </DsfrAlert>
+    <ErrorList :errors="errors" class="fr-my-2w" />
     <p v-if="impactText" class="fr-text--sm ssf__impact" role="status" aria-live="polite">{{ impactText }}</p>
 
     <DsfrButton label="Enregistrer" :disabled="!isDirty || errors.length > 0 || saving" @click="save" />
