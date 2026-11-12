@@ -98,7 +98,7 @@ defineExpose({ reload });
   <section class="cgu-admin">
     <h2 class="fr-h4">Conditions d'utilisation (CGU)</h2>
 
-    <div v-if="cguError" class="fr-alert fr-alert--error fr-mb-2w">{{ cguError }}</div>
+    <DsfrAlert v-if="cguError" alert type="error" small :description="cguError" class="fr-mb-2w" />
     <div v-if="cguSuccess" class="fr-alert fr-alert--success fr-mb-2w">{{ cguSuccess }}</div>
 
     <div class="cgu-admin__editor">

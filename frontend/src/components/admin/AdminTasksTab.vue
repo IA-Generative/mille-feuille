@@ -26,7 +26,7 @@ defineExpose({ fetchTasks });
       <DsfrButton label="Rafraîchir" tertiary size="sm" @click="fetchTasks" />
     </div>
 
-    <div v-if="tasksError" class="fr-alert fr-alert--error fr-mb-2w">{{ tasksError }}</div>
+    <DsfrAlert v-if="tasksError" alert type="error" small :description="tasksError" class="fr-mb-2w" />
     <div v-if="tasksLoading && !hasLoaded" class="fr-text--sm">Chargement des tâches…</div>
 
     <template v-else-if="adminTasks">

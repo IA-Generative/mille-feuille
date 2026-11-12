@@ -49,7 +49,7 @@ const formatVersionContent = (tools: string[]) => (tools.length > 0 ? toolNames(
 <template>
   <div class="agent-tools-editor">
     <ToolSelectionField v-model="draftTools" />
-    <div v-if="error" class="fr-alert fr-alert--error fr-alert--sm" role="alert"><p>{{ error }}</p></div>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" />
     <DsfrButton :label="isSaving ? 'Enregistrement…' : 'Enregistrer'" :disabled="!isDirty || isSaving" size="sm" @click="save" />
     <VersionHistory :versions="agent.toolsVersions" :format-content="formatVersionContent" @restore="restoreVersion" />
   </div>

@@ -54,7 +54,7 @@ defineExpose({ fetchStats });
       Statistiques
     </h2>
 
-    <div v-if="statsError" class="fr-alert fr-alert--error fr-mb-2w">{{ statsError }}</div>
+    <DsfrAlert v-if="statsError" alert type="error" small :description="statsError" class="fr-mb-2w" />
     <div v-if="statsLoading && !hasLoaded" class="fr-text--sm">Chargement des statistiques…</div>
 
     <template v-else-if="adminStats">
