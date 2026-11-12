@@ -346,7 +346,7 @@ async function exportCsv() {
     />
 
     <DsfrAlert v-if="loadError" alert type="error" small class="fr-mb-2w">
-      {{ loadError }} <button type="button" class="track__tool" @click="load">Réessayer</button>
+      <p>{{ loadError }} <button type="button" class="track__tool" @click="load">Réessayer</button></p>
     </DsfrAlert>
     <p class="track__count" aria-live="polite">{{ total }} dossier{{ total > 1 ? "s" : "" }}</p>
     <p v-if="fieldsAreHidden" class="track__hint">
