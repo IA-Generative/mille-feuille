@@ -36,7 +36,7 @@ defineExpose({ reload });
       {{ selectedLabel ? `Consommation de ${selectedLabel}` : "Consommation de tout le monde" }}
     </p>
 
-    <div v-if="error" class="fr-alert fr-alert--error" role="alert">{{ error }}</div>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mb-2w" />
     <p v-else-if="loading && !usage" class="fr-text--sm">Chargement…</p>
     <p v-else-if="usage && usage.totals.calls === 0 && usage.byUser.length === 0" class="admin-usage__empty">
       Aucune consommation sur les {{ days }} derniers jours.

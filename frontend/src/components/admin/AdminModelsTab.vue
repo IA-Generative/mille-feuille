@@ -94,9 +94,7 @@ defineExpose({ reload: load });
       Modèles
     </h2>
 
-    <div v-if="error" class="fr-alert fr-alert--error fr-alert--sm" role="alert">
-      <p>{{ error }}</p>
-    </div>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mb-2w" />
     <p v-if="loading && !models.length" class="fr-text--sm">Chargement…</p>
 
     <ModelsModeCard :mode="mode" @change="setMode" />
