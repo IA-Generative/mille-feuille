@@ -2,7 +2,7 @@ import { ref, type Ref } from "vue";
 
 import type { KnowledgeCollection } from "@/types/knowledge";
 import type { Page } from "@/types/pagination";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 import { toKnowledgeCollection, type KnowledgeCollectionOut } from "@/utils/knowledgeMapping";
 
 /**
@@ -35,7 +35,7 @@ export function useSourceCollections(sourceId: Ref<string | undefined>) {
       if (request !== latest) return;
       collections.value = [];
       total.value = 0;
-      error.value = e instanceof Error ? e.message : "Impossible de lister les collections de cette source.";
+      error.value = userMessage(e, "Impossible de lister les collections de cette source.");
     } finally {
       if (request === latest) loading.value = false;
     }

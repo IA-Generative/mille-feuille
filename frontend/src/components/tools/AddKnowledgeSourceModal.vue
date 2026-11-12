@@ -4,6 +4,7 @@ import { computed, ref, watch } from "vue";
 import KnowledgeSourceForm from "@/components/tools/KnowledgeSourceForm.vue";
 import { useKnowledgeSources } from "@/composables/useKnowledgeSources";
 import type { KnowledgeSourceDraft } from "@/types/knowledge";
+import { userMessage } from "@/utils/api";
 
 const opened = defineModel<boolean>("opened", { default: false });
 const emit = defineEmits<{ added: [] }>();
@@ -38,7 +39,7 @@ async function submit() {
     opened.value = false;
     emit("added");
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "L'ajout a échoué.";
+    error.value = userMessage(e, "L'ajout a échoué.")
   } finally {
     busy.value = false;
   }

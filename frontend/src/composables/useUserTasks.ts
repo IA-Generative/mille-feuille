@@ -12,7 +12,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 import type { UserTask, UserTaskStatus } from "@/types/userTask";
 
 const POLL_INTERVAL_MS = 5_000;
@@ -46,7 +46,7 @@ async function fetchTasks(status?: UserTaskStatus) {
     tasks.value = await apiFetch<UserTask[]>(`/api/me/tasks${query}`);
     lastError.value = null;
   } catch (err) {
-    lastError.value = err instanceof Error ? err.message : "Erreur de chargement";
+    lastError.value = userMessage(err, "Impossible de charger les tâches.");
   } finally {
     loading.value = false;
   }

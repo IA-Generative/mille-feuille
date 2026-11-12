@@ -8,6 +8,7 @@ import ToolTestResult from "@/components/tools/ToolTestResult.vue";
 import { examplePromptOf, runToolTest } from "@/composables/useToolTest";
 import { useTools } from "@/composables/useTools";
 import type { Tool, ToolTestRun } from "@/types/tool";
+import { userMessage } from "@/utils/api";
 
 const props = defineProps<{ tool: Tool }>();
 const opened = defineModel<boolean>("opened", { default: false });
@@ -43,7 +44,7 @@ async function execute() {
     run.value = await runToolTest(props.tool, prompt.value, { model: model.value, confirmed: confirmed.value });
   } catch (e) {
     // Une erreur HTTP (session expirée, demande refusée…) : on la dit, plutôt que de laisser la fenêtre muette.
-    error.value = e instanceof Error ? e.message : "Le test a échoué.";
+    error.value = userMessage(e, "Le test a échoué.")
   } finally {
     loading.value = false;
   }

@@ -13,6 +13,7 @@ import PaginationBar from "@/components/PaginationBar.vue";
 import { useDossierNotes } from "@/composables/useDossierNotes";
 import { usePageSize } from "@/composables/usePageSize";
 import type { DossierNote, NoteVersion } from "@/types/dossierNote";
+import { userMessage } from "@/utils/api";
 
 const props = defineProps<{
   dossierId: string;
@@ -52,7 +53,7 @@ async function run(action: () => Promise<unknown>): Promise<boolean> {
     await action();
     return true;
   } catch (e) {
-    actionError.value = e instanceof Error ? e.message : "L'action a échoué";
+    actionError.value = userMessage(e, "L'action a échoué.");
     return false;
   } finally {
     busy.value = false;

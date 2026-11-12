@@ -5,6 +5,7 @@ import ToolImportList from "@/components/tools/ToolImportList.vue";
 import ToolServerForm from "@/components/tools/ToolServerForm.vue";
 import { useTools } from "@/composables/useTools";
 import type { Tool, ToolServerDraft } from "@/types/tool";
+import { userMessage } from "@/utils/api";
 
 const opened = defineModel<boolean>("opened", { default: false });
 const emit = defineEmits<{ added: [] }>();
@@ -43,7 +44,7 @@ async function attempt(action: () => Promise<void>) {
   try {
     await action();
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "L'action a échoué.";
+    error.value = userMessage(e, "L'action a échoué.");
   } finally {
     busy.value = false;
   }

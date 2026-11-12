@@ -7,6 +7,7 @@ import { ASSIST_MIN_WORDS_HINT, hasEnoughWords, suggestAgentPrompt } from "@/com
 import ModelPicker from "@/components/ModelPicker.vue";
 import ToolSelectionField from "@/components/tools/ToolSelectionField.vue";
 import { useTools } from "@/composables/useTools";
+import { userMessage } from "@/utils/api";
 
 const props = defineProps<{ analyseId: string }>();
 const opened = defineModel<boolean>("opened", { default: false });
@@ -54,7 +55,7 @@ async function submit() {
     await addAgent(props.analyseId, name.value.trim(), prompt.value.trim(), toolIds.value, output.value, model.value || null);
   } catch (e) {
     // Un outil refusé (serveur inaccessible, tool désautorisé…) : on garde la fenêtre ouverte et on dit pourquoi.
-    error.value = e instanceof Error ? e.message : "La création a échoué.";
+    error.value = userMessage(e, "La création a échoué.");
     return;
   }
   opened.value = false;
