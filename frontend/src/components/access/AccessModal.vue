@@ -12,7 +12,7 @@ import {
   type DossierAccessState,
   type Visibility,
 } from "@/types/access";
-import { ApiError } from "@/utils/api";
+import { userMessage } from "@/utils/api";
 
 // Accès d'un dossier : visibilité et groupes associés. Lecture pour tous ceux qui y ont accès ; modification
 // réservée aux administrateurs. Le serveur applique la règle ; avant d'enregistrer, une simulation dit si la personne
@@ -59,7 +59,7 @@ onMounted(async () => {
     visibility.value = state.value.visibility;
     groups.value = [...state.value.groups];
   } catch (e) {
-    loadError.value = e instanceof Error ? e.message : "Impossible de charger l'accès du dossier.";
+    loadError.value = userMessage(e, "Impossible de charger l'accès du dossier.");
   }
 });
 
@@ -74,7 +74,7 @@ async function refreshImpact() {
     const result = await previewAccess(props.dossierId, draft.value);
     if (seq === previewSeq) impact.value = result;
   } catch (e) {
-    if (seq === previewSeq) saveError.value = e instanceof Error ? e.message : "La simulation a échoué.";
+    if (seq === previewSeq) saveError.value = userMessage(e, "La simulation a échoué.");
   }
 }
 
@@ -90,12 +90,7 @@ async function save() {
     emit("saved", `Accès enregistré. Le changement est tracé dans l'historique du dossier.${lost}`);
     emit("close");
   } catch (e) {
-    saveError.value =
-      e instanceof ApiError && typeof e.detail === "object" && e.detail && "message" in (e.detail as object)
-        ? String((e.detail as { message: string }).message)
-        : e instanceof Error
-          ? e.message
-          : "L'enregistrement a échoué.";
+    saveError.value = userMessage(e, "L'enregistrement a échoué.");
   } finally {
     saving.value = false;
   }
@@ -114,7 +109,7 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
   <DsfrModal :opened="true" title="Accès au dossier" icon="ri-lock-line" size="lg" :actions="actions" @close="emit('close')">
     <p class="am__name">{{ dossierName }}</p>
 
-    <p v-if="loadError" class="am__errors" role="alert">{{ loadError }}</p>
+    <DsfrAlert v-if="loadError" alert type="error" small :description="loadError" class="fr-mb-2w" />
 
     <template v-else-if="state">
     <p v-if="!canEdit" class="am__readonly" role="note">
@@ -151,10 +146,8 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
       <label class="am__confirm"><input v-model="confirmed" type="checkbox" /> J'ai compris</label>
     </div>
 
-    <ul v-if="errors.length" class="am__errors" role="alert">
-      <li v-for="e in errors" :key="e">{{ e }}</li>
-    </ul>
-    <p v-if="saveError" class="am__errors" role="alert">{{ saveError }}</p>
+    <DsfrAlert v-if="errors.length" alert type="error" small :description="errors.join(' ')" class="fr-mb-2w" />
+    <DsfrAlert v-if="saveError" alert type="error" small :description="saveError" class="fr-mb-2w" />
 
     <section v-if="state.details.length" class="am__history" aria-labelledby="am-groups">
       <h3 id="am-groups" class="am__legend">Groupes associés</h3>
@@ -251,13 +244,6 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
   align-items: center;
   gap: 0.5rem;
   font-weight: 600;
-}
-
-.am__errors {
-  margin: 0 0 1rem;
-  padding-left: 1.25rem;
-  color: var(--text-default-error);
-  font-size: 0.875rem;
 }
 
 .am__history ul {
