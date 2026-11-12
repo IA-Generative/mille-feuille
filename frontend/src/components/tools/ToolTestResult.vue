@@ -105,7 +105,7 @@ pre {
 }
 
 .tool-test-result__output--error {
-  background: #ce05001a;
+  background: var(--background-contrast-error);
 }
 
 .tool-test-result__request {

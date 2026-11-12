@@ -121,8 +121,8 @@ async function submit() {
         :options="myGroups"
         legend="Groupes ayant accès"
         hint="Au moins un groupe est obligatoire : vos propres groupes uniquement."
+        :error="accessInvalid ? 'Choisissez au moins un groupe.' : null"
       />
-      <p v-if="accessInvalid" class="fr-error-text" role="alert">Choisissez au moins un groupe.</p>
     </div>
 
     <DsfrFileUpload

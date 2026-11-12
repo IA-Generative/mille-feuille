@@ -122,7 +122,7 @@ function targetLink(task: UserTask): string | null {
                     </div>
                     <div class="task-drawer__item-meta">
                       <span class="task-drawer__time">{{ formatTime(task.created_at) }}</span>
-                      <span v-if="task.error" class="task-drawer__error">{{ task.error }}</span>
+                      <span v-if="task.error" class="fr-error-text task-drawer__error" :title="task.error">{{ task.error }}</span>
                     </div>
                   </component>
                 </li>
@@ -340,8 +340,6 @@ function targetLink(task: UserTask): string | null {
 }
 
 .task-drawer__error {
-  font-size: 0.75rem;
-  color: var(--text-default-error);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

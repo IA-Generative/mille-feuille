@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
           par l'analyse {{ unavailable.length > 1 ? "ne sont" : "n'est" }} pas utilisable{{ unavailable.length > 1 ? "s" : "" }}
           avec vos droits.
         </p>
-        <p v-if="error" class="chat-tools-menu__unavailable" role="alert">{{ error }}</p>
+        <p v-if="error" class="fr-error-text fr-mx-3v fr-mt-3v fr-mb-1v" role="alert">{{ error }}</p>
       </div>
 
       <div class="chat-tools-menu__footer">
