@@ -2,7 +2,7 @@ import { ref } from "vue";
 
 import type { DashboardActivity, DashboardData, DashboardUrgency } from "@/types/dashboard";
 import type { SlotDraft } from "@/types/schedule";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 
 // Tableau de bord branché sur l'API (issue #174) : `GET /api/dashboard` donne les indicateurs, les urgences
 // (échéance proche ou dépassée selon les seuils de l'analyse), mes dossiers par statut, les dossiers non affectés
@@ -116,7 +116,7 @@ export function useDashboard() {
         data.value = loaded;
       }
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Impossible de charger le tableau de bord.";
+      error.value = userMessage(e, "Impossible de charger le tableau de bord.");
     } finally {
       loading.value = false;
     }

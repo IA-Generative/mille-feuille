@@ -2,7 +2,7 @@ import { ref } from "vue";
 
 import type { KnowledgeSource, KnowledgeSourceDraft } from "@/types/knowledge";
 import type { Page } from "@/types/pagination";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 import { toKnowledgeSource, type KnowledgeSourceOut } from "@/utils/knowledgeMapping";
 
 // Les sources de connaissances que la personne voit. L'état est partagé (module) : « Mes outils » et le choix des
@@ -24,7 +24,7 @@ async function load() {
     sources.value = page.items.map(toKnowledgeSource);
     ready.value = true;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "Impossible de charger les sources de connaissances.";
+    error.value = userMessage(e, "Impossible de charger les sources de connaissances.");
   } finally {
     loading.value = false;
   }

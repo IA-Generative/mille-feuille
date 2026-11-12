@@ -1,6 +1,6 @@
 import { ref } from "vue";
 
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 import type { AdminStats } from "@/types/admin";
 
 /** Statistiques globales de la plateforme (page Administration). */
@@ -15,7 +15,7 @@ export function useAdminStats() {
     try {
       stats.value = await apiFetch<AdminStats>("/api/admin/stats");
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Erreur lors du chargement des statistiques.";
+      error.value = userMessage(e, "Erreur lors du chargement des statistiques.");
       stats.value = null;
     } finally {
       loading.value = false;

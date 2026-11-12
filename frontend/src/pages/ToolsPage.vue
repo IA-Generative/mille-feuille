@@ -10,6 +10,7 @@ import ToolServerCard from "@/components/tools/ToolServerCard.vue";
 import ToolsListSection from "@/components/tools/ToolsListSection.vue";
 import { useKnowledgeSources } from "@/composables/useKnowledgeSources";
 import { useTools } from "@/composables/useTools";
+import { userMessage } from "@/utils/api";
 import { matchesSearch } from "@/utils/toolSearch";
 
 const { internalTools, servers, loading, error, fetchTools, removeServer, refreshServer } = useTools();
@@ -35,7 +36,7 @@ async function run(action: () => Promise<void>, notice = "") {
     await action();
     actionNotice.value = notice;
   } catch (e) {
-    actionError.value = e instanceof Error ? e.message : "L'action a échoué.";
+    actionError.value = userMessage(e, "L'action a échoué.");
   }
 }
 const query = ref("");
@@ -74,12 +75,12 @@ const filteredServers = computed(() =>
     </p>
 
     <DsfrAlert
-    v-if="error || sourcesError || actionError"
-    alert
-    type="error"
-    title="Une erreur est survenue"
-    :description="error || sourcesError || actionError"
-    class="fr-mb-2w"
+      v-if="error || sourcesError || actionError"
+      alert
+      type="error"
+      title="Une erreur est survenue"
+      :description="error || sourcesError || actionError"
+      class="fr-mb-2w"
     />
     <div v-else-if="actionNotice" class="fr-alert fr-alert--success fr-alert--sm" role="status">{{ actionNotice }}</div>
     <p v-else-if="loading && servers.length === 0 && internalTools.length === 0" class="tools-page__empty">Chargement…</p>
