@@ -420,9 +420,11 @@ const actions = computed(() => [
       </button>
     </section>
 
-    <ul v-if="errors.length" class="slot__errors" role="alert">
-      <li v-for="e in errors" :key="e">{{ e }}</li>
-    </ul>
+    <DsfrAlert v-if="errors.length" alert type="error" small class="fr-mt-2w">
+      <ul class="fr-my-0 fr-pl-2w">
+        <li v-for="e in errors" :keys="e">{{ e }}</li>
+      </ul>
+    </DsfrAlert>
   </DsfrModal>
 </template>
 
@@ -577,13 +579,6 @@ const actions = computed(() => [
 .slot__add {
   gap: 0.375rem;
   margin: 0.5rem 0.75rem 0.75rem;
-}
-
-.slot__errors {
-  margin: 0;
-  padding-left: 1.25rem;
-  color: var(--text-default-error);
-  font-size: 0.875rem;
 }
 
 @media (max-width: 36em) {

@@ -4,6 +4,7 @@ import { computed, ref } from "vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { FIELD_TYPE_LABELS, type CustomField, type CustomValue, type FieldType } from "@/types/tracking";
+import { userMessage } from "@/utils/api";
 
 // Définition des colonnes personnalisées (administrateurs). Versionnée avec historique et restauration, comme les
 // autres champs d'une analyse (cf. VersionHistory). Le serveur valide la définition (noms uniques, au plus 20 champs,
@@ -98,7 +99,7 @@ async function save() {
     emit("saved", "Colonnes personnalisées enregistrées. L'ancienne version est dans l'historique.");
     emit("close");
   } catch (e) {
-    saveError.value = e instanceof Error ? e.message : "L'enregistrement a échoué.";
+    saveError.value = userMessage(e, "L'enregistrement a échoué.");
   } finally {
     saving.value = false;
   }
@@ -111,7 +112,7 @@ async function restore(versionId: string) {
     emit("saved", "Version restaurée.");
     emit("close");
   } catch (e) {
-    saveError.value = e instanceof Error ? e.message : "La restauration a échoué.";
+    saveError.value = userMessage(e, "La restauration a échoué.");
   }
 }
 
@@ -214,11 +215,13 @@ const defaultAsString = (v: CustomValue) => (v === null ? "" : String(v));
       les valeurs déjà saisies dans ce champ.
     </p>
 
-    <ul v-if="errors.length" class="cf__errors" role="alert">
-      <li v-for="e in errors" :key="e">{{ e }}</li>
-    </ul>
+    <DsfrAlert v-if="errors.length" alert type="error" small class="fr-mt-2w">
+      <ul class="fr-my-0 fr-pl-2w">
+        <li v-for="e in errors" :key="e">{{ e }}</li>
+      </ul>
+    </DsfrAlert>
 
-    <p v-if="saveError" class="cf__errors" role="alert">{{ saveError }}</p>
+    <DsfrAlert v-if="saveError" alert type="error" small :description="saveError" class="fr-mt-2w" />
 
     <div class="cf__history">
       <VersionHistory :versions="fieldsVersions" :format-content="summarize" @restore="restore" />
@@ -357,13 +360,6 @@ const defaultAsString = (v: CustomValue) => (v === null ? "" : String(v));
 
 .cf__purge label {
   display: block;
-}
-
-.cf__errors {
-  margin: 0.75rem 0 0;
-  padding-left: 1.25rem;
-  color: var(--text-default-error);
-  font-size: 0.875rem;
 }
 
 .cf__history {

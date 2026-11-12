@@ -168,9 +168,11 @@ function formatVersion(s: DueSettings) {
       </li>
     </ul>
 
-    <ul v-if="errors.length" class="dse__errors" role="alert">
-      <li v-for="e in errors" :key="e">{{ e }}</li>
-    </ul>
+    <DsfrAlert v-if="errors.length" alert type="error" small class="fr-my-2w">
+      <ul class="fr-my-0 fr-pl-2w">
+        <li v-for="e in errors" :key="e">{{ e }}</li>
+      </ul>
+    </DsfrAlert>
 
     <div class="dse__actions">
       <DsfrButton label="Ajouter un seuil" tertiary icon="ri-add-line" size="sm" :disabled="steps.length >= MAX_STEPS" @click="addStep" />
@@ -263,13 +265,6 @@ function formatVersion(s: DueSettings) {
   height: 0.625rem;
   margin-right: 0.375rem;
   border-radius: 50%;
-}
-
-.dse__errors {
-  margin: 0;
-  padding-left: 1.25rem;
-  color: var(--text-default-error);
-  font-size: 0.875rem;
 }
 
 .dse__actions {

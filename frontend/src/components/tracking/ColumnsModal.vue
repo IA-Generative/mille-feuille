@@ -65,7 +65,7 @@ const actions = () => [
         </span>
       </li>
     </ul>
-    <p v-if="visibleCount() === 0" class="cm__error" role="alert">Gardez au moins une colonne visible.</p>
+    <DsfrAlert v-if="visibleCount() === 0" alert type="error" small description="Gardez au moins une colonne visible." class="fr-mt-2w" />
   </DsfrModal>
 </template>
 
@@ -121,9 +121,4 @@ const actions = () => [
   cursor: default;
 }
 
-.cm__error {
-  margin: 0.5rem 0 0;
-  color: var(--text-default-error);
-  font-size: 0.875rem;
-}
 </style>

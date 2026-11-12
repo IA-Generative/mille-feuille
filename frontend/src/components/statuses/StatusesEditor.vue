@@ -131,9 +131,11 @@ function formatVersion(statuses: WorkflowStatus[]) {
       </li>
     </ul>
 
-    <ul v-if="errors.length" class="se__errors" role="alert">
-      <li v-for="e in errors" :key="e">{{ e }}</li>
-    </ul>
+    <DsfrAlert v-if="errors.length" alert type="error" small class="fr-my-2w">
+      <ul class="fr-my-0 fr-pl-2w">
+        <li v-for="e in errors" :key="e">{{ e }}</li>
+      </ul>
+    </DsfrAlert>
 
     <div class="se__actions">
       <DsfrButton label="Ajouter un statut" tertiary icon="ri-add-line" size="sm" @click="addStatus" />
@@ -243,13 +245,6 @@ function formatVersion(statuses: WorkflowStatus[]) {
 .se__delete {
   margin-bottom: 0.5rem;
   color: var(--text-default-error);
-}
-
-.se__errors {
-  margin: 0;
-  padding-left: 1.25rem;
-  color: var(--text-default-error);
-  font-size: 0.875rem;
 }
 
 .se__actions {
