@@ -4,6 +4,7 @@ import { computed, onMounted, ref } from "vue";
 import InfoModal from "@/components/InfoModal.vue";
 import { useReports } from "@/composables/useReports";
 import { REPORT_STATUS_LABELS, REPORT_TYPE_LABELS, type ReportType } from "@/types/report";
+import { userMessage } from "@/utils/api";
 
 defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
@@ -59,7 +60,7 @@ async function submit() {
     setScreenshot(null);
     submitted.value = true;
   } catch (err) {
-    error.value = err instanceof Error ? err.message : "Échec de l'envoi.";
+    error.value = userMessage(err, "Échec de l'envoi.");
   } finally {
     isSubmitting.value = false;
   }
@@ -98,7 +99,7 @@ function formatDate(iso: string) {
         </div>
       </div>
 
-      <p v-if="error" class="report-form__error">{{ error }}</p>
+      <DsfrAlert v-if="error" alert type="error" small :description="error" />
       <p v-if="submitted" class="report-form__success">Signalement envoyé, merci !</p>
 
       <DsfrButton type="submit" label="Envoyer" :disabled="!canSubmit" />
@@ -154,10 +155,6 @@ function formatDate(iso: string) {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-
-.report-form__error {
-  color: var(--text-default-error);
 }
 
 .report-form__success {
