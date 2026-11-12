@@ -1,6 +1,6 @@
 import { computed, ref } from "vue";
 
-import { ApiError, apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 import type {
   AnalysisElement,
   AnalysisElementKind,
@@ -131,7 +131,7 @@ export function useDossierAnalysis(dossierId: string) {
         proposals.value = [];
       }
     } catch (e) {
-      error.value = e instanceof ApiError ? e.message : "Impossible de charger l'analyse du dossier";
+      error.value = userMessage(e, "Impossible de charger l'analyse du dossier.");
     } finally {
       isLoading.value = false;
     }

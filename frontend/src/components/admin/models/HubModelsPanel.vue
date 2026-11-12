@@ -31,7 +31,7 @@ const readAgo = computed(() => {
       />
     </div>
 
-    <p v-if="error" class="hub-panel__empty" role="alert">{{ error }}</p>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" />
     <p v-else-if="!models.length" class="hub-panel__empty">Tous les modèles du hub sont déjà dans la liste.</p>
     <ul v-else class="hub-panel__list">
       <li v-for="model in models" :key="model.name" class="hub-panel__item">

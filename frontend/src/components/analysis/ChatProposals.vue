@@ -10,7 +10,7 @@ import { onMounted, ref } from "vue";
 
 import ProposalCard from "@/components/analysis/ProposalCard.vue";
 import { mapProposal } from "@/composables/useDossierAnalysis";
-import { ApiError, apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 import { valueToText, type ElementValue, type Proposal } from "@/types/dossierAnalysis";
 
 const props = defineProps<{
@@ -64,7 +64,7 @@ async function decide(proposal: Proposal, action: "accept" | "modify" | "reject"
   } catch (e) {
     errors.value = {
       ...errors.value,
-      [proposal.id]: e instanceof ApiError ? e.message : "L'action a échoué",
+      [proposal.id]: userMessage(e, "L'action a échoué."),
     };
   } finally {
     busyId.value = null;

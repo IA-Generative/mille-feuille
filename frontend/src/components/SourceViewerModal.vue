@@ -125,7 +125,7 @@ onBeforeUnmount(releaseImage);
     <p v-if="source?.excerpt" class="fr-text--sm source-viewer__excerpt">« {{ source.excerpt }} »</p>
 
     <p v-if="isLoading" class="fr-text--sm source-viewer__state">Chargement de la page…</p>
-    <p v-else-if="error" class="fr-text--sm source-viewer__state" role="alert">{{ error }}</p>
+    <DsfrAlert v-else-if="error" alert type="error" small :description="error" />
 
     <div v-else-if="page" class="source-viewer" :class="{ 'source-viewer--with-image': imageUrl }">
       <figure v-if="imageUrl" class="source-viewer__figure">

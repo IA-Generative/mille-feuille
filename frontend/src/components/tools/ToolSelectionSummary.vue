@@ -71,7 +71,7 @@ const chips = computed(() => {
 }
 
 .tool-selection-summary__chip--unavailable {
-  background: #ce05001a;
+  background: var(--background-contrast-error);
   color: var(--text-default-error);
   text-decoration: line-through;
 }
