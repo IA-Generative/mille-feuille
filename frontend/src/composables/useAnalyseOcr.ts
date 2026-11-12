@@ -1,7 +1,7 @@
 import { computed, reactive, type Ref } from "vue";
 
 import type { Version } from "@/types/analyse";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 
 // Les réglages de lecture des documents scannés d'une analyse (modèle qui décrit les images et les tableaux) :
 // versionnés comme tout ce qui se modifie dans une analyse. "" = le modèle de la plateforme.
@@ -55,7 +55,6 @@ export function useAnalyseOcr(analyseId: Ref<string>) {
   const error = computed({ get: () => state.value.error, set: (value: string) => (state.value.error = value) });
 
   const url = (suffix = "") => `/api/analyses/${analyseId.value}/ocr-settings${suffix}`;
-  const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
   async function load() {
     state.value.loading = true;
@@ -63,7 +62,7 @@ export function useAnalyseOcr(analyseId: Ref<string>) {
     try {
       state.value.data = toAnalyseOcr(await apiFetch<AnalyseOcrOut>(url()));
     } catch (e) {
-      error.value = message(e, "Impossible de charger les réglages de lecture des documents.");
+      error.value = userMessage(e, "Impossible de charger les réglages de lecture des documents.");
     } finally {
       state.value.loading = false;
     }
@@ -77,7 +76,7 @@ export function useAnalyseOcr(analyseId: Ref<string>) {
       state.value.data = toAnalyseOcr(await apiFetch<AnalyseOcrOut>(url(), { method: "PUT", body }));
       return true;
     } catch (e) {
-      error.value = message(e, "Impossible d'enregistrer ces réglages.");
+      error.value = userMessage(e, "Impossible d'enregistrer ces réglages.");
       return false;
     }
   }
@@ -88,7 +87,7 @@ export function useAnalyseOcr(analyseId: Ref<string>) {
       state.value.data = toAnalyseOcr(await apiFetch<AnalyseOcrOut>(url(`/restore/${versionId}`), { method: "POST" }));
       return true;
     } catch (e) {
-      error.value = message(e, "Impossible de restaurer cette version.");
+      error.value = userMessage(e, "Impossible de restaurer cette version.");
       return false;
     }
   }

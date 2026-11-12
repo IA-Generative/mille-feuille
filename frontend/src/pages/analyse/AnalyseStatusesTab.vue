@@ -7,7 +7,7 @@ import StatusesEditor from "@/components/statuses/StatusesEditor.vue";
 import StatusReplacementModal from "@/components/statuses/StatusReplacementModal.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import type { DueSettings, StatusDraft } from "@/types/analyse";
-import { ApiError } from "@/utils/api";
+import { ApiError, userMessage } from "@/utils/api";
 
 // Onglet « Statuts et échéance » d'une analyse : les statuts que peuvent prendre ses dossiers (#170), puis leur
 // échéance (#172). Supprimer un statut encore utilisé demande un remplaçant.
@@ -56,7 +56,7 @@ async function run(operation: (replacements: Record<string, string>) => Promise<
         },
       };
     } else {
-      error.value = e instanceof Error ? e.message : "L'enregistrement a échoué.";
+      error.value = userMessage(e, "L'enregistrement a échoué.");
     }
   } finally {
     saving.value = false;
@@ -87,7 +87,7 @@ async function confirmReplacement(replacements: Record<string, string>) {
   try {
     await current.retry(replacements);
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "L'enregistrement a échoué.";
+    error.value = userMessage(e, "L'enregistrement a échoué.");
   } finally {
     saving.value = false;
   }

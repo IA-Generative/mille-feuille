@@ -44,10 +44,10 @@ const formatVersion = (content: { captionModel: string }) => content.captionMode
     />
     <VersionHistory :versions="data.versions" :format-content="formatVersion" @restore="onRestore" />
     <p v-if="message" class="analyse-ocr__ok" role="status">{{ message }}</p>
-    <p v-if="error" class="analyse-ocr__error" role="alert">{{ error }}</p>
+    <DsfrAlert v-if="error" type="error" small :description="error" />
   </div>
   <p v-else-if="loading">Chargement…</p>
-  <p v-else-if="error" class="analyse-ocr__error" role="alert">{{ error }}</p>
+  <DsfrAlert v-if="error" type="error" small :description="error" />
 </template>
 
 <style scoped>
@@ -63,9 +63,5 @@ const formatVersion = (content: { captionModel: string }) => content.captionMode
 
 .analyse-ocr__ok {
   color: var(--text-default-success);
-}
-
-.analyse-ocr__error {
-  color: var(--text-default-error);
 }
 </style>

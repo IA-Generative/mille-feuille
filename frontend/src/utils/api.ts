@@ -41,3 +41,23 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
+
+// Messages bruts que le serveur ou le proxy renvoient quand personne n'a écrit de vrai message.
+const GENERIC = /^(Not Found|Forbidden|Not authenticated|Method Not Allowed|Internal Server Error|Bad Gateway|Service Unavailable|Gateway Timeout)$/i;
+
+/** Une phrase française pour l'utilisateur : ce qui n'a pas marché et ce qu'il peut faire. */
+export function userMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof ApiError)) {
+    // fetch() qui échoue (réseau coupé, CORS) lève un TypeError au texte anglais du navigateur.
+    return error instanceof TypeError
+      ? "Impossible de joindre le serveur. Vérifiez votre connexion puis réessayez."
+      : fallback;
+  }
+  // Un vrai message du backend (« Analyse introuvable », 422 {code, message}…) est déjà lisible : on le garde.
+  if (error.message !== "" && !GENERIC.test(error.message)) return error.message;
+  if (error.status === 401) return "Votre session a expiré. Reconnectez-vous pour continuer.";
+  if (error.status === 403) return "Vous n'avez pas les droits pour afficher cette section.";
+  if (error.status === 404)
+    return "Cette section est introuvable. Elle a peut-être été supprimée, ou vous n'y avez pas accès.";
+  return `${fallback} Réessayez dans un instant ; si le problème continue, contactez l'équipe.`;
+}

@@ -1,7 +1,7 @@
 import { computed, reactive, type Ref } from "vue";
 
 import type { Version } from "@/types/analyse";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 
 // Les questions fréquentes d'une analyse : chaque dossier en reçoit la réponse une fois analysé. Versionnées comme tout ce
 // qui se modifie dans une analyse.
@@ -47,7 +47,6 @@ export function useAnalyseQuestions(analyseId: Ref<string>) {
   const error = computed({ get: () => state.value.error, set: (value: string) => (state.value.error = value) });
 
   const url = (suffix = "") => `/api/analyses/${analyseId.value}/frequent-questions${suffix}`;
-  const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
   async function load() {
     state.value.loading = true;
@@ -55,7 +54,7 @@ export function useAnalyseQuestions(analyseId: Ref<string>) {
     try {
       state.value.data = toAnalyseQuestions(await apiFetch<AnalyseQuestionsOut>(url()));
     } catch (e) {
-      error.value = message(e, "Impossible de charger les questions fréquentes.");
+      error.value = userMessage(e, "Impossible de charger les questions fréquentes.");
     } finally {
       state.value.loading = false;
     }
@@ -69,7 +68,7 @@ export function useAnalyseQuestions(analyseId: Ref<string>) {
       state.value.data = toAnalyseQuestions(await apiFetch<AnalyseQuestionsOut>(url(), { method: "PUT", body }));
       return true;
     } catch (e) {
-      error.value = message(e, "Impossible d'enregistrer ces questions.");
+      error.value = userMessage(e, "Impossible d'enregistrer ces questions.");
       return false;
     }
   }
@@ -82,7 +81,7 @@ export function useAnalyseQuestions(analyseId: Ref<string>) {
       );
       return true;
     } catch (e) {
-      error.value = message(e, "Impossible de restaurer cette version.");
+      error.value = userMessage(e, "Impossible de restaurer cette version.");
       return false;
     }
   }

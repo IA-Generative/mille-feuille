@@ -1,7 +1,7 @@
 import { computed, reactive, type Ref } from "vue";
 
 import type { AnalyseSearch, EmbeddingModel, SearchImpact, SearchSettings } from "@/types/search";
-import { ApiError, apiFetch } from "@/utils/api";
+import { ApiError, apiFetch, userMessage } from "@/utils/api";
 import {
   fromSettings,
   toAnalyseSearch,
@@ -55,7 +55,6 @@ export function useAnalyseSearch(analyseId: Ref<string>) {
   const error = computed({ get: () => state.value.error, set: (value: string) => (state.value.error = value) });
 
   const url = (suffix = "") => `/api/analyses/${analyseId.value}/search-settings${suffix}`;
-  const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
   async function load() {
     state.value.loading = true;
@@ -63,7 +62,7 @@ export function useAnalyseSearch(analyseId: Ref<string>) {
     try {
       state.value.data = toAnalyseSearch(await apiFetch<AnalyseSearchOut>(url()));
     } catch (e) {
-      error.value = message(e, "Impossible de charger les réglages de recherche.");
+      error.value = userMessage(e, "Impossible de charger les réglages de recherche.");
     } finally {
       state.value.loading = false;
     }
@@ -78,7 +77,7 @@ export function useAnalyseSearch(analyseId: Ref<string>) {
       );
       return true;
     } catch (e) {
-      error.value = message(e, "Impossible d'enregistrer ces réglages.");
+      error.value = userMessage(e, "Impossible d'enregistrer ces réglages.");
       return false;
     }
   }
@@ -88,7 +87,7 @@ export function useAnalyseSearch(analyseId: Ref<string>) {
     try {
       state.value.data = toAnalyseSearch(await apiFetch<AnalyseSearchOut>(url(`/restore/${versionId}`), { method: "POST" }));
     } catch (e) {
-      error.value = message(e, "Impossible de restaurer cette version.");
+      error.value = userMessage(e, "Impossible de restaurer cette version.");
     }
   }
 
@@ -111,7 +110,7 @@ export function useAnalyseSearch(analyseId: Ref<string>) {
       if (state.value.data) state.value.data.overview = toOverview(out.overview);
       return true;
     } catch (e) {
-      error.value = message(e, "Impossible de lancer la reconstruction.");
+      error.value = userMessage(e, "Impossible de lancer la reconstruction.");
       return false;
     }
   }
