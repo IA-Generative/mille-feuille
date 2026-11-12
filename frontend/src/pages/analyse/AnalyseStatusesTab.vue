@@ -112,7 +112,7 @@ async function confirmReplacement(replacements: Record<string, string>) {
       @restore="onRestoreDue"
     />
     <p v-if="message" class="analyse-statuses__ok" role="status">{{ message }}</p>
-    <p v-if="error" class="analyse-statuses__error" role="alert">{{ error }}</p>
+    <DsfrAlert v-if="error" type="error" small :description="error" class="fr-mt-2w" />
 
     <StatusReplacementModal
       v-if="pending"
@@ -135,10 +135,5 @@ async function confirmReplacement(replacements: Record<string, string>) {
 .analyse-statuses__ok {
   margin: 0.75rem 0 0;
   color: var(--text-default-success);
-}
-
-.analyse-statuses__error {
-  margin: 0.75rem 0 0;
-  color: var(--text-default-error);
 }
 </style>

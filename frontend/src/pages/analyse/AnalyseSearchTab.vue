@@ -67,10 +67,10 @@ async function onRebuild() {
       @restore="onRestore"
     />
     <p v-if="message" class="analyse-search__ok" role="status">{{ message }}</p>
-    <DsfrAlert v-if="error" type="error" small :description="error" />
+    <DsfrAlert v-if="error" class="fr-mt-2w" alert type="error" small :description="error" />
   </div>
   <p v-else-if="loading">Chargement…</p>
-  <DsfrAlert v-if="error" type="error" small :description="error" />
+  <DsfrAlert v-else-if="error" alert type="error" small :description="error" />
 </template>
 
 <style scoped>

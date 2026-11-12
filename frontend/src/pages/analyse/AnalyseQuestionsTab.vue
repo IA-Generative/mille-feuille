@@ -5,7 +5,6 @@ import { useRoute } from "vue-router";
 import FrequentQuestionsEditor from "@/components/analyses/FrequentQuestionsEditor.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import { useAnalyseQuestions } from "@/composables/useAnalyseQuestions";
-import { DsfrAlert } from "@gouvminint/vue-dsfr";
 
 // Onglet « Questions » d'une analyse : les questions fréquentes dont chaque dossier reçoit la réponse une fois analysé.
 // Versionnées comme le reste ; un dossier déjà analysé reçoit la réponse aux nouvelles questions à sa relance.
@@ -44,10 +43,10 @@ const formatVersion = (content: { questions: string[] }) =>
     <FrequentQuestionsEditor :model-value="data.questions" :saving="saving" @save="onSave" />
     <VersionHistory :versions="data.versions" :format-content="formatVersion" @restore="onRestore" />
     <p v-if="message" class="analyse-questions__ok" role="status">{{ message }}</p>
-    <DsfrAlert v-if="error" type="error" small :description="error" />
+    <DsfrAlert v-if="error" alert type="error" small :description="error" />
   </div>
   <p v-else-if="loading">Chargement…</p>
-  <DsfrAlert v-if="error" type="error" small :description="error" />
+  <DsfrAlert v-else-if="error" alert type="error" small :description="error" />
 </template>
 
 <style scoped>
