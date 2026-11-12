@@ -101,7 +101,7 @@ onMounted(async () => {
           <div class="markdown" v-html="cguHtml" />
         </div>
 
-        <div v-if="errorMessage" class="cgu-gate__error">{{ errorMessage }}</div>
+        <DsfrAlert v-if="errorMessage" alert type="error" small :description="errorMessage" class="fr-mx-3w fr-mb-2w" />
 
         <footer class="cgu-gate__footer">
           <p class="cgu-gate__version">
@@ -173,12 +173,6 @@ onMounted(async () => {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem;
-}
-
-.cgu-gate__error {
-  padding: 0.75rem 1.5rem;
-  color: var(--text-default-error);
-  font-size: 0.875rem;
 }
 
 .cgu-gate__footer {

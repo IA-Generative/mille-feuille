@@ -24,6 +24,7 @@ import {
   type TrackingListRow,
   type TrackingSort,
 } from "@/types/tracking";
+import { userMessage } from "@/utils/api";
 import { downloadCsv, toCsv } from "@/utils/csv";
 import { dueLabel, formatDueDate } from "@/utils/due";
 import { formatValue } from "@/utils/trackingFields";
@@ -127,7 +128,7 @@ async function load() {
     loadError.value = "";
   } catch (e) {
     if (seq !== requestSeq) return;
-    loadError.value = e instanceof Error ? e.message : "Le chargement a échoué.";
+    loadError.value = userMessage(e, "Le chargement a échoué.");
   } finally {
     if (seq === requestSeq) loading.value = false;
   }
@@ -197,7 +198,7 @@ async function onBulkAccess(next: DossierAccess) {
     bulkAccessOpen.value = false;
   } catch (e) {
     bulkAccessOpen.value = false;
-    announce(e instanceof Error ? e.message : "Le changement d'accès a échoué.");
+    announce(userMessage(e, "Le changement d'accès a échoué."));
   }
   load();
 }
@@ -213,7 +214,7 @@ async function onAssign(ids: string[], assigneeId: string | null) {
     );
     if (many || result.updated) selected.value = [];
   } catch (e) {
-    announce(e instanceof Error ? e.message : "L'affectation a échoué.");
+    announce(userMessage(e, "L'affectation a échoué."));
   }
   load();
 }
@@ -228,7 +229,7 @@ async function onSetValue(rowId: string, fieldId: string, value: CustomValue, do
   try {
     await setValue(rowId, fieldId, value);
   } catch (e) {
-    done(e instanceof Error ? e.message : "L'enregistrement a échoué.");
+    done(userMessage(e, "L'enregistrement a échoué."));
     return;
   }
   done(null);
@@ -253,7 +254,7 @@ async function exportCsv() {
   try {
     result = await queryAll(effectiveFilters.value, sort.value);
   } catch (e) {
-    announce(e instanceof Error ? e.message : "L'export a échoué.");
+    announce(userMessage(e, "L'export a échoué."));
     return;
   }
   const cell = (r: TrackingListRow, id: ColumnId): string => {
@@ -344,9 +345,9 @@ async function exportCsv() {
       @clear="selected = []"
     />
 
-    <p v-if="loadError" class="track__error" role="alert">
+    <DsfrAlert v-if="loadError" alert type="error" small class="fr-mb-2w">
       {{ loadError }} <button type="button" class="track__tool" @click="load">Réessayer</button>
-    </p>
+    </DsfrAlert>
     <p class="track__count" aria-live="polite">{{ total }} dossier{{ total > 1 ? "s" : "" }}</p>
     <p v-if="fieldsAreHidden" class="track__hint">
       Les colonnes personnalisées dépendent de l'analyse : filtrez sur une seule analyse pour les afficher.
@@ -477,11 +478,6 @@ async function exportCsv() {
 
 .track__pagination {
   margin-top: 0.5rem;
-}
-
-.track__error {
-  margin: 0;
-  color: var(--text-default-error);
 }
 
 .track__notice {

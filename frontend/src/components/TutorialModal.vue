@@ -101,7 +101,7 @@ const currentTutorial = computed(() =>
             <h3 class="tutorials__content-title">{{ currentTutorial.title }}</h3>
           </div>
           <div v-if="loading" class="tutorials__loading">Chargement…</div>
-          <div v-else-if="error" class="tutorials__error">{{ error }}</div>
+          <DsfrAlert v-else-if="error" alert type="error" small :description="error" />
           <!-- eslint-disable-next-line vue/no-v-html -- contenu statique rendu par renderMarkdown (échappé) -->
           <div v-else class="markdown tutorials__markdown" v-html="currentHtml" />
         </template>
@@ -270,15 +270,10 @@ const currentTutorial = computed(() =>
   margin: 0;
 }
 
-.tutorials__loading,
-.tutorials__error {
+.tutorials__loading {
   padding: 2rem;
   text-align: center;
   color: var(--text-mention-grey);
-}
-
-.tutorials__error {
-  color: var(--text-default-error);
 }
 
 .tutorials__markdown {
