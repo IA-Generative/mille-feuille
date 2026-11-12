@@ -80,7 +80,7 @@ const draftOf = (id: string) => drafts.value.find((d) => d.id === id);
       envoyé à l'usager.
     </p>
 
-    <DsfrAlert v-if="error" type="error" :description="error" small />
+    <DsfrAlert v-if="error" alert type="error" :description="error" small />
     <p v-if="loading" class="fr-text--sm">Chargement…</p>
 
     <template v-else>

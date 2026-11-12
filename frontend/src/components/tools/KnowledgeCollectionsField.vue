@@ -51,7 +51,7 @@ const hasUnavailable = computed(() => collections.value.some((c) => c.status !==
       />
     </header>
 
-    <DsfrAlert v-if="error && !isPickerOpened" type="error" small :description="error" />
+    <DsfrAlert v-if="error && !isPickerOpened" alert type="error" small :description="error" />
     <p v-if="collections.length === 0" class="knowledge-field__empty">
       Aucune collection : l'outil « Base de connaissances » n'a rien à interroger pour cette analyse.
     </p>

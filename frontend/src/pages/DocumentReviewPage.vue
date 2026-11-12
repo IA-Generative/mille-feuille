@@ -152,7 +152,7 @@ async function generateDocument(confirm = false) {
     </BackLink>
 
     <p v-if="loading" class="fr-text--sm">Chargement…</p>
-    <DsfrAlert v-else-if="!draft" type="error" :description="error || 'Brouillon introuvable.'" />
+    <DsfrAlert v-else-if="!draft" alert type="error" :description="error || 'Brouillon introuvable.'" />
 
     <template v-else>
       <header class="review__header">
@@ -162,7 +162,7 @@ async function generateDocument(confirm = false) {
         <DsfrBadge v-if="draft.status !== 'brouillon'" :label="draft.status" type="warning" small />
       </header>
 
-      <DsfrAlert v-if="error" type="error" :description="error" small />
+      <DsfrAlert v-if="error" alert type="error" :description="error" small />
       <DsfrAlert v-if="info" type="success" :description="info" small />
 
       <!-- Le document qui vient d'être généré, avec ses téléchargements -->
@@ -185,7 +185,7 @@ async function generateDocument(confirm = false) {
 
       <!-- Suivi de l'agent -->
       <DsfrAlert v-if="generating" type="info" small description="L'agent propose des valeurs… Les champs se mettent à jour dès qu'il a terminé." />
-      <DsfrAlert v-else-if="draft.generationStatus === 'échec'" type="error" small :description="`La génération par l'agent a échoué : ${draft.generationError ?? 'erreur inconnue'}`" />
+      <DsfrAlert v-else-if="draft.generationStatus === 'échec'" alert type="error" small :description="`La génération par l'agent a échoué : ${draft.generationError ?? 'erreur inconnue'}`" />
       <DsfrAlert
         v-else-if="draft.generationStatus === 'terminé'"
         type="info"
