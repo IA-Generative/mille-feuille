@@ -107,7 +107,7 @@ const sourceLabel = computed(() =>
       <span v-if="sourceLabel" class="proposal-card__source">(source : {{ sourceLabel }})</span>
     </p>
 
-    <p v-if="error" class="proposal-card__error" role="alert">{{ error }}</p>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" />
 
     <div v-if="proposal.status !== 'pending'" class="proposal-card__decided">
       <DsfrBadge
@@ -210,12 +210,6 @@ const sourceLabel = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
-}
-
-.proposal-card__error {
-  margin: 0;
-  color: var(--text-default-error);
-  font-size: 0.875rem;
 }
 
 .proposal-card__actions {

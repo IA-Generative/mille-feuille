@@ -55,7 +55,7 @@ const canRebuild = computed(() => {
       </template>
       <DsfrButton v-if="active && index.rebuild" label="Annuler" tertiary size="sm" @click="rollback(index.rebuild.id)" />
     </div>
-    <p v-if="error" class="fr-text--sm dsi__error" role="alert">{{ error }}</p>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" class="dsi__error" />
   </section>
 </template>
 
@@ -72,14 +72,12 @@ const canRebuild = computed(() => {
   background: var(--background-alt-grey);
 }
 
-.dsi__text,
-.dsi__error {
+.dsi__text {
   margin: 0;
 }
 
 .dsi__error {
   flex-basis: 100%;
-  color: var(--text-default-error);
 }
 
 .dsi__actions {

@@ -1,7 +1,7 @@
 import { ref, type Ref } from "vue";
 
 import type { DossierIndex } from "@/types/search";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 import { toDossierIndex, type DossierIndexOut } from "@/utils/searchMapping";
 
 // L'index de recherche d'un dossier : son état, et les actions sur sa reconstruction blue/green (reconstruire, valider
@@ -17,7 +17,7 @@ export function useDossierSearchIndex(dossierId: Ref<string>) {
       index.value = toDossierIndex(await apiFetch<DossierIndexOut>(base()));
       error.value = "";
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Impossible de charger l'état de la recherche.";
+      error.value = userMessage(e, "Impossible de charger l'état de la recherche.");
     }
   }
 
@@ -26,7 +26,7 @@ export function useDossierSearchIndex(dossierId: Ref<string>) {
     try {
       await apiFetch(`${base()}${path}`, { method: "POST" });
     } catch (e) {
-      error.value = e instanceof Error ? e.message : fallback;
+      error.value = userMessage(e, fallback);
     }
     await load();
   }

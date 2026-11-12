@@ -267,14 +267,14 @@ onBeforeUnmount(() => {
 
   <!-- Modales -->
   <InfoModal title="Journal des versions" :open="showChangelog" @close="showChangelog = false">
-    <div v-if="changelogError" class="user-menu__error">{{ changelogError }}</div>
+    <DsfrAlert v-if="changelogError" alert type="error" small :description="changelogError" />
     <!-- eslint-disable-next-line vue/no-v-html -- contenu statique rendu par renderMarkdown (échappé) -->
     <div v-else-if="changelogHtml" class="markdown" v-html="changelogHtml" />
     <p v-else>Chargement…</p>
   </InfoModal>
 
   <InfoModal title="Conditions d'utilisation" :open="showCgu" @close="showCgu = false">
-    <div v-if="cguError" class="user-menu__error">{{ cguError }}</div>
+    <DsfrAlert v-if="cguError" alert type="error" small :description="cguError" />
     <!-- eslint-disable-next-line vue/no-v-html -- contenu statique rendu par renderMarkdown (échappé) -->
     <div v-else-if="cguHtml" class="markdown" v-html="cguHtml" />
     <p v-else>Chargement…</p>
@@ -444,10 +444,6 @@ onBeforeUnmount(() => {
 }
 
 /* Contenu markdown dans les modales */
-.user-menu__error {
-  color: var(--text-default-error);
-}
-
 .markdown :deep(h1) {
   font-size: 1.25rem;
   margin: 1rem 0 0.5rem;
