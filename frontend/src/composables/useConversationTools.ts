@@ -1,7 +1,7 @@
 import { ref, type Ref } from "vue";
 
 import type { ChatTool } from "@/types/chatTool";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 
 // Les outils d'une conversation du chat : ceux que l'analyse autorise (ses agents), moins ceux que la personne a
 // retirés. Par défaut tout est actif et le modèle choisit ; la personne ne peut que retirer.
@@ -50,7 +50,7 @@ export function useConversationTools(dossierId: string, conversationId: Ref<stri
     try {
       apply(await apiFetch<ConversationToolsOut>(url()));
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Impossible de charger les outils.";
+      error.value = userMessage(e, "Impossible de charger les outils.");
     }
   }
 
@@ -63,7 +63,7 @@ export function useConversationTools(dossierId: string, conversationId: Ref<stri
       apply(await apiFetch<ConversationToolsOut>(url(), { method: "PUT", body: JSON.stringify({ excluded: ids }) }));
     } catch (e) {
       excluded.value = previous;
-      error.value = e instanceof Error ? e.message : "Impossible d'enregistrer ce choix.";
+      error.value = userMessage(e, "Impossible d'enregistrer ce choix.");
     }
   }
 

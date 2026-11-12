@@ -1,7 +1,7 @@
 import { ref } from "vue";
 
 import type { ChatAgent } from "@/types/chatAgent";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 
 // Les agents de l'analyse du dossier, interrogeables dans le chat (en les nommant avec @Nom, ou en laissant le chat
 // choisir). Lecture seule : ils se définissent dans l'analyse.
@@ -15,7 +15,7 @@ export function useChatAgents(dossierId: string) {
     try {
       agents.value = await apiFetch<ChatAgent[]>(`/api/dossiers/${dossierId}/agents`);
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Impossible de charger les agents.";
+      error.value = userMessage(e, "Impossible de charger les agents.");
     }
   }
 

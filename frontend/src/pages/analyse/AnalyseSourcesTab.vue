@@ -10,6 +10,7 @@ import {
   updateSource,
 } from "@/composables/useDocumentSources";
 import type { DocumentSource } from "@/types/documentSource";
+import { userMessage } from "@/utils/api";
 
 // Onglet « Sources » d'une analyse : les sources proposées au dépôt d'un fichier dans ses dossiers.
 const analyseId = String(useRoute().params.id);
@@ -29,7 +30,7 @@ async function run(operation: () => Promise<unknown>) {
     await operation();
     await load();
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "L'opération a échoué.";
+    error.value = userMessage(e, "L'opération a échoué.");
   } finally {
     busy.value = false;
   }

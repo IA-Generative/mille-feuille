@@ -2,7 +2,7 @@ import { ref } from "vue";
 
 import type { ChatWindowSource } from "@/components/ChatWindow.vue";
 import type { DossierPresentation, SuggestedQuestion } from "@/types/dossierPresentation";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 
 // La présentation d'un dossier, en tête de sa conversation : composée par le serveur de ce que l'analyse a produit, sans
 // appel au modèle. Choisir une question suggérée fait entrer la question et sa réponse prête dans la conversation.
@@ -70,7 +70,7 @@ export function useDossierPresentation(dossierId: string) {
     try {
       presentation.value = toPresentation(await apiFetch<PresentationOut>(`/api/dossiers/${dossierId}/presentation`));
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Impossible de charger la présentation du dossier.";
+      error.value = userMessage(e, "Impossible de charger la présentation du dossier.");
     }
   }
 
@@ -83,7 +83,7 @@ export function useDossierPresentation(dossierId: string) {
       });
       return true;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Impossible de poser cette question.";
+      error.value = userMessage(e, "Impossible de poser cette question.");
       return false;
     }
   }

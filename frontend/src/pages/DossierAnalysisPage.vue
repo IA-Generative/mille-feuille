@@ -28,6 +28,7 @@ import {
   type AnalysisElementKind,
   type ElementVersion,
 } from "@/types/dossierAnalysis";
+import { userMessage } from "@/utils/api";
 
 const route = useRoute();
 const dossierId = String(route.params.id);
@@ -162,7 +163,7 @@ async function run(action: () => Promise<unknown>) {
   try {
     await action();
   } catch (e) {
-    actionError.value = e instanceof Error ? e.message : "L'action a échoué";
+    actionError.value = userMessage(e, "L'action a échoué.");
   } finally {
     busy.value = false;
   }

@@ -1,7 +1,7 @@
 import { computed, ref } from "vue";
 
 import type { HubModel, LlmCapability, LlmModel, LlmType, RoutingMode } from "@/types/llmModel";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 
 // Administration des modèles LLM (backend : /api/admin/llm-capabilities, llm-models, llm-hub-models, llm-routing).
 // L'état est partagé par toute l'application : l'onglet le recharge à son ouverture.
@@ -37,8 +37,6 @@ const sorted = computed(() => [...models.value].sort((a, b) => a.position - b.po
 /** Le modèle qui fait tout hors mode auto : le premier modèle actif. */
 const defaultModelId = computed(() => sorted.value.find((m) => m.enabled)?.id ?? null);
 
-const message = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
-
 async function loadCore() {
   const [caps, list, routing] = await Promise.all([
     apiFetch<LlmCapability[]>("/api/admin/llm-capabilities"),
@@ -60,7 +58,7 @@ async function loadHub(refresh: boolean) {
     hubReadAt.value = new Date(data.read_at);
     hubError.value = "";
   } catch (e) {
-    hubError.value = message(e, "Impossible de lire les modèles du hub.");
+    hubError.value = userMessage(e, "Impossible de lire les modèles du hub.");
   }
 }
 
@@ -70,7 +68,7 @@ async function change(action: () => Promise<unknown>, failure: string) {
   try {
     await action();
   } catch (e) {
-    error.value = message(e, failure);
+    error.value = userMessage(e, failure);
   }
   try {
     await loadCore();
@@ -86,7 +84,7 @@ export function useLlmModels() {
     try {
       await loadCore();
     } catch (e) {
-      error.value = message(e, "Impossible de charger les modèles.");
+      error.value = userMessage(e, "Impossible de charger les modèles.");
     } finally {
       loading.value = false;
     }
