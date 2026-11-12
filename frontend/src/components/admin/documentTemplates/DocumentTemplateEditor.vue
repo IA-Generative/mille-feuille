@@ -260,9 +260,8 @@ const downloadUrl = computed(() => (current.value ? api.fileUrl(current.value.id
     <DsfrAlert v-if="error" alert type="error" :description="error" small />
     <DsfrAlert v-if="info" type="success" :description="info" small />
 
-    <div v-if="serverReport" class="template-editor__report" role="alert">
-      <p class="fr-text--bold">{{ serverReport.message }}</p>
-      <ul>
+    <DsfrAlert v-if="serverReport" alert type="error" :title="serverReport.message" title-tag="h4">
+      <ul class="fr-my-0 fr-pl-2w">
         <li v-for="p in serverReport.unknownPlaceholders" :key="'u' + p">
           Le placeholder <code>{{ braces(p) }}</code> n'a pas de champ défini.
         </li>
@@ -270,16 +269,15 @@ const downloadUrl = computed(() => (current.value ? api.fileUrl(current.value.id
           Le champ <code>{{ f }}</code> n'a pas de placeholder dans le fichier.
         </li>
       </ul>
-    </div>
+    </DsfrAlert>
 
-    <div v-if="sourcesReport" class="template-editor__report" role="alert">
-      <p class="fr-text--bold">{{ sourcesReport.message }}</p>
-      <ul>
+    <DsfrAlert v-if="sourcesReport" alert type="error" :title="sourcesReport.message" title-tag="h4">
+      <ul class="fr-my-0 fr-pl-2w">
         <li v-for="u in sourcesReport.unknownSources" :key="u.field">
           Le champ <code>{{ u.field }}</code> désigne « {{ u.definitionName }} », que l'analyse ne définit pas.
         </li>
       </ul>
-    </div>
+    </DsfrAlert>
 
     <fieldset class="template-editor__block">
       <legend class="fr-h6">Le modèle</legend>
@@ -512,16 +510,6 @@ const downloadUrl = computed(() => (current.value ? api.fileUrl(current.value.id
   align-items: center;
   gap: 0.5rem;
   margin: 0;
-}
-
-.template-editor__report {
-  border-left: 4px solid var(--border-plain-error);
-  background: var(--background-alt-red-marianne, var(--background-alt-grey));
-  padding: 0.75rem 1rem;
-}
-
-.template-editor__report p {
-  margin: 0 0 0.5rem;
 }
 
 .template-editor__validation {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import ErrorList from "@/components/ErrorList.vue";
 import {
   ELEMENT_KIND_LABELS,
   FIELD_TYPE_LABELS,
@@ -33,6 +34,8 @@ const props = defineProps<{
   issues: ValidationIssue[];
 }>();
 const emit = defineEmits<{ "update:modelValue": [FieldDefinition]; remove: [] }>();
+
+const issueMessages = computed(() => [...new Set(props.issues.map((issue) => issue.message))]);
 
 function update(patch: Partial<FieldDefinition>) {
   emit("update:modelValue", { ...props.modelValue, ...patch });
@@ -201,9 +204,7 @@ const metadataSource = computed(() => (props.modelValue.source.kind === "dossier
       @update:model-value="update({ instruction: $event })"
     />
 
-    <ul v-if="issues.length" class="field-row__issues">
-      <li v-for="issue in issues" :key="issue.kind + issue.message">{{ issue.message }}</li>
-    </ul>
+    <ErrorList :errors="issueMessages" />
   </li>
 </template>
 
@@ -248,12 +249,5 @@ const metadataSource = computed(() => (props.modelValue.source.kind === "dossier
 
 .field-row__required {
   align-self: center;
-}
-
-.field-row__issues {
-  margin: 0;
-  padding-left: 1.25rem;
-  color: var(--text-default-error);
-  font-size: 0.875rem;
 }
 </style>
