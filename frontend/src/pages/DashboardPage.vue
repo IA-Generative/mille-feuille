@@ -64,12 +64,10 @@ async function onSchedule(dossierId: string, slot: SlotDraft | null) {
       <VIcon name="ri-loader-4-line" class="dashboard__spinner" /> Chargement…
     </p>
 
-    <div v-else-if="error" class="fr-alert fr-alert--error" role="alert">
+    <DsfrAlert v-else-if="error" alert type="error" title="Chargement impossible">
       <p>{{ error }}</p>
-      <button type="button" class="fr-btn fr-btn--sm fr-btn--secondary fr-mt-1w" @click="fetchDashboard">
-        Réessayer
-      </button>
-    </div>
+      <DsfrButton label="Réessayer" size="sm" secondary class="fr-mt-1w" @click="fetchDashboard" />
+    </DsfrAlert>
 
     <template v-else-if="data">
       <!-- Quatre indicateurs simples ; le détail s'ouvre au clic. -->

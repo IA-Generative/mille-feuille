@@ -71,10 +71,10 @@ const noCategory = computed(() => categories.value.length === 0);
     <p v-if="loading && events.length === 0" class="history__state" role="status">
       <VIcon name="ri-loader-4-line" class="history__spinner" /> Chargement de l'historique…
     </p>
-    <div v-else-if="error" class="fr-alert fr-alert--error" role="alert">
+    <DsfrAlert v-else-if="error" alert type="error" title="Chargement impossible">
       <p>{{ error }}</p>
-      <button type="button" class="fr-btn fr-btn--sm fr-btn--secondary fr-mt-1w" @click="load">Réessayer</button>
-    </div>
+      <DsfrButton label="Réessayer" size="sm" secondary class="fr-mt-1w" @click="load" />
+    </DsfrAlert>
     <p v-else-if="noCategory" class="history__state">Activez au moins un type d'événement pour afficher l'historique.</p>
     <p v-else-if="events.length === 0" class="history__state">Aucun événement ne correspond à ces critères.</p>
     <template v-else>
