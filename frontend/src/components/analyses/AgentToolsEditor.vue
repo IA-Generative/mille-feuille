@@ -6,6 +6,7 @@ import ToolSelectionField from "@/components/tools/ToolSelectionField.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { useTools } from "@/composables/useTools";
 import type { Agent } from "@/types/analyse";
+import { userMessage } from "@/utils/api";
 
 const props = defineProps<{ analyseId: string; agent: Agent }>();
 
@@ -33,7 +34,7 @@ async function attempt(action: () => Promise<void>) {
   try {
     await action();
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "L'action a échoué.";
+    error.value = userMessage(e, "L'action a échoué.");
   } finally {
     isSaving.value = false;
   }

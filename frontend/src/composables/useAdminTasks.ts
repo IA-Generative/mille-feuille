@@ -1,6 +1,6 @@
 import { ref } from "vue";
 
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 import type { AdminTasks } from "@/types/admin";
 
 /** Introspection des tâches Celery (page Administration). */
@@ -15,7 +15,7 @@ export function useAdminTasks() {
     try {
       tasks.value = await apiFetch<AdminTasks>("/api/admin/tasks");
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Erreur lors du chargement des tâches.";
+      error.value = userMessage(e, "Erreur lors du chargement des tâches.");
       tasks.value = null;
     } finally {
       loading.value = false;

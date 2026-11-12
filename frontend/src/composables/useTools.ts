@@ -2,7 +2,7 @@ import { ref } from "vue";
 
 import type { Page } from "@/types/pagination";
 import type { Tool, ToolServer, ToolServerDraft } from "@/types/tool";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 import {
   toPreviewTool,
   toTool,
@@ -39,7 +39,7 @@ async function load() {
     servers.value = page.items.map(toToolServer);
     ready.value = true;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "Impossible de charger les outils.";
+    error.value = userMessage(e, "Impossible de charger les outils.");
   } finally {
     loading.value = false;
   }

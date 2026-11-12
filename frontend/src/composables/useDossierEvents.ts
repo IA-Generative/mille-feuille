@@ -1,7 +1,7 @@
 import { computed, ref } from "vue";
 
 import type { DossierEvent, DossierEventActor } from "@/types/dossierEvent";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 
 const mapEvent = (api: any): DossierEvent => ({
   id: api.id,
@@ -42,7 +42,7 @@ export function useDossierEvents(dossierId: string) {
       total.value = data.total;
       pageCount.value = data.pages;
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Impossible de charger l'historique.";
+      error.value = userMessage(e, "Impossible de charger l'historique.");
       events.value = [];
     } finally {
       loading.value = false;
