@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.51.0](https://github.com/IA-Generative/mille-feuille/compare/v0.50.0...v0.51.0) (2026-11-12)
+
+
+### Features
+
+* **front:** refactor code and add ErrorList component ([e7ed4ef](https://github.com/IA-Generative/mille-feuille/commit/e7ed4ef8ca1d3bf06fb650e7acf612edd6e5a058))
+
+
+### Bug Fixes
+
+* **ui:** announce error alerts to screen readers ([b6db900](https://github.com/IA-Generative/mille-feuille/commit/b6db9001bb844a9ba5adfafb4eb62cb8e3be56c6))
+* **ui:** continue to edit files for DSFR error messages ([3834047](https://github.com/IA-Generative/mille-feuille/commit/383404711b3c1bc4ac56a723a7c071c21e2faf91))
+* **ui:** correct DSFR error messages ([6a3489a](https://github.com/IA-Generative/mille-feuille/commit/6a3489a1265a10d4e960637cfb16592475f7f3d1))
+* **ui:** correct DsfrAlert in TrackingView ([5b48811](https://github.com/IA-Generative/mille-feuille/commit/5b4881115cd8b8959c3d32ffbe12a49d5fafd4f3))
+* **ui:** edit button with errors into dsfr button with dsfr errors ([d57b0d9](https://github.com/IA-Generative/mille-feuille/commit/d57b0d9831a5cf4b90a8afc530afc85f86f3dd8a))
+* **ui:** edit catch errors ([d15ab05](https://github.com/IA-Generative/mille-feuille/commit/d15ab05f4ef36793342d711515f5a1e1db69da5e))
+* **ui:** edit error  on pages ([f393131](https://github.com/IA-Generative/mille-feuille/commit/f39313175304053f4d754f466bdf62b03c512c5b))
+* **ui:** edit errors layouting in files ([adcfdfa](https://github.com/IA-Generative/mille-feuille/commit/adcfdfa8fba01e7c0e14fac949fdca66d2aba258))
+* **ui:** edit mostly catch errors ([91e92b0](https://github.com/IA-Generative/mille-feuille/commit/91e92b027109d83b1d8437309a054e631f2002f3))
+* **ui:** edit other files for error message before refactoring ([6fa9826](https://github.com/IA-Generative/mille-feuille/commit/6fa9826c5327f16578fd9ccdb598d088ca9c9f4a))
+* **ui:** modify alert message in report, acces and bulkaccess modal ([cfe1d94](https://github.com/IA-Generative/mille-feuille/commit/cfe1d94bd5de24df417048a38ae1c45ed0d9c570))
+* **ui:** modify error messages in multiple files front ([405f358](https://github.com/IA-Generative/mille-feuille/commit/405f3583b5aaa98e13762f0025e6c1ada0342cac))
+* **ui:** replace divs error messages by DsfrAlert messages ([840e273](https://github.com/IA-Generative/mille-feuille/commit/840e2735d3787e354583ddd1e49b3db170159e1b))
+* **ui:** replace error message made by hand with DSFR error messages ([96be048](https://github.com/IA-Generative/mille-feuille/commit/96be04835456626fcef9764df73b1e718001b207))
+* **ui:** small fix in AnalyseSourcesTab for error ([a7b5e19](https://github.com/IA-Generative/mille-feuille/commit/a7b5e1978f3091969ea0523621a7dc2c18a7ffd2))
+* **ui:** tidy indentation and import order in template editor ([eee8db5](https://github.com/IA-Generative/mille-feuille/commit/eee8db542b020157a2c427e3ddde0c52fec8fa67))
+* **ui:** use friendly messages in remaining error helpers ([28d912b](https://github.com/IA-Generative/mille-feuille/commit/28d912b5a201f6677df5793d124ed3d6d2a500a0))
+
 ## [0.50.0](https://github.com/IA-Generative/mille-feuille/compare/v0.49.0...v0.50.0) (2026-11-10)
 
 
