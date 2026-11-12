@@ -7,6 +7,7 @@ import { ref, watch } from "vue";
 
 import { useAnalyses } from "@/composables/useAnalyses";
 import type { Analyse } from "@/types/analyse";
+import { userMessage } from "@/utils/api";
 
 const props = defineProps<{ analyse: Analyse }>();
 const opened = defineModel<boolean>("opened", { default: false });
@@ -28,7 +29,7 @@ async function confirm() {
     opened.value = false;
     emit("deleted");
   } catch (failure) {
-    error.value = failure instanceof Error ? failure.message : "Échec de la suppression.";
+    error.value = userMessage(failure, "Échec de la suppression.");
   } finally {
     isDeleting.value = false;
   }
@@ -49,6 +50,6 @@ async function confirm() {
       « {{ analyse.name }} » sera supprimée avec ses agents, ses labels, ses entités, ses statuts et tout son
       historique. Cette action est définitive.
     </p>
-    <p v-if="error" class="fr-error-text" role="alert">{{ error }}</p>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mt-2w" />
   </DsfrModal>
 </template>

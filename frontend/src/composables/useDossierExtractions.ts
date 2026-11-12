@@ -1,7 +1,7 @@
 import { ref } from "vue";
 
 import type { ExtractedDocument } from "@/types/dossierExtraction";
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 
 function mapDocument(api: any): ExtractedDocument {
   return {
@@ -37,7 +37,7 @@ export function useDossierExtractions(dossierId: string) {
       const data = await apiFetch<any[]>(`/api/dossiers/${dossierId}/extractions`);
       documents.value = data.map(mapDocument);
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Erreur de chargement";
+      error.value = userMessage(e, "Impossible de charger les documents extraits.");
     } finally {
       isLoading.value = false;
     }

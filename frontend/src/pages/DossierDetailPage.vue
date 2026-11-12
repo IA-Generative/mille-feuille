@@ -23,6 +23,7 @@ import FeedbackReasonsModal from "@/components/dossiers/FeedbackReasonsModal.vue
 import { useAnalyses } from "@/composables/useAnalyses";
 import { useChatStream } from "@/composables/useChatStream";
 import ChatProposals from "@/components/analysis/ChatProposals.vue";
+import { userMessage } from "@/utils/api";
 import { parseAssistantSuggestion, parseMessageMarkers } from "@/utils/assistantSuggestion";
 import { chatSourcesOf } from "@/utils/chatSources";
 import { setDocumentSource, useDossierSources } from "@/composables/useDocumentSources";
@@ -348,7 +349,7 @@ async function onRelaunch() {
     closeStream?.();
     closeStream = streamDossier(dossierId, () => {});
   } catch (e) {
-    relaunchError.value = e instanceof Error ? e.message : "Impossible de relancer l'analyse";
+    relaunchError.value = userMessage(e, "Impossible de relancer l'analyse.");
   } finally {
     relaunchBusy.value = false;
   }
@@ -361,7 +362,7 @@ async function onDueChange(dueAt: string | null) {
   try {
     await setDueAt(dossierId, dueAt);
   } catch (e) {
-    statusError.value = e instanceof Error ? e.message : "Le changement d'échéance a échoué.";
+    statusError.value = userMessage(e, "Le changement d'échéance a échoué.");
   } finally {
     dueBusy.value = false;
   }
@@ -371,7 +372,7 @@ async function onWorkflowStatusChange(statusId: string) {
   try {
     await setWorkflowStatus(dossierId, statusId);
   } catch (e) {
-    statusError.value = e instanceof Error ? e.message : "Le changement de statut a échoué.";
+    statusError.value = userMessage(e, "Le changement de statut a échoué.");
   }
 }
 
@@ -410,7 +411,7 @@ async function onDeleteDossier() {
     await removeDossier(dossierId);
     await router.push({ name: "dossiers" });
   } catch (e) {
-    deleteError.value = e instanceof Error ? e.message : "La suppression a échoué.";
+    deleteError.value = userMessage(e, "La suppression a échoué.");
   }
 }
 
@@ -475,7 +476,7 @@ async function onDeleteConversation() {
           :busy="dueBusy"
           @change="onDueChange"
         />
-        <p v-if="statusError" class="fr-error-text" role="alert">{{ statusError }}</p>
+        <DsfrAlert v-if="statusError" alert type="error" small :description="statusError" class="fr-mt-1w" />
       </div>
       <div class="dossier-detail__header-actions">
         <ModelPicker
@@ -556,7 +557,7 @@ async function onDeleteConversation() {
         </button>
       </div>
     </div>
-    <p v-if="deleteError" class="fr-error-text" role="alert">{{ deleteError }}</p>
+    <DsfrAlert v-if="deleteError" alert type="error" small :description="deleteError" class="fr-my-2w" />
 
     <!-- Suggestions d'analyse pour les dossiers « à ranger » (issue #54) -->
     <div v-if="isUnassigned" class="dossier-detail__suggestions">
@@ -634,7 +635,7 @@ async function onDeleteConversation() {
       :busy="relaunchBusy"
       @relaunch="onRelaunch"
     />
-    <DsfrAlert v-if="relaunchError" type="error" :title="relaunchError" small class="fr-mb-2w" />
+    <DsfrAlert v-if="relaunchError" alert type="error" :description="relaunchError" small class="fr-mb-2w" />
 
     <ChatWindow
       :messages="messages"

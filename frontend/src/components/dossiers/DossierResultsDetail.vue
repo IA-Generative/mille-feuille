@@ -71,7 +71,7 @@ watch(pageIndex, (index) => {
         <span class="fr-text--sm results-detail__muted">({{ total }})</span>
       </h3>
 
-      <p v-if="error" class="fr-error-text" role="alert">{{ error }}</p>
+      <DsfrAlert v-if="error" alert type="error" small :description="error" />
       <p v-else-if="!isLoading && !rows.length" class="fr-text--sm results-detail__muted">
         Aucune {{ unitLabel }} pour le moment.
       </p>

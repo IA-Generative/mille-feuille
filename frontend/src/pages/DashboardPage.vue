@@ -15,6 +15,7 @@ import { useDashboard } from "@/composables/useDashboard";
 import { useNotifications } from "@/composables/useNotifications";
 import { useUrgencyFilters } from "@/composables/useUrgencyFilters";
 import type { SlotDraft } from "@/types/schedule";
+import { userMessage } from "@/utils/api";
 
 // Page = simple assemblage : chaque bloc vit dans son propre composant
 // (components/dashboard/…), les données dans useDashboard / useNotifications.
@@ -43,7 +44,7 @@ async function onSchedule(dossierId: string, slot: SlotDraft | null) {
   try {
     await setSchedule(dossierId, slot);
   } catch (e) {
-    scheduleError.value = e instanceof Error ? e.message : "Le créneau n'a pas pu être enregistré.";
+    scheduleError.value = userMessage(e, "Le créneau n'a pas pu être enregistré.");
     return;
   }
 }
@@ -74,7 +75,7 @@ async function onSchedule(dossierId: string, slot: SlotDraft | null) {
       <!-- Quatre indicateurs simples ; le détail s'ouvre au clic. -->
       <MetricsRow :urgencies="sorted" :stats="data.stats" :status-counts="data.statusCounts" />
 
-      <p v-if="scheduleError" class="fr-error-text" role="alert">{{ scheduleError }}</p>
+      <DsfrAlert v-if="scheduleError" alert type="error" small :description="scheduleError" class="fr-mb-2w" />
 
       <div class="dashboard__agenda-head">
         <h2 class="dashboard__agenda-title">Mon agenda</h2>

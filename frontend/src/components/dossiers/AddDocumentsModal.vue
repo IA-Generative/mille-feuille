@@ -10,6 +10,7 @@ import SourcePicker from "@/components/dossiers/SourcePicker.vue";
 import { fetchDossierSources, resolveSourceChoice } from "@/composables/useDocumentSources";
 import { useDossiers } from "@/composables/useDossiers";
 import { NO_SOURCE, type DocumentSource, type SourceChoice } from "@/types/documentSource";
+import { userMessage } from "@/utils/api";
 
 const props = defineProps<{
   dossierId: string;
@@ -49,7 +50,7 @@ async function submit() {
     emit("added", files.value.length);
     opened.value = false;
   } catch (e) {
-    error.value = e instanceof Error ? e.message : "L'ajout des fichiers a échoué.";
+    error.value = userMessage(e, "L'ajout des fichiers a échoué.");
   } finally {
     busy.value = false;
   }
@@ -81,6 +82,6 @@ async function submit() {
       <SourcePicker v-model="choice" :sources="sources" id="add-documents-source" />
     </div>
 
-    <p v-if="error" class="fr-error-text fr-mt-2w" role="alert">{{ error }}</p>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mt-2w" />
   </DsfrModal>
 </template>

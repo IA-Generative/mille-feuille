@@ -1,6 +1,6 @@
 import { ref } from "vue";
 
-import { apiFetch } from "@/utils/api";
+import { apiFetch, userMessage } from "@/utils/api";
 
 export type ResultKind = "label" | "entity";
 
@@ -73,7 +73,7 @@ export function useDossierResults(dossierId: string) {
       const data = await apiFetch<any[]>(`/api/dossiers/${dossierId}/results/breakdown`);
       breakdown.value = data.map(mapBreakdownRow);
     } catch (e) {
-      error.value = e instanceof Error ? e.message : "Erreur de chargement";
+      error.value = userMessage(e, "Impossible de charger ces résultats.");
     }
   }
 
@@ -92,7 +92,7 @@ export function useDossierResults(dossierId: string) {
       pageCount.value = data.pages;
     } catch (e) {
       if (seq !== requestSeq) return;
-      error.value = e instanceof Error ? e.message : "Erreur de chargement";
+      error.value = userMessage(e, "Impossible de charger ces résultats.");
     } finally {
       if (seq === requestSeq) isLoading.value = false;
     }
