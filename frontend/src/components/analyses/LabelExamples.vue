@@ -60,9 +60,11 @@ function onDrop(event: DragEvent) {
     </button>
     <input ref="input" class="label-examples__input" type="file" multiple :accept="EXAMPLE_ACCEPT" tabindex="-1" @change="onChange" />
 
-    <ul v-if="errors.length > 0" class="label-examples__errors" role="alert">
-      <li v-for="error in errors" :key="error">{{ error }}</li>
-    </ul>
+    <DsfrAlert v-if="errors.length > 0" alert type="error" small>
+      <ul class="fr-my-0 fr-pl-2w">
+        <li v-for="error in errors" :key="error">{{ error }}</li>
+      </ul>
+    </DsfrAlert>
 
     <ul v-if="examples.length > 0" class="label-examples__list">
       <li v-for="example in examples" :key="example.id" class="label-examples__item">
@@ -137,13 +139,6 @@ function onDrop(event: DragEvent) {
 
 .label-examples__input {
   display: none;
-}
-
-.label-examples__errors {
-  margin: 0;
-  padding-left: 1.25rem;
-  font-size: 0.875rem;
-  color: var(--text-default-error);
 }
 
 .label-examples__empty {

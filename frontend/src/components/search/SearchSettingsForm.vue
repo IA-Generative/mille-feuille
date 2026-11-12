@@ -156,9 +156,11 @@ const impactText = computed(() => {
       </select>
     </div>
 
-    <ul v-if="errors.length" class="ssf__errors" role="alert">
-      <li v-for="message in errors" :key="message">{{ message }}</li>
-    </ul>
+    <DsfrAlert v-if="errors.length" alert type="error" small class="fr-mb-2w">
+      <ul class="fr-my-0 fr-pl-2w">
+        <li></li>
+      </ul>
+    </DsfrAlert>
     <p v-if="impactText" class="fr-text--sm ssf__impact" role="status" aria-live="polite">{{ impactText }}</p>
 
     <DsfrButton label="Enregistrer" :disabled="!isDirty || errors.length > 0 || saving" @click="save" />
@@ -195,12 +197,6 @@ const impactText = computed(() => {
 
 .ssf__window .fr-input {
   max-width: 8rem;
-}
-
-.ssf__errors {
-  margin: 0 0 1rem;
-  padding-left: 1.25rem;
-  color: var(--text-default-error);
 }
 
 .ssf__impact {
