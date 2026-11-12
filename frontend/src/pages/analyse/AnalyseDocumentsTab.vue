@@ -81,7 +81,7 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", ti
         <DsfrButton label="Nouveau modèle" icon="ri-add-line" @click="creating = true" />
       </div>
 
-      <DsfrAlert v-if="error" type="error" :description="error" small />
+      <DsfrAlert v-if="error" alert type="error" :description="error" small />
       <DsfrCheckbox
         v-model="includeArchived"
         name="include-archived"

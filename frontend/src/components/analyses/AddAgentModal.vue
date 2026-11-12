@@ -99,7 +99,7 @@ async function submit() {
       @click="applySuggestion"
     />
     <ToolSelectionField v-model="toolIds" class="fr-mt-2w" />
-    <DsfrAlert v-if="error" type="error" small :description="error" class="fr-mt-2w" />
+    <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mt-2w" />
     <DsfrToggleSwitch
       v-model="output"
       label="Présenter le résultat de cet agent dans la page de résultat du dossier"

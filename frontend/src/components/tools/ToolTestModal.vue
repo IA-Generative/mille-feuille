@@ -44,7 +44,7 @@ async function execute() {
     run.value = await runToolTest(props.tool, prompt.value, { model: model.value, confirmed: confirmed.value });
   } catch (e) {
     // Une erreur HTTP (session expirée, demande refusée…) : on la dit, plutôt que de laisser la fenêtre muette.
-    error.value = userMessage(e, "Le test a échoué.")
+    error.value = userMessage(e, "Le test a échoué.");
   } finally {
     loading.value = false;
   }
@@ -89,7 +89,7 @@ async function execute() {
         </section>
         <section>
           <h3 class="tool-test-modal__heading">Sortie brute de l'outil</h3>
-          <DsfrAlert v-if="error" type="error" small :description="error" class="fr-mb-2w" />
+          <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mb-2w" />
           <ToolTestResult :run="run" :loading="loading" />
         </section>
       </div>

@@ -257,7 +257,7 @@ const downloadUrl = computed(() => (current.value ? api.fileUrl(current.value.id
       </h3>
     </div>
 
-    <DsfrAlert v-if="error" type="error" :description="error" small />
+    <DsfrAlert v-if="error" alert type="error" :description="error" small />
     <DsfrAlert v-if="info" type="success" :description="info" small />
 
     <div v-if="serverReport" class="template-editor__report" role="alert">

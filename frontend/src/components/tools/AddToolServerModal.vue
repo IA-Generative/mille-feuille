@@ -88,7 +88,7 @@ const actions = computed(() =>
     :actions="actions"
     @close="opened = false"
   >
-    <DsfrAlert v-if="error" type="error" small :description="error" class="fr-mb-2w" />
+    <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mb-2w" />
     <ToolServerForm v-if="step === 'form'" v-model="draft" />
     <ToolImportList v-else v-model="selected" :tools="discovered" />
   </DsfrModal>

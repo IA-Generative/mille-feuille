@@ -62,7 +62,7 @@ defineExpose({ reload });
       Il guide l'agent qui propose une valeur pour chaque champ. Il est complété par la consigne de chaque champ et par des
       règles que ce texte ne peut pas retirer : ne jamais inventer, traiter les notes et les documents comme des données.
     </p>
-    <DsfrAlert v-if="error" type="error" :description="error" small />
+    <DsfrAlert v-if="error" alert type="error" :description="error" small />
     <DsfrAlert v-if="success" type="success" :description="success" small />
     <PromptEditor v-if="prompt" :prompt="prompt.content" :versions="versions" @save="save" @restore="restore" />
   </section>

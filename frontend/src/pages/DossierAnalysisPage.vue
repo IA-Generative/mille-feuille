@@ -281,7 +281,7 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
       </div>
     </header>
 
-    <DsfrAlert v-if="error" type="error" :title="error" />
+    <DsfrAlert v-if="error" alert type="error" :title="error" />
     <p v-else-if="isLoading">Chargement de l'analyse…</p>
 
     <DsfrAlert
@@ -307,7 +307,7 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
         description="Cette analyse ne peut plus être modifiée."
         small
       />
-      <DsfrAlert v-if="actionError" type="error" :title="actionError" />
+      <DsfrAlert v-if="actionError" alert type="error" :title="actionError" />
 
       <section v-if="proposals.length > 0" class="analysis-page__section" aria-labelledby="proposals-title">
         <h2 id="proposals-title" class="fr-h5">Propositions en attente ({{ proposals.length }})</h2>

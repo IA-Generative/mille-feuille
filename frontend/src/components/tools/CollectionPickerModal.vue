@@ -84,7 +84,7 @@ watch([pageIndex, pageSize], () => opened.value && load(query.value, pageIndex.v
         Choisissez les collections que les agents et le chat de cette analyse peuvent interroger. Vous ne voyez que celles
         auxquelles vous avez droit chez le fournisseur. Le choix est enregistré pour l'analyse, avec son historique.
       </p>
-      <DsfrAlert v-if="error" type="error" small :description="error" class="fr-mb-2w" />
+      <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mb-2w" />
 
       <p v-if="sources.length === 0" class="collection-picker__empty">
         Aucune source de connaissances.

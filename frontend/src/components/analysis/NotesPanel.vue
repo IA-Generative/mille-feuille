@@ -159,8 +159,8 @@ const pagedNotes = computed(() => {
       l'analyse que si vous demandez des propositions, que vous confirmez ensuite.
     </p>
 
-    <DsfrAlert v-if="error" type="error" :title="error" />
-    <DsfrAlert v-if="actionError" type="error" :title="actionError" />
+    <DsfrAlert v-if="error" alert type="error" :title="error" />
+    <DsfrAlert v-if="actionError" alert type="error" :title="actionError" />
 
     <form class="notes__new" @submit.prevent="submitNew">
       <label class="notes__label" for="new-note">Nouvelle note</label>

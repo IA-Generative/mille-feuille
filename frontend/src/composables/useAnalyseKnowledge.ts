@@ -2,7 +2,7 @@ import { computed, reactive, type Ref } from "vue";
 
 import type { Version } from "@/types/analyse";
 import type { AnalyseCollection, CollectionRef } from "@/types/knowledge";
-import { ApiError, apiFetch } from "@/utils/api";
+import { ApiError, apiFetch, userMessage } from "@/utils/api";
 import { toAnalyseCollection, type AnalyseCollectionOut, type StoredCollectionOut } from "@/utils/knowledgeMapping";
 
 // Les collections de la base de connaissances que l'analyse autorise : leur état **pour la personne qui regarde**, et
@@ -58,7 +58,7 @@ export function useAnalyseKnowledge(analyseId: Ref<string>) {
       const refused = (e.detail as { collections: RefusedOut[] }).collections;
       return refused.map((r) => `${r.collection_id} : ${r.reason}`).join(" · ");
     }
-    return e instanceof Error ? e.message : fallback;
+    return userMessage(e, fallback);
   }
 
   async function load() {

@@ -39,7 +39,7 @@ async function submit() {
     opened.value = false;
     emit("added");
   } catch (e) {
-    error.value = userMessage(e, "L'ajout a échoué.")
+    error.value = userMessage(e, "L'ajout a échoué.");
   } finally {
     busy.value = false;
   }
@@ -58,7 +58,7 @@ async function submit() {
       ]"
       @close="opened = false"
     >
-      <DsfrAlert v-if="error" type="error" small :description="error" class="fr-mb-2w" />
+      <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mb-2w" />
       <KnowledgeSourceForm v-model="draft" />
     </DsfrModal>
   </Teleport>
