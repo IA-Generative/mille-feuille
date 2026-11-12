@@ -73,9 +73,14 @@ const filteredServers = computed(() =>
       dont il a besoin, et l'analyse choisit les collections qu'ils peuvent interroger.
     </p>
 
-    <div v-if="error || sourcesError || actionError" class="fr-alert fr-alert--error" role="alert">
-      {{ error || sourcesError || actionError }}
-    </div>
+    <DsfrAlert
+    v-if="error || sourcesError || actionError"
+    alert
+    type="error"
+    title="Une erreur est survenue"
+    :description="error || sourcesError || actionError"
+    class="fr-mb-2w"
+    />
     <div v-else-if="actionNotice" class="fr-alert fr-alert--success fr-alert--sm" role="status">{{ actionNotice }}</div>
     <p v-else-if="loading && servers.length === 0 && internalTools.length === 0" class="tools-page__empty">Chargement…</p>
 

@@ -22,7 +22,7 @@ const { usage, loading, error } = useUsage(days);
       n'apparaissent pas ici.
     </p>
 
-    <div v-if="error" class="fr-alert fr-alert--error" role="alert">{{ error }}</div>
+    <DsfrAlert v-if="error" alert type="error" title="Chargement impossible" :description="error" class="fr-mb-2w" />
     <p v-else-if="loading && !usage" class="usage-page__empty">Chargement…</p>
     <p v-else-if="usage && usage.totals.calls === 0" class="usage-page__empty">
       Aucune consommation sur les {{ days }} derniers jours.
