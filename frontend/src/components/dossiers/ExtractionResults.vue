@@ -22,7 +22,7 @@ onMounted(load);
 
 <template>
   <div class="extraction-results">
-    <p v-if="error" class="fr-error-text" role="alert">{{ error }}</p>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" />
     <p v-else-if="isLoading" class="fr-text--sm extraction-results__muted" aria-live="polite">Chargement…</p>
     <p v-else-if="!documents.length" class="fr-text--sm extraction-results__muted">Aucun document pour le moment.</p>
 

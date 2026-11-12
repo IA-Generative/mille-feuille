@@ -10,6 +10,7 @@ import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { ASSIST_MIN_WORDS_HINT, hasEnoughWords, suggestAnalyseDescription } from "@/composables/useLlmAssist";
 import type { Analyse } from "@/types/analyse";
+import { userMessage } from "@/utils/api";
 
 const props = defineProps<{ analyse: Analyse }>();
 const opened = defineModel<boolean>("opened", { default: false });
@@ -39,7 +40,7 @@ async function applySuggestion(model: string | null) {
   try {
     description.value = await suggestAnalyseDescription(description.value, model);
   } catch (failure) {
-    error.value = failure instanceof Error ? failure.message : "Échec de l'aide LLM.";
+    error.value = userMessage(failure, "Échec de l'aide LLM.");
   } finally {
     isSuggesting.value = false;
   }
@@ -50,7 +51,7 @@ async function run(action: () => Promise<void>) {
   try {
     await action();
   } catch (failure) {
-    error.value = failure instanceof Error ? failure.message : "Échec de l'enregistrement.";
+    error.value = userMessage(failure, "Échec de l'enregistrement.");
   }
 }
 
@@ -107,7 +108,7 @@ async function save() {
       @restore="(versionId: string) => run(() => restoreDescriptionVersion(analyse.id, versionId))"
     />
 
-    <p v-if="error" class="fr-error-text fr-mt-2w" role="alert">{{ error }}</p>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mt-2w" />
 
     <hr class="analyse-identity__divider" />
     <DsfrButton label="Supprimer l'analyse" icon="ri-delete-bin-line" tertiary size="sm" @click="emit('delete')" />
