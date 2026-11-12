@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
+import ErrorList from "@/components/ErrorList.vue";
 import {
   EXAMPLE_ACCEPT,
   MAX_EXAMPLES_PER_LABEL,
@@ -60,11 +61,7 @@ function onDrop(event: DragEvent) {
     </button>
     <input ref="input" class="label-examples__input" type="file" multiple :accept="EXAMPLE_ACCEPT" tabindex="-1" @change="onChange" />
 
-    <DsfrAlert v-if="errors.length > 0" alert type="error" small>
-      <ul class="fr-my-0 fr-pl-2w">
-        <li v-for="error in errors" :key="error">{{ error }}</li>
-      </ul>
-    </DsfrAlert>
+    <ErrorList :errors="errors" />
 
     <ul v-if="examples.length > 0" class="label-examples__list">
       <li v-for="example in examples" :key="example.id" class="label-examples__item">

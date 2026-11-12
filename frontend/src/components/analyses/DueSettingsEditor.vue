@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
+import ErrorList from "@/components/ErrorList.vue";
 import type { DueSettings, Version } from "@/types/analyse";
 
 // Échéance des dossiers d'une analyse (#172) : durée par défaut et couleur selon le temps restant. Versionné avec
@@ -168,11 +169,7 @@ function formatVersion(s: DueSettings) {
       </li>
     </ul>
 
-    <DsfrAlert v-if="errors.length" alert type="error" small class="fr-my-2w">
-      <ul class="fr-my-0 fr-pl-2w">
-        <li v-for="e in errors" :key="e">{{ e }}</li>
-      </ul>
-    </DsfrAlert>
+    <ErrorList :errors="errors" class="fr-my-2w" />
 
     <div class="dse__actions">
       <DsfrButton label="Ajouter un seuil" tertiary icon="ri-add-line" size="sm" :disabled="steps.length >= MAX_STEPS" @click="addStep" />
