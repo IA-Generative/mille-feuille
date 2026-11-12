@@ -66,7 +66,7 @@ onBeforeUnmount(() => {
           </button>
         </li>
       </ul>
-      <p v-if="error" class="chat-agents-menu__error" role="alert">{{ error }}</p>
+      <p v-if="error" class="fr-error-text fr-mx-2w fr-mb-1w" role="alert">{{ error }}</p>
     </div>
   </div>
 </template>
@@ -161,12 +161,6 @@ onBeforeUnmount(() => {
 }
 
 .chat-agents-menu__role {
-  font-size: 0.75rem;
-  color: var(--text-mention-grey);
-}
-
-.chat-agents-menu__error {
-  margin: 0 1rem 0.75rem;
   font-size: 0.75rem;
   color: var(--text-mention-grey);
 }

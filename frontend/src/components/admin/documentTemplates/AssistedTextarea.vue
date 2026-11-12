@@ -55,7 +55,7 @@ async function applySuggestion(model: string | null) {
       class="assisted-textarea__assist"
       @click="applySuggestion"
     />
-    <p v-if="error" class="fr-error-text assisted-textarea__error">{{ error }}</p>
+    <DsfrAlert v-if="error" alert type="error" small :description="error" class="assisted-textarea__error" />
   </div>
 </template>
 
@@ -78,6 +78,5 @@ async function applySuggestion(model: string | null) {
 
 .assisted-textarea__error {
   flex-basis: 100%;
-  margin: 0;
 }
 </style>

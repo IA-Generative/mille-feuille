@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { nextTick, ref } from "vue";
+import { nextTick, ref, useId } from "vue";
 
 import type { CustomField, CustomValue } from "@/types/tracking";
 import { formatValue, parseInput, validateValue } from "@/utils/trackingFields";
@@ -17,6 +17,7 @@ const editing = ref(false);
 // Un <input type="number"> lié par v-model fournit un nombre, les autres une chaîne.
 const draft = ref<string | number>("");
 const error = ref<string | null>(null);
+const errorId = useId();
 const input = ref<HTMLInputElement | HTMLSelectElement | null>(null);
 
 function start() {
@@ -64,6 +65,7 @@ function commit(raw: string | number | boolean) {
       class="fr-select cell__input"
       :aria-label="`${field.name} — ${label}`"
       :aria-invalid="!!error"
+      :aria-describedby="error ? errorId : undefined"
       @change="commit(draft)"
       @keydown.esc="cancel"
       @blur="cancel"
@@ -80,11 +82,12 @@ function commit(raw: string | number | boolean) {
       :step="field.type === 'amount' ? '0.01' : 'any'"
       :aria-label="`${field.name} — ${label}`"
       :aria-invalid="!!error"
+      :aria-describedby="error ? errorId : undefined"
       @keydown.enter.prevent="commit(draft)"
       @keydown.esc="cancel"
       @blur="commit(draft)"
     />
-    <p v-if="error" class="cell__error" role="alert">{{ error }}</p>
+    <p v-if="error" :id="errorId" class="fr-error-text fr-mt-1v" role="alert">{{ error }}</p>
   </div>
 
   <button v-else type="button" class="cell__value" :aria-label="`Modifier ${field.name} — ${label}`" @click="start">
@@ -99,12 +102,6 @@ function commit(raw: string | number | boolean) {
 
 .cell__input {
   padding: 0.25rem 0.5rem;
-}
-
-.cell__error {
-  margin: 0.25rem 0 0;
-  font-size: 0.75rem;
-  color: var(--text-default-error);
 }
 
 .cell__value {

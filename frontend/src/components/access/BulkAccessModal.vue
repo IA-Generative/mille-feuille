@@ -45,8 +45,7 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
       </label>
     </fieldset>
 
-    <GroupPicker v-if="visibility === 'restricted'" v-model="groups" :options="myGroups" legend="Groupes ayant accès" hint="Vos propres groupes uniquement. Ils remplacent les groupes actuels de chaque dossier." />
-    <p v-if="error" class="fr-error-text fr-mt-1w">{{ error }}</p>
+    <GroupPicker v-if="visibility === 'restricted'" v-model="groups" :options="myGroups" legend="Groupes ayant accès" hint="Vos propres groupes uniquement. Ils remplacent les groupes actuels de chaque dossier." :error="error" />
 
     <p class="ba__note">Les affectations des personnes qui perdraient l'accès seront annulées et tracées dans l'historique de chaque dossier.</p>
   </DsfrModal>

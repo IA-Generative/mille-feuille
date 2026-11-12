@@ -81,7 +81,7 @@ onMounted(load);
 
 <template>
   <div class="chat-proposals">
-    <p v-if="loadFailed" class="chat-proposals__error">Impossible de charger les propositions de cette réponse.</p>
+    <DsfrAlert v-if="loadFailed" alert type="error" small description="Impossible de charger les propositions de cette réponse." />
     <ProposalCard
       v-for="proposal in proposals"
       :key="proposal.id"
@@ -101,11 +101,5 @@ onMounted(load);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-}
-
-.chat-proposals__error {
-  margin: 0;
-  color: var(--text-default-error);
-  font-size: 0.875rem;
 }
 </style>

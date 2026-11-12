@@ -186,7 +186,7 @@ function toggleSummary(docId: string) {
               <VIcon name="ri-loader-4-line" class="dossier-documents__spinner" />
               <span class="fr-text--xs">Génération du résumé en cours…</span>
             </div>
-            <div v-else-if="document.summaryStatus === 'échec'" class="dossier-documents__summary-error">
+            <div v-else-if="document.summaryStatus === 'échec'" class="fr-error-text dossier-documents__summary-error">
               <VIcon name="ri-error-warning-line" />
               <span class="fr-text--xs">{{ document.summaryError ?? "Erreur lors de la génération du résumé" }}</span>
             </div>
@@ -369,7 +369,10 @@ function toggleSummary(docId: string) {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  color: var(--text-mention-grey);
+}
+
+.dossier-documents__summary-loading {
+  color: var(--text-mention-grey)
 }
 
 .dossier-documents__summary-empty {
