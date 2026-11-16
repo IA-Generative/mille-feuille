@@ -26,7 +26,8 @@ const all = () => [...new Set([...props.options, ...selected.value])];
       <li v-for="g in all()" :key="g">
         <label class="gp__item">
           <input type="checkbox" :checked="selected.includes(g)" @change="toggle(g, ($event.target as HTMLInputElement).checked)" />
-          <span :title="g">{{ groupLabel(g) }}</span>
+          <span>{{ groupLabel(g) }}</span>
+          <span class="gp__note">{{ g }}</span>
           <span v-if="!isMember(g)" class="gp__note">vous n'en êtes pas membre</span>
         </label>
       </li>

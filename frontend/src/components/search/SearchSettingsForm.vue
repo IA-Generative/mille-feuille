@@ -3,6 +3,7 @@ import { computed, ref, watch } from "vue";
 
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import ErrorList from "@/components/ErrorList.vue";
+import InfoTip from "@/components/InfoTip.vue";
 import ModelPicker from "@/components/ModelPicker.vue";
 import type { Version } from "@/types/analyse";
 import type { ChunkStrategy, EmbeddingModel, SearchImpact, SearchSettings } from "@/types/search";
@@ -125,7 +126,14 @@ const impactText = computed(() => {
     </fieldset>
 
     <div v-if="strategy === 'ia'" class="ssf__field">
-      <ModelPicker v-model="chunkModel" label="Modèle de découpage" show-label block />
+      <ModelPicker v-model="chunkModel" label="Modèle de découpage" show-label block>
+        <template #label-suffix>
+          <InfoTip
+            content="Ce modèle d'IA lit chaque page et choisit où la couper. Le changer demande de reconstruire l'index des dossiers déjà indexés."
+            label="Précision sur le modèle de découpage"
+          />
+        </template>
+      </ModelPicker>
     </div>
 
     <div v-else class="ssf__numbers">

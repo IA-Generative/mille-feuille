@@ -136,7 +136,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div ref="rootRef" class="model-picker" :class="{ 'model-picker--block': block }" @keydown="onKeydown">
-    <span v-if="showLabel" class="fr-label model-picker__label">{{ label }}</span>
+    <span v-if="showLabel" class="fr-label model-picker__label">{{ label }}<slot name="label-suffix" /></span>
     <button
       ref="triggerRef"
       type="button"

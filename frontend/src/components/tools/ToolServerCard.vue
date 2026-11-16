@@ -32,7 +32,7 @@ function formatDate(iso: string) {
         <span class="server-card__tool-name">{{ tool.name }}</span>
         <span class="server-card__tool-description">{{ tool.description }}</span>
         <span class="server-card__tool-actions">
-          <span v-if="tool.sideEffect" class="server-card__side-effect" title="Demande une confirmation dans le chat">
+          <span v-if="tool.sideEffect" class="server-card__side-effect">
             <VIcon name="ri-edit-2-line" scale="0.8" /> Modifie des données
           </span>
           <DsfrBadge v-if="!tool.enabled" label="Non autorisé" type="info" small no-icon />
@@ -40,6 +40,10 @@ function formatDate(iso: string) {
         </span>
       </li>
     </ul>
+
+    <p v-if="server.tools.some((tool) => tool.sideEffect)" class="server-card__note">
+      Les outils marqués « Modifie des données » demandent une confirmation dans le chat avant de s'exécuter.
+    </p>
 
     <footer class="server-card__footer">
       <span class="server-card__meta">
@@ -163,6 +167,12 @@ function formatDate(iso: string) {
   font-size: 0.75rem;
   color: var(--text-default-warning);
   white-space: nowrap;
+}
+
+.server-card__note {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--text-mention-grey);
 }
 
 .server-card__footer {

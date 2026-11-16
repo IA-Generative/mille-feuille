@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { RouterLink } from "vue-router";
 
 import AccessBadge from "@/components/access/AccessBadge.vue";
-import ColumnHelp from "@/components/tracking/ColumnHelp.vue";
+import InfoTip from "@/components/InfoTip.vue";
 import CellEditor from "@/components/tracking/CellEditor.vue";
 import DossierDueBadge from "@/components/dossiers/DossierDueBadge.vue";
 import WorkflowStatusBadge from "@/components/statuses/WorkflowStatusBadge.vue";
@@ -77,7 +77,9 @@ function formatDate(iso: string) {
                 />
               </button>
               <template v-else>{{ c.label }}</template>
-              <ColumnHelp :label="c.label" :definition="c.definition" />
+              <span v-if="c.definition" class="tt__help">
+                <InfoTip :content="c.definition" :label="`Aide sur la colonne ${c.label}`" />
+              </span>
             </span>
           </th>
         </tr>
@@ -183,6 +185,14 @@ function formatDate(iso: string) {
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
+}
+
+/* Les en-têtes sont en majuscules, en gras et sur une ligne : la bulle d'aide doit redevenir un texte normal. */
+.tt__help {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  white-space: normal;
 }
 
 .tt__sort {

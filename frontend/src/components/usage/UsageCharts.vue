@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import type { Usage, UsageSums } from "@/types/usage";
+import InfoTip from "@/components/InfoTip.vue";
 import WaterBottles from "./WaterBottles.vue";
 
 const props = defineProps<{
@@ -36,8 +37,8 @@ const compact = (value: number) =>
 const dayLabel = (day: string) =>
   new Date(`${day}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 const callsLabel = (calls: number) => `${count(calls)} appel${calls > 1 ? "s" : ""}`;
-const rowTitle = (label: string, row: UsageSums) =>
-  `${label} : ${count(row.inputTokens)} entrée · ${count(row.outputTokens)} sortie · ${callsLabel(row.calls)}`;
+const detail = (row: UsageSums) =>
+  `${count(row.inputTokens)} entrée · ${count(row.outputTokens)} sortie · ${callsLabel(row.calls)}`;
 
 const period = computed(() => (props.usage.days === 365 ? "sur 1 an" : `sur ${props.usage.days} jours`));
 
@@ -84,27 +85,21 @@ function barWidth(row: UsageSums, rows: UsageSums[]) {
       <div class="usage-charts__stat">
         <span class="usage-charts__stat-label">
           Tokens
-          <DsfrTooltip content="Total des tokens consommés : entrée + sortie.">
-            Précision sur les tokens
-          </DsfrTooltip>
+          <InfoTip content="Total des tokens consommés : entrée + sortie." label="Précision sur les tokens" />
         </span>
         <span class="usage-charts__stat-value">{{ count(usage.totals.totalTokens) }}</span>
       </div>
       <div class="usage-charts__stat">
         <span class="usage-charts__stat-label">
           Entrée (prompt)
-          <DsfrTooltip content="Nombre de tokens contenus dans les prompts envoyés au modèle.">
-            Précision sur l'entrée
-          </DsfrTooltip>
+          <InfoTip content="Nombre de tokens contenus dans les prompts envoyés au modèle." label="Précision sur l'entrée" />
         </span>
         <span class="usage-charts__stat-value">{{ count(usage.totals.inputTokens) }}</span>
       </div>
       <div class="usage-charts__stat">
         <span class="usage-charts__stat-label">
           Sortie (réponse)
-          <DsfrTooltip content="Nombre de tokens générés par le modèle dans sa réponse.">
-            Précision sur la sortie
-          </DsfrTooltip>
+          <InfoTip content="Nombre de tokens générés par le modèle dans sa réponse." label="Précision sur la sortie" />
         </span>
         <span class="usage-charts__stat-value">{{ count(usage.totals.outputTokens) }}</span>
       </div>
@@ -134,14 +129,19 @@ function barWidth(row: UsageSums, rows: UsageSums[]) {
           }}
         </span>
       </div>
-      <div class="usage-charts__days" role="img" aria-label="Tokens consommés par jour">
+      <div class="usage-charts__days" role="group" aria-label="Tokens consommés par jour">
         <div
           v-for="row in days"
           :key="row.day"
           class="usage-charts__day"
-          :title="`${dayLabel(row.day)} : ${count(row.totalTokens)} tokens`"
+          role="img"
+          tabindex="0"
+          :aria-label="`${dayLabel(row.day)} : ${count(row.totalTokens)} tokens`"
           @mouseenter="hoveredDay = row"
           @mouseleave="hoveredDay = null"
+          @focus="hoveredDay = row"
+          @blur="hoveredDay = null"
+          @click="hoveredDay = row"
         >
           <div class="usage-charts__bar--output" :style="{ height: `${(row.outputTokens / dayMax) * 100}%` }" />
           <div class="usage-charts__bar--input" :style="{ height: `${(row.inputTokens / dayMax) * 100}%` }" />
@@ -157,11 +157,12 @@ function barWidth(row: UsageSums, rows: UsageSums[]) {
       <section class="usage-charts__card">
         <h2 class="usage-charts__card-title">Par étape</h2>
         <ul class="usage-charts__rows">
-          <li v-for="row in stepRows" :key="row.key" class="usage-charts__row" :title="rowTitle(row.label, row)">
+          <li v-for="row in stepRows" :key="row.key" class="usage-charts__row">
             <span class="usage-charts__row-head">
               <span class="usage-charts__row-label">{{ row.label }}</span>
               <span class="usage-charts__row-value">{{ count(row.totalTokens) }}</span>
             </span>
+            <span class="usage-charts__row-detail">{{ detail(row) }}</span>
             <span class="usage-charts__row-bar" :style="{ width: barWidth(row, stepRows) }">
               <span class="usage-charts__bar--input" :style="{ flex: row.inputTokens }" />
               <span class="usage-charts__bar--output" :style="{ flex: row.outputTokens }" />
@@ -173,11 +174,12 @@ function barWidth(row: UsageSums, rows: UsageSums[]) {
       <section class="usage-charts__card">
         <h2 class="usage-charts__card-title">Par modèle</h2>
         <ul class="usage-charts__rows">
-          <li v-for="row in modelRows" :key="row.key" class="usage-charts__row" :title="rowTitle(row.label, row)">
+          <li v-for="row in modelRows" :key="row.key" class="usage-charts__row">
             <span class="usage-charts__row-head">
               <span class="usage-charts__row-label">{{ row.label }}</span>
               <span class="usage-charts__row-value">{{ count(row.totalTokens) }}</span>
             </span>
+            <span class="usage-charts__row-detail">{{ detail(row) }}</span>
             <span class="usage-charts__row-bar" :style="{ width: barWidth(row, modelRows) }">
               <span class="usage-charts__bar--input" :style="{ flex: row.inputTokens }" />
               <span class="usage-charts__bar--output" :style="{ flex: row.outputTokens }" />
@@ -208,12 +210,14 @@ function barWidth(row: UsageSums, rows: UsageSums[]) {
             :class="{ 'usage-charts__row--selected': row.userId !== null && row.userId === selectedUser }"
             :aria-pressed="row.userId !== null && row.userId === selectedUser"
             :disabled="row.userId === null"
-            :title="row.userId ? `${rowTitle(row.label, row)}\nuser_id : ${row.userId}` : rowTitle(row.label, row)"
             @click="row.userId && emit('selectUser', row.userId === selectedUser ? null : row.userId)"
           >
             <span class="usage-charts__row-head">
               <span class="usage-charts__row-label">{{ row.label }}</span>
               <span class="usage-charts__row-value">{{ count(row.totalTokens) }}</span>
+            </span>
+            <span class="usage-charts__row-detail">
+              {{ detail(row) }}<template v-if="row.userId"> · user_id : {{ row.userId }}</template>
             </span>
             <span class="usage-charts__row-bar" :style="{ width: barWidth(row, userRows) }">
               <span class="usage-charts__bar--input" :style="{ flex: row.inputTokens }" />
@@ -379,6 +383,12 @@ function barWidth(row: UsageSums, rows: UsageSums[]) {
   gap: 0.25rem;
   padding: 0.375rem;
   border-radius: 0.375rem;
+}
+
+.usage-charts__row-detail {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-mention-grey);
 }
 
 .usage-charts__row--button {
