@@ -113,7 +113,7 @@ watch(() => undefined, () => {}, { immediate: true });
         role="dialog"
         aria-modal="true"
         :aria-label="title"
-        tabindex="1"
+        tabindex="1-"
         @keydown.esc="emit('close')"
         :style="{ width: modalWidth + 'px', height: modalHeight + 'px', maxWidth: 'calc(100vw - 3rem)', maxHeight: 'calc(100vh - 3rem)' }"
       >

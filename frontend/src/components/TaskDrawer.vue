@@ -9,7 +9,7 @@
  * Le drawer utilise le même pattern que InfoModal (overlay + panneau)
  * mais glisse depuis la droite plutôt que d'être centré.
  */
-import { computed, nextTick, ref, toRef } from "vue";
+import { computed, ref, toRef } from "vue";
 
 import { useDialogFocus } from "@/composables/useDialogFocus";
 import { useUserTasks } from "@/composables/useUserTasks";
