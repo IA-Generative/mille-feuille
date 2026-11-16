@@ -154,7 +154,7 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
       <h3 id="am-groups" class="am__legend">Groupes associés</h3>
       <ul>
         <li v-for="g in state.details" :key="g.path">
-          <span :title="g.path">{{ groupLabel(g.path) }}</span>{{ " " }}
+          <span>{{ groupLabel(g.path) }}</span> <span class="am__hint">({{ g.path }})</span>{{ " " }}
           <span class="am__hint">— ajouté le {{ dateLabel(g.grantedAt) }}</span>
         </li>
       </ul>

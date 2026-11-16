@@ -412,7 +412,7 @@ function cellLabel(c: (typeof cells.value)[number]) {
     <!-- Vue Jour : la journée heure par heure -->
     <div v-if="mode === 'day'" class="cal__day-view">
       <p class="cal__hint">
-        <VIcon name="ri-cursor-line" /> Touchez une heure pour y placer un dossier. Cliquez sur un bloc pour le modifier, glissez-le pour le déplacer.
+        <VIcon name="ri-cursor-line" /> Touchez une heure pour y placer un dossier. Cliquez sur un bloc pour le modifier, glissez-le pour le déplacer (au clavier : Alt + ↑ ou ↓).
       </p>
       <div class="cal__scroll">
       <div ref="timelineEl" class="cal__timeline" :style="{ '--hours': HOURS.length }">
@@ -439,7 +439,6 @@ function cellLabel(c: (typeof cells.value)[number]) {
                 { 'cal__block--drag': drag?.key === b.e.key },
               ]"
               :style="{ ...b.style, top: pct(b.startH - HOUR_START + shiftOf(b.e) / 60) }"
-              title="Cliquer pour modifier · glisser pour déplacer (Alt + flèches au clavier)"
               @pointerdown="onBlockDown($event, b.e)"
               @pointermove="onBlockMove"
               @pointerup="onBlockUp"
@@ -604,7 +603,7 @@ function cellLabel(c: (typeof cells.value)[number]) {
 
 .cal__hint {
   margin: 0.75rem 0 0.5rem;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   color: var(--text-mention-grey);
 }
 

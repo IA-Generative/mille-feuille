@@ -50,7 +50,7 @@ export interface BulkAccessResult {
   unassigned: number;
 }
 
-/** « /service-culture » → « Service culture » (le chemin exact reste visible en infobulle). */
+/** « /service-culture » → « Service culture » (le chemin exact est affiché à côté). */
 export function groupLabel(path: string): string {
   const name = path.replace(/^\//, "").replace(/[-_]/g, " ");
   return name.charAt(0).toUpperCase() + name.slice(1);
