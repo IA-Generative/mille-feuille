@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.52.0](https://github.com/IA-Generative/mille-feuille/compare/v0.51.0...v0.52.0) (2026-11-16)
+
+
+### Features
+
+* **frontend:** make app more accessible with better info bubbles ([350e3a9](https://github.com/IA-Generative/mille-feuille/commit/350e3a9c59b297418ea7242bb924d32463c37f32))
+
 ## [0.51.0](https://github.com/IA-Generative/mille-feuille/compare/v0.50.0...v0.51.0) (2026-11-12)
 
 
