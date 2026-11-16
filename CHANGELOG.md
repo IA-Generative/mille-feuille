@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.52.1](https://github.com/IA-Generative/mille-feuille/compare/v0.52.0...v0.52.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **ui:** replace reste of colors necessery into DSFR ([414e0a2](https://github.com/IA-Generative/mille-feuille/commit/414e0a2521db0316530d4a6bf9631e497727b25e))
+* **ui:** turn colors added by hand into DSFR color ([01a2c06](https://github.com/IA-Generative/mille-feuille/commit/01a2c06866ba6226c4c60919b0d68dff2ff631e9))
+
 ## [0.52.0](https://github.com/IA-Generative/mille-feuille/compare/v0.51.0...v0.52.0) (2026-11-16)
 
 
