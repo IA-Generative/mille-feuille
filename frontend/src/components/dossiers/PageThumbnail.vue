@@ -114,7 +114,7 @@ onBeforeUnmount(() => {
 
 .page-thumbnail__box {
   position: absolute;
-  border: 1px solid #b34000;
-  background: #ffd9004d;
+  border: 1px solid var(--border-plain-warning);
+  background: color-mix(in srgb, var(--border-plain-yellow-tournesol) 30%, transparent);
 }
 </style>

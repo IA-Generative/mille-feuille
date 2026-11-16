@@ -80,7 +80,7 @@ const style = (box: ExtractionBox) => ({
   padding: 0 0.3rem;
   font-size: 0.7rem;
   line-height: 1.1rem;
-  color: #fff;
+  color: var(--text-inverted-blue-france);
   background: var(--background-action-high-blue-france);
   border-radius: 2px;
 }

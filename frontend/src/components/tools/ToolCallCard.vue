@@ -163,8 +163,8 @@ function chooseAll(allow: boolean) {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 0.75rem;
-  background: #b340001a;
-  color: #b34000;
+  background: var(--background-contrast-warning);
+  color: var(--text-default-warning);
   flex-shrink: 0;
 }
 
