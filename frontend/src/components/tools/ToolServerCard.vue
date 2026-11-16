@@ -74,7 +74,7 @@ function formatDate(iso: string) {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--raised-shadow);
 }
 
 .server-card__header {

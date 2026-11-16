@@ -166,7 +166,7 @@ function targetLink(task: UserTask): string | null {
   height: 100vh;
   background: var(--background-default-grey);
   border-left: 1px solid var(--border-default-grey);
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--lifted-shadow);
 }
 
 /* En-tête */

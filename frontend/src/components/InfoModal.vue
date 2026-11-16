@@ -151,7 +151,7 @@ watch(() => undefined, () => {}, { immediate: true });
   flex-direction: column;
   background: var(--background-default-grey);
   border-radius: 0.5rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--lifted-shadow);
   overflow: hidden;
   position: relative;
 }

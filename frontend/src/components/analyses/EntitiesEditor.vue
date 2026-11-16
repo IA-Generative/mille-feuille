@@ -210,7 +210,7 @@ function formatVersionContent(entities: EntityDefinition[]) {
 
 .entities-editor__item--editing {
   border-color: #9d6cff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--raised-shadow);
 }
 
 .entities-editor__summary {
