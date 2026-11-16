@@ -829,6 +829,11 @@ defineExpose({ resizeTextarea });
   outline: none;
 }
 
+.chat-window__composer:has(.chat-window__textarea:focus-visible) {
+  outline: 2px solid var(--border-action-high-blue-france);
+  outline-offset: 2px;
+}
+
 .chat-window__file-input {
   display: none;
 }

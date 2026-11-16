@@ -7,9 +7,10 @@
  * droit, le bord inférieur ou le coin bas-droit pour ajuster la taille.
  * La préférence est persistée en localStorage.
  */
-import { onBeforeUnmount, ref, watch } from "vue";
+import { onBeforeUnmount, ref, toRef, watch } from "vue";
+import { useDialogFocus } from "@/composables/useDialogFocus";
 
-defineProps<{
+const props = defineProps<{
   title: string;
   open: boolean;
 }>();
@@ -17,6 +18,9 @@ defineProps<{
 const emit = defineEmits<{
   close: [];
 }>();
+
+const dialogRef = ref<HTMLElement | null>(null);
+useDialogFocus(toRef(props, "open"), dialogRef);
 
 // --- Redimensionnement ---------------------------------------------------
 // Taille persistée en localStorage (en px). On part des valeurs CSS par
@@ -104,10 +108,13 @@ watch(() => undefined, () => {}, { immediate: true });
   <Teleport to="body">
     <div v-if="open" class="info-modal__overlay" @click.self="emit('close')">
       <div
+        ref="dialogRef"
         class="info-modal"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
+        tabindex="1"
+        @keydown.esc="emit('close')"
         :style="{ width: modalWidth + 'px', height: modalHeight + 'px', maxWidth: 'calc(100vw - 3rem)', maxHeight: 'calc(100vh - 3rem)' }"
       >
         <div class="info-modal__header">
@@ -154,6 +161,10 @@ watch(() => undefined, () => {}, { immediate: true });
   box-shadow: var(--lifted-shadow);
   overflow: hidden;
   position: relative;
+}
+
+.info-modal:focus-visible {
+  outline: none;
 }
 
 /* Handles de redimensionnement */

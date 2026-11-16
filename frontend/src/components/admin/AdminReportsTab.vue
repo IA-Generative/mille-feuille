@@ -101,6 +101,7 @@ defineExpose({ reload });
           target="_blank"
           rel="noopener noreferrer"
           class="fr-link fr-text--sm"
+          title="Voir la capture d'écran jointe - nouvelle fenêtre"
         >
           Voir la capture d'écran jointe
         </a>
