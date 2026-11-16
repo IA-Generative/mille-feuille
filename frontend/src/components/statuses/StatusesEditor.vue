@@ -116,11 +116,11 @@ function formatVersion(statuses: WorkflowStatus[]) {
         <div class="se__name"><DsfrInput v-model="row.name" label="Nom du statut" label-visible /></div>
 
         <label class="se__check">
-          <input type="radio" name="initial-status" :checked="row.isInitial" @change="setInitial(row.key)" />
+          <input type="radio" name="initial-status" :aria-label="`Initial : ${row.name || 'ce statut'}`" :checked="row.isInitial" @change="setInitial(row.key)" />
           Initial
         </label>
         <label class="se__check">
-          <input v-model="row.isFinal" type="checkbox" :disabled="row.isInitial" />
+          <input v-model="row.isFinal" type="checkbox" :aria-label="`Final : ${row.name || 'ce statut'}`" :disabled="row.isInitial" />
           Final
         </label>
 

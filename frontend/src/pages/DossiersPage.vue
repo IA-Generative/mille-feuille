@@ -155,6 +155,7 @@ function isUnassigned(dossier: Dossier) {
         <div class="fr-table__container">
           <div class="fr-table__content">
             <table class="dossiers-page__table">
+              <caption class="fr-sr-only">Liste des dossiers</caption>
               <thead>
                 <tr>
                   <th scope="col">Dossier</th>

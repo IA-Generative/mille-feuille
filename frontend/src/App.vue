@@ -92,6 +92,7 @@ const navItems = [
 
   <!-- Application (connecté) : sidebar façon Muffin + contenu -->
   <div v-else class="app-shell">
+    <DsfrSkipLinks :links="[{ id: 'contenu-principal', text: 'Aller au contenu principal' }]" />
     <aside class="app-sidebar" :class="{ 'app-sidebar--collapsed': isSidebarCollapsed }">
       <!-- Brand : logo Marianne officiel DSFR + bouton collapse -->
       <div
@@ -120,10 +121,11 @@ const navItems = [
           :to="item.to"
           class="app-sidebar__nav-item"
           :class="{ 'app-sidebar__nav-item--active': route.path.startsWith(item.to) }"
+          :aria-current="route.path.startsWith(item.to) ? 'page' : undefined"
           :title="isSidebarCollapsed ? item.label : undefined"
         >
           <VIcon :name="item.icon" />
-          <span v-if="!isSidebarCollapsed">{{ item.label }}</span>
+          <span :class="{ 'fr-sr-only': isSidebarCollapsed }">{{ item.label }}</span>
           <!-- Pastille : le nombre est annoncé (sr-only), pas seulement affiché -->
           <span
             v-if="item.badge && unreadCount > 0"
@@ -176,7 +178,7 @@ const navItems = [
       <UserMenu :collapsed="isSidebarCollapsed" />
     </aside>
 
-    <main class="app-shell__content" :class="{ 'app-shell__content--page-scroll': route.meta.pageScroll }">
+    <main id="contenu-principal" tabindex="-1" class="app-shell__content" :class="{ 'app-shell__content--page-scroll': route.meta.pageScroll }">
       <RouterView v-slot="{ Component, route: current }">
         <component :is="Component" :key="pageKey(current)" />
       </RouterView>

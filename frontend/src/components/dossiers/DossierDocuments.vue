@@ -167,6 +167,7 @@ function toggleSummary(docId: string) {
           <button
             type="button"
             class="dossier-documents__summary-toggle"
+            :aria-expanded="expandedDocId === document.id"
             @click="toggleSummary(document.id)"
           >
             <VIcon name="ri-file-text-line" />

@@ -9,13 +9,17 @@
  * Le drawer utilise le même pattern que InfoModal (overlay + panneau)
  * mais glisse depuis la droite plutôt que d'être centré.
  */
-import { computed } from "vue";
+import { computed, nextTick, ref, toRef } from "vue";
 
+import { useDialogFocus } from "@/composables/useDialogFocus";
 import { useUserTasks } from "@/composables/useUserTasks";
 import type { UserTask, UserTaskStatus } from "@/types/userTask";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
+
+const drawerRef = ref<HTMLElement | null>(null);
+useDialogFocus(toRef(props, "open"), drawerRef);
 
 const { tasks, activeTasks, loading, refresh } = useUserTasks();
 
@@ -61,9 +65,14 @@ function targetLink(task: UserTask): string | null {
       <div v-if="props.open" class="task-drawer__overlay" @click.self="emit('close')">
         <Transition name="task-drawer-slide">
           <aside
+            ref="drawerRef"
             v-if="props.open"
             class="task-drawer"
+            role="dialog"
+            aria-modal="true"
             aria-label="Tâches en cours"
+            tabindex="-1"
+            @keydown.esc="emit('close')"
           >
             <!-- En-tête -->
             <header class="task-drawer__header">
@@ -167,6 +176,10 @@ function targetLink(task: UserTask): string | null {
   background: var(--background-default-grey);
   border-left: 1px solid var(--border-default-grey);
   box-shadow: var(--lifted-shadow);
+}
+
+.task-drawer:focus-visible {
+  outline: none;
 }
 
 /* En-tête */
