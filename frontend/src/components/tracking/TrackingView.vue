@@ -441,7 +441,7 @@ async function exportCsv() {
   border: 1px solid var(--border-default-grey);
   border-radius: 0.5rem;
   background: var(--background-default-grey);
-  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+  box-shadow: var(--overlap-shadow);
 }
 
 .track__menu-item {

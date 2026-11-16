@@ -110,14 +110,14 @@ function formatOutputVersionContent(output: boolean) {
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  box-shadow: var(--raised-shadow);
   transition:
     box-shadow 0.2s ease,
     transform 0.2s ease;
 }
 
 .agent-card:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--overlap-shadow);
   transform: translateY(-2px);
 }
 

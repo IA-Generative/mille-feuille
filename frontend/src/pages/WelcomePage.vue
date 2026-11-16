@@ -416,7 +416,7 @@ const footerLinks = [
 }
 
 .welcome__feature-card:hover {
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--overlap-shadow);
   border-color: var(--border-action-high-blue-france);
 }
 

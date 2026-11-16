@@ -194,7 +194,7 @@ function formatVersionContent(labels: LabelDefinition[]) {
 
 .labels-editor__item--editing {
   border-color: #6a5cff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--raised-shadow);
 }
 
 .labels-editor__summary {

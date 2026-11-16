@@ -754,7 +754,7 @@ defineExpose({ resizeTextarea });
   color: var(--text-action-high-blue-france);
   font: inherit;
   font-size: 0.875rem;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+  box-shadow: var(--raised-shadow);
   cursor: pointer;
 }
 

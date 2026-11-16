@@ -242,7 +242,7 @@ onBeforeUnmount(() => {
   background: var(--background-overlap-grey);
   border: 1px solid var(--border-default-grey);
   border-radius: 0.75rem;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+  box-shadow: var(--overlap-shadow);
 }
 
 .model-picker__option {
