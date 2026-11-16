@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.53.0](https://github.com/IA-Generative/mille-feuille/compare/v0.52.1...v0.53.0) (2026-11-16)
+
+
+### Features
+
+* **ui:** make more accessible and create useDialogFocus composable ([810a809](https://github.com/IA-Generative/mille-feuille/commit/810a8092f6be6e8972985a66d2993a28386f4190))
+
+
+### Bug Fixes
+
+* **front:** correct code lines ([1ebb87d](https://github.com/IA-Generative/mille-feuille/commit/1ebb87de80f0717a83017e9766d04043a4e7c107))
+
 ## [0.52.1](https://github.com/IA-Generative/mille-feuille/compare/v0.52.0...v0.52.1) (2026-11-16)
 
 
