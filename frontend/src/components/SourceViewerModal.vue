@@ -213,7 +213,7 @@ onBeforeUnmount(releaseImage);
 .source-viewer__box {
   position: absolute;
   border: 2px solid var(--border-plain-yellow-tournesol, #c8aa39);
-  background: rgba(255, 224, 70, 0.3);
+  background: color-mix(in srgb, var(--border-plain-yellow-tournesol) 30%, transparent);
   border-radius: 2px;
   pointer-events: none;
 }
@@ -240,7 +240,7 @@ onBeforeUnmount(releaseImage);
 }
 
 .source-viewer__mark {
-  background: rgba(255, 224, 70, 0.55);
+  background: var(--background-contrast-yellow-tournesol);
   color: inherit;
   padding: 0.05em 0.1em;
   border-radius: 0.2em;

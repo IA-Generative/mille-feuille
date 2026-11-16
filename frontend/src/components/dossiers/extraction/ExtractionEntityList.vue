@@ -70,7 +70,7 @@ const percent = (c?: number) => (c === undefined ? "" : `${Math.round(c * 100)} 
   text-align: center;
   font-size: 0.8rem;
   border-radius: 50%;
-  color: #fff;
+  color: var(--text-inverted-blue-france);
   background: var(--background-action-high-blue-france);
 }
 

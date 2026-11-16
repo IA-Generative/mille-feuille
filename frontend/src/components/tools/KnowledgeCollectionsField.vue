@@ -159,8 +159,8 @@ const hasUnavailable = computed(() => collections.value.some((c) => c.status !==
 }
 
 .knowledge-field__chip--off {
-  background: #b340001a;
-  color: #b34000;
+  background: var(--background-contrast-warning);
+  color: var(--text-default-warning);
 }
 
 .knowledge-field__status {

@@ -76,8 +76,8 @@ const percent = (value: number) => `${(value * 100).toFixed(2)}%`;
 
 .source-preview__box {
   position: absolute;
-  background: #ffd60a59;
-  outline: 1px solid #ffd60a;
+  background: color-mix(in srgb, var(--border-plain-yellow-tournesol) 35%, transparent);
+  outline: 1px solid var(--border-plain-yellow-tournesol);
   pointer-events: none;
 }
 </style>
