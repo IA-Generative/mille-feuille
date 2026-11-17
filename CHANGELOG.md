@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.60.1](https://github.com/IA-Generative/mille-feuille/compare/v0.60.0...v0.60.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **frontend:** healthcheck dans Dockerfile.dev (Trivy DS-0026) ([dbb533f](https://github.com/IA-Generative/mille-feuille/commit/dbb533f340f38cf2f491f4ee8377f54ca33a2b4c))
+
 ## [0.60.0](https://github.com/IA-Generative/mille-feuille/compare/v0.59.1...v0.60.0) (2026-11-17)
 
 
