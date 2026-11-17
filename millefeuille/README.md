@@ -43,6 +43,7 @@ Kubernetes: `>=1.25.0-0`
 | global.httpRoute.labels | object | `{}` | Additional HTTPRoute labels. |
 | global.httpRoute.parentRefs | list | `[]` | Parent references (Gateways) to attach the HTTPRoute to. |
 | global.httpRoute.rules | list | `[]` | Routing rules for the HTTPRoute. Required when `enabled` is true, and every `backendRefs` entry must carry a `name`. |
+| global.imageProject | string | `""` | Registry project prepended to every image `repository` (same behaviour as `projectName`, which it overrides for images only). Lets the image project differ from `projectName` (Vault mount, paths...). Empty: `projectName` is used. |
 | global.imagePullSecrets | list | `[]` | Image credentials applied to every component in addition to any component-specific `imagePullSecrets`. |
 | global.imageRegistry | string | `""` | Global Docker image registry |
 | global.ingress.annotations | object | `{}` | Additional ingress annotations. |

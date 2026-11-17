@@ -1,8 +1,12 @@
 fullnameOverride: millefeuille
 
 global:
-  # Harbor project holding every image of the chart: prepended to each `repository` below (see `helper.image`).
+  # Registry project (Harbor) holding every image of the chart: prepended to each `repository` below (see
+  # `helper.image`). Override it in the environment values if it differs from `projectName` (Vault mount, paths...).
+  imageProject: "exploration"
   projectName: "exploration"
+  # Registry host: each component keeps its own `image.registry` below. To point every image (subcharts included,
+  # e.g. redis) at another registry, set `global.imageRegistry` in the environment values.
   ingress:
     enabled: true
     annotations:
@@ -509,7 +513,7 @@ jobs:
       # Same image as the migration itself (Harbor, already pulled): no dependency on ghcr.io, which
       # is unreachable from restricted environments and left the pod stuck in `PodInitializing`.
       # Polls the TCP port every second; alembic then fails fast if PostgreSQL is not really ready.
-      image: "harbor.sdid.cpin.numerique-interieur.com/{{ .Values.global.projectName }}/mille-feuille-backend:{{ .Chart.AppVersion }}"
+      image: '{{ include "helper.image" (dict "root" . "image" (dict "registry" .Values.backend.image.registry "repository" "mille-feuille-backend") "context" "wait-for-postgres") }}'
       imagePullPolicy: "IfNotPresent"
       command:
       - "python"

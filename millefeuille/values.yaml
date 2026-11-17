@@ -89,6 +89,10 @@ global:
   # prefixed twice.
   # @section -- Global
   projectName: ""
+  # -- Registry project prepended to every image `repository` (same behaviour as `projectName`, which it overrides for
+  # images only). Lets the image project differ from `projectName` (Vault mount, paths...). Empty: `projectName` is used.
+  # @section -- Global
+  imageProject: ""
   # -- Image credentials applied to every component in addition to any component-specific `imagePullSecrets`.
   # @section -- Global
   imagePullSecrets: []
