@@ -9,6 +9,9 @@ COPY app ./app
 RUN uv sync --no-dev
 
 FROM python:3.12-slim AS runtime
+# pip est un outil de build : l\'image d\'exécution n\'installe rien, et le pip livré avec l\'image de base porte des CVE
+# connues. Retiré plutôt que mis à jour, il n\'y a rien à maintenir.
+RUN python -m pip uninstall -y pip
 # tesseract-ocr-fra : liteparse embarque son propre moteur OCR, mais pas les
 # données de langue - c'est ce paquet qui rend ocr_language="fra" utilisable.
 RUN apt-get update && apt-get install -y --no-install-recommends \

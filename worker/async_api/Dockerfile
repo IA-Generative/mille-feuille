@@ -26,6 +26,9 @@ RUN --mount=type=secret,id=github_token \
     uv sync --frozen --no-dev
 
 FROM python:3.13-slim AS runtime
+# pip est un outil de build : l\'image d\'exécution n\'installe rien, et le pip livré avec l\'image de base porte des CVE
+# connues. Retiré plutôt que mis à jour, il n\'y a rien à maintenir.
+RUN python -m pip uninstall -y pip
 RUN groupadd -g 1001 appuser && useradd -u 1001 -g 1001 -m -s /bin/bash appuser
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1 \
