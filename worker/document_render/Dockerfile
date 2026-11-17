@@ -12,6 +12,9 @@ COPY app ./app
 RUN uv sync --frozen --no-dev
 
 FROM python:3.12-slim AS runtime
+# pip est un outil de build : l\'image d\'exécution n\'installe rien, et le pip livré avec l\'image de base porte des CVE
+# connues. Retiré plutôt que mis à jour, il n\'y a rien à maintenir.
+RUN python -m pip uninstall -y pip
 # Writer seul, sans interface : l'image reste à ~700 Mo. Les polices métriquement compatibles avec
 # Arial/Times/Calibri/Cambria (Liberation, Carlito, Caladea) évitent les décalages de mise en page.
 RUN apt-get update && apt-get install -y --no-install-recommends \

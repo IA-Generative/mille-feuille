@@ -12,6 +12,9 @@ COPY app ./app
 RUN uv sync --no-dev
 
 FROM python:3.12-slim AS runtime
+# pip est un outil de build : l\'image d\'exécution n\'installe rien, et le pip livré avec l\'image de base porte des CVE
+# connues. Retiré plutôt que mis à jour, il n\'y a rien à maintenir.
+RUN python -m pip uninstall -y pip
 RUN useradd --create-home --uid 1000 worker
 WORKDIR /app
 COPY --from=builder --chown=worker:worker /app/.venv /app/.venv
