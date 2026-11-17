@@ -225,3 +225,5 @@ frontend/dist/
 package-lock.json
 
 .DS_Store
+# Values locales avec les vrais hôtes/domaines d'un environnement : jamais dans le dépôt public.
+millefeuille/values/*.local.yaml
