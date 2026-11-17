@@ -2,10 +2,11 @@
 import { onMounted, onUnmounted, ref, type ComponentPublicInstance } from "vue";
 import { useRouter } from "vue-router";
 import ThemeSettings from "@/components/ThemeSettings.vue";
+import WelcomeAuthAction from "@/components/welcome/WelcomeAuthAction.vue";
 
 import { useAuth } from "@/composables/useAuth";
 
-const { isAuthenticated, loading, login } = useAuth();
+const { isAuthenticated } = useAuth();
 const router = useRouter();
 
 // Redirige automatiquement vers l'application si l'utilisateur est déjà
@@ -153,144 +154,120 @@ const footerLinks = [
 
 <template>
   <div class="welcome">
-    <div class="welcome__toolbar">
+    <DsfrSkipLinks :links="[{ id: 'contenu-principal', text: 'Aller au contenu principal' }]" />
+    <header class="welcome__toolbar">
       <div class="fr-container welcome__toolbar-inner">
         <ThemeSettings />
+        <WelcomeAuthAction size="sm" />
       </div>
-    </div>
-    <!-- Hero -->
-    <section class="welcome__hero">
-      <div class="fr-container welcome__hero-inner">
-        <p class="welcome__badge">Plateforme d'instruction assistée par IA</p>
-        <h1 class="welcome__title">
-          Accélérez l'instruction<br />de vos dossiers usagers
-        </h1>
-        <p class="welcome__subtitle">
-          Importez vos documents, laissez l'IA extraire et structurer les
-          informations clés, vérifiez la cohérence entre pièces et échangez
-          avec un assistant conversationnel — le tout sur une infrastructure
-          souveraine.
-        </p>
-        <div class="welcome__actions">
-          <button
-            v-if="!isAuthenticated && !loading"
-            type="button"
-            class="fr-btn fr-btn--lg"
-            @click="login()"
-          >
-            Se connecter
-          </button>
-          <RouterLink
-            v-if="isAuthenticated"
-            to="/analyses"
-            class="fr-btn fr-btn--lg"
-          >
-            Accéder à l'application
-          </RouterLink>
-          <a href="#features" class="fr-btn fr-btn--secondary fr-btn--lg">
-            Découvrir les fonctionnalités
-          </a>
-        </div>
-      </div>
-    </section>
-
-    <!-- Fonctionnalités -->
-    <section id="features" :ref="registerSection" class="welcome__section welcome__animate">
-      <div class="fr-container">
-        <h2 class="welcome__section-title">Ce que MilleFeuille vous apporte</h2>
-        <p class="welcome__section-subtitle">
-          Une suite d'outils d'IA pour fiabiliser et accélérer le traitement
-          documentaire, de l'import à la validation.
-        </p>
-        <div class="welcome__feature-grid">
-          <div
-            v-for="feature in features"
-            :key="feature.title"
-            class="welcome__feature-card"
-          >
-            <span class="welcome__feature-icon-wrapper">
-              <VIcon :name="feature.icon" class="welcome__feature-icon" />
-            </span>
-            <h3 class="welcome__feature-title">{{ feature.title }}</h3>
-            <p class="welcome__feature-desc">{{ feature.description }}</p>
+    </header>
+    <main id="contenu-principal" tabindex="-1">
+      <!-- Hero -->
+      <section class="welcome__hero">
+        <div class="fr-container welcome__hero-inner">
+          <p class="welcome__badge">Plateforme d'instruction assistée par IA</p>
+          <h1 class="welcome__title">
+            Accélérez l'instruction<br />de vos dossiers usagers
+          </h1>
+          <p class="welcome__subtitle">
+            Importez vos documents, laissez l'IA extraire et structurer les
+            informations clés, vérifiez la cohérence entre pièces et échangez
+            avec un assistant conversationnel — le tout sur une infrastructure
+            souveraine.
+          </p>
+          <div class="welcome__actions">
+            <WelcomeAuthAction />
+            <a href="#features" class="fr-btn fr-btn--secondary fr-btn--lg">
+              Découvrir les fonctionnalités
+            </a>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- Étapes -->
-    <section :ref="registerSection" class="welcome__section welcome__section--alt welcome__animate">
-      <div class="fr-container">
-        <h2 class="welcome__section-title">Comment ça marche ?</h2>
-        <p class="welcome__section-subtitle">
-          Quatre étapes, de l'import du document à l'export du dossier validé.
-        </p>
-        <ol class="fr-raw-list welcome__steps" role="list">
-          <li v-for="step in steps" :key="step.num" class="welcome__step">
-            <div class="welcome__step-visual" aria-hidden="true">
-              <span class="welcome__step-tile">
-                <VIcon :name="step.icon" class="welcome__step-icon" />
+      <!-- Fonctionnalités -->
+      <section id="features" :ref="registerSection" class="welcome__section welcome__animate">
+        <div class="fr-container">
+          <h2 class="welcome__section-title">Ce que MilleFeuille vous apporte</h2>
+          <p class="welcome__section-subtitle">
+            Une suite d'outils d'IA pour fiabiliser et accélérer le traitement
+            documentaire, de l'import à la validation.
+          </p>
+          <div class="welcome__feature-grid">
+            <div
+              v-for="feature in features"
+              :key="feature.title"
+              class="welcome__feature-card"
+            >
+              <span class="welcome__feature-icon-wrapper">
+                <VIcon :name="feature.icon" class="welcome__feature-icon" />
               </span>
-              <span class="welcome__step-num">{{ step.num }}</span>
+              <h3 class="welcome__feature-title">{{ feature.title }}</h3>
+              <p class="welcome__feature-desc">{{ feature.description }}</p>
             </div>
-            <h3 class="welcome__step-title">{{ step.title }}</h3>
-            <p class="welcome__step-desc">{{ step.description }}</p>
-          </li>
-        </ol>
-      </div>
-    </section>
-
-    <!-- Cas d'usage -->
-    <section :ref="registerSection" class="welcome__section welcome__animate">
-      <div class="fr-container">
-        <h2 class="welcome__section-title">Cas d'usage</h2>
-        <p class="welcome__section-subtitle">
-          MilleFeuille s'adapte à tout flux d'instruction documentaire nécessitant
-          fiabilité et traçabilité.
-        </p>
-        <div class="welcome__usecase-grid">
-          <div
-            v-for="useCase in useCases"
-            :key="useCase.title"
-            class="welcome__usecase-card"
-          >
-            <span class="welcome__usecase-icon-wrapper">
-              <VIcon :name="useCase.icon" class="welcome__usecase-icon" />
-            </span>
-            <h3 class="welcome__usecase-title">{{ useCase.title }}</h3>
-            <p class="welcome__usecase-desc">{{ useCase.description }}</p>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <!-- CTA -->
-    <section :ref="registerSection" class="welcome__cta welcome__animate">
-      <div class="fr-container welcome__cta-inner">
-        <h2 class="welcome__cta-title">Prêt à commencer ?</h2>
-        <p class="welcome__cta-text">
-          Connectez-vous pour accéder à votre espace de travail et créer vos
-          premières analyses.
-        </p>
-        <div class="welcome__actions">
-          <button
-            v-if="!isAuthenticated && !loading"
-            type="button"
-            class="fr-btn fr-btn--lg"
-            @click="login()"
-          >
-            Se connecter
-          </button>
-          <RouterLink
-            v-if="isAuthenticated"
-            to="/analyses"
-            class="fr-btn fr-btn--lg"
-          >
-            Accéder à l'application
-          </RouterLink>
+      <!-- Étapes -->
+      <section :ref="registerSection" class="welcome__section welcome__section--alt welcome__animate">
+        <div class="fr-container">
+          <h2 class="welcome__section-title">Comment ça marche ?</h2>
+          <p class="welcome__section-subtitle">
+            Quatre étapes, de l'import du document à l'export du dossier validé.
+          </p>
+          <ol class="fr-raw-list welcome__steps" role="list">
+            <li v-for="step in steps" :key="step.num" class="welcome__step">
+              <div class="welcome__step-visual" aria-hidden="true">
+                <span class="welcome__step-tile">
+                  <VIcon :name="step.icon" class="welcome__step-icon" />
+                </span>
+                <span class="welcome__step-num">{{ step.num }}</span>
+              </div>
+              <h3 class="welcome__step-title">{{ step.title }}</h3>
+              <p class="welcome__step-desc">{{ step.description }}</p>
+            </li>
+          </ol>
         </div>
-      </div>
-    </section>
+      </section>
+
+      <!-- Cas d'usage -->
+      <section :ref="registerSection" class="welcome__section welcome__animate">
+        <div class="fr-container">
+          <h2 class="welcome__section-title">Cas d'usage</h2>
+          <p class="welcome__section-subtitle">
+            MilleFeuille s'adapte à tout flux d'instruction documentaire nécessitant
+            fiabilité et traçabilité.
+          </p>
+          <div class="welcome__usecase-grid">
+            <div
+              v-for="useCase in useCases"
+              :key="useCase.title"
+              class="welcome__usecase-card"
+            >
+              <span class="welcome__usecase-icon-wrapper">
+                <VIcon :name="useCase.icon" class="welcome__usecase-icon" />
+              </span>
+              <h3 class="welcome__usecase-title">{{ useCase.title }}</h3>
+              <p class="welcome__usecase-desc">{{ useCase.description }}</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- CTA -->
+      <section :ref="registerSection" class="welcome__cta welcome__animate">
+        <div class="fr-container welcome__cta-inner">
+          <h2 class="welcome__cta-title">Prêt à commencer ?</h2>
+          <p class="welcome__cta-text">
+            Connectez-vous pour accéder à votre espace de travail et créer vos
+            premières analyses.
+          </p>
+          <div class="welcome__actions">
+            <WelcomeAuthAction />
+          </div>
+        </div>
+      </section>
+    </main>
 
     <DsfrFooter
       logo-text="MilleFeuille"
@@ -317,6 +294,9 @@ const footerLinks = [
 .welcome__toolbar-inner {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   padding-block: 0.25rem;
 }
 
