@@ -513,7 +513,7 @@ jobs:
       # Same image as the migration itself (Harbor, already pulled): no dependency on ghcr.io, which
       # is unreachable from restricted environments and left the pod stuck in `PodInitializing`.
       # Polls the TCP port every second; alembic then fails fast if PostgreSQL is not really ready.
-      image: '{{ include "helper.image" (dict "root" . "image" (dict "registry" .Values.backend.image.registry "repository" "mille-feuille-backend") "context" "wait-for-postgres") }}'
+      image: '{{ include "helper.image" (dict "root" . "image" (dict "registry" .Values.backend.image.registry "repository" .Values.backend.image.repository) "context" "wait-for-postgres") }}'
       imagePullPolicy: "IfNotPresent"
       command:
       - "python"
