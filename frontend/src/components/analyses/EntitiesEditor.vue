@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { nextTick, ref, watch } from "vue";
 
 import CollapsibleText from "@/components/analyses/CollapsibleText.vue";
 import EntityLocation from "@/components/analyses/EntityLocation.vue";
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import PaginationBar from "@/components/PaginationBar.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
+import EditorIntro from "@/components/analyses/EditorIntro.vue";
 import { useListView } from "@/composables/useListView";
 import { useEntityLocations } from "@/composables/useEntityLocations";
 import { suggestEntities, suggestEntityDefinition } from "@/composables/useLlmAssist";
@@ -29,6 +30,13 @@ const { query, pageIndex, pageSize, hasSearch, filtered, paged, reveal } = useLi
 const isSuggestingList = ref(false);
 const suggestingDefinitionId = ref<string | null>(null);
 const { locationOf, zoneCount, forget } = useEntityLocations();
+const statusMessage = ref("");
+
+// On vide puis on remplit au tick suivant : un message identique au précédent est ainsi annoncé de nouveau.
+function announce(message: string) {
+  statusMessage.value = "";
+  nextTick(() => (statusMessage.value = message));
+}
 
 function labelNameOf(entityId: string): string | null {
   const id = locationOf(entityId).labelId;
@@ -70,11 +78,14 @@ function removeEntity(id: string) {
 
 async function applySuggestions(model: string | null) {
   isSuggestingList.value = true;
+  announce("Génération en cours…");
   try {
     const suggestions = await suggestEntities(model);
     draftEntities.value = suggestions.map((entity, index) => ({ ...entity, id: `entity-suggestion-${index}` }));
     editingId.value = null;
+    announce("Liste proposée : vérifiez-la, puis enregistrez.");
   } catch (error) {
+    statusMessage.value = "";
     alert(error instanceof Error ? error.message : "Échec de l'aide LLM.");
   } finally {
     isSuggestingList.value = false;
@@ -97,6 +108,7 @@ async function applyDefinitionSuggestion(entity: EntityDefinition, model: string
 
 function save() {
   emit("save", draftEntities.value);
+  announce("Entités enregistrées.");
 }
 
 function formatVersionContent(entities: EntityDefinition[]) {
@@ -109,6 +121,8 @@ function formatVersionContent(entities: EntityDefinition[]) {
 <template>
   <div class="entities-editor">
     <h4 class="fr-h6 entities-editor__title">Entités à extraire</h4>
+    <p class="fr-sr-only" role="status">{{ statusMessage }}</p>
+    <EditorIntro v-if="$slots.description"><slot name="description" /></EditorIntro>
 
     <DsfrInput
       v-if="hasSearch"
@@ -144,9 +158,9 @@ function formatVersionContent(entities: EntityDefinition[]) {
             <CollapsibleText v-if="item.definition" :text="item.definition" />
           </div>
           <div class="entities-editor__buttons">
-            <DsfrButton label="Modifier" icon-only tertiary no-outline icon="ri-edit-line" size="sm" @click="editingId = item.id" />
+            <DsfrButton :label="`Modifier l'entité « ${item.name || 'sans nom'} »`" icon-only tertiary no-outline icon="ri-edit-line" size="sm" @click="editingId = item.id" />
             <DsfrButton
-              label="Supprimer l'entité"
+              :label="`Supprimer l'entité « ${item.name || 'sans nom'} »`"
               icon-only
               tertiary
               no-outline
@@ -182,9 +196,11 @@ function formatVersionContent(entities: EntityDefinition[]) {
 
     <div class="entities-editor__actions">
       <DsfrButton label="Ajouter une entité" tertiary icon="ri-add-line" size="sm" @click="addEntity" />
-      <LlmAssistButton :loading="isSuggestingList" @click="applySuggestions" />
+      <LlmAssistButton label="Suggérer des entités" :loading="isSuggestingList" @click="applySuggestions" />
       <DsfrButton label="Enregistrer" :disabled="!isDirty" size="sm" @click="save" />
     </div>
+
+    <p v-if="!isDirty" class="fr-hint-text fr-mb-0">Aucune modification à enregistrer.</p>
 
     <VersionHistory :versions="versions" :format-content="formatVersionContent" @restore="emit('restore', $event)" />
   </div>

@@ -30,6 +30,11 @@ const mode = ref<"preview" | "edit">(props.prompt.trim() ? "preview" : "edit");
 const statusMessage = ref("");
 const titleRef = ref<HTMLElement | null>(null);
 
+function announce(message: string) {
+  statusMessage.value = "";
+  nextTick(() => (statusMessage.value = message));
+}
+
 watch(
   () => props.prompt,
   (prompt) => {
@@ -40,17 +45,16 @@ watch(
 
 watch(draft, (value) => {
   isDirty.value = value !== props.prompt;
-  statusMessage.value = "";
 });
 
 async function applySuggestion(model: string | null) {
   if (!props.suggestPrompt) return;
   isSuggesting.value = true;
-  statusMessage.value = "Génération du prompt en cours…";
+  announce("Génération du prompt en cours…");
   try {
     draft.value = await props.suggestPrompt(draft.value, model);
     mode.value = "preview";
-    statusMessage.value = "Prompt généré, aperçu affiché.";
+    announce("Prompt généré, aperçu affiché.");
   } catch (error) {
     statusMessage.value = "";
     alert(error instanceof Error ? error.message : "Échec de l'aide LLM.");
@@ -62,7 +66,7 @@ async function applySuggestion(model: string | null) {
 function save() {
   emit("save", draft.value);
   mode.value = "preview";
-  statusMessage.value = "Prompt enregistré.";
+  announce("Prompt enregistré.");
   // « Enregistrer » se grise juste après le clic : on remet le focus sur le titre pour ne pas le perdre.
   nextTick(() => titleRef.value?.focus());
 }

@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { nextTick, ref, watch } from "vue";
 
 import CollapsibleText from "@/components/analyses/CollapsibleText.vue";
 import LabelExamples from "@/components/analyses/LabelExamples.vue";
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import PaginationBar from "@/components/PaginationBar.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
+import EditorIntro from "@/components/analyses/EditorIntro.vue";
 import { useListView } from "@/composables/useListView";
 import { useLabelExamples } from "@/composables/useLabelExamples";
 import { suggestLabelDefinition, suggestLabels } from "@/composables/useLlmAssist";
@@ -21,6 +22,13 @@ const { query, pageIndex, pageSize, hasSearch, filtered, paged, reveal } = useLi
 const isSuggestingList = ref(false);
 const suggestingDefinitionId = ref<string | null>(null);
 const { countOf } = useLabelExamples();
+const statusMessage = ref("");
+
+// On vide puis on remplit au tick suivant : un message identique au précédent est ainsi annoncé de nouveau.
+function announce(message: string) {
+  statusMessage.value = "";
+  nextTick(() => (statusMessage.value = message));
+}
 
 function cloneLabels(labels: LabelDefinition[]): LabelDefinition[] {
   return labels.map((label) => ({ ...label }));
@@ -56,11 +64,14 @@ function removeLabel(id: string) {
 
 async function applySuggestions(model: string | null) {
   isSuggestingList.value = true;
+  announce("Génération en cours…");
   try {
     const suggestions = await suggestLabels(model);
     draftLabels.value = suggestions.map((label, index) => ({ ...label, id: `label-suggestion-${index}` }));
     editingId.value = null;
+    announce("Liste proposée : vérifiez-la, puis enregistrez.");
   } catch (error) {
+    statusMessage.value = "";
     alert(error instanceof Error ? error.message : "Échec de l'aide LLM.");
   } finally {
     isSuggestingList.value = false;
@@ -80,6 +91,7 @@ async function applyDefinitionSuggestion(label: LabelDefinition, model: string |
 
 function save() {
   emit("save", draftLabels.value);
+  announce("Labels enregistrés.");
 }
 
 function formatVersionContent(labels: LabelDefinition[]) {
@@ -90,6 +102,8 @@ function formatVersionContent(labels: LabelDefinition[]) {
 <template>
   <div class="labels-editor">
     <h4 class="fr-h6 labels-editor__title">Labels de classification</h4>
+    <p class="fr-sr-only" role="status">{{ statusMessage }}</p>
+    <EditorIntro v-if="$slots.description"><slot name="description" /></EditorIntro>
 
     <DsfrInput
       v-if="hasSearch"
@@ -120,9 +134,9 @@ function formatVersionContent(labels: LabelDefinition[]) {
             <CollapsibleText v-if="item.definition" :text="item.definition" />
           </div>
           <div class="labels-editor__buttons">
-            <DsfrButton label="Modifier" icon-only tertiary no-outline icon="ri-edit-line" size="sm" @click="editingId = item.id" />
+            <DsfrButton :label="`Modifier le label « ${item.name || 'sans nom'} »`" icon-only tertiary no-outline icon="ri-edit-line" size="sm" @click="editingId = item.id" />
             <DsfrButton
-              label="Supprimer le label"
+              :label="`Supprimer le label « ${item.name || 'sans nom'} »`"
               icon-only
               tertiary
               no-outline
@@ -157,9 +171,11 @@ function formatVersionContent(labels: LabelDefinition[]) {
 
     <div class="labels-editor__actions">
       <DsfrButton label="Ajouter un label" tertiary icon="ri-add-line" size="sm" @click="addLabel" />
-      <LlmAssistButton :loading="isSuggestingList" @click="applySuggestions" />
+      <LlmAssistButton label="Suggérer des labels" :loading="isSuggestingList" @click="applySuggestions" />
       <DsfrButton label="Enregistrer" :disabled="!isDirty" size="sm" @click="save" />
     </div>
+
+    <p v-if="!isDirty" class="fr-hint-text fr-mb-0">Aucune modification à enregistrer.</p>
 
     <VersionHistory :versions="versions" :format-content="formatVersionContent" @restore="emit('restore', $event)" />
   </div>
