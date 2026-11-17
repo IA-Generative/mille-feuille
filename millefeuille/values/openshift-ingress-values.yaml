@@ -1,0 +1,40 @@
+# Surcharge « ingress » pour OpenShift : à ajouter APRÈS common-values.yaml et openshift-values.yaml.
+#   helm template millefeuille ./millefeuille -f values/common-values.yaml \
+#     -f values/openshift-values.yaml -f values/openshift-ingress-values.yaml
+#
+# Un Ingress par composant (OpenShift le convertit en Route), avec TLS (`secretName`), sans annotation propre à OpenShift.
+# Les HÔTES CI-DESSOUS SONT FICTIFS : les vrais domaines ne vont pas dans ce dépôt public, ils se posent dans les values de
+# l'environnement (Argo CD) en surchargeant `frontend.ingress.hosts`/`tls` et `backend.ingress.hosts`/`tls`.
+# Le secret TLS `millefeuille-tls` doit exister (cert-manager ou création manuelle).
+
+# L'Ingress du chart (global.ingress, sans hôte ni service) est remplacé par un Ingress par composant, ci-dessous.
+global:
+  ingress:
+    enabled: false
+
+# Même hôte pour le front et l'API : le front appelle l'API en URL relative, `/api` va au backend.
+frontend:
+  ingress:
+    enabled: true
+    hosts:
+      - name: "millefeuille.example.org"
+        paths:
+          - path: "/"
+            pathType: "Prefix"
+    tls:
+      - secretName: millefeuille-tls
+        hosts:
+          - millefeuille.example.org
+
+backend:
+  ingress:
+    enabled: true
+    hosts:
+      - name: "millefeuille.example.org"
+        paths:
+          - path: "/api"
+            pathType: "Prefix"
+    tls:
+      - secretName: millefeuille-tls
+        hosts:
+          - millefeuille.example.org
