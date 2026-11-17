@@ -13,7 +13,7 @@ from typing import Any, Protocol
 import httpx2
 from pydantic import BaseModel, ValidationError
 
-from app.config import ToolSettings
+from app.config import TlsSettings, ToolSettings
 from app.services.knowledge.contract import (
     MAX_ANSWER_CHARS,
     MAX_COLLECTION_IDS,
@@ -104,7 +104,10 @@ class HttpKnowledgeClient:
         try:
             # Les redirections ne sont pas suivies : la garde d'URL n'a validé que l'adresse donnée.
             async with httpx2.AsyncClient(
-                headers=headers, timeout=self._settings.TOOL_CALL_TIMEOUT_SECONDS, transport=self._transport
+                headers=headers,
+                timeout=self._settings.TOOL_CALL_TIMEOUT_SECONDS,
+                transport=self._transport,
+                verify=TlsSettings().verify,
             ) as client:
                 response = await client.request(method, f"{url.rstrip('/')}{path}", params=params, json=json)
         except httpx2.HTTPError as error:

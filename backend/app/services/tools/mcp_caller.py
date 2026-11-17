@@ -9,6 +9,8 @@ import httpx2
 from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
+from app.config import TlsSettings
+
 
 @dataclass(frozen=True)
 class RawToolResult:
@@ -50,7 +52,9 @@ class McpToolCaller:
     ) -> RawToolResult:
         try:
             async with asyncio.timeout(timeout):
-                async with httpx2.AsyncClient(headers=headers, timeout=timeout, transport=self._transport) as http:
+                async with httpx2.AsyncClient(
+                    headers=headers, timeout=timeout, transport=self._transport, verify=TlsSettings().verify
+                ) as http:
                     async with streamable_http_client(url, http_client=http) as (read, write):
                         async with ClientSession(read, write) as session:
                             await session.initialize()

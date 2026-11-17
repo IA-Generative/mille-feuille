@@ -16,6 +16,7 @@ def get_client() -> httpx.Client:
         base_url=f"{settings.BACKEND_INTERNAL_URL}/api/internal",
         headers={"X-App-Token": settings.INTERNAL_WORKER_TOKEN},
         timeout=30.0,
+        verify=settings.ssl_verify,
     )
 
 

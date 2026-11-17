@@ -13,6 +13,7 @@ class RustFsStorage:
             endpoint_url=settings.AWS_ENDPOINT_URL,
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+            verify=settings.ssl_verify,
             config=Config(
                 connect_timeout=settings.STORAGE_CONNECT_TIMEOUT_SECONDS,
                 read_timeout=settings.STORAGE_READ_TIMEOUT_SECONDS,

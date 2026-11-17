@@ -50,7 +50,20 @@ class WorkerSettings(BaseSettings):
     # Taille des groupes de définitions d'entités (0 : un seul groupe).
     EXTRACTION_DEFINITIONS_PER_GROUP: int = 8
 
+    # Vérification des certificats TLS des appels sortants (backend, LLM, S3). Activée par défaut ;
+    # `SSL_CA_BUNDLE` (fichier PEM) ajoute une autorité interne ; `SSL_VERIFY=false` la désactive :
+    # dépannage uniquement, jamais en production.
+    SSL_VERIFY: bool = True
+    SSL_CA_BUNDLE: str = ""
+
     model_config = SettingsConfigDict(case_sensitive=True, env_file=(".env", ".env.local"), extra="ignore")
+
+    @property
+    def ssl_verify(self) -> bool | str:
+        """Paramètre `verify` de httpx et boto3 : `False`, le chemin d'une CA, ou `True`."""
+        if not self.SSL_VERIFY:
+            return False
+        return self.SSL_CA_BUNDLE or True
 
     @property
     def celery_broker_url(self) -> str:

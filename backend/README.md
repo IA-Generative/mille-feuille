@@ -31,6 +31,16 @@ voir `.env.example` à la racine du repo et la section _Configuration_ du
 | `AWS_S3_BUCKET_NAME`       | `mille-feuille`           |                                                   |
 | `AWS_DEFAULT_REGION`       | `us-east-1`             |                                                   |
 
+### TLS des appels sortants (`TlsSettings`)
+
+Même réglage dans chaque service (backend et workers), posé explicitement dans `env` de chaque composant du chart. Il
+s'applique à httpx, boto3 (S3), openai et python-keycloak.
+
+| Variable        | Défaut | Description                                                                                          |
+| --------------- | ------ | ---------------------------------------------------------------------------------------------------- |
+| `SSL_VERIFY`    | `true` | Vérifie les certificats. `false` pour du dépannage uniquement, jamais en production.                 |
+| `SSL_CA_BUNDLE` | _(vide)_ | Chemin d'un fichier PEM d'autorités à utiliser à la place du magasin système (CA interne).           |
+
 ### Keycloak / sessions (`KeycloakSettings`)
 
 | Variable                  | Défaut                               | Description                                                          |

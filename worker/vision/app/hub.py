@@ -44,6 +44,7 @@ class HubDescriber:
             base_url=settings.OPENAI_API_BASE_URL.rstrip("/"),
             headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}"},
             timeout=settings.HUB_TIMEOUT_SECONDS,
+            verify=settings.ssl_verify,
         )
 
     def describe(

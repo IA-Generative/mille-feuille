@@ -51,4 +51,6 @@ def _report(response: httpx.Response) -> None:
 
 
 def http_client() -> httpx.Client:
-    return httpx.Client(event_hooks={"response": [_report]}, timeout=httpx.Timeout(600.0, connect=5.0))
+    return httpx.Client(
+        event_hooks={"response": [_report]}, timeout=httpx.Timeout(600.0, connect=5.0), verify=settings.ssl_verify
+    )
