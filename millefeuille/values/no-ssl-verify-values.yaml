@@ -1,0 +1,33 @@
+# Surcharge « sans vérification TLS » : à ajouter APRÈS common-values.yaml.
+#   helm template millefeuille ./millefeuille -f values/common-values.yaml -f values/no-ssl-verify-values.yaml
+#
+# Désactive la vérification des certificats TLS des appels sortants (LLM, S3, Keycloak, backend interne, outils MCP).
+# DÉPANNAGE UNIQUEMENT, jamais en production : n'importe qui sur le réseau peut alors se faire passer pour ces services.
+# Pour une autorité de certification interne, préférer `SSL_CA_BUNDLE` (chemin d'un fichier PEM monté dans le pod).
+backend:
+  env:
+    SSL_VERIFY: "false"
+worker_document:
+  env:
+    SSL_VERIFY: "false"
+worker_render:
+  env:
+    SSL_VERIFY: "false"
+worker_classification:
+  env:
+    SSL_VERIFY: "false"
+worker_extraction:
+  env:
+    SSL_VERIFY: "false"
+worker_ocr_layout:
+  env:
+    SSL_VERIFY: "false"
+worker_ocr:
+  env:
+    SSL_VERIFY: "false"
+worker_ocr_table:
+  env:
+    SSL_VERIFY: "false"
+worker_ocr_vision:
+  env:
+    SSL_VERIFY: "false"
