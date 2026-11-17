@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.59.0](https://github.com/IA-Generative/mille-feuille/compare/v0.58.0...v0.59.0) (2026-11-17)
+
+
+### Features
+
+* **chart:** values pour tirer les images depuis ghcr sans toucher à Redis ([506185d](https://github.com/IA-Generative/mille-feuille/commit/506185d34586489744bb49c6f0d7de80c99e0b52))
+
+
+### Bug Fixes
+
+* **deps:** certifi et filelock dans les workers classification et extraction ([d40af50](https://github.com/IA-Generative/mille-feuille/commit/d40af50f479ba9bd677131a36cec3abc4c59eb37))
+* **deps:** corriger les vulnérabilités des dépendances Python et frontend ([ec1fa6a](https://github.com/IA-Generative/mille-feuille/commit/ec1fa6aa74de87eb2592deaf906e3378722f6a5f))
+* **deps:** mako 1.4.3 et retrait de pip des images d'exécution Python ([94b2ada](https://github.com/IA-Generative/mille-feuille/commit/94b2adaacccd752e7d02454861b53f30abc8ec34))
+
 ## [0.58.0](https://github.com/IA-Generative/mille-feuille/compare/v0.57.0...v0.58.0) (2026-11-17)
 
 
