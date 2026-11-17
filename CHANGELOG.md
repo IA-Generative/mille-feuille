@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.56.0](https://github.com/IA-Generative/mille-feuille/compare/v0.55.0...v0.56.0) (2026-11-17)
+
+
+### Features
+
+* **chart:** compatibilité OpenShift SCC via global.openshift.enabled ([78b02f9](https://github.com/IA-Generative/mille-feuille/commit/78b02f9b284628f39b547b94ed6b9ae41f8b0130))
+
 ## [0.55.0](https://github.com/IA-Generative/mille-feuille/compare/v0.54.0...v0.55.0) (2026-11-17)
 
 
