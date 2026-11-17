@@ -6,7 +6,7 @@ metadata:
   name: {{ include "helper.componentFullname" (dict "root" . "componentName" "worker_document") }}
   labels: {{- (include "helper.labels" (dict "root" . "componentName" "worker_document")) | nindent 4 }}
 spec:
-  {{- if not (or .Values.worker_document.autoscaling.enabled .Values.worker_document.kedaAutoscaler.enabled) }}
+  {{- if not (or .Values.worker_document.autoscaling.enabled (include "helper.kedaEnabled" (dict "root" . "component" .Values.worker_document))) }}
   replicas: {{ .Values.worker_document.replicaCount }}
   {{- end }}
   revisionHistoryLimit: {{ .Values.worker_document.revisionHistoryLimit | default 10 }}

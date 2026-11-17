@@ -17,6 +17,7 @@
       "type": "object",
       "additionalProperties": true,
       "properties": {
+    "keda": { "type": "object", "properties": { "enabled": { "type": "boolean" } } },
         "registry": { "type": "string" },
         "repository": { "type": "string" },
         "pullPolicy": { "$ref": "#/definitions/pullPolicy" },

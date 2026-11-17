@@ -14,6 +14,11 @@ fullnameOverride: ""
 # -- Add labels to all the deployed resources
 # @section -- General
 commonLabels: {}
+# -- KEDA support. Set `enabled: false` on platforms where the KEDA CRDs (keda.sh/v1alpha1) are not installed:
+# no ScaledObject/TriggerAuthentication is rendered and the workers use their `replicaCount` instead.
+# @section -- General
+keda:
+  enabled: true
 global:
   # -- List or map of `configMapRef`/`secretRef` entries to load into every container's
   # `envFrom` (merged with each component's own `envFrom`, global entries first).

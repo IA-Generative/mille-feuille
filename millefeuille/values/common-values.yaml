@@ -839,7 +839,8 @@ extraObjects:
   #   "connection to redis failed: dial tcp <redis-ip>:6379: i/o timeout"
   # The Redis pods carry the RELEASE name as `app.kubernetes.io/instance` (not the service name
   # `millefeuille-redis`), so the selector uses it.
-  millefeuille-redis-keda-netpol:
+  millefeuille-redis-keda-netpol: |
+    {{- if .Values.keda.enabled }}
     apiVersion: networking.k8s.io/v1
     kind: NetworkPolicy
     metadata:
@@ -859,6 +860,7 @@ extraObjects:
         ports:
         - protocol: TCP
           port: 6379
+    {{- end }}
 
 # A known external S3 (s3.fr-par.scw.cloud, same one used for cnpg backups) is used instead -
 # no need to self-host object storage.

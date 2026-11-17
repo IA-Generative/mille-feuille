@@ -1,6 +1,6 @@
 {{- if .Values.enabled }}
 {{- $k := .Values.worker_document.kedaAutoscaler }}
-{{- if $k.enabled }}
+{{- if include "helper.kedaEnabled" (dict "root" . "component" .Values.worker_document) }}
 apiVersion: keda.sh/v1alpha1
 kind: ScaledObject
 metadata:
