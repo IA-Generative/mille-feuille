@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.54.0](https://github.com/IA-Generative/mille-feuille/compare/v0.53.0...v0.54.0) (2026-11-17)
+
+
+### Features
+
+* **extraction:** nature des entités et passages de texte brut des prédictions ([3faa73e](https://github.com/IA-Generative/mille-feuille/commit/3faa73e723755771c37dd4e3a59ebab15cc60e3b))
+* **front:** nature des entités et texte brut dans l'explorateur d'extraction ([adc7f73](https://github.com/IA-Generative/mille-feuille/commit/adc7f73a69f9b471414e70351f58e0b437ed12c7))
+* **worker:** extraction sémantique par LLM et passages avec span et bbox ([547327e](https://github.com/IA-Generative/mille-feuille/commit/547327eeeb0354137aebc739218e8e04bc7e6879))
+
 ## [0.53.0](https://github.com/IA-Generative/mille-feuille/compare/v0.52.1...v0.53.0) (2026-11-16)
 
 
