@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.60.0](https://github.com/IA-Generative/mille-feuille/compare/v0.59.1...v0.60.0) (2026-11-17)
+
+
+### Features
+
+* **chart:** values pour désactiver la vérification TLS (dépannage) ([54335b7](https://github.com/IA-Generative/mille-feuille/commit/54335b76b1799a45f2c3c2ccf1fb82190a80e394))
+* variables SSL_VERIFY et SSL_CA_BUNDLE explicites dans chaque service ([179fc8f](https://github.com/IA-Generative/mille-feuille/commit/179fc8ff0178640330f9e6b40365db482b9bf519))
+
 ## [0.59.1](https://github.com/IA-Generative/mille-feuille/compare/v0.59.0...v0.59.1) (2026-11-17)
 
 
