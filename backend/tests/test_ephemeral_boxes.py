@@ -13,6 +13,10 @@ def _box(page_id: uuid.UUID, x_min: float) -> SimpleNamespace:
     return SimpleNamespace(document_page_id=page_id, x_min=x_min, y_min=0.1, x_max=x_min + 0.2, y_max=0.12)
 
 
+def _passage(page_id: uuid.UUID, start: int, end: int) -> SimpleNamespace:
+    return SimpleNamespace(document_page_id=page_id, text="Dupont", char_start=start, char_end=end)
+
+
 def test_each_page_of_a_multi_page_entity_only_gets_its_own_boxes() -> None:
     page_1, page_2 = uuid.uuid4(), uuid.uuid4()
     prediction = SimpleNamespace(
@@ -23,6 +27,7 @@ def test_each_page_of_a_multi_page_entity_only_gets_its_own_boxes() -> None:
         confidence=0.9,
         source=PredictionSource.GLINER,
         bounding_boxes=[_box(page_1, 0.3), _box(page_2, 0.5)],
+        passages=[_passage(page_1, 0, 6), _passage(page_2, 10, 16)],
     )
     run = SimpleNamespace(
         id=uuid.uuid4(),
@@ -46,6 +51,9 @@ def test_each_page_of_a_multi_page_entity_only_gets_its_own_boxes() -> None:
     assert [entity.pages for entity in (pages[0].entities[0], pages[1].entities[0])] == [[1, 2], [1, 2]]
     assert [(b.x_min, b.x_max) for b in pages[0].entities[0].boxes] == [(0.3, 0.5)]
     assert [(b.x_min, b.x_max) for b in pages[1].entities[0].boxes] == [(0.5, 0.7)]
+    # Comme les zones, chaque page ne reçoit que son propre passage de texte brut.
+    assert [(p.char_start, p.char_end) for p in pages[0].entities[0].passages] == [(0, 6)]
+    assert [(p.char_start, p.char_end) for p in pages[1].entities[0].passages] == [(10, 16)]
 
 
 def test_an_entity_that_could_not_be_located_has_no_boxes() -> None:
@@ -58,6 +66,7 @@ def test_an_entity_that_could_not_be_located_has_no_boxes() -> None:
         confidence=None,
         source=PredictionSource.TEXTUAL,
         bounding_boxes=[],
+        passages=[],
     )
     run = SimpleNamespace(
         id=uuid.uuid4(),

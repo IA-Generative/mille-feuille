@@ -84,7 +84,14 @@ def test_unknown_result_is_404(client: TestClient) -> None:
 
 def _prediction(kind: str, name: str, value: str, confidence: float, source: str = "textual") -> SimpleNamespace:
     return SimpleNamespace(
-        id=uuid.uuid4(), kind=kind, name=name, value=value, confidence=confidence, source=source, bounding_boxes=[]
+        id=uuid.uuid4(),
+        kind=kind,
+        name=name,
+        value=value,
+        confidence=confidence,
+        source=source,
+        bounding_boxes=[],
+        passages=[],
     )
 
 
