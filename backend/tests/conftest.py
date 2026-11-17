@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -26,6 +28,30 @@ def _no_real_celery_dispatch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("app.routers.dossiers.dispatch_text_extraction", lambda document_id: None)
     # Supprimer un dossier déposerait la suppression de son index de recherche sur la file partagée.
     monkeypatch.setattr("app.repositories.dossier_repository.dispatch_drop_index", lambda dossier_id: None)
+
+
+@pytest.fixture(autouse=True)
+def _drain_agent_jobs(request: pytest.FixtureRequest):
+    """Un travail lancé en arrière-plan (envoi d'un message de chat...) ne doit pas survivre à son test : il
+    tournerait pendant le suivant et y appellerait son faux LLM (`KeyError: 'Hello stats'`, ou une question en trop dans
+    les appels comptés). On l'annule et on l'attend avant de passer au test suivant. Sans effet pour un test qui
+    n'utilise pas `client` (pas d'application, donc pas de travail)."""
+    # Pris avant le test : à la fin, la fixture serait peut-être déjà démontée. Seul le `client` de cette suite compte
+    # (certains fichiers de tests définissent le leur, sans application).
+    client = request.getfixturevalue("client") if "client" in request.fixturenames else None
+    yield
+    if not isinstance(client, TestClient):
+        return
+    from app.agent.runner import agent_runner
+
+    async def drain() -> None:
+        running = list(agent_runner._tasks.values())
+        for task in running:
+            task.cancel()
+        if running:
+            await asyncio.gather(*running, return_exceptions=True)
+
+    client.portal.call(drain)
 
 
 # Fixtures partagées des tests d'accès aux dossiers (issue #177) : `world` (personnes et groupes), `analyse`.
