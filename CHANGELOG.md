@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.55.0](https://github.com/IA-Generative/mille-feuille/compare/v0.54.0...v0.55.0) (2026-11-17)
+
+
+### Features
+
+* **chart:** rendre KEDA optionnel via keda.enabled ([c0c4331](https://github.com/IA-Generative/mille-feuille/commit/c0c433177c4f8bf70c45760d9e3e4e2681f69d72))
+* **front:** create EditorIntro component to describe what to do in analyses ([674ef74](https://github.com/IA-Generative/mille-feuille/commit/674ef74d85dae1641349a8bfd911641419adcf60))
+* **ui:** add descriptions in steps for analysing texte ([e97fba2](https://github.com/IA-Generative/mille-feuille/commit/e97fba2519071abbe8d9929bbd7ba7154e438673))
+
 ## [0.54.0](https://github.com/IA-Generative/mille-feuille/compare/v0.53.0...v0.54.0) (2026-11-17)
 
 
