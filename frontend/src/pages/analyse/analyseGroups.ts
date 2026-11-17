@@ -6,6 +6,8 @@ export interface AnalyseSection {
   title: string;
   /** Question à laquelle répond la section, affichée dans l'assistant pas à pas. */
   hint: string;
+  /** Questions qui renvoient à une action visible sur la page (remplacent `hint` si présentes). */
+  checks?: { label: string; optional?: boolean }[];
   routeName: string;
 }
 
@@ -23,8 +25,20 @@ export const ANALYSE_GROUPS: AnalyseGroup[] = [
     title: "Analyse du dossier",
     icon: "ri-price-tag-3-line",
     sections: [
-      { title: "Classification documentaire", hint: "Comment reconnaître le type de chaque pièce jointe ?", routeName: "analyse-classification" },
-      { title: "Extraction d'entités", hint: "Quelles informations extraire de chaque pièce ?", routeName: "analyse-extraction" },
+      { title: "Classification documentaire",
+        hint: "Comment reconnaître le type de chaque pièce jointe ?",
+        checks: [
+          { label: "La méthode de classification a-t-elle été insérée dans le prompt ci-dessous ?" },
+          { label: "Cette analyse a-t-elle ses labels de classification ?", optional: true }
+        ],
+        routeName: "analyse-classification" },
+      { title: "Extraction d'entités",
+        hint: "Quelles informations extraire de chaque pièce ?",
+        checks: [
+          { label: "La méthode d'extraction a-t-elle été insérée dans le prompt ci-dessous ?" },
+          { label: "Les entités à extraire sont-elles définies dans la liste en dessous ?" },
+        ],
+        routeName: "analyse-extraction" },
       { title: "Agents", hint: "Quelles analyses l'IA doit-elle mener sur le dossier ?", routeName: "analyse-agents" },
     ],
   },

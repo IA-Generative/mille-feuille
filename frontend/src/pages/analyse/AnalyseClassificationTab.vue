@@ -34,7 +34,11 @@ onMounted(() => {
       :suggest-prompt="suggestClassificationPrompt"
       @save="(prompt) => updateClassificationPrompt(analyse!.id, prompt)"
       @restore="(versionId) => restoreClassificationPromptVersion(analyse!.id, versionId)"
-    />
+    >
+      <template #description>
+        Ce prompt explique à l'agent IA comment classer les documents du dossier. Pas encore de version en Markdown ? Décrivez votre besoin en quelques mots (3 mots minimum) dans la zone « Prompt (Markdown) », puis cliquez sur « Aide à la rédaction du prompt », sous la zone de texte : l'IA vous propose un prompt. Modifiez-le si besoin, puis cliquez sur « Enregistrer ». « Aperçu » montre le rendu en Markdown.
+      </template>
+    </PromptEditor>
     <hr class="analyse-tab__divider" />
     <LabelsEditor
       :labels="analyse.classification.labels"

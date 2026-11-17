@@ -5,7 +5,7 @@ import ModelPicker from "@/components/ModelPicker.vue";
 import { useModels } from "@/composables/useModels";
 
 withDefaults(
-  defineProps<{ label?: string; compact?: boolean; loading?: boolean; disabled?: boolean; disabledHint?: string }>(),
+  defineProps<{ label?: string; compact?: boolean; loading?: boolean; disabled?: boolean; disabledHint?: string; describedby?: string }>(),
   {
     label: "Aide LLM",
     compact: false,
@@ -32,6 +32,7 @@ function onClick() {
     <button
       type="button"
       class="llm-assist-button"
+      :aria-describedby="describedby || undefined"
       :class="{ 'llm-assist-button--compact': compact }"
       :title="disabled && disabledHint ? disabledHint : compact ? label : undefined"
       :disabled="loading || disabled"
@@ -53,6 +54,7 @@ function onClick() {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .llm-assist-button {

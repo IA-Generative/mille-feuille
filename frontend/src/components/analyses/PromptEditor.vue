@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { nextTick, ref, useId, watch } from "vue";
 
 import MarkdownText from "@/components/MarkdownText.vue";
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
@@ -19,11 +19,16 @@ const props = withDefaults(
 
 const emit = defineEmits<{ save: [string]; restore: [string] }>();
 
+const descriptionId = useId();
+const assistHintId = useId();
+
 const draft = ref(props.prompt);
 const isDirty = ref(false);
 const isSuggesting = ref(false);
 // Aperçu rendu par défaut ; l'édition s'ouvre d'emblée tant qu'aucun prompt n'est défini.
 const mode = ref<"preview" | "edit">(props.prompt.trim() ? "preview" : "edit");
+const statusMessage = ref("");
+const titleRef = ref<HTMLElement | null>(null);
 
 watch(
   () => props.prompt,
@@ -35,15 +40,19 @@ watch(
 
 watch(draft, (value) => {
   isDirty.value = value !== props.prompt;
+  statusMessage.value = "";
 });
 
 async function applySuggestion(model: string | null) {
   if (!props.suggestPrompt) return;
   isSuggesting.value = true;
+  statusMessage.value = "Génération du prompt en cours…";
   try {
     draft.value = await props.suggestPrompt(draft.value, model);
     mode.value = "preview";
+    statusMessage.value = "Prompt généré, aperçu affiché.";
   } catch (error) {
+    statusMessage.value = "";
     alert(error instanceof Error ? error.message : "Échec de l'aide LLM.");
   } finally {
     isSuggesting.value = false;
@@ -53,6 +62,9 @@ async function applySuggestion(model: string | null) {
 function save() {
   emit("save", draft.value);
   mode.value = "preview";
+  statusMessage.value = "Prompt enregistré.";
+  // « Enregistrer » se grise juste après le clic : on remet le focus sur le titre pour ne pas le perdre.
+  nextTick(() => titleRef.value?.focus());
 }
 
 function formatVersionContent(content: string) {
@@ -63,21 +75,27 @@ function formatVersionContent(content: string) {
 <template>
   <div class="prompt-editor">
     <div class="prompt-editor__header">
-      <h4 class="fr-h6 prompt-editor__title">Prompt</h4>
+      <h4 ref="titleRef" tabindex="-1" class="fr-h6 prompt-editor__title">Prompt</h4>
       <DsfrButtonGroup
         inline-layout-when="always"
         size="sm"
         :buttons="[
-          { label: 'Aperçu', secondary: mode !== 'preview', onClick: () => (mode = 'preview') },
-          { label: 'Modifier', secondary: mode !== 'edit', onClick: () => (mode = 'edit') },
+          { 'aria-pressed': mode === 'preview', label: 'Aperçu', secondary: mode !== 'preview', onClick: () => (mode = 'preview') },
+          { 'aria-pressed': mode === 'edit', label: 'Modifier', secondary: mode !== 'edit', onClick: () => (mode = 'edit') },
         ]"
       />
     </div>
     <p class="fr-hint-text prompt-editor__hint">Version actuelle. {{ versions.length }} version(s) précédente(s).</p>
+    <p class="fr-sr-only" role="status">{{ statusMessage }}</p>
+
+    <DsfrAlert v-if="$slots.description" type="info" small class="prompt-editor__intro">
+      <div :id="descriptionId"><slot name="description" /></div>
+    </DsfrAlert>
 
     <DsfrInput
       v-if="mode === 'edit'"
       v-model="draft"
+      :description-id="$slots.description ? descriptionId : undefined"
       label="Prompt (Markdown)"
       label-visible
       is-textarea
@@ -96,9 +114,17 @@ function formatVersionContent(content: string) {
         :loading="isSuggesting"
         :disabled="!hasEnoughWords(draft)"
         :disabled-hint="ASSIST_MIN_WORDS_HINT"
+        :describedby="!hasEnoughWords(draft) ? assistHintId : undefined"
         @click="applySuggestion"
       />
       <DsfrButton label="Enregistrer" :disabled="!isDirty" size="sm" @click="save" />
+    </div>
+
+    <div v-if="(suggestPrompt && !hasEnoughWords(draft)) || !isDirty" class="prompt-editor__hints">
+      <p v-if="suggestPrompt && !hasEnoughWords(draft)" :id="assistHintId" class="fr-hint-text fr-mb-0">
+        {{ ASSIST_MIN_WORDS_HINT }}
+      </p>
+      <p v-if="!isDirty" class="fr-hint-text fr-mb-0">Aucune modification à enregistrer.</p>
     </div>
 
     <VersionHistory markdown :versions="versions" :format-content="formatVersionContent" @restore="emit('restore', $event)" />
@@ -118,6 +144,12 @@ function formatVersionContent(content: string) {
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+.prompt-editor__hints {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .prompt-editor__title,
