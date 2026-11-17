@@ -51,6 +51,7 @@ Kubernetes: `>=1.25.0-0`
 | global.ingress.hosts | list | `[]` | Hosts and paths served by the chart-level ingress. Each path's `backend.serviceName` is required (see above); `backend.portNumber` defaults to 80. |
 | global.ingress.labels | object | `{}` | Additional ingress labels. |
 | global.ingress.tls | list | `[]` | TLS configuration for the chart-level ingress. |
+| global.openshift.enabled | bool | `false` | OpenShift / restricted SCC compatibility. When `true`, `runAsUser`, `runAsGroup`, `fsGroup` and `fsGroupChangePolicy` are removed from every pod/container/init container security context so the platform assigns the UID/GID from the namespace range (`restricted-v2` rejects fixed values such as 1000). `runAsNonRoot`, dropped capabilities and seccomp stay. Images must run under an arbitrary UID (group 0 owning the writable paths). Does not touch the bundled subcharts (redis, qdrant, cnpg). |
 | global.projectName | string | `""` | Project (e.g. a Harbor project) prepended to the `repository` of every image: set it once here and write `repository: "mille-feuille-backend"` instead of `"<project>/mille-feuille-backend"` in each component. Empty (default): repositories are used as written. A repository that already starts with `<projectName>/` is not prefixed twice. |
 
 ### Backend

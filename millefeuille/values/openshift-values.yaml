@@ -1,0 +1,27 @@
+# Surcharge OpenShift (SCC `restricted-v2`) : à ajouter APRÈS common-values.yaml.
+#
+# La plateforme attribue elle-même l'UID/GID (plage du namespace, ex. 1001540000-1001549999) et refuse
+# les valeurs fixes de l'image/du chart (`runAsUser: 1000`, `fsGroup: 1000`…).
+#   helm template millefeuille ./millefeuille -f values/common-values.yaml -f values/openshift-values.yaml
+#
+# Prérequis : les images doivent tourner sous un UID arbitraire (chemins inscriptibles appartenant au groupe 0).
+global:
+  openshift:
+    # Retire runAsUser/runAsGroup/fsGroup/fsGroupChangePolicy de tous les pods, containers et initContainers du chart.
+    enabled: true
+
+# Sous-charts : leurs IDs fixes ne passent pas par le réglage ci-dessus ; `null` les retire.
+redis:
+  podSecurityContext:
+    fsGroup: null
+  containerSecurityContext:
+    runAsUser: null
+    runAsGroup: null
+qdrant:
+  podSecurityContext:
+    fsGroup: null
+    runAsUser: null
+    runAsGroup: null
+  containerSecurityContext:
+    runAsUser: null
+    runAsGroup: null

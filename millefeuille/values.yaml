@@ -20,6 +20,14 @@ commonLabels: {}
 keda:
   enabled: true
 global:
+  openshift:
+    # -- OpenShift / restricted SCC compatibility. When `true`, `runAsUser`, `runAsGroup`, `fsGroup` and
+    # `fsGroupChangePolicy` are removed from every pod/container/init container security context so the
+    # platform assigns the UID/GID from the namespace range (`restricted-v2` rejects fixed values such as
+    # 1000). `runAsNonRoot`, dropped capabilities and seccomp stay. Images must run under an arbitrary UID
+    # (group 0 owning the writable paths). Does not touch the bundled subcharts (redis, qdrant, cnpg).
+    # @section -- Global
+    enabled: false
   # -- List or map of `configMapRef`/`secretRef` entries to load into every container's
   # `envFrom` (merged with each component's own `envFrom`, global entries first).
   # @section -- Global
