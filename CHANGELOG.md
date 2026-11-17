@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.59.1](https://github.com/IA-Generative/mille-feuille/compare/v0.59.0...v0.59.1) (2026-11-17)
+
+
+### Bug Fixes
+
+* **frontend:** base nginx 1.30 et apk upgrade pour corriger les alertes Trivy ([e56a9b4](https://github.com/IA-Generative/mille-feuille/commit/e56a9b43e5c8cfba1ce24bf9f34671716989fb43))
+
 ## [0.59.0](https://github.com/IA-Generative/mille-feuille/compare/v0.58.0...v0.59.0) (2026-11-17)
 
 
