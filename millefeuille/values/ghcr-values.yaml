@@ -1,0 +1,41 @@
+# Surcharge « images depuis GitHub Container Registry » : à ajouter APRÈS common-values.yaml.
+#   helm template millefeuille ./millefeuille -f values/common-values.yaml -f values/ghcr-values.yaml
+#
+# N'utilise PAS `global.imageRegistry` : ce réglage est aussi lu par le sous-chart Redis, qui irait chercher
+# `ghcr.io/redis/redis-stack-server` (inexistant : 403 / ImagePullBackOff). Le registre est donc posé composant par
+# composant ; Redis et Qdrant gardent leur registre (docker.io).
+#
+# Sur ghcr les images s'appellent `ia-generative/mille-feuille/<service>` (voir .github/workflows/cd.yml), pas
+# `mille-feuille-<service>` comme sur Harbor : d'où les `repository` ci-dessous. Si les packages ghcr sont privés,
+# ajouter un `imagePullSecrets` avec un jeton `read:packages`.
+# `worker_async_api` n'est pas construit par la CD : il n'a pas d'image sur ghcr, laissez-le désactivé.
+global:
+  imageProject: "ia-generative/mille-feuille"
+
+backend:
+  image: {registry: "ghcr.io", repository: "backend"}
+frontend:
+  image: {registry: "ghcr.io", repository: "frontend"}
+ephemeral_frontend:
+  image: {registry: "ghcr.io", repository: "ephemeral-frontend"}
+worker_document:
+  image: {registry: "ghcr.io", repository: "worker-document-process"}
+worker_render:
+  image: {registry: "ghcr.io", repository: "worker-document-render"}
+worker_classification:
+  image: {registry: "ghcr.io", repository: "worker-classification"}
+worker_extraction:
+  image: {registry: "ghcr.io", repository: "worker-extraction"}
+worker_ocr_layout:
+  image: {registry: "ghcr.io", repository: "worker-ocr-layout"}
+worker_ocr:
+  image: {registry: "ghcr.io", repository: "worker-ocr"}
+worker_ocr_table:
+  image: {registry: "ghcr.io", repository: "worker-ocr-table"}
+worker_ocr_vision:
+  image: {registry: "ghcr.io", repository: "worker-ocr-vision"}
+
+# L'init container `wait-for-postgres` suit l'image du backend (registre et dépôt), le job de migration a la sienne.
+jobs:
+  migration:
+    image: {registry: "ghcr.io", repository: "backend"}
