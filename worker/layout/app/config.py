@@ -48,7 +48,20 @@ class LayoutSettings(BaseSettings):
     def celery_result_backend(self) -> str:
         return self.CELERY_RESULT_BACKEND or self.REDIS_URL or "redis://localhost:6379/0"
 
+    # Vérification des certificats TLS des appels sortants (backend, LLM, S3). Activée par défaut ;
+    # `SSL_CA_BUNDLE` (fichier PEM) ajoute une autorité interne ; `SSL_VERIFY=false` la désactive :
+    # dépannage uniquement, jamais en production.
+    SSL_VERIFY: bool = True
+    SSL_CA_BUNDLE: str = ""
+
     model_config = SettingsConfigDict(case_sensitive=True, env_file=(".env", ".env.local"), extra="ignore")
+
+    @property
+    def ssl_verify(self) -> bool | str:
+        """Paramètre `verify` de httpx et boto3 : `False`, le chemin d'une CA, ou `True`."""
+        if not self.SSL_VERIFY:
+            return False
+        return self.SSL_CA_BUNDLE or True
 
 
 settings = LayoutSettings()

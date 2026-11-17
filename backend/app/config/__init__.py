@@ -9,6 +9,7 @@ from .redis import RedisSettings
 from .search import SearchSettings
 from .sharing import SharingSettings
 from .storage import StorageSettings
+from .tls import TlsSettings
 from .tools import ToolSettings
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "SearchSettings",
     "SharingSettings",
     "StorageSettings",
+    "TlsSettings",
     "ToolSettings",
 ]

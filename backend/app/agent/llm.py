@@ -3,17 +3,18 @@ résumés, suggestions d'analyses. Chaque appel déclare sa consommation (voir u
 
 import logging
 
-from openai import AsyncOpenAI, OpenAI
+from openai import AsyncOpenAI, DefaultAsyncHttpxClient, DefaultHttpxClient, OpenAI
 from pydantic import BaseModel, Field
 
 from app.agent import model_router, usage
 from app.agent.document_generation import GeneratedFields
-from app.config import LlmSettings
+from app.config import LlmSettings, TlsSettings
 from app.models.token_usage import TokenUsageKind
 
 logger = logging.getLogger(__name__)
 
 _llm_settings = LlmSettings()
+_tls = TlsSettings()
 _client_instance: AsyncOpenAI | None = None
 _sync_client_instance: OpenAI | None = None
 
@@ -24,7 +25,10 @@ def client() -> AsyncOpenAI:
         raise RuntimeError("OPENAI_API_KEY et OPENAI_API_BASE_URL doivent être configurés pour utiliser l'agent.")
     if _client_instance is None:
         _client_instance = AsyncOpenAI(
-            api_key=_llm_settings.OPENAI_API_KEY, base_url=_llm_settings.OPENAI_API_BASE_URL, timeout=600.0
+            api_key=_llm_settings.OPENAI_API_KEY,
+            base_url=_llm_settings.OPENAI_API_BASE_URL,
+            timeout=600.0,
+            http_client=DefaultAsyncHttpxClient(verify=_tls.verify),
         )
     return _client_instance
 
@@ -36,7 +40,10 @@ def sync_client() -> OpenAI:
         raise RuntimeError("OPENAI_API_KEY et OPENAI_API_BASE_URL doivent être configurés pour utiliser l'agent.")
     if _sync_client_instance is None:
         _sync_client_instance = OpenAI(
-            api_key=_llm_settings.OPENAI_API_KEY, base_url=_llm_settings.OPENAI_API_BASE_URL, timeout=600.0
+            api_key=_llm_settings.OPENAI_API_KEY,
+            base_url=_llm_settings.OPENAI_API_BASE_URL,
+            timeout=600.0,
+            http_client=DefaultHttpxClient(verify=_tls.verify),
         )
     return _sync_client_instance
 

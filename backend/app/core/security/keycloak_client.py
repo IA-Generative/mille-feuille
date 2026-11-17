@@ -1,6 +1,6 @@
 from keycloak import KeycloakOpenID
 
-from app.config import KeycloakSettings
+from app.config import KeycloakSettings, TlsSettings
 from app.connectors import redis_connector
 from app.core.security.session import SessionStore
 
@@ -11,6 +11,7 @@ keycloak_openid = KeycloakOpenID(
     client_id=keycloak_settings.KEYCLOAK_CLIENT_ID,
     realm_name=keycloak_settings.KEYCLOAK_REALM,
     client_secret_key=keycloak_settings.KEYCLOAK_CLIENT_SECRET,
+    verify=TlsSettings().verify,
 )
 
 session_store = SessionStore(

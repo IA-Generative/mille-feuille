@@ -7,7 +7,7 @@ from botocore.exceptions import BotoCoreError, ClientError
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
-from app.config import RedisSettings, StorageSettings
+from app.config import RedisSettings, StorageSettings, TlsSettings
 from app.db import engine as db_engine
 from app.schemas.health import Health
 
@@ -49,6 +49,7 @@ class S3Connector:
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_DEFAULT_REGION,
+            verify=TlsSettings().verify,
             config=BotoConfig(connect_timeout=2, read_timeout=2, retries={"max_attempts": 0}),
         )
 

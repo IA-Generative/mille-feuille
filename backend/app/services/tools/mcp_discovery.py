@@ -9,6 +9,8 @@ from mcp.client.session import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 from mcp_types import PaginatedRequestParams
 
+from app.config import TlsSettings
+
 
 @dataclass(frozen=True)
 class DiscoveredTool:
@@ -45,7 +47,9 @@ class McpToolLister:
 
     async def list_tools(self, url: str, headers: dict[str, str], timeout: float) -> list[DiscoveredTool]:
         try:
-            async with httpx2.AsyncClient(headers=headers, timeout=timeout, transport=self._transport) as http_client:
+            async with httpx2.AsyncClient(
+                headers=headers, timeout=timeout, transport=self._transport, verify=TlsSettings().verify
+            ) as http_client:
                 async with streamable_http_client(url, http_client=http_client) as (read, write):
                     async with ClientSession(read, write) as session:
                         await session.initialize()

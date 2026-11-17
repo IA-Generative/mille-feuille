@@ -86,6 +86,9 @@ backend:
       name: "millefeuille-db-infos"
   # Plain (non-secret) app config - see backend/app/config/*.py for the full settings contract.
   env:
+    # Vérification des certificats TLS des appels sortants (LLM, S3, Keycloak, outils MCP). "true" par défaut ;
+    # SSL_CA_BUNDLE = chemin d'un fichier PEM pour une autorité interne ; "false" = dépannage uniquement.
+    SSL_VERIFY: "true"
     KEYCLOAK_REALM: "mirai"
     KEYCLOAK_CLIENT_ID: "millefeuille"
     SESSION_COOKIE_SECURE: "true"
@@ -134,6 +137,7 @@ worker_document:
   - secretRef:
       name: "millefeuille-redis"
   env:
+    SSL_VERIFY: "true"
     CELERY_QUEUE_NAME: "document_processing"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
@@ -185,6 +189,7 @@ worker_render:
   - secretRef:
       name: "millefeuille-redis"
   env:
+    SSL_VERIFY: "true"
     CELERY_QUEUE_NAME: "document_render"
     # Full endpoint (with scheme), same as the other workers.
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
@@ -229,6 +234,7 @@ worker_classification:
   - secretRef:
       name: "millefeuille-redis"
   env:
+    SSL_VERIFY: "true"
     CELERY_QUEUE_NAME: "classification"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
@@ -271,6 +277,7 @@ worker_extraction:
   - secretRef:
       name: "millefeuille-redis"
   env:
+    SSL_VERIFY: "true"
     CELERY_QUEUE_NAME: "entity_extraction"
     BACKEND_INTERNAL_URL: "http://millefeuille-backend:8000"
 
@@ -308,6 +315,7 @@ worker_ocr_layout:
   - secretRef:
       name: "millefeuille-worker"
   env:
+    SSL_VERIFY: "true"
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
 
 # Celery worker - texte des régions, PP-OCRv5 (worker/ocr).
@@ -344,6 +352,7 @@ worker_ocr:
   - secretRef:
       name: "millefeuille-worker"
   env:
+    SSL_VERIFY: "true"
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
 
 # Celery worker - tableaux, SLANet_plus (worker/table).
@@ -380,6 +389,7 @@ worker_ocr_table:
   - secretRef:
       name: "millefeuille-worker"
   env:
+    SSL_VERIFY: "true"
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
 
 # Celery worker - description des images et tableaux par le VLM du hub (worker/vision).
@@ -418,6 +428,7 @@ worker_ocr_vision:
   - secretRef:
       name: "millefeuille-worker"
   env:
+    SSL_VERIFY: "true"
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
 
 # AsyncTaskAPI worker - RabbitMQ consumer, no Celery (worker/async_api). Lets mille-feuille be consumed

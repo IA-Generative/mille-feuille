@@ -77,7 +77,20 @@ class WorkerSettings(BaseSettings):
     def task_time_limit(self) -> int:
         return self.TASK_TIME_LIMIT_SECONDS or (3600 if self.OCR_ENGINE == "layout" else 300)
 
+    # Vérification des certificats TLS des appels sortants (backend, LLM, S3). Activée par défaut ;
+    # `SSL_CA_BUNDLE` (fichier PEM) ajoute une autorité interne ; `SSL_VERIFY=false` la désactive :
+    # dépannage uniquement, jamais en production.
+    SSL_VERIFY: bool = True
+    SSL_CA_BUNDLE: str = ""
+
     model_config = SettingsConfigDict(case_sensitive=True, env_file=(".env", ".env.local"), extra="ignore")
+
+    @property
+    def ssl_verify(self) -> bool | str:
+        """Paramètre `verify` de httpx et boto3 : `False`, le chemin d'une CA, ou `True`."""
+        if not self.SSL_VERIFY:
+            return False
+        return self.SSL_CA_BUNDLE or True
 
     @property
     def celery_broker_url(self) -> str:

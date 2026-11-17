@@ -4,11 +4,11 @@ from collections.abc import Awaitable, Callable
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, DefaultAsyncHttpxClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent import model_router
-from app.config import LlmSettings
+from app.config import LlmSettings, TlsSettings
 from app.connectors import redis_connector
 from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
@@ -25,7 +25,11 @@ _CHAT_MODELS_CACHE_KEY = "llm:chat_models"
 
 _llm_settings = LlmSettings()
 _openai_client = (
-    AsyncOpenAI(api_key=_llm_settings.OPENAI_API_KEY, base_url=_llm_settings.OPENAI_API_BASE_URL)
+    AsyncOpenAI(
+        api_key=_llm_settings.OPENAI_API_KEY,
+        base_url=_llm_settings.OPENAI_API_BASE_URL,
+        http_client=DefaultAsyncHttpxClient(verify=TlsSettings().verify),
+    )
     if _llm_settings.is_configured
     else None
 )
