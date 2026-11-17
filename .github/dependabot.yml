@@ -1,0 +1,60 @@
+# Mises à jour de version hebdomadaires (les alertes et mises à jour de sécurité de Dependabot restent actives à part).
+# Les PR ciblent `dev`, comme la CD (pré-versions) ; le préfixe `chore(deps)` respecte commitlint et n'entraîne
+# aucune release via release-please. Les mises à jour mineures et correctives sont regroupées par écosystème pour limiter
+# le bruit ; les versions majeures restent une PR chacune, à examiner.
+version: 2
+updates:
+  - package-ecosystem: docker
+    directories:
+      - /frontend
+      - /ephemeral-frontend
+      - /backend
+      - /worker/*
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      docker-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      github-actions-minor-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: uv
+    directories:
+      - /backend
+      - /worker/*
+      - /sdks/python/millefeuille
+      - /sdks/python/millefeuille-ephemeral
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      python-minor-patch:
+        update-types: [minor, patch]
+
+  # pnpm est géré par l'écosystème npm de Dependabot (pnpm-lock.yaml).
+  - package-ecosystem: npm
+    directories:
+      - /frontend
+      - /ephemeral-frontend
+    target-branch: dev
+    schedule:
+      interval: weekly
+    commit-message:
+      prefix: "chore(deps)"
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
