@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.57.0](https://github.com/IA-Generative/mille-feuille/compare/v0.56.0...v0.57.0) (2026-11-17)
+
+
+### Features
+
+* **chart:** projet du registre d'images paramétrable via global.imageProject ([2c0234e](https://github.com/IA-Generative/mille-feuille/commit/2c0234e30cf06dc001bbcc1735a7a125e6d004c3))
+
 ## [0.56.0](https://github.com/IA-Generative/mille-feuille/compare/v0.55.0...v0.56.0) (2026-11-17)
 
 
