@@ -392,15 +392,15 @@ spec:
   serviceAccountName: {{ $serviceAccount.name | default (include "helper.componentFullname" (dict "root" $root "componentName" $name)) }}
   {{- end }}
   {{- if $job.podSecurityContext }}
-  securityContext: {{- toYaml $job.podSecurityContext | nindent 4 }}
+  securityContext: {{- include "helper.securityContext" (dict "root" $root "context" $job.podSecurityContext) | nindent 4 }}
   {{- end }}
   {{- if $job.initContainers }}
-  initContainers: {{- tpl (toYaml $job.initContainers) $root | nindent 2 }}
+  initContainers: {{- tpl (include "helper.containersList" (dict "root" $root "containers" $job.initContainers)) $root | nindent 2 }}
   {{- end }}
   containers:
   - name: {{ $name | replace "_" "-" }}
     {{- if $job.securityContext }}
-    securityContext: {{- toYaml $job.securityContext | nindent 6 }}
+    securityContext: {{- include "helper.securityContext" (dict "root" $root "context" $job.securityContext) | nindent 6 }}
     {{- end }}
     image: {{ include "helper.image" (dict "root" $root "image" $image "context" (printf "jobs/cronjobs %q" $name)) | quote }}
     imagePullPolicy: {{ $image.pullPolicy | default "IfNotPresent" }}
@@ -523,15 +523,15 @@ spec:
   terminationGracePeriodSeconds: {{ $component.terminationGracePeriodSeconds }}
   {{- end }}
   {{- if $component.podSecurityContext }}
-  securityContext: {{- toYaml $component.podSecurityContext | nindent 4 }}
+  securityContext: {{- include "helper.securityContext" (dict "root" $root "context" $component.podSecurityContext) | nindent 4 }}
   {{- end }}
   {{- if $component.initContainers }}
-  initContainers: {{- tpl (toYaml $component.initContainers) $root | nindent 2 }}
+  initContainers: {{- tpl (include "helper.containersList" (dict "root" $root "containers" $component.initContainers)) $root | nindent 2 }}
   {{- end }}
   containers:
   - name: {{ $name | replace "_" "-" }}
     {{- if $component.securityContext }}
-    securityContext: {{- toYaml $component.securityContext | nindent 6 }}
+    securityContext: {{- include "helper.securityContext" (dict "root" $root "context" $component.securityContext) | nindent 6 }}
     {{- end }}
     image: {{ include "helper.image" (dict "root" $root "image" $component.image "context" $name) | quote }}
     imagePullPolicy: {{ $component.image.pullPolicy }}
@@ -681,4 +681,34 @@ Usage: include "helper.kedaEnabled" (dict "root" . "component" .Values.worker_x)
 */}}
 {{- define "helper.kedaEnabled" -}}
 {{- if and .root.Values.keda.enabled .component.kedaAutoscaler .component.kedaAutoscaler.enabled -}}true{{- end -}}
+{{- end -}}
+
+{{/*
+Drops the fixed IDs (runAsUser, runAsGroup, fsGroup, fsGroupChangePolicy) from a security context when
+`global.openshift.enabled` is true: the restricted-v2 SCC assigns the UID/GID from the namespace range and
+rejects any hardcoded value outside it. `runAsNonRoot`, capabilities, seccomp... are kept.
+Usage: include "helper.securityContext" (dict "root" $root "context" $sc)  -> YAML (empty if nothing left)
+*/}}
+{{- define "helper.securityContext" -}}
+{{- $sc := .context -}}
+{{- if .root.Values.global.openshift.enabled -}}
+{{- $sc = omit $sc "runAsUser" "runAsGroup" "fsGroup" "fsGroupChangePolicy" -}}
+{{- end -}}
+{{- toYaml $sc -}}
+{{- end -}}
+
+{{/*
+Same as above for a list of (init)containers: strips the IDs from each container's `securityContext`.
+Usage: include "helper.containersList" (dict "root" $root "containers" $list)  -> YAML list
+*/}}
+{{- define "helper.containersList" -}}
+{{- $out := list -}}
+{{- range .containers -}}
+{{- $c := deepCopy . -}}
+{{- if and $.root.Values.global.openshift.enabled $c.securityContext -}}
+{{- $_ := set $c "securityContext" (omit $c.securityContext "runAsUser" "runAsGroup" "fsGroup" "fsGroupChangePolicy") -}}
+{{- end -}}
+{{- $out = append $out $c -}}
+{{- end -}}
+{{- toYaml $out -}}
 {{- end -}}
