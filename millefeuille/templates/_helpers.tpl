@@ -71,7 +71,7 @@ Parameters:
 {{- $image := .image | default dict -}}
 {{- $registry := $root.Values.global.imageRegistry | default $image.registry -}}
 {{- $repository := $image.repository | required (printf "%s is missing image.repository" .context) -}}
-{{- $project := $root.Values.global.projectName | default "" | trimAll "/" -}}
+{{- $project := $root.Values.global.imageProject | default $root.Values.global.projectName | default "" | trimAll "/" -}}
 {{- if and $project (not (hasPrefix (printf "%s/" $project) $repository)) -}}
 {{- $repository = printf "%s/%s" $project $repository -}}
 {{- end -}}
