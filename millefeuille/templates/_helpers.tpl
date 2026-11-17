@@ -348,7 +348,7 @@ Parameters:
 {{- if and $component.autoscaling.enabled (not $component.autoscaling.targetCPUUtilizationPercentage) (not $component.autoscaling.targetMemoryUtilizationPercentage) -}}
 {{- fail (printf "%s.autoscaling needs targetCPUUtilizationPercentage and/or targetMemoryUtilizationPercentage - an HPA with no metric never scales" $name) -}}
 {{- end -}}
-{{- if and $component.kedaAutoscaler $component.kedaAutoscaler.enabled $component.autoscaling.enabled -}}
+{{- if and (include "helper.kedaEnabled" (dict "root" .root "component" $component)) $component.autoscaling.enabled -}}
 {{- fail (printf "%s.kedaAutoscaler.enabled and %s.autoscaling.enabled are mutually exclusive - KEDA creates its own HPA, a second one fights it" $name $name) -}}
 {{- end -}}
 {{- if and $component.image.digest (not (regexMatch "^[a-z0-9]+:[a-fA-F0-9]{32,}$" $component.image.digest)) -}}
@@ -672,4 +672,13 @@ Parameters:
 {{- end -}}
 {{- $env = $env | toString | default "dev" -}}
 {{- printf "%s/millefeuille/%s" $env .secret -}}
+{{- end -}}
+
+{{/*
+KEDA is active for a component only if the global `keda.enabled` switch AND the component's own
+`kedaAutoscaler.enabled` are both true. Renders "true" or "" (use with `include ... | eq "true"`).
+Usage: include "helper.kedaEnabled" (dict "root" . "component" .Values.worker_x)
+*/}}
+{{- define "helper.kedaEnabled" -}}
+{{- if and .root.Values.keda.enabled .component.kedaAutoscaler .component.kedaAutoscaler.enabled -}}true{{- end -}}
 {{- end -}}

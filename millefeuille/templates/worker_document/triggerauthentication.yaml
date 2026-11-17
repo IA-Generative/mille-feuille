@@ -1,6 +1,6 @@
 {{- if .Values.enabled }}
 {{- $k := .Values.worker_document.kedaAutoscaler }}
-{{- if and $k.enabled $k.redis.secretRef $k.redis.secretKey }}
+{{- if and (include "helper.kedaEnabled" (dict "root" . "component" .Values.worker_document)) $k.redis.secretRef $k.redis.secretKey }}
 apiVersion: keda.sh/v1alpha1
 kind: TriggerAuthentication
 metadata:
