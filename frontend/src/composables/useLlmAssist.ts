@@ -3,7 +3,7 @@
 // useLlmComplete.ts). `model` vient du LlmAssistButton qui a déclenché
 // l'appel (null = « Auto », choisi côté backend).
 import { completeChat, parseJsonFromCompletion } from "@/composables/useLlmComplete";
-import type { EntityDefinition, EntityType, LabelDefinition } from "@/types/analyse";
+import type { EntityDefinition, EntityNature, EntityType, LabelDefinition } from "@/types/analyse";
 
 export const MIN_ASSIST_WORDS = 3;
 
@@ -87,8 +87,10 @@ export async function suggestEntities(model: string | null = null): Promise<Omit
   const content = await completeChat(
     "Propose une liste d'entités à extraire de documents administratifs français (nom, prénom, date de " +
       "naissance, adresse postale, numéro de pièce...). Réponds uniquement avec un JSON strict de la forme " +
-      '[{"name": "...", "definition": "...", "type": "texte"|"date"|"nombre"|"booléen"|"identifiant"}], sans ' +
-      "balises ni explication.",
+      '[{"name": "...", "definition": "...", "type": "texte"|"date"|"nombre"|"booléen"|"identifiant", ' +
+      '"nature": "entité"|"sémantique"}]. « entité » : valeur recopiée telle quelle du texte (nom, date, numéro) ; ' +
+      '« sémantique » : valeur à comprendre ou à déduire (résumé, objet de la demande, présence d\'une mention). ' +
+      "Réponds sans balises ni explication.",
     model,
   );
   return parseJsonFromCompletion<Omit<EntityDefinition, "id">[]>(content);
@@ -106,14 +108,15 @@ export async function suggestLabelDefinition(name: string, model: string | null 
 export async function suggestEntityDefinition(
   name: string,
   model: string | null = null,
-): Promise<{ definition: string; type: EntityType }> {
+): Promise<{ definition: string; type: EntityType; nature: EntityNature }> {
   const content = await completeChat(
     `Propose, en français, une définition concise et un type pour l'entité "${name}" à extraire de documents ` +
       'administratifs. Réponds uniquement avec un JSON strict de la forme {"definition": "...", "type": ' +
-      '"texte"|"date"|"nombre"|"booléen"|"identifiant"}, sans balises ni explication.',
+      '"texte"|"date"|"nombre"|"booléen"|"identifiant", ' +
+      '"nature": "entité" (valeur recopiée du texte) | "sémantique" (valeur à comprendre ou à déduire)}, sans balises ni explication.',
     model,
   );
-  return parseJsonFromCompletion<{ definition: string; type: EntityType }>(content);
+  return parseJsonFromCompletion<{ definition: string; type: EntityType; nature: EntityNature }>(content);
 }
 
 // --- Modèles de document (administration, issue #139) ---

@@ -24,8 +24,14 @@ function mapLabel(api: { id: string; name: string; definition: string }): LabelD
   return { id: api.id, name: api.name, definition: api.definition };
 }
 
-function mapEntity(api: { id: string; name: string; definition: string; type: EntityDefinition["type"] }): EntityDefinition {
-  return { id: api.id, name: api.name, definition: api.definition, type: api.type };
+function mapEntity(api: {
+  id: string;
+  name: string;
+  definition: string;
+  type: EntityDefinition["type"];
+  nature?: EntityDefinition["nature"];
+}): EntityDefinition {
+  return { id: api.id, name: api.name, definition: api.definition, type: api.type, nature: api.nature ?? "entité" };
 }
 
 function mapStatus(api: any): WorkflowStatus {
@@ -267,7 +273,7 @@ export function useAnalyses() {
   const updateExtractionEntities = async (analyseId: string, entities: EntityDefinition[]) => {
     const data = await apiFetch<any>(`/api/analyses/${analyseId}/extraction/entities`, {
       method: "PUT",
-      body: JSON.stringify({ entities: entities.map(({ name, definition, type }) => ({ name, definition, type })) }),
+      body: JSON.stringify({ entities: entities.map(({ name, definition, type, nature }) => ({ name, definition, type, nature })) }),
     });
     cache[analyseId] = mapAnalyse(data);
   };

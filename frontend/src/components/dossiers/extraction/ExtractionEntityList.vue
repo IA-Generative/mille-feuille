@@ -4,7 +4,7 @@ import type { ExtractedEntity } from "@/types/dossierExtraction";
 defineProps<{ entities: ExtractedEntity[]; active: number | null; filtering: boolean }>();
 const emit = defineEmits<{ activate: [index: number | null] }>();
 
-const SOURCES: Record<string, string> = { textual: "Texte", visual: "Visuel", gliner: "GLiNER" };
+const SOURCES: Record<string, string> = { textual: "Sémantique (LLM)", visual: "Visuel", gliner: "Entité (GLiNER)" };
 const percent = (c?: number) => (c === undefined ? "" : `${Math.round(c * 100)} %`);
 </script>
 
@@ -25,6 +25,14 @@ const percent = (c?: number) => (c === undefined ? "" : `${Math.round(c * 100)} 
       <div class="extraction-entities__body">
         <span class="fr-text--sm extraction-entities__muted">{{ entity.name }}</span>
         <strong>{{ entity.value }}</strong>
+        <blockquote
+          v-for="passage in entity.passages"
+          :key="`${passage.charStart}-${passage.charEnd}`"
+          class="extraction-entities__passage"
+          :title="`Caractères ${passage.charStart} à ${passage.charEnd} de la page`"
+        >
+          {{ passage.text }}
+        </blockquote>
         <small class="extraction-entities__muted">
           {{ percent(entity.confidence) }} · {{ SOURCES[entity.source] ?? entity.source }}
           <template v-if="!entity.boxes.length"> · non localisée</template>
@@ -79,6 +87,16 @@ const percent = (c?: number) => (c === undefined ? "" : `${Math.round(c * 100)} 
   flex-direction: column;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+
+.extraction-entities__passage {
+  margin: 0.25rem 0;
+  padding: 0.1rem 0 0.1rem 0.6rem;
+  border-left: 3px solid var(--border-default-grey);
+  font-size: 0.85rem;
+  font-style: italic;
+  white-space: pre-line;
+  color: var(--text-default-grey);
 }
 
 .extraction-entities__muted {

@@ -9,7 +9,7 @@ import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import { useListView } from "@/composables/useListView";
 import { useEntityLocations } from "@/composables/useEntityLocations";
 import { suggestEntities, suggestEntityDefinition } from "@/composables/useLlmAssist";
-import type { EntityDefinition, EntityType, LabelDefinition, Version } from "@/types/analyse";
+import type { EntityDefinition, EntityNature, EntityType, LabelDefinition, Version } from "@/types/analyse";
 
 const props = withDefaults(defineProps<{ entities: EntityDefinition[]; versions: Version<EntityDefinition[]>[]; labels?: LabelDefinition[] }>(), {
   labels: () => [],
@@ -17,6 +17,10 @@ const props = withDefaults(defineProps<{ entities: EntityDefinition[]; versions:
 const emit = defineEmits<{ save: [EntityDefinition[]]; restore: [string] }>();
 
 const entityTypes: EntityType[] = ["texte", "date", "nombre", "booléen", "identifiant"];
+const entityNatures: { value: EntityNature; text: string }[] = [
+  { value: "entité", text: "Entité (GLiNER)" },
+  { value: "sémantique", text: "Sémantique (LLM)" },
+];
 
 const draftEntities = ref<EntityDefinition[]>(cloneEntities(props.entities));
 const isDirty = ref(false);
@@ -53,7 +57,7 @@ watch(
 );
 
 function addEntity() {
-  draftEntities.value.push({ id: `entity-${Date.now()}`, name: "", definition: "", type: "texte" });
+  draftEntities.value.push({ id: `entity-${Date.now()}`, name: "", definition: "", type: "texte", nature: "entité" });
   editingId.value = draftEntities.value[draftEntities.value.length - 1].id;
   reveal(editingId.value);
 }
@@ -83,6 +87,7 @@ async function applyDefinitionSuggestion(entity: EntityDefinition, model: string
     const suggestion = await suggestEntityDefinition(entity.name, model);
     entity.definition = suggestion.definition;
     entity.type = suggestion.type;
+    if (suggestion.nature) entity.nature = suggestion.nature;
   } catch (error) {
     alert(error instanceof Error ? error.message : "Échec de l'aide LLM.");
   } finally {
@@ -96,7 +101,7 @@ function save() {
 
 function formatVersionContent(entities: EntityDefinition[]) {
   return entities.length > 0
-    ? entities.map((entity) => `${entity.name || "(sans nom)"} (${entity.type})`).join(", ")
+    ? entities.map((entity) => `${entity.name || "(sans nom)"} (${entity.nature ?? "entité"}, ${entity.type})`).join(", ")
     : "(aucune entité)";
 }
 </script>
@@ -128,6 +133,9 @@ function formatVersionContent(entities: EntityDefinition[]) {
             <p class="entities-editor__name">
               <span>{{ item.name || "(sans nom)" }}</span>
               <span class="fr-badge fr-badge--sm fr-badge--blue-ecume">{{ item.type }}</span>
+              <span class="fr-badge fr-badge--sm fr-badge--no-icon" :class="item.nature === 'sémantique' ? 'fr-badge--purple-glycine' : 'fr-badge--green-menthe'">
+                {{ item.nature }}
+              </span>
               <span v-if="labelNameOf(item.id)" class="fr-badge fr-badge--sm fr-badge--info fr-badge--no-icon">{{ labelNameOf(item.id) }}</span>
               <span v-if="zoneCount(item.id) > 0" class="fr-badge fr-badge--sm fr-badge--no-icon">
                 {{ zoneCount(item.id) }} zone{{ zoneCount(item.id) > 1 ? "s" : "" }}
@@ -153,6 +161,7 @@ function formatVersionContent(entities: EntityDefinition[]) {
           <div class="entities-editor__fields">
             <DsfrInput v-model="item.name" label="Entité" label-visible />
             <DsfrSelect v-model="item.type" label="Type" :options="entityTypes" />
+            <DsfrSelect v-model="item.nature" label="Nature" :options="entityNatures" />
           </div>
           <DsfrInput v-model="item.definition" label="Définition" label-visible is-textarea rows="3" />
           <EntityLocation :entity-id="item.id" :labels="labels" />
