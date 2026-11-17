@@ -28,6 +28,7 @@ from app.models.document_page import (
     DocumentPrediction,
     PageTextBox,
     PredictionKind,
+    PredictionPassage,
     PredictionSource,
     PredictionValidationStatus,
     prediction_bounding_boxes,
@@ -934,6 +935,7 @@ class DossierRepository:
         entity_definition_id: uuid.UUID | None = None,
         page_ids: list[uuid.UUID] | None = None,
         bounding_box_ids: list[uuid.UUID] | None = None,
+        passages: list[PredictionPassage] | None = None,
     ) -> DocumentPrediction:
         """`page` est la page sous laquelle la route de création est
         appelée (POST .../pages/{page_id}/predictions) - une classification
@@ -950,6 +952,7 @@ class DossierRepository:
             label_definition_id=label_definition_id,
             entity_definition_id=entity_definition_id,
         )
+        prediction.passages = passages or []
         self.db.add(prediction)
         await self.db.flush()
 

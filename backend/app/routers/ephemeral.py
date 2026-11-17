@@ -118,7 +118,10 @@ async def create_ephemeral_analyse(
     if body.entities:
         await analyse_repository.update_extraction_entities(
             analyse,
-            [EntityDefinition(name=ent.name, definition=ent.definition, type=ent.type) for ent in body.entities],
+            [
+                EntityDefinition(name=ent.name, definition=ent.definition, type=ent.type, nature=ent.nature)
+                for ent in body.entities
+            ],
         )
     for agent in body.agents:
         await analyse_repository.add_agent(
@@ -572,7 +575,10 @@ async def _create_single_file_run(
             await analyse_repository.update_extraction_prompt(analyse, extraction_prompt)
         await analyse_repository.update_extraction_entities(
             analyse,
-            [EntityDefinition(name=ent.name, definition=ent.definition, type=ent.type) for ent in entities],
+            [
+                EntityDefinition(name=ent.name, definition=ent.definition, type=ent.type, nature=ent.nature)
+                for ent in entities
+            ],
         )
     await EphemeralRepository(db).create_analyse_ephemere(
         analyse_id=analyse.id, persist=persist, created_by=identity.id

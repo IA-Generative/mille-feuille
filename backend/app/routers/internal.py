@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.dispatch import dispatch_document_summary, dispatch_index_document
 from app.core.security.internal import verify_app_token
 from app.db import get_db
+from app.models.document_page import PredictionPassage
 from app.models.dossier import TextExtractionStatus
 from app.models.dossier_analysis import AnalysisUnitStatus
 from app.repositories.analyse_repository import AnalyseRepository
@@ -215,6 +216,7 @@ async def add_document_prediction(
         entity_definition_id=body.entity_definition_id,
         page_ids=body.page_ids,
         bounding_box_ids=body.bounding_box_ids,
+        passages=[PredictionPassage(**passage.model_dump()) for passage in body.passages],
     )
     if unit is not None:
         # Analyse de dossier (#125) : un élément par prédiction.

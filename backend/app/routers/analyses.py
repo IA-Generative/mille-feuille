@@ -339,7 +339,10 @@ async def update_extraction_entities(
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    entities = [EntityDefinition(name=ent.name, definition=ent.definition, type=ent.type) for ent in body.entities]
+    entities = [
+        EntityDefinition(name=ent.name, definition=ent.definition, type=ent.type, nature=ent.nature)
+        for ent in body.entities
+    ]
     await repository.update_extraction_entities(analyse, entities)
     return repository.to_schema(analyse)
 

@@ -108,6 +108,17 @@ class PredictionValidationOut(BaseModel):
     created_at: datetime
 
 
+class PredictionPassageOut(BaseModel):
+    """Un passage de texte brut d'une page, avec son intervalle de caractères dans le contenu de la page."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    document_page_id: uuid.UUID
+    text: str
+    char_start: int
+    char_end: int
+
+
 class DocumentPredictionSummaryOut(BaseModel):
     """Vue nichée dans DocumentPageOut.predictions : pas de `pages` ici (on
     est déjà sous une page) - la liste complète des pages d'une entité qui
@@ -130,6 +141,8 @@ class DocumentPredictionSummaryOut(BaseModel):
     # Une classification n'a qu'un élément ; une entité peut n'être
     # localisée que par plusieurs zones, potentiellement sur d'autres pages.
     bounding_boxes: list[BoundingBoxOut]
+    # Texte brut et span (par page) sur lesquels repose la prédiction ; vide pour une classification.
+    passages: list[PredictionPassageOut] = []
     validations: list[PredictionValidationOut]
 
 
@@ -176,6 +189,13 @@ class DocumentPageIn(BaseModel):
     screenshot_key: str | None = None
 
 
+class PredictionPassageIn(BaseModel):
+    document_page_id: uuid.UUID
+    text: str
+    char_start: int = Field(ge=0)
+    char_end: int = Field(ge=0)
+
+
 class DocumentPredictionIn(BaseModel):
     kind: PredictionKind
     name: str
@@ -190,6 +210,8 @@ class DocumentPredictionIn(BaseModel):
     # .../pages/{page_id}/bounding-boxes).
     page_ids: list[uuid.UUID] = []
     bounding_box_ids: list[uuid.UUID] = []
+    # Texte brut et span de la valeur dans chaque page (extraction sémantique).
+    passages: list["PredictionPassageIn"] = []
     # Unité de calcul de l'analyse de dossier qui produit cette prédiction
     # (voir POST /internal/dossiers/{id}/analysis-units). Facultatif : sans
     # elle, la prédiction est déposée comme avant, sans élément d'analyse.
@@ -695,6 +717,7 @@ class InternalEntityDefinitionOut(BaseModel):
     name: str
     definition: str
     type: str
+    nature: str
 
 
 class InternalClassificationOut(BaseModel):

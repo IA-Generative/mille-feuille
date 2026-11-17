@@ -118,6 +118,15 @@ class EphemeralBox(BaseModel):
     y_max: float
 
 
+class EphemeralPassage(BaseModel):
+    """Le texte brut de la page sur lequel repose une valeur, et son intervalle de caractères dans le contenu de la
+    page : `text == content[char_start:char_end]`."""
+
+    text: str
+    char_start: int
+    char_end: int
+
+
 class EphemeralEntityResult(BaseModel):
     prediction_id: uuid.UUID = Field(description="À réutiliser dans POST /ephemeral/runs/{run_id}/feedback.")
     name: str
@@ -133,6 +142,12 @@ class EphemeralEntityResult(BaseModel):
         description="Où la valeur se trouve **sur cette page** : un rectangle par ligne qu'elle couvre, serré autour "
         "de ses mots. Vide si la valeur n'a pas pu être localisée (page sans texte positionné, valeur reformatée "
         "par le LLM).",
+    )
+    passages: list[EphemeralPassage] = Field(
+        default=[],
+        description="Le texte brut de **cette page** sur lequel repose la valeur, avec son intervalle de caractères "
+        "(span). Utile pour une valeur sémantique, reformulée par le LLM : la valeur n'est alors pas dans le texte, "
+        "mais son passage l'est.",
     )
 
 

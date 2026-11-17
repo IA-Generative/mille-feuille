@@ -4,7 +4,7 @@ from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.models.analyse import EntityType
+from app.models.analyse import EntityNature, EntityType
 from app.models.analyse_share import AnalyseShareKind
 from app.services.custom_fields import MAX_FIELDS_PER_ANALYSE, validate_value
 
@@ -30,6 +30,7 @@ class EntityDefinitionIn(BaseModel):
     name: str
     definition: str = ""
     type: EntityType
+    nature: EntityNature = EntityNature.ENTITE
 
 
 class EntityDefinitionOut(EntityDefinitionIn):

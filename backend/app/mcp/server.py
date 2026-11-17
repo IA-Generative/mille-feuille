@@ -59,7 +59,8 @@ async def create_ephemeral_analysis(
     persist=false (défaut) : purgée automatiquement une fois son TTL écoulé (calculé à la fin du dernier
     run l'ayant utilisée, jamais à la création). persist=true : conservée indéfiniment.
     labels: [{"name": str, "definition": str}]. entities: [{"name": str, "definition": str,
-    "type": "texte"|"date"|"nombre"|"booléen"|"identifiant"}]. agents: [{"name": str, "prompt": str,
+    "type": "texte"|"date"|"nombre"|"booléen"|"identifiant",
+    "nature": "entité" (GLiNER, défaut) | "sémantique" (LLM)}]. agents: [{"name": str, "prompt": str,
     "tools": [str], "output": bool, "model": str|null}].
 
     Renvoie {"analyse_id": "<uuid>"} - à réutiliser avec run_ephemeral_analysis.

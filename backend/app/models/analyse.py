@@ -22,6 +22,15 @@ class EntityType(enum.StrEnum):
     IDENTIFIANT = "identifiant"
 
 
+class EntityNature(enum.StrEnum):
+    """Quelle extraction traite la définition. ``ENTITE`` : entité nommée, valeur littéralement présente dans le
+    texte, extraite par GLiNER. ``SEMANTIQUE`` : valeur qui demande de comprendre le texte (déduite, reformulée,
+    booléenne...), extraite par un LLM."""
+
+    ENTITE = "entité"
+    SEMANTIQUE = "sémantique"
+
+
 class AgentTool(enum.StrEnum):
     LECTURE_DOCUMENT = "lecture_document"
     RECHERCHE_WEB = "recherche_web"
@@ -150,6 +159,12 @@ class EntityDefinition(UUIDMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     definition: Mapped[str] = mapped_column(Text, nullable=False, default="")
     type: Mapped[EntityType] = mapped_column(Enum(EntityType, name="entity_type"), nullable=False)
+    nature: Mapped[EntityNature] = mapped_column(
+        Enum(EntityNature, name="entity_nature"),
+        nullable=False,
+        default=EntityNature.ENTITE,
+        server_default=EntityNature.ENTITE.name,
+    )
 
     analyse: Mapped["Analyse"] = relationship(back_populates="entities")
 
