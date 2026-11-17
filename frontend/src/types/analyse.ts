@@ -1,6 +1,12 @@
 import type { CustomField } from "@/types/tracking";
 export type EntityType = "texte" | "date" | "nombre" | "booléen" | "identifiant";
 
+/**
+ * Quelle extraction traite la définition : « entité » (valeur littéralement présente dans le texte, extraite par
+ * GLiNER) ou « sémantique » (valeur à comprendre ou à déduire, extraite par un LLM).
+ */
+export type EntityNature = "entité" | "sémantique";
+
 /** Un instantané d'une valeur passée, horodaté, pour permettre une restauration. */
 export interface Version<T> {
   id: string;
@@ -31,6 +37,7 @@ export interface EntityDefinition {
   name: string;
   definition: string;
   type: EntityType;
+  nature: EntityNature;
 }
 
 /**
@@ -47,7 +54,7 @@ export interface Classification {
 }
 
 /**
- * Extraction d'entités nommées : même principe que la classification,
+ * Extraction : entités nommées (GLiNER) et valeurs sémantiques (LLM), même principe que la classification,
  * un seul jeu d'entités à extraire par analyse.
  */
 export interface Extraction {

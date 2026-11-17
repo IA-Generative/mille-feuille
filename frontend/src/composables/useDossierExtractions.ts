@@ -18,6 +18,7 @@ function mapDocument(api: any): ExtractedDocument {
         confidence: entity.confidence ?? undefined,
         source: entity.source,
         pages: entity.pages,
+        passages: (entity.passages ?? []).map((p: any) => ({ text: p.text, charStart: p.char_start, charEnd: p.char_end })),
         boxes: entity.boxes.map((b: any) => ({ xMin: b.x_min, yMin: b.y_min, xMax: b.x_max, yMax: b.y_max })),
       })),
     })),
