@@ -45,7 +45,14 @@ onMounted(() => {
       :versions="analyse.classification.labelsVersions"
       @save="(labels) => updateClassificationLabels(analyse!.id, labels)"
       @restore="(versionId) => restoreClassificationLabelsVersion(analyse!.id, versionId)"
-    />
+    >
+      <template #description>
+        Un label est un type de document que l'IA sait reconnaître (carte d'identité, avis d'imposition…). Donnez à
+        chaque label un nom et une définition : l'agent s'en sert pour classer les pages du dossier. « Suggérer des labels »
+        propose une liste, qui remplace celle en cours de modification. Utilisez l'icône en forme de crayon pour
+        détailler un label, puis « Terminer ». Cliquez ensuite sur « Enregistrer » : « Terminer » seul n'enregistre pas.
+      </template>
+    </LabelsEditor>
   </div>
   <div v-else>
     <p>Chargement…</p>

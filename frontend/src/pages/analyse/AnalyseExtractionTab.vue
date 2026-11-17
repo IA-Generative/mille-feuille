@@ -47,7 +47,14 @@ onMounted(() => {
       :versions="analyse.extraction.entitiesVersions"
       @save="(entities) => updateExtractionEntities(analyse!.id, entities)"
       @restore="(versionId) => restoreExtractionEntitiesVersion(analyse!.id, versionId)"
-    />
+    >
+      <template #description>
+        Listez ici les informations que l'IA doit extraire de chaque document (nom, date de naissance, numéro…).
+        Donnez à chaque entité un nom, un type et une définition. « Suggérer des entités » propose une liste, qui
+        remplace celle en cours de modification. Avec l'icône en forme de crayon, vous pouvez aussi choisir où chercher l'entité.
+        Cliquez ensuite sur « Terminer », puis sur « Enregistrer » : « Terminer » seul n'enregistre pas.
+      </template>
+    </EntitiesEditor>
   </div>
   <div v-else>
     <p>Chargement…</p>
