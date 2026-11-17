@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.58.0](https://github.com/IA-Generative/mille-feuille/compare/v0.57.0...v0.58.0) (2026-11-17)
+
+
+### Features
+
+* **front:** add button auth component to welcome page and adding it in header ([3f07e1b](https://github.com/IA-Generative/mille-feuille/commit/3f07e1b18289d4f97c9cd3e158055bb4751a665c))
+
 ## [0.57.0](https://github.com/IA-Generative/mille-feuille/compare/v0.56.0...v0.57.0) (2026-11-17)
 
 
