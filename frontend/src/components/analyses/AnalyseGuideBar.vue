@@ -18,7 +18,12 @@ const isLast = computed(() => props.current >= props.steps.length - 1);
 <template>
   <div v-if="section" class="guide-bar">
     <DsfrStepper :steps="steps.map((step) => step.title)" :current-step="current + 1" />
-    <p class="guide-bar__hint fr-text--sm fr-mb-0">{{ section.hint }}</p>
+    <ul v-if="section.checks" class="fr-text--sm fr-mb-0 guide-bar__checks">
+      <li v-for="check in section.checks" :key="check.label">
+        <span v-if="check.optional">(Optionnel) </span> {{ check.label }}
+      </li>
+    </ul>
+    <p v-else class="guide-bar__hint fr-text--sm fr-mb-0">{{ section.hint }}</p>
     <div class="guide-bar__actions">
       <DsfrButton label="Quitter l'assistant" tertiary no-outline size="sm" @click="emit('quit')" />
       <span class="guide-bar__spacer" />
@@ -45,6 +50,11 @@ const isLast = computed(() => props.current >= props.steps.length - 1);
   align-items: center;
   gap: 0.5rem;
   margin-top: 1rem;
+}
+
+.guide-bar__checks {
+  margin-top: 0.5rem;
+  padding-left: 1.25rem;
 }
 
 .guide-bar__spacer {
