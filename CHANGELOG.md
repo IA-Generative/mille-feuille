@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.0](https://github.com/IA-Generative/mille-feuille/compare/v0.60.1...v0.61.0) (2026-11-17)
+
+
+### Features
+
+* **chart:** values d'ingress pour OpenShift (hôtes fictifs) ([f2870f3](https://github.com/IA-Generative/mille-feuille/commit/f2870f304c5c7e2b4d5f4f4133e3bdd2afae296e))
+
 ## [0.60.1](https://github.com/IA-Generative/mille-feuille/compare/v0.60.0...v0.60.1) (2026-11-17)
 
 
