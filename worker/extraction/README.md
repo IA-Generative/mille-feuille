@@ -5,11 +5,14 @@ Worker Celery **dédié à l'extraction des entités** d'un dossier. Code, image
 
 - File : `entity_extraction` (le backend y dépose `app.tasks.extract_dossier_entities`, voir
   `backend/app/celery_client.py`).
-- Deux extractions par document, déposées avec un champ `source` et chacune dans sa propre unité de calcul :
-  - **LLM** (`source=textual`) : le texte des pages est découpé en lots selon un budget de jetons (`EXTRACTION_*`),
+- Deux extractions de même niveau par document, déposées avec un champ `source` et chacune dans sa propre unité de
+  calcul. Chaque définition d'entité a une **nature** (`entité` ou `sémantique`) qui décide de l'extraction :
+  - **extraction sémantique par LLM** (`source=textual`), pour les définitions `sémantique` (valeur à comprendre ou à
+    déduire). Elle reprend aussi les entités que GLiNER ne peut pas extraire (booléens) et toutes les entités quand
+    `GLINER_ENABLED=false`. Le texte des pages est découpé en lots selon un budget de jetons (`EXTRACTION_*`),
     chaque lot est envoyé au LLM en structured output avec un groupe de définitions d'entités, puis les doublons
     entre lots sont fusionnés ;
-  - **GLiNER2.5** (`source=gliner`) : un modèle d'extraction (CPU, torch) reçoit les définitions comme descriptions
+  - **extraction d'entités par GLiNER2.5** (`source=gliner`), pour les définitions `entité` : un modèle d'extraction (CPU, torch) reçoit les définitions comme descriptions
     (`nom -> définition`) et extrait des valeurs littéralement présentes dans chaque page, au-dessus de
     `GLINER_THRESHOLD`. Une même valeur trouvée sur plusieurs pages est une seule entité qui couvre ces pages. Les
     entités de type booléen sont ignorées (ce ne sont pas des empans de texte). Voir `app/gliner.py`. Un échec

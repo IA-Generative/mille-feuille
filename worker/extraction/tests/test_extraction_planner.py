@@ -193,7 +193,7 @@ def test_fingerprint_changes_with_the_model_and_the_pipeline_version(monkeypatch
     monkeypatch.setattr(fingerprint.settings, "LLM_MODEL", "un-autre-modele")
     assert fingerprint.extraction_fingerprint(LOT, DEFS, "Extrais.") != base
     monkeypatch.undo()
-    monkeypatch.setattr(fingerprint, "PIPELINE_VERSION", "pipeline-2")
+    monkeypatch.setattr(fingerprint, "PIPELINE_VERSION", "pipeline-99")
     assert fingerprint.extraction_fingerprint(LOT, DEFS, "Extrais.") != base
 
 

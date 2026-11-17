@@ -253,12 +253,12 @@ def test_extract_dossier_entities_handles_no_entities(monkeypatch) -> None:
     extract_dossier_entities.run("dossier-1")
 
 
-def _stub_extraction(monkeypatch, *, fail: bool = False) -> None:
+def _stub_extraction(monkeypatch, *, fail: bool = False, name: str = "nom") -> None:
     def extract(**kwargs):
         if fail:
             raise RuntimeError("LLM indisponible")
         return ExtractionResult(
-            entities=[EntityValue(entity_name="nom", value="Dupont", confidence=0.9, page_numbers=[1])]
+            entities=[EntityValue(entity_name=name, value="Dupont", confidence=0.9, page_numbers=[1])]
         )
 
     monkeypatch.setattr(extraction_mod.llm, "extract_entities_batch", extract)
@@ -610,3 +610,54 @@ def test_reused_entities_seed_the_duplicate_merging_of_later_lots(monkeypatch) -
 
     assert len(llm.calls) == len(first.declared) - 1  # le premier lot est repris
     assert again.predictions == []  # les lots suivants ne redéposent pas « valeur » : déjà dans le lot repris
+
+
+def test_semantic_value_keeps_the_raw_passage_its_span_its_pages_and_its_bboxes(monkeypatch) -> None:
+    from app.llm import Passage
+
+    backend = _UnitBackend()
+    # « Nom: Dupont » est aux caractères 27 à 38 du contenu de la page 1.
+    backend.text_boxes["page-1"] = [
+        {
+            "text": "Nom: Dupont",
+            "x_min": 0.1,
+            "y_min": 0.1,
+            "x_max": 0.5,
+            "y_max": 0.12,
+            "char_start": 27,
+            "char_end": 38,
+            "words": [],
+        }
+    ]
+    backend.install(monkeypatch)
+
+    def extract(**kwargs):
+        return ExtractionResult(
+            entities=[
+                EntityValue(
+                    entity_name="nom",
+                    value="M. Dupont",  # reformulée : n'est pas dans le texte
+                    confidence=0.9,
+                    page_numbers=[1],
+                    passages=[
+                        Passage(page_number=1, text="nom:  dupont"),  # casse et espaces différents
+                        Passage(page_number=2, text="Adresse: 123 rue de Paris"),
+                        Passage(page_number=2, text="introuvable ailleurs"),
+                        Passage(page_number=9, text="hors du lot"),
+                    ],
+                )
+            ]
+        )
+
+    monkeypatch.setattr(extraction_mod.llm, "extract_entities_batch", extract)
+
+    extract_dossier_entities.run("dossier-1")
+
+    (prediction,) = backend.predictions
+    assert prediction["page_ids"] == ["page-1", "page-2"]
+    # Le texte stocké est celui de la page, pas la copie du LLM ; seul un passage introuvable ou hors lot est écarté.
+    assert [(p["document_page_id"], p["text"], p["char_start"], p["char_end"]) for p in prediction["passages"]] == [
+        ("page-1", "Nom: Dupont", 27, 38),
+        ("page-2", "Adresse: 123 rue de Paris", 0, 25),
+    ]
+    assert len(prediction["bounding_box_ids"]) == 1  # page 1 positionnée ; la page 2 n'a pas de texte positionné

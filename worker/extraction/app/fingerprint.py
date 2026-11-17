@@ -13,7 +13,7 @@ from app.config import settings
 
 # À incrémenter quand la logique d'une étape change de façon à modifier ses résultats : toutes les empreintes
 # changent, rien n'est repris à tort d'une exécution précédente.
-PIPELINE_VERSION = "pipeline-1"
+PIPELINE_VERSION = "pipeline-4"
 
 
 def text_hash(text: str | None) -> str:
@@ -29,7 +29,13 @@ def _digest(payload: dict[str, Any]) -> str:
 def _definitions(definitions: list[dict]) -> list[dict]:
     # L'ordre est conservé : il est celui de l'analyse (et des groupes).
     return [
-        {"id": d.get("id"), "name": d.get("name"), "type": d.get("type"), "definition": d.get("definition")}
+        {
+            "id": d.get("id"),
+            "name": d.get("name"),
+            "type": d.get("type"),
+            "nature": d.get("nature"),
+            "definition": d.get("definition"),
+        }
         for d in definitions
     ]
 

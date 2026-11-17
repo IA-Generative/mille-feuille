@@ -79,6 +79,36 @@ def _bounding_box_ids(
         return []
 
 
+def _located_passages(
+    entity_value, content_by_number: dict[int, str], page_id_by_number: dict, batch_page_numbers: set
+) -> list[dict]:
+    """Les passages cités par le LLM, retrouvés dans le texte de leur page : (page, texte brut de la page, intervalle
+    de caractères). Un passage hors du lot, de page inconnue ou introuvable est écarté ; un passage qui apparaît
+    plusieurs fois dans la page prend la première occurrence. Les doublons sont retirés."""
+    located: list[dict] = []
+    seen: set[tuple[int, int, int]] = set()
+    for passage in entity_value.passages:
+        number = passage.page_number
+        content = content_by_number.get(number, "")
+        if number not in batch_page_numbers or number not in page_id_by_number:
+            continue
+        spans = find_spans(content, passage.text, limit=1)
+        if not spans or (number, *spans[0]) in seen:
+            continue
+        start, end = spans[0]
+        seen.add((number, start, end))
+        located.append(
+            {
+                "page_number": number,
+                "document_page_id": page_id_by_number[number],
+                "text": content[start:end],
+                "char_start": start,
+                "char_end": end,
+            }
+        )
+    return located
+
+
 def _deposit_entity(
     client,
     entity_value,
@@ -103,13 +133,24 @@ def _deposit_entity(
     first_page_id = page_id_by_number[entity_page_numbers[0]]
     all_page_ids = [page_id_by_number[pn] for pn in entity_page_numbers]
 
-    # Le LLM ne donne pas d'offsets : on retrouve la valeur dans le texte de chaque page où il la place.
+    contents = content_by_number or {}
+    boxes_cache = text_boxes_by_page if text_boxes_by_page is not None else {}
+    # Le LLM ne donne pas d'offsets : on retrouve dans la page le passage brut qu'il cite. Ce que l'on stocke est le
+    # texte de la page à cet endroit (pas la copie du LLM, qui peut différer d'un espace ou d'une casse).
+    passages = _located_passages(entity_value, contents, page_id_by_number, batch_page_numbers)
     bounding_box_ids = []
-    for page_number in entity_page_numbers:
-        spans = find_spans((content_by_number or {}).get(page_number, ""), entity_value.value)
-        bounding_box_ids += _bounding_box_ids(
-            client, page_id_by_number[page_number], spans, text_boxes_by_page if text_boxes_by_page is not None else {}
-        )
+    if passages:
+        entity_page_numbers = sorted({p["page_number"] for p in passages})
+        first_page_id = page_id_by_number[entity_page_numbers[0]]
+        all_page_ids = [page_id_by_number[pn] for pn in entity_page_numbers]
+        for passage in passages:
+            span = [(passage["char_start"], passage["char_end"])]
+            bounding_box_ids += _bounding_box_ids(client, passage["document_page_id"], span, boxes_cache)
+    else:
+        # Aucun passage localisable : on cherche la valeur elle-même, comme avant.
+        for page_number in entity_page_numbers:
+            spans = find_spans(contents.get(page_number, ""), entity_value.value)
+            bounding_box_ids += _bounding_box_ids(client, page_id_by_number[page_number], spans, boxes_cache)
 
     api_client.add_prediction(
         client,
@@ -122,6 +163,7 @@ def _deposit_entity(
         page_ids=all_page_ids,
         bounding_box_ids=bounding_box_ids,
         unit_id=unit_id,
+        passages=[{k: v for k, v in p.items() if k != "page_number"} for p in passages],
     )
     logger.info(
         "Entity '%s' = '%s' (confidence=%.2f, pages=%s)",
@@ -300,6 +342,25 @@ def _extract_by_document(
     return total
 
 
+def _extract_semantic(
+    client,
+    dossier_id: str,
+    dossier: dict,
+    all_pages: list[dict],
+    page_id_by_number: dict,
+    entity_defs: list[dict],
+    extraction_prompt: str,
+) -> int:
+    """Extraction sémantique (LLM, source=textual) : les définitions de nature sémantique, et les entités que GLiNER
+    ne traite pas (booléens, ou GLiNER désactivé). Renvoie le nombre de valeurs déposées."""
+    semantic_defs = gliner.semantic(entity_defs, settings.GLINER_ENABLED)
+    if not semantic_defs:
+        return 0
+    if settings.EXTRACTION_MODE == "legacy":
+        return _extract_legacy(client, dossier_id, all_pages, page_id_by_number, semantic_defs, extraction_prompt)
+    return _extract_by_document(client, dossier_id, dossier, semantic_defs, extraction_prompt)
+
+
 def _gliner_entities(pages: list[dict], entity_defs: list[dict]) -> dict[tuple[str, str], dict]:
     """Passe chaque page dans GLiNER et fusionne les doublons du document : une même valeur trouvée sur plusieurs
     pages est une seule entité, qui couvre ces pages (comme une entité multi-pages du LLM). Clé : (définition, valeur
@@ -327,12 +388,24 @@ def _process_gliner_document(
     elle apparaît et en référençant toutes ses pages. Renvoie le nombre d'entités déposées."""
     by_name = {entity["name"]: entity for entity in entity_defs}
     text_boxes_by_page: dict[str, list[dict]] = {}
+    content_by_number = {page["page_number"]: page["content"] for page in pages}
     count = 0
     for entity in _gliner_entities(pages, entity_defs).values():
         numbers = sorted(entity["pages"])
         bounding_box_ids = []
         for page_number, spans in entity["spans"].items():
             bounding_box_ids += _bounding_box_ids(client, page_id_by_number[page_number], spans, text_boxes_by_page)
+        # Le span de GLiNER est déjà exact : le passage est le texte de la page à cet endroit.
+        passages = [
+            {
+                "document_page_id": page_id_by_number[page_number],
+                "text": content_by_number[page_number][start:end],
+                "char_start": start,
+                "char_end": end,
+            }
+            for page_number, spans in sorted(entity["spans"].items())
+            for start, end in spans
+        ]
         api_client.add_prediction(
             client,
             page_id_by_number[numbers[0]],
@@ -345,6 +418,7 @@ def _process_gliner_document(
             page_ids=[page_id_by_number[n] for n in numbers],
             bounding_box_ids=bounding_box_ids,
             unit_id=unit_id,
+            passages=passages,
         )
         logger.info(
             "GLiNER entity '%s' = '%s' (confidence=%.2f, pages=%s)",
@@ -438,14 +512,12 @@ def extract_dossier_entities(self, dossier_id: str) -> None:
                     )
                 return
 
-            if settings.EXTRACTION_MODE == "legacy":
-                total_entities = _extract_legacy(
-                    client, dossier_id, all_pages, page_id_by_number, entity_defs, extraction_prompt
-                )
-            else:
-                total_entities = _extract_by_document(client, dossier_id, dossier, entity_defs, extraction_prompt)
+            # Deux extractions de même niveau : les entités nommées vont à GLiNER, le reste (sémantique) au LLM.
+            total_entities = _extract_semantic(
+                client, dossier_id, dossier, all_pages, page_id_by_number, entity_defs, extraction_prompt
+            )
 
-            output = f"{total_entities} entité(s) extraite(s) sur {len(all_pages)} page(s)"
+            output = f"{total_entities} entité(s) extraite(s) par le LLM sur {len(all_pages)} page(s)"
             if settings.GLINER_ENABLED:
                 gliner_entities, gliner_failed = _extract_with_gliner(client, dossier_id, dossier, entity_defs)
                 output += f", {gliner_entities} par GLiNER"

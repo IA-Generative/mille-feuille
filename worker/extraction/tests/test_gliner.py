@@ -5,6 +5,7 @@ from test_tasks import _stub_extraction, _UnitBackend
 
 from app import fingerprint, gliner
 from app.config import settings
+from app.llm import ExtractionResult
 from app.tasks import extraction as extraction_mod
 from app.tasks.extraction import extract_dossier_entities
 
@@ -28,6 +29,26 @@ def gliner_calls(monkeypatch: pytest.MonkeyPatch) -> list[dict]:
         return [("nom", "DUPONT", 0.97, None, None)] if "Adresse" in text else []
 
     monkeypatch.setattr(extraction_mod.gliner, "extract", extract)
+    # Une entité nommée (GLiNER) et une définition sémantique (LLM) : chaque extraction a les siennes.
+    monkeypatch.setattr(
+        extraction_mod.api_client,
+        "get_analyse_definitions",
+        lambda client, analyse_id: {
+            "extraction": {
+                "prompt": "p",
+                "entities": [
+                    {"id": "entity-nom", "name": "nom", "definition": "Nom", "type": "texte", "nature": "entité"},
+                    {
+                        "id": "entity-resume",
+                        "name": "resume",
+                        "definition": "Résumé",
+                        "type": "texte",
+                        "nature": "sémantique",
+                    },
+                ],
+            }
+        },
+    )
     return calls
 
 
@@ -36,7 +57,7 @@ def test_gliner_entities_are_deposited_with_the_gliner_source_and_merged_across_
 ) -> None:
     backend = _UnitBackend()
     backend.install(monkeypatch)
-    _stub_extraction(monkeypatch)
+    _stub_extraction(monkeypatch, name="resume")
 
     extract_dossier_entities.run("dossier-1")
 
@@ -55,7 +76,7 @@ def test_gliner_entities_are_deposited_with_the_gliner_source_and_merged_across_
 def test_gliner_runs_in_its_own_unit_per_document(monkeypatch, gliner_calls) -> None:
     backend = _UnitBackend()
     backend.install(monkeypatch)
-    _stub_extraction(monkeypatch)
+    _stub_extraction(monkeypatch, name="resume")
 
     extract_dossier_entities.run("dossier-1")
 
@@ -69,7 +90,7 @@ def test_gliner_runs_in_its_own_unit_per_document(monkeypatch, gliner_calls) -> 
 def test_a_failing_gliner_never_fails_the_llm_extraction(monkeypatch, gliner_calls) -> None:
     backend = _UnitBackend()
     backend.install(monkeypatch)
-    _stub_extraction(monkeypatch)
+    _stub_extraction(monkeypatch, name="resume")
 
     def broken(text, entity_definitions):
         raise RuntimeError("modèle indisponible")
@@ -123,6 +144,32 @@ def test_only_definitions_gliner_can_extract_are_sent(monkeypatch, gliner_calls)
     extract_dossier_entities.run("dossier-1")
 
     assert gliner_calls and all(call["names"] == ["nom", "ville"] for call in gliner_calls)
+
+
+def test_each_extraction_only_receives_its_own_definitions(monkeypatch, gliner_calls) -> None:
+    backend = _UnitBackend()
+    backend.install(monkeypatch)
+    sent: list[list[str]] = []
+
+    def extract(**kwargs):
+        sent.append([e["name"] for e in kwargs["entity_definitions"]])
+        return ExtractionResult(entities=[])
+
+    monkeypatch.setattr(extraction_mod.llm, "extract_entities_batch", extract)
+
+    extract_dossier_entities.run("dossier-1")
+
+    assert sent == [["resume"]]  # le LLM ne voit que la définition sémantique
+    assert all(call["names"] == ["nom"] for call in gliner_calls)  # GLiNER que l'entité nommée
+
+
+def test_the_llm_takes_over_entities_when_gliner_is_disabled_or_cannot_extract_them() -> None:
+    entity = {"name": "nom", "type": "texte", "nature": "entité"}
+    boolean = {"name": "ok", "type": "booléen", "nature": "entité"}
+    semantic = {"name": "resume", "type": "texte", "nature": "sémantique"}
+    assert gliner.semantic([entity, boolean, semantic], gliner_enabled=True) == [boolean, semantic]
+    assert gliner.semantic([entity, boolean, semantic], gliner_enabled=False) == [entity, boolean, semantic]
+    assert gliner.supported([entity, boolean, semantic]) == [entity]
 
 
 # --- Module gliner (modèle simulé : le vrai n'est jamais chargé) ---
@@ -240,7 +287,7 @@ def test_gliner_entity_gets_the_bounding_boxes_of_its_span(monkeypatch, gliner_c
         }
     ]
     backend.install(monkeypatch)
-    _stub_extraction(monkeypatch)
+    _stub_extraction(monkeypatch, name="resume")
 
     extract_dossier_entities.run("dossier-1")
 
@@ -250,14 +297,17 @@ def test_gliner_entity_gets_the_bounding_boxes_of_its_span(monkeypatch, gliner_c
     created = backend.bounding_boxes[int(gliner_prediction["bounding_box_ids"][0].removeprefix("bbox-")) - 1]
     assert created == {"page_id": "page-1", "x_min": 0.3, "y_min": 0.1, "x_max": 0.5, "y_max": 0.12}
     # L'entité du LLM (même valeur, trouvée dans le texte de la page) est localisée de la même façon.
-    llm_prediction = next(p for p in backend.predictions if p["source"] == "textual" and p["name"] == "nom")
+    assert gliner_prediction["passages"] == [
+        {"document_page_id": "page-1", "text": "Dupont", "char_start": 32, "char_end": 38}
+    ]
+    llm_prediction = next(p for p in backend.predictions if p["source"] == "textual" and p["name"] == "resume")
     assert len(llm_prediction["bounding_box_ids"]) == 1
 
 
 def test_a_page_without_text_boxes_still_deposits_the_entity_without_boxes(monkeypatch, gliner_calls) -> None:
     backend = _UnitBackend()
     backend.install(monkeypatch)
-    _stub_extraction(monkeypatch)
+    _stub_extraction(monkeypatch, name="resume")
 
     extract_dossier_entities.run("dossier-1")
 

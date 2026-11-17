@@ -37,9 +37,25 @@ def _load():
         return _model
 
 
+ENTITE = "entité"
+SEMANTIQUE = "sémantique"
+
+
+def nature_of(entity_definition: dict) -> str:
+    """Nature d'une définition (entité nommée ou sémantique) ; « entité » si le backend ne la donne pas."""
+    return entity_definition.get("nature") or ENTITE
+
+
 def supported(entity_definitions: list[dict]) -> list[dict]:
-    """Les définitions que GLiNER sait extraire."""
-    return [e for e in entity_definitions if e.get("type") not in UNSUPPORTED_TYPES]
+    """Les définitions que GLiNER traite : les entités nommées, d'un type qui est un empan de texte."""
+    return [e for e in entity_definitions if nature_of(e) == ENTITE and e.get("type") not in UNSUPPORTED_TYPES]
+
+
+def semantic(entity_definitions: list[dict], gliner_enabled: bool) -> list[dict]:
+    """Les définitions que traite l'extraction sémantique (LLM) : les définitions sémantiques et les entités que
+    GLiNER ne peut pas extraire (booléens, ou GLiNER désactivé) : elles ne resteraient sinon extraites par personne."""
+    taken_by_gliner = {e["name"] for e in supported(entity_definitions)} if gliner_enabled else set()
+    return [e for e in entity_definitions if e["name"] not in taken_by_gliner]
 
 
 def entity_types(entity_definitions: list[dict]) -> dict[str, str]:
