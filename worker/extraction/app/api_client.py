@@ -70,6 +70,7 @@ def add_prediction(
     page_ids: list[str] | None = None,
     bounding_box_ids: list[str] | None = None,
     unit_id: str | None = None,
+    passages: list[dict] | None = None,
 ) -> dict:
     body = {
         "kind": kind,
@@ -81,6 +82,7 @@ def add_prediction(
         "entity_definition_id": entity_definition_id,
         "page_ids": page_ids or [],
         "bounding_box_ids": bounding_box_ids or [],
+        "passages": passages or [],
     }
     # Unité de calcul de l'analyse de dossier (voir declare_unit) : le
     # backend en déduit l'élément d'analyse correspondant à la prédiction.

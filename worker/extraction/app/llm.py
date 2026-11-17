@@ -21,6 +21,13 @@ def _client() -> OpenAI:
     )
 
 
+class Passage(BaseModel):
+    """Un passage de texte brut d'une page sur lequel repose une valeur."""
+
+    page_number: int = Field(description="Numéro de la page (1-indexed) qui contient le passage")
+    text: str = Field(description="Le passage recopié MOT POUR MOT depuis la page, sans reformuler ni corriger")
+
+
 class EntityValue(BaseModel):
     """Une entité extraite d'une ou plusieurs pages."""
 
@@ -30,6 +37,10 @@ class EntityValue(BaseModel):
     page_numbers: list[int] = Field(
         default_factory=list,
         description="Numéros des pages (1-indexed) où cette entité apparaît",
+    )
+    passages: list[Passage] = Field(
+        default_factory=list,
+        description="Le ou les passages du texte, recopiés tels quels, sur lesquels repose la valeur (un par page)",
     )
     reasoning: str = Field(default="", description="Brève justification (optionnel)")
 
@@ -69,6 +80,9 @@ def extract_entities_batch(
         f"Extrais les valeurs pour les entités suivantes :\n{entities_desc}\n\n"
         f"Pour chaque entité trouvée, indique sur quelles pages (par numéro) "
         f"elle apparaît. Si une entité n'est pas présente, ne l'inclus pas. "
+        f"Pour chaque valeur, donne aussi dans `passages` le texte brut sur lequel elle repose : recopie le passage "
+        f"MOT POUR MOT depuis la page (jamais reformulé, corrigé ni résumé), le plus court possible mais suffisant "
+        f"pour justifier la valeur, avec le numéro de sa page. "
         f"Réponds uniquement avec le JSON demandé."
     )
     pages_text = "\n\n".join(f"--- Page {page['page_number']} ---\n{page['content'] or '(vide)'}" for page in pages)
