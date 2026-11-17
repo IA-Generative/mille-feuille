@@ -257,7 +257,8 @@ class AnalyseRepository:
 
     async def update_extraction_entities(self, analyse: Analyse, entities: list[EntityDefinition]) -> None:
         snapshot = [
-            {"name": entity.name, "definition": entity.definition, "type": entity.type} for entity in analyse.entities
+            {"name": entity.name, "definition": entity.definition, "type": entity.type, "nature": entity.nature}
+            for entity in analyse.entities
         ]
         self._record_version(analyse, VersionedField.EXTRACTION_ENTITIES, snapshot)
         for existing in list(analyse.entities):
@@ -268,6 +269,7 @@ class AnalyseRepository:
                 name=ent.name,
                 definition=ent.definition,
                 type=ent.type,
+                nature=ent.nature,
             )
             for ent in entities
         ]

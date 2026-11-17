@@ -17,6 +17,7 @@ from app.schemas.ephemeral import (
     EphemeralExtractedPage,
     EphemeralExtractionOut,
     EphemeralLabelResult,
+    EphemeralPassage,
     EphemeralRunOut,
     EphemeralRunSummary,
 )
@@ -89,6 +90,11 @@ def to_extracted_pages(document) -> list[EphemeralExtractedPage]:
                         EphemeralBox(x_min=b.x_min, y_min=b.y_min, x_max=b.x_max, y_max=b.y_max)
                         for b in p.bounding_boxes
                         if b.document_page_id == page.id
+                    ],
+                    passages=[
+                        EphemeralPassage(text=s.text, char_start=s.char_start, char_end=s.char_end)
+                        for s in p.passages
+                        if s.document_page_id == page.id
                     ],
                 )
                 for p in sorted(page.predictions, key=lambda p: p.source != PredictionSource.TEXTUAL)

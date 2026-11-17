@@ -198,6 +198,10 @@ class DocumentPrediction(UUIDMixin, TimestampMixin, Base):
     bounding_boxes: Mapped[list["BoundingBox"]] = relationship(
         secondary=prediction_bounding_boxes, order_by="BoundingBox.created_at"
     )
+    # Les passages de texte sur lesquels repose la prédiction (extraction sémantique : texte brut et span).
+    passages: Mapped[list["PredictionPassage"]] = relationship(
+        lazy="selectin", order_by="PredictionPassage.created_at", cascade="all, delete-orphan", passive_deletes=True
+    )
     # Éléments de l'analyse de dossier produits par cette prédiction (#112) :
     # leurs versions portent l'historique de validation humaine (#120).
     analysis_elements: Mapped[list["AnalysisElement"]] = relationship("AnalysisElement", viewonly=True)
@@ -216,6 +220,25 @@ class DocumentPrediction(UUIDMixin, TimestampMixin, Base):
             if version.validation_status
         ]
         return sorted(views, key=lambda view: (view.created_at, view.version_number))
+
+
+class PredictionPassage(UUIDMixin, TimestampMixin, Base):
+    """Un passage du texte d'une page sur lequel repose une prédiction : le texte brut, tel qu'il est dans la page, et
+    son intervalle de caractères [char_start, char_end[ dans `document_pages.content`. Une prédiction a un passage par
+    endroit où elle est établie (une entité sémantique peut en avoir sur plusieurs pages) ; ses bbox sont celles
+    des lignes qu'ils couvrent."""
+
+    __tablename__ = "prediction_passages"
+
+    prediction_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("document_predictions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    document_page_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("document_pages.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    char_start: Mapped[int] = mapped_column(Integer, nullable=False)
+    char_end: Mapped[int] = mapped_column(Integer, nullable=False)
 
 
 class PredictionValidation(UUIDMixin, TimestampMixin, Base):

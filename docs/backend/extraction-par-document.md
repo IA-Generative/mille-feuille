@@ -62,3 +62,24 @@ Pour revenir en arrière le temps de la validation : `EXTRACTION_MODE=legacy` su
 - `worker/agent_execution/app/tasks/extraction.py`, `classification.py` : unités déclarées avec leur empreinte.
 - `backend/app/services/analysis_builder.py` : empreinte des unités d'agent.
 - Tests : `worker/agent_execution/tests/test_extraction_planner.py`, `test_tasks.py` ; `backend/tests/test_analysis_generation.py`.
+
+## Nature des définitions : entité ou sémantique
+
+Chaque définition d'entité porte une **nature** (`entity_definitions.nature`) qui décide de l'extraction qui la traite. Les deux extractions sont de même niveau, chacune dans ses propres unités de calcul :
+
+- **`entité`** (par défaut) : valeur littéralement présente dans le texte (nom, date, numéro). Extraite par **GLiNER** (`source=gliner`).
+- **`sémantique`** : valeur qui demande de comprendre le texte (résumé, objet de la demande, déduction). Extraite par le **LLM** (`source=textual`), avec le découpage par document ci-dessus.
+
+Le LLM reprend aussi les entités que GLiNER ne peut pas extraire (type booléen) et toutes les entités quand `GLINER_ENABLED=false` : elles ne resteraient sinon extraites par personne. La migration passe en `sémantique` les définitions existantes de type booléen ; les autres restent des entités. La nature entre dans l'empreinte des unités (`PIPELINE_VERSION` passe à `pipeline-2` : la première relance recalcule tout).
+
+## Texte brut, span et bbox d'une valeur sémantique
+
+Une valeur sémantique est souvent reformulée (« M. Dupont », un résumé) : elle n'est pas dans le texte. Le LLM renvoie donc en plus, pour chaque valeur, les **passages** du texte sur lesquels elle repose (numéro de page + texte recopié mot pour mot). Le worker retrouve chaque passage dans le contenu de sa page (casse et espaces ignorés) et dépose la prédiction avec :
+
+- `passages` : par page, le **texte brut de la page** à cet endroit (pas la copie du LLM) et son intervalle `[char_start, char_end[` (table `prediction_passages`, exposée dans `passages` de la prédiction) ;
+- `bounding_box_ids` : une bbox par ligne couverte par ces intervalles ;
+- `page_ids` : les pages des passages retrouvés (à défaut, celles que le LLM a citées).
+
+Un passage introuvable, hors du lot ou d'une page inconnue est écarté. Sans aucun passage localisable, le worker retombe sur l'ancienne recherche de la valeur elle-même. Une même occurrence répétée dans la page prend la première.
+
+Les entités GLiNER ont le même contenu : leur span est déjà exact, donc `passages` reprend chaque occurrence retenue (texte de la page à cet endroit et intervalle). Le détail d'un dossier (`GET /api/dossiers/{id}/extractions`) et le résultat d'un run éphémère exposent les `passages` **de la page courante** de chaque entité, à côté de ses `boxes` ; l'explorateur d'extraction les affiche sous la valeur (citation, avec l'intervalle en infobulle).
