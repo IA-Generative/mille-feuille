@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.63.0](https://github.com/IA-Generative/mille-feuille/compare/v0.62.0...v0.63.0) (2026-11-18)
+
+
+### Features
+
+* **chart:** values du secret TLS des Ingress OpenShift via Vault ([d0ca523](https://github.com/IA-Generative/mille-feuille/commit/d0ca52355aa9d34d3b8521434777a32912f6600a))
+
 ## [0.62.0](https://github.com/IA-Generative/mille-feuille/compare/v0.61.1...v0.62.0) (2026-11-18)
 
 
