@@ -1,0 +1,31 @@
+# Secret TLS `millefeuille-tls` des Ingress OpenShift : à ajouter AVEC openshift-ingress-values.yaml, qui le référence.
+#   helm template millefeuille ./millefeuille -f values/common-values.yaml -f values/openshift-values.yaml \
+#     -f values/openshift-ingress-values.yaml -f values/openshift-tls-values.yaml
+#
+# Même mécanisme qu'astree (VaultStaticSecret -> secret `kubernetes.io/tls`) : le certificat et sa clé sont lus dans Vault,
+# jamais dans ce dépôt. Chemin : `<global.projectName>/<ENVIRONMENT>/millefeuille/tls` (voir `helper.vaultSecretPath`).
+#
+# À FAIRE dans Vault avant le déploiement : créer ce chemin avec deux clés, `tls.crt` (certificat, chaîne intermédiaire
+# incluse) et `tls.key` (clé privée), en PEM. Le certificat doit couvrir l'hôte posé dans `frontend.ingress.hosts` et
+# `backend.ingress.hosts` (celui de ce dépôt, `millefeuille.example.org`, est fictif). Le VaultAuth `vault-auth` doit
+# aussi avoir le droit de lire ce chemin.
+#
+# Pour réutiliser un certificat d'un autre namespace (astree par exemple), le publier dans ce chemin plutôt que de
+# pointer vers son montage Vault.
+extraObjects:
+  millefeuille-tls:
+    apiVersion: secrets.hashicorp.com/v1beta1
+    kind: VaultStaticSecret
+    metadata:
+      name: millefeuille-tls
+    spec:
+      vaultAuthRef: vault-auth
+      mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "tls") }}'
+      type: kv-v2
+      destination:
+        name: millefeuille-tls
+        create: true
+        # Un Ingress n'accepte qu'un secret de type kubernetes.io/tls (clés tls.crt et tls.key) ; le type Opaque par défaut
+        # de VSO serait ignoré.
+        type: kubernetes.io/tls
