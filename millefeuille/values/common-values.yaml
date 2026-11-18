@@ -906,6 +906,16 @@ cnpg:
       owner: "millefeuille"
       secret:
         name: "millefeuille-db-appuser"
+    # `initdb.secret` ne pose le mot de passe du propriétaire qu'une seule fois, à la création du cluster : si le
+    # secret (synchronisé par VSO depuis Vault) n'est pas prêt à ce moment-là, le rôle est créé sans mot de passe
+    # ("User "millefeuille" has no password assigned") et rien ne le corrige ensuite. Le rôle géré réconcilie le
+    # mot de passe depuis le même secret à chaque passage de l'opérateur.
+    roles:
+      - name: "millefeuille"
+        ensure: present
+        login: true
+        passwordSecret:
+          name: "millefeuille-db-appuser"
     monitoring:
       enabled: true
   backups:
