@@ -1,0 +1,71 @@
+# Profil « léger » pour un petit namespace OpenShift : un seul réplica partout et des ressources au plus juste.
+# À ajouter APRÈS common-values.yaml (et openshift-values.yaml si les UID sont attribués par la plateforme) :
+#   helm template millefeuille ./millefeuille -f values/common-values.yaml -f values/openshift-values.yaml \
+#     -f values/openshift-light-values.yaml
+#
+# Les valeurs ci-dessous sont des points de départ, pas des mesures : surveiller les OOMKilled et le throttling CPU
+# (`oc get pods`, `oc adm top pods`) et remonter une limite si un pod redémarre. Le moins de ressources possible veut
+# aussi dire aucune tolérance aux pannes : un pod qui redémarre coupe le service le temps du redémarrage.
+
+backend:
+  replicaCount: 1
+  resources:
+    requests: {cpu: "50m", memory: "192Mi"}
+    limits: {cpu: "500m", memory: "1Gi"}
+
+frontend:
+  replicaCount: 1
+  resources:
+    requests: {cpu: "25m", memory: "64Mi"}
+    limits: {cpu: "250m", memory: "256Mi"}
+
+# Workers Celery : KEDA garde minReplicaCount à 1 (common-values.yaml), on plafonne à 1 pour ne jamais monter.
+worker_document:
+  kedaAutoscaler:
+    maxReplicaCount: 1
+  resources:
+    requests: {cpu: "100m", memory: "256Mi"}
+    limits: {cpu: "1", memory: "1536Mi"}
+
+worker_render:
+  kedaAutoscaler:
+    maxReplicaCount: 1
+  # LibreOffice : le plus gourmand de ces workers pendant une conversion.
+  resources:
+    requests: {cpu: "100m", memory: "512Mi"}
+    limits: {cpu: "1", memory: "2Gi"}
+
+worker_classification:
+  kedaAutoscaler:
+    maxReplicaCount: 1
+  resources:
+    requests: {cpu: "100m", memory: "384Mi"}
+    limits: {cpu: "1", memory: "2Gi"}
+
+worker_extraction:
+  kedaAutoscaler:
+    maxReplicaCount: 1
+  resources:
+    requests: {cpu: "100m", memory: "384Mi"}
+    limits: {cpu: "1", memory: "2Gi"}
+
+# Sous-charts
+redis:
+  resources:
+    requests: {cpu: "50m", memory: "128Mi"}
+    limits: {cpu: "500m", memory: "512Mi"}
+
+qdrant:
+  replicaCount: 1
+  resources:
+    requests: {cpu: "100m", memory: "256Mi"}
+    limits: {cpu: "500m", memory: "1Gi"}
+
+# Postgres : 3 instances par défaut (le sous-chart `cluster`), une seule ici. Requests = limits : le sous-chart conseille
+# la classe Guaranteed, et le quota du namespace exige des deux.
+cnpg:
+  cluster:
+    instances: 1
+    resources:
+      requests: {cpu: "250m", memory: "512Mi"}
+      limits: {cpu: "250m", memory: "512Mi"}

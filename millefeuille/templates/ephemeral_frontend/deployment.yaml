@@ -1,4 +1,4 @@
-{{- if .Values.enabled }}
+{{- if and .Values.enabled .Values.ephemeral_frontend.enabled }}
 {{- if eq .Values.ephemeral_frontend.deploymentType "Deployment" }}
 apiVersion: apps/v1
 kind: Deployment

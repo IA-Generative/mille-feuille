@@ -1,4 +1,4 @@
-{{- if .Values.enabled }}
+{{- if and .Values.enabled .Values.ephemeral_frontend.enabled }}
 {{- if .Values.ephemeral_frontend.grpcRoute.enabled -}}
 {{- $fullNameApp := include "helper.componentFullname" (dict "root" . "componentName" "ephemeral_frontend") -}}
 {{- $svcPortApp := .Values.ephemeral_frontend.service.port -}}

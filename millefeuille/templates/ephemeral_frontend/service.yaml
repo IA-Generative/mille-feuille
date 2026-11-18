@@ -1,4 +1,4 @@
-{{- if .Values.enabled }}
+{{- if and .Values.enabled .Values.ephemeral_frontend.enabled }}
 {{- /* Not gated on `deploymentType`: every supported kind (Deployment/StatefulSet/DaemonSet) can
 sit behind a Service, and `service.enabled` is the switch for components that take no traffic.
 This matches metrics.yaml, which is gated the same way. */ -}}
