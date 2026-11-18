@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.62.0](https://github.com/IA-Generative/mille-feuille/compare/v0.61.1...v0.62.0) (2026-11-18)
+
+
+### Features
+
+* **chart:** profil léger pour OpenShift et interrupteur ephemeral_frontend ([5b56252](https://github.com/IA-Generative/mille-feuille/commit/5b562521708e455511c8347dd065f487070d174f))
+
+
+### Bug Fixes
+
+* **chart:** déclarer le rôle postgres millefeuille avec son mot de passe ([c2062e1](https://github.com/IA-Generative/mille-feuille/commit/c2062e1e2acdf24881c67893006636a3d0af950a))
+
 ## [0.61.1](https://github.com/IA-Generative/mille-feuille/compare/v0.61.0...v0.61.1) (2026-11-18)
 
 
