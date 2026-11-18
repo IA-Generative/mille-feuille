@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.61.1](https://github.com/IA-Generative/mille-feuille/compare/v0.61.0...v0.61.1) (2026-11-18)
+
+
+### Bug Fixes
+
+* **worker:** installer l'extra redis de celery pour document_process et document_render ([a78ce0d](https://github.com/IA-Generative/mille-feuille/commit/a78ce0daa96ab152e5e624389ac649856dfda417))
+
 ## [0.61.0](https://github.com/IA-Generative/mille-feuille/compare/v0.60.1...v0.61.0) (2026-11-17)
 
 
