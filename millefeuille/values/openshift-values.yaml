@@ -25,3 +25,7 @@ qdrant:
   containerSecurityContext:
     runAsUser: null
     runAsGroup: null
+
+# Frontend éphémère (UneFeuille) : non déployé sur OpenShift.
+ephemeral_frontend:
+  enabled: false

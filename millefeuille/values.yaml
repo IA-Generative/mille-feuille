@@ -1078,6 +1078,9 @@ frontend:
 # UneFeuille - restricted standalone frontend of the ephemeral API (ephemeral-frontend). Same shape as `frontend`,
 # served on its own host; the backend must list its public URL in `EPHEMERAL_FRONTEND_URL` (CORS + post-login redirect).
 ephemeral_frontend:
+  # -- Déploie le frontend éphémère (UneFeuille). Mettre à `false` pour ne rendre aucune de ses ressources.
+  # @section -- Ephemeral frontend
+  enabled: true
   # -- Workload kind to deploy the app as. One of "Deployment", "StatefulSet" or "DaemonSet"
   # (validated at render time - an unknown value fails instead of producing a release with no
   # workload). Use the top-level `jobs` / `cronjobs` maps for one-off or scheduled workloads.

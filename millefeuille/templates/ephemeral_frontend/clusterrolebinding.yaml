@@ -1,4 +1,4 @@
-{{- if .Values.enabled }}
+{{- if and .Values.enabled .Values.ephemeral_frontend.enabled }}
 {{- /* Gated on `rules` as well, exactly like clusterrole.yaml: without it, an empty `rules` list
 yields a ClusterRoleBinding whose roleRef points at a ClusterRole that was never created. */ -}}
 {{- if and .Values.ephemeral_frontend.serviceAccount.enabled .Values.ephemeral_frontend.serviceAccount.clusterRole.create .Values.ephemeral_frontend.serviceAccount.clusterRole.rules }}

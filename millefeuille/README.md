@@ -293,6 +293,7 @@ Kubernetes: `>=1.25.0-0`
 | ephemeral_frontend.dnsConfig | object | `{}` | Pod DNS configuration, merged with `dnsPolicy` by the kubelet. |
 | ephemeral_frontend.dnsPolicy | string | `""` (`ClusterFirstWithHostNet` when `hostNetwork` is true) | Pod DNS policy. Left empty, it defaults to `ClusterFirstWithHostNet` when `hostNetwork` is true (otherwise a hostNetwork pod silently stops resolving cluster DNS) and to the Kubernetes default `ClusterFirst` when it isn't. |
 | ephemeral_frontend.enableServiceLinks | bool | `false` | Inject the legacy `{SVC}_SERVICE_HOST`/`_PORT` environment variables for every Service in the namespace. Defaults to false: the variables are rarely used, leak the namespace's topology into every container, and can collide with the app's own configuration. Set to true only for an app that genuinely reads them. |
+| ephemeral_frontend.enabled | bool | `true` | Déploie le frontend éphémère (UneFeuille). Mettre à `false` pour ne rendre aucune de ses ressources. |
 | ephemeral_frontend.env | object | `{}` | Map or array of environment variables to inject into the app container (`valueFrom` supported). |
 | ephemeral_frontend.envCm | object | `{}` | Map of environment variables to inject into a configmap loaded by the app container (`valueFrom` not supported). |
 | ephemeral_frontend.envFrom | list | `[]` | Ephemeral frontend container env variables loaded from configmap or secret reference. List or map (merged with `global.envFrom` above, global entries first); see `global.envFrom` for both forms. |

@@ -1,4 +1,4 @@
-{{- if .Values.enabled }}
+{{- if and .Values.enabled .Values.ephemeral_frontend.enabled }}
 {{- /* Gated on `rules` as well, exactly like role.yaml: without it, an empty `rules` list yields a
 RoleBinding whose roleRef points at a Role that was never created. */ -}}
 {{- if and .Values.ephemeral_frontend.serviceAccount.enabled .Values.ephemeral_frontend.serviceAccount.role.create .Values.ephemeral_frontend.serviceAccount.role.rules }}

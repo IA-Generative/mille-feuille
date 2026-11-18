@@ -1,4 +1,4 @@
-{{- if .Values.enabled }}
+{{- if and .Values.enabled .Values.ephemeral_frontend.enabled }}
 {{- if and .Values.ephemeral_frontend.metrics.enabled .Values.ephemeral_frontend.metrics.serviceMonitor.enabled }}
 {{- $metricSvcPort := .Values.ephemeral_frontend.metrics.service.portName | default .Values.ephemeral_frontend.metrics.service.port -}}
 apiVersion: monitoring.coreos.com/v1

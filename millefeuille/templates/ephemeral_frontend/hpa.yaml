@@ -1,4 +1,4 @@
-{{- if .Values.enabled }}
+{{- if and .Values.enabled .Values.ephemeral_frontend.enabled }}
 {{- /* DaemonSet is excluded on purpose: it has no scale subresource, so an HPA targeting one is
 rejected by the API server. `helper.component.validate` already fails on that combination - this
 guard just keeps the template honest if the validation is ever relaxed. */ -}}

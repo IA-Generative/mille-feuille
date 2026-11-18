@@ -1,4 +1,4 @@
-{{- if .Values.enabled }}
+{{- if and .Values.enabled .Values.ephemeral_frontend.enabled }}
 {{- if or .Values.ephemeral_frontend.envCm .Values.global.envCm -}}
 kind: ConfigMap
 apiVersion: v1
