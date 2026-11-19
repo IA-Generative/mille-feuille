@@ -136,6 +136,7 @@ async def list_dossiers(
             "due : échéance la plus proche d'abord"
         ),
     ] = "created_at",
+    search: Annotated[str | None, Query(max_length=200, description="Texte contenu dans le nom du dossier")] = None,
 ) -> Page[DossierOut]:
     dossiers, total = await DossierRepository(db).list_paginated(
         page=page,
@@ -144,6 +145,7 @@ async def list_dossiers(
         due=due,
         assignee=user.user_id if assignee == "me" else assignee,
         sort=sort,
+        search=search,
         user=user,
     )
     return Page.of(list(dossiers), total=total, page=page, page_size=page_size)

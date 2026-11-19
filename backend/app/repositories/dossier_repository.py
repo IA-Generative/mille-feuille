@@ -126,6 +126,7 @@ class DossierRepository:
         due: str | None = None,
         assignee: str | None = None,
         sort: str = "created_at",
+        search: str | None = None,
         user: "RequestContext | None" = None,
     ) -> tuple[Sequence[Dossier], int]:
         """Liste paginée, du plus récent au plus ancien par défaut.
@@ -136,12 +137,15 @@ class DossierRepository:
         - ``assignee`` : ``none`` (non affectés) ou l'identifiant d'une personne (#173) ;
         - ``sort="status"`` : trie par statut, dans l'ordre défini par chaque analyse (les dossiers sans
           statut en dernier), puis du plus récent au plus ancien ;
-        - ``sort="due"`` : échéance la plus proche d'abord (sans échéance en dernier).
+        - ``sort="due"`` : échéance la plus proche d'abord (sans échéance en dernier) ;
+        - ``search`` : ne garde que les dossiers dont le nom contient ce texte (casse ignorée).
         """
         filters = [Dossier.workflow_status_id == workflow_status_id] if workflow_status_id else []
         if user is not None:
             filters.append(visible_clause(user.is_admin, user.groups))
         filters += self._due_filters(due)
+        if search and search.strip():
+            filters.append(Dossier.name.icontains(search.strip(), autoescape=True))
         if assignee == "none":
             filters.append(Dossier.assignee_id.is_(None))
         elif assignee:

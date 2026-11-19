@@ -1,14 +1,23 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 
-import type { DashboardUrgency } from "@/types/dashboard";
+import { apiFetch } from "@/utils/api";
 
 // Planification en deux clics : on touche une heure de l'agenda, puis on choisit
 // le dossier. Le créneau d'une heure est créé aussitôt (modifiable ensuite).
+// Tous les dossiers visibles sont proposés, pas seulement les miens : c'est à la personne de décider
+// ce qu'elle met dans son agenda.
+
+interface Candidate {
+  id: string;
+  name: string;
+  status: string;
+  overdue: boolean;
+}
 
 const props = defineProps<{
-  /** Dossiers qui n'ont pas encore de créneau, les plus urgents en premier. */
-  candidates: DashboardUrgency[];
+  /** Dossiers qui ont déjà mon créneau : le choisir l'écraserait, on ne les propose pas. */
+  plannedIds: string[];
   /** Libellé de l'heure choisie (ex. « 14:00 »). */
   timeLabel: string;
 }>();
@@ -20,20 +29,55 @@ const emit = defineEmits<{
 
 const search = ref("");
 const input = ref<HTMLInputElement | null>(null);
+const loaded = ref<Candidate[]>([]);
+const loading = ref(true);
+const failed = ref(false);
 
-const results = computed(() => {
-  const q = search.value.trim().toLowerCase();
-  return q ? props.candidates.filter((u) => u.dossierName.toLowerCase().includes(q)) : props.candidates;
+let timer: ReturnType<typeof setTimeout> | undefined;
+let requestId = 0;
+
+/** Recherche côté serveur (nom contenant le texte), les échéances les plus proches d'abord. */
+async function load() {
+  const id = ++requestId;
+  loading.value = true;
+  failed.value = false;
+  const query = new URLSearchParams({ page_size: "30", sort: "due" });
+  if (search.value.trim()) query.set("search", search.value.trim());
+  try {
+    const page = await apiFetch<{ items: any[] }>(`/api/dossiers?${query}`);
+    if (id !== requestId) return; // une recherche plus récente a pris le relais
+    loaded.value = page.items
+      .filter((d) => d.closed_at == null && d.analyse_id)
+      .map((d) => ({
+        id: d.id,
+        name: d.name,
+        status: d.workflow_status?.name ?? "",
+        overdue: d.due?.level === "overdue",
+      }));
+  } catch {
+    if (id === requestId) failed.value = true;
+  } finally {
+    if (id === requestId) loading.value = false;
+  }
+}
+
+watch(search, () => {
+  clearTimeout(timer);
+  timer = setTimeout(load, 250);
 });
+onBeforeUnmount(() => clearTimeout(timer));
+
+const results = computed(() => loaded.value.filter((d) => !props.plannedIds.includes(d.id)));
 
 const root = ref<HTMLElement | null>(null);
 
-onMounted(() =>
+onMounted(() => {
+  load();
   nextTick(() => {
     input.value?.focus({ preventScroll: true });
     root.value?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }),
-);
+  });
+});
 </script>
 
 <template>
@@ -56,16 +100,16 @@ onMounted(() =>
     />
 
     <ul v-if="results.length" class="qp__list">
-      <li v-for="u in results" :key="u.dossierId">
-        <button type="button" class="qp__item" @click="emit('pick', u.dossierId)">
-          <span class="qp__name">{{ u.dossierName }}</span>
-          <span class="qp__sub">{{ u.analyseName }}</span>
-          <span v-if="u.level === 'overdue'" class="qp__late">En retard</span>
+      <li v-for="d in results" :key="d.id">
+        <button type="button" class="qp__item" @click="emit('pick', d.id)">
+          <span class="qp__name">{{ d.name }}</span>
+          <span class="qp__sub">{{ d.status }}</span>
+          <span v-if="d.overdue" class="qp__late">En retard</span>
         </button>
       </li>
     </ul>
-    <p v-else class="qp__empty">
-      {{ candidates.length ? "Aucun dossier ne correspond." : "Tous vos dossiers sont déjà planifiés." }}
+    <p v-else class="qp__empty" role="status">
+      {{ loading ? "Recherche…" : failed ? "Les dossiers n'ont pas pu être chargés." : "Aucun dossier ne correspond." }}
     </p>
   </div>
 </template>
