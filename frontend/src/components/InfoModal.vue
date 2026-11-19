@@ -8,6 +8,7 @@
  * La préférence est persistée en localStorage.
  */
 import { onBeforeUnmount, ref, toRef, watch } from "vue";
+import { useBackdropClose } from "@/composables/useBackdropClose";
 import { useDialogFocus } from "@/composables/useDialogFocus";
 
 const props = defineProps<{
@@ -18,6 +19,8 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: [];
 }>();
+
+const backdrop = useBackdropClose((e) => e.target === e.currentTarget, () => emit("close"));
 
 const dialogRef = ref<HTMLElement | null>(null);
 useDialogFocus(toRef(props, "open"), dialogRef);
@@ -106,14 +109,20 @@ watch(() => undefined, () => {}, { immediate: true });
 
 <template>
   <Teleport to="body">
-    <div v-if="open" class="info-modal__overlay" @click.self="emit('close')">
+    <div
+      v-if="open"
+      class="info-modal__overlay"
+      @pointerdown.capture="backdrop.onPointerdown"
+      @pointerup="backdrop.onPointerup"
+      @click="backdrop.onClick"
+    >
       <div
         ref="dialogRef"
         class="info-modal"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
-        tabindex="1-"
+        tabindex="-1"
         @keydown.esc="emit('close')"
         :style="{ width: modalWidth + 'px', height: modalHeight + 'px', maxWidth: 'calc(100vw - 3rem)', maxHeight: 'calc(100vh - 3rem)' }"
       >

@@ -11,12 +11,14 @@
  */
 import { computed, ref, toRef } from "vue";
 
+import { useBackdropClose } from "@/composables/useBackdropClose";
 import { useDialogFocus } from "@/composables/useDialogFocus";
 import { useUserTasks } from "@/composables/useUserTasks";
 import type { UserTask, UserTaskStatus } from "@/types/userTask";
 
 const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
+const backdrop = useBackdropClose((e) => e.target === e.currentTarget, () => emit("close"));
 
 const drawerRef = ref<HTMLElement | null>(null);
 useDialogFocus(toRef(props, "open"), drawerRef);
@@ -62,7 +64,13 @@ function targetLink(task: UserTask): string | null {
 <template>
   <Teleport to="body">
     <Transition name="task-drawer-fade">
-      <div v-if="props.open" class="task-drawer__overlay" @click.self="emit('close')">
+      <div
+        v-if="props.open"
+        class="task-drawer__overlay"
+        @pointerdown.capture="backdrop.onPointerdown"
+        @pointerup="backdrop.onPointerup"
+        @click="backdrop.onClick"
+      >
         <Transition name="task-drawer-slide">
           <aside
             ref="drawerRef"
