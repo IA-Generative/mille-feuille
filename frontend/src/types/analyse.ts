@@ -22,14 +22,29 @@ export interface LabelDefinition {
   definition: string;
 }
 
-/** Document d'exemple d'un label (PDF ou image), utilisé pour le rapprochement visuel. */
+/** Document d'exemple d'un label (PDF ou image), conservé côté serveur. */
 export interface LabelExample {
   id: string;
   name: string;
   kind: "image" | "pdf";
   size: number;
-  /** Aperçu local (URL d'objet) : n'existe que pour une image, tant que la page est ouverte. */
+  /** Où le serveur sert le fichier (avec la session). */
+  fileUrl: string;
+  /** Aperçu (URL d'objet) chargé depuis le serveur : n'existe que pour une image. */
   previewUrl: string | null;
+}
+
+/** Un rectangle, en fractions (0 à 1) de la page. */
+export interface ZoneRect {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** Zone où chercher une entité, tracée sur un exemple d'un label (absent : valable pour toutes les pages lues). */
+export interface EntityZone extends ZoneRect {
+  exampleId: string | null;
 }
 
 export interface EntityDefinition {
@@ -38,6 +53,10 @@ export interface EntityDefinition {
   definition: string;
   type: EntityType;
   nature: EntityNature;
+  /** Labels dans lesquels chercher l'entité : seules les pages classées dans l'un d'eux sont lues (aucun : tout le dossier). */
+  labelIds: string[];
+  /** Zones où chercher (facultatif, aucune : la page entière). */
+  zones: EntityZone[];
 }
 
 /**

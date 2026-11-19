@@ -1,6 +1,7 @@
 import { computed, reactive, ref } from "vue";
 
 import type { CustomField } from "@/types/tracking";
+import { examplesExist, seedExamples } from "@/composables/useLabelExamples";
 import { apiFetch } from "@/utils/api";
 import type {
   Agent,
@@ -30,9 +31,22 @@ function mapEntity(api: {
   definition: string;
   type: EntityDefinition["type"];
   nature?: EntityDefinition["nature"];
+  label_ids?: string[];
+  zones?: { example_id: string | null; x0: number; y0: number; x1: number; y1: number }[];
 }): EntityDefinition {
-  return { id: api.id, name: api.name, definition: api.definition, type: api.type, nature: api.nature ?? "entité" };
+  return {
+    id: api.id,
+    name: api.name,
+    definition: api.definition,
+    type: api.type,
+    nature: api.nature ?? "entité",
+    labelIds: api.label_ids ?? [],
+    zones: (api.zones ?? []).map(({ example_id, x0, y0, x1, y1 }) => ({ exampleId: example_id, x0, y0, x1, y1 })),
+  };
 }
+
+/** Un identifiant fabriqué par l'interface (`label-…`, `entity-…`) n'existe pas encore côté serveur : on ne l'envoie pas. */
+const serverId = (id: string) => (/^[0-9a-f]{8}-[0-9a-f]{4}-/.test(id) ? id : undefined);
 
 function mapStatus(api: any): WorkflowStatus {
   return {
@@ -85,6 +99,7 @@ function mapAgent(api: any): Agent {
 }
 
 function mapAnalyse(api: any): Analyse {
+  seedExamples(api.id, api.classification.labels);
   return {
     id: api.id,
     name: api.name,
@@ -241,7 +256,7 @@ export function useAnalyses() {
   const updateClassificationLabels = async (analyseId: string, labels: LabelDefinition[]) => {
     const data = await apiFetch<any>(`/api/analyses/${analyseId}/classification/labels`, {
       method: "PUT",
-      body: JSON.stringify({ labels: labels.map(({ name, definition }) => ({ name, definition })) }),
+      body: JSON.stringify({ labels: labels.map(({ id, name, definition }) => ({ id: serverId(id), name, definition })) }),
     });
     cache[analyseId] = mapAnalyse(data);
   };
@@ -273,7 +288,24 @@ export function useAnalyses() {
   const updateExtractionEntities = async (analyseId: string, entities: EntityDefinition[]) => {
     const data = await apiFetch<any>(`/api/analyses/${analyseId}/extraction/entities`, {
       method: "PUT",
-      body: JSON.stringify({ entities: entities.map(({ name, definition, type, nature }) => ({ name, definition, type, nature })) }),
+      body: JSON.stringify({
+        entities: entities.map(({ id, name, definition, type, nature, labelIds, zones }) => ({
+          id: serverId(id),
+          name,
+          definition,
+          type,
+          nature,
+          label_ids: labelIds.filter((labelId) => serverId(labelId)),
+          // Une zone tracée sur un exemple retiré depuis garde son rectangle, sans exemple.
+          zones: zones.map(({ exampleId, x0, y0, x1, y1 }) => ({
+            example_id: exampleId && examplesExist(exampleId) ? exampleId : null,
+            x0,
+            y0,
+            x1,
+            y1,
+          })),
+        })),
+      }),
     });
     cache[analyseId] = mapAnalyse(data);
   };

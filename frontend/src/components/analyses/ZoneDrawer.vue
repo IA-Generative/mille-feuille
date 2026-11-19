@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
-import type { ZoneRect } from "@/composables/useEntityLocations";
+import type { ZoneRect } from "@/types/analyse";
 
 defineProps<{ url: string; rects: ZoneRect[] }>();
 const emit = defineEmits<{ add: [ZoneRect] }>();

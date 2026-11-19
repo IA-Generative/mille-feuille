@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
-import type { ZoneRect } from "@/composables/useEntityLocations";
+import type { ZoneRect } from "@/types/analyse";
 
 /** Ce que couvre la zone : la page découpée à son rectangle (rien d'autre n'est chargé que la page elle-même). */
 const props = defineProps<{ url: string; rect: ZoneRect }>();
