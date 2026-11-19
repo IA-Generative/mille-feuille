@@ -141,6 +141,7 @@ const announcement = computed(() =>
 /* Réduit : barre flottante hors flux, l'application reprend toute sa largeur. */
 .tutorial-panel--minimized {
   position: fixed;
+  top: auto; /* annule le `top: 0` du mode sticky : sinon, avec `bottom`, la barre s'étire sur toute la hauteur */
   right: 1rem;
   bottom: 1rem;
   width: 22rem;
