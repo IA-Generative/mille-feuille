@@ -11,9 +11,16 @@ import { useListView } from "@/composables/useListView";
 import { suggestEntities, suggestEntityDefinition } from "@/composables/useLlmAssist";
 import type { EntityDefinition, EntityNature, EntityType, LabelDefinition, Version } from "@/types/analyse";
 
-const props = withDefaults(defineProps<{ entities: EntityDefinition[]; versions: Version<EntityDefinition[]>[]; labels?: LabelDefinition[] }>(), {
-  labels: () => [],
-});
+const props = withDefaults(
+  defineProps<{
+    entities: EntityDefinition[];
+    versions: Version<EntityDefinition[]>[];
+    labels?: LabelDefinition[];
+    /** Lecture seule : seuls le créateur de l'analyse et les administrateurs modifient les entités. */
+    readonly?: boolean;
+  }>(),
+  { labels: () => [] },
+);
 const emit = defineEmits<{ save: [EntityDefinition[]]; restore: [string] }>();
 
 const entityTypes: EntityType[] = ["texte", "date", "nombre", "booléen", "identifiant"];
@@ -166,7 +173,7 @@ function formatVersionContent(entities: EntityDefinition[]) {
             </p>
             <CollapsibleText v-if="item.definition" :text="item.definition" />
           </div>
-          <div class="entities-editor__buttons">
+          <div v-if="!readonly" class="entities-editor__buttons">
             <DsfrButton :label="`Modifier l'entité « ${item.name || 'sans nom'} »`" icon-only tertiary no-outline icon="ri-edit-line" size="sm" @click="editingId = item.id" />
             <DsfrButton
               :label="`Supprimer l'entité « ${item.name || 'sans nom'} »`"
@@ -203,15 +210,18 @@ function formatVersionContent(entities: EntityDefinition[]) {
 
     <PaginationBar v-model:page-index="pageIndex" v-model:page-size="pageSize" :total="filtered.length" label="Par page" />
 
-    <div class="entities-editor__actions">
+    <div v-if="!readonly" class="entities-editor__actions">
       <DsfrButton label="Ajouter une entité" tertiary icon="ri-add-line" size="sm" @click="addEntity" />
       <LlmAssistButton label="Suggérer des entités" :loading="isSuggestingList" @click="applySuggestions" />
       <DsfrButton label="Enregistrer" :disabled="!isDirty" size="sm" @click="save" />
     </div>
 
-    <p v-if="!isDirty" class="fr-hint-text fr-mb-0">Aucune modification à enregistrer.</p>
+        <p v-if="readonly" class="fr-hint-text fr-mb-0">
+      Seuls le créateur de l'analyse et les administrateurs peuvent modifier les entités.
+    </p>
+    <p v-else-if="!isDirty" class="fr-hint-text fr-mb-0">Aucune modification à enregistrer.</p>
 
-    <VersionHistory :versions="versions" :format-content="formatVersionContent" @restore="emit('restore', $event)" />
+    <VersionHistory :versions="versions" :format-content="formatVersionContent" :readonly="readonly" @restore="emit('restore', $event)" />
   </div>
 </template>
 

@@ -7,6 +7,8 @@ defineProps<{
   formatContent: (content: T) => string;
   /** Rend le contenu en Markdown (prompts) au lieu de texte brut. */
   markdown?: boolean;
+  /** Lecture seule : pas de bouton « Restaurer ». */
+  readonly?: boolean;
 }>();
 
 const emit = defineEmits<{ restore: [versionId: string] }>();
@@ -25,7 +27,7 @@ function formatDate(iso: string) {
           <MarkdownText v-if="markdown" :content="formatContent(version.content)" class="version-history__markdown" />
           <p v-else class="fr-text--sm version-history__content">{{ formatContent(version.content) }}</p>
         </div>
-        <DsfrButton label="Restaurer" tertiary size="sm" @click="emit('restore', version.id)" />
+        <DsfrButton v-if="!readonly" label="Restaurer" tertiary size="sm" @click="emit('restore', version.id)" />
       </li>
     </ul>
   </DsfrAccordion>

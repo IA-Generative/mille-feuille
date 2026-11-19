@@ -5,6 +5,7 @@ import { useRoute } from "vue-router";
 import EntitiesEditor from "@/components/analyses/EntitiesEditor.vue";
 import PromptEditor from "@/components/analyses/PromptEditor.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
+import { useCanManageAnalyse } from "@/composables/useCanManageAnalyse";
 import { suggestExtractionPrompt } from "@/composables/useLlmAssist";
 
 const route = useRoute();
@@ -18,6 +19,10 @@ const {
 } = useAnalyses();
 
 const analyse = computed(() => getById(String(route.params.id)));
+
+// Labels et entités : le créateur et les administrateurs (le backend reste juge).
+const canManageAnalyse = useCanManageAnalyse();
+const readonly = computed(() => !analyse.value || !canManageAnalyse(analyse.value.createdBy));
 
 onMounted(() => {
   if (!analyse.value) fetchAnalyse(String(route.params.id));
@@ -42,6 +47,7 @@ onMounted(() => {
     </PromptEditor>
     <hr class="analyse-tab__divider" />
     <EntitiesEditor
+      :readonly="readonly"
       :entities="analyse.extraction.entities"
       :labels="analyse.classification.labels"
       :versions="analyse.extraction.entitiesVersions"

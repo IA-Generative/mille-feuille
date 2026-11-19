@@ -291,3 +291,66 @@ def test_an_instructor_correction_wins_over_the_model(client: TestClient, monkey
 
     assert response.status_code == 201
     assert _page_labels(client, dossier["id"])[page_1] == [dossier["rib"]["id"]]
+
+
+# --- Droits : le créateur et les administrateurs modifient, les autres lisent ---
+
+
+def _person(suffix: str, *, admin: bool = False):
+    from app.core.security.factory import RequestContext
+
+    return RequestContext(
+        user_id=f"droits-{suffix}",
+        email=f"{suffix}@example.org",
+        roles=["admin"] if admin else [],
+        is_admin=admin,
+        groups=["/dev-tests"],
+    )
+
+
+def _as(person):
+    from app.core.security.factory import get_current_user
+    from app.main import app
+
+    app.dependency_overrides[get_current_user] = lambda: person
+
+
+def _restore_identity() -> None:
+    from app.core.security.factory import get_current_user
+    from app.main import app
+
+    app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_only_the_creator_and_admins_can_change_labels_entities_and_examples(client: TestClient) -> None:
+    creator, stranger, admin = _person("createur"), _person("autre"), _person("admin", admin=True)
+    try:
+        _as(creator)
+        analyse_id = _analyse(client)
+        label = _put_labels(client, analyse_id, [{"name": "CNI"}]).json()["classification"]["labels"][0]
+        assert _upload(client, analyse_id, label["id"], "recto.png").status_code == 201
+        example = _labels(client, analyse_id)[0]["examples"][0]
+        _put_entities(client, analyse_id, [_entity("nom", label_ids=[label["id"]])])
+        base = f"/api/analyses/{analyse_id}"
+
+        _as(stranger)
+        assert _put_labels(client, analyse_id, []).status_code == 403
+        assert _put_entities(client, analyse_id, []).status_code == 403
+        assert _upload(client, analyse_id, label["id"], "autre.png").status_code == 403
+        assert client.delete(f"{base}/classification/labels/{label['id']}/examples/{example['id']}").status_code == 403
+        assert client.post(f"{base}/classification/labels/restore/{uuid.uuid4()}").status_code == 403
+        assert client.post(f"{base}/extraction/entities/restore/{uuid.uuid4()}").status_code == 403
+        # La lecture reste ouverte : liste, fichier, et l'analyse elle-même.
+        assert client.get(f"{base}/classification/labels/{label['id']}/examples").status_code == 200
+        assert (
+            client.get(f"{base}/classification/labels/{label['id']}/examples/{example['id']}/file").status_code == 200
+        )
+        assert client.get(base).status_code == 200
+        # Rien n'a bougé.
+        assert len(_labels(client, analyse_id)) == 1 and len(_labels(client, analyse_id)[0]["examples"]) == 1
+
+        _as(admin)
+        assert _upload(client, analyse_id, label["id"], "admin.png").status_code == 201
+        assert _put_entities(client, analyse_id, []).status_code == 200
+    finally:
+        _restore_identity()

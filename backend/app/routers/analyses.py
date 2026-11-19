@@ -301,9 +301,11 @@ async def update_classification_labels(
     analyse_id: uuid.UUID,
     body: LabelsUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(analyse, user)
     labels = [LabelDefinition(id=lbl.id, name=lbl.name, definition=lbl.definition) for lbl in body.labels]
     await _definitions_or_422(repository.update_classification_labels(analyse, labels))
     return repository.to_schema(analyse)
@@ -317,9 +319,11 @@ async def restore_classification_labels(
     analyse_id: uuid.UUID,
     version_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(analyse, user)
     await _definitions_or_422(
         repository.restore_field_version(analyse, VersionedField.CLASSIFICATION_LABELS, version_id)
     )
@@ -365,10 +369,12 @@ async def add_label_examples(
     label_id: uuid.UUID,
     files: Annotated[list[UploadFile], File()],
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> list[LabelExampleOut]:
     """Ajoute des documents d'exemple au label (PDF, PNG, JPEG ou WebP, 10 Mo au plus, 10 par label). Tout ou rien :
     un fichier refusé n'en laisse entrer aucun."""
     analyse = await _get_or_404(AnalyseRepository(db), analyse_id)
+    _require_can_manage(analyse, user)
     label = _label_or_404(analyse, label_id)
     if len(label.examples) + len(files) > MAX_EXAMPLES_PER_LABEL:
         raise HTTPException(
@@ -433,10 +439,12 @@ async def delete_label_example(
     label_id: uuid.UUID,
     example_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> Response:
     """Retire un exemple. Les zones tracées dessus gardent leur rectangle mais ne désignent plus d'exemple."""
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(analyse, user)
     example = _example_or_404(_label_or_404(analyse, label_id), example_id)
     repository.forget_examples_in_zones(analyse, {example.id})
     key = example.s3_key
@@ -475,9 +483,11 @@ async def update_extraction_entities(
     analyse_id: uuid.UUID,
     body: EntitiesUpdate,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(analyse, user)
     entities = [
         EntityInput(
             id=ent.id,
@@ -499,9 +509,11 @@ async def restore_extraction_entities(
     analyse_id: uuid.UUID,
     version_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(analyse, user)
     await _definitions_or_422(repository.restore_field_version(analyse, VersionedField.EXTRACTION_ENTITIES, version_id))
     return repository.to_schema(analyse)
 

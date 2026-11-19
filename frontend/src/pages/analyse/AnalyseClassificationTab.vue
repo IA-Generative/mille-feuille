@@ -5,6 +5,7 @@ import { useRoute } from "vue-router";
 import LabelsEditor from "@/components/analyses/LabelsEditor.vue";
 import PromptEditor from "@/components/analyses/PromptEditor.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
+import { useCanManageAnalyse } from "@/composables/useCanManageAnalyse";
 import { suggestClassificationPrompt } from "@/composables/useLlmAssist";
 
 const route = useRoute();
@@ -18,6 +19,10 @@ const {
 } = useAnalyses();
 
 const analyse = computed(() => getById(String(route.params.id)));
+
+// Labels et entités : le créateur et les administrateurs (le backend reste juge).
+const canManageAnalyse = useCanManageAnalyse();
+const readonly = computed(() => !analyse.value || !canManageAnalyse(analyse.value.createdBy));
 
 // L'analyse peut ne pas être en cache si l'utilisateur accède directement
 // à cet onglet par URL. On la charge au montage si nécessaire.
@@ -41,6 +46,7 @@ onMounted(() => {
     </PromptEditor>
     <hr class="analyse-tab__divider" />
     <LabelsEditor
+      :readonly="readonly"
       :analyse-id="analyse.id"
       :labels="analyse.classification.labels"
       :versions="analyse.classification.labelsVersions"
