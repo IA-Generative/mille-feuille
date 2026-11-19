@@ -4,6 +4,7 @@ import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from "vue";
 import ChatToolsMenuRow from "@/components/tools/ChatToolsMenuRow.vue";
 import ToolSearchInput from "@/components/tools/ToolSearchInput.vue";
 import { useConversationTools } from "@/composables/useConversationTools";
+import { useOutsideClick } from "@/composables/useOutsideClick";
 import type { ChatTool } from "@/types/chatTool";
 import { matchesSearch } from "@/utils/toolSearch";
 
@@ -55,20 +56,18 @@ function setActive(id: string, active: boolean) {
 
 const enableAll = () => setExcluded([]);
 
-function onDocumentClick(event: MouseEvent) {
-  if (opened.value && root.value && !root.value.contains(event.target as Node)) opened.value = false;
-}
+useOutsideClick(root, () => {
+  opened.value = false;
+});
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === "Escape") opened.value = false;
 }
 
 onMounted(() => {
-  document.addEventListener("click", onDocumentClick);
   document.addEventListener("keydown", onKeydown);
 });
 onBeforeUnmount(() => {
-  document.removeEventListener("click", onDocumentClick);
   document.removeEventListener("keydown", onKeydown);
 });
 </script>

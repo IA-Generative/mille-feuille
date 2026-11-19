@@ -10,6 +10,7 @@ import TaskDrawer from "@/components/TaskDrawer.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useCgu } from "@/composables/useCgu";
 import { useTutorials } from "@/composables/useTutorials";
+import { useOutsideClick } from "@/composables/useOutsideClick";
 import { useUserTasks } from "@/composables/useUserTasks";
 import { renderMarkdown } from "@/utils/markdown";
 
@@ -132,11 +133,9 @@ function openTaskDrawer() {
   showTaskDrawer.value = true;
 }
 
-function handleOutsideClick(event: MouseEvent) {
-  if (showUserMenu.value && !userWrapper.value?.contains(event.target as Node)) {
-    showUserMenu.value = false;
-  }
-}
+useOutsideClick(userWrapper, () => {
+  showUserMenu.value = false;
+});
 
 // Raccourci clavier Ctrl+K / Cmd+K pour ouvrir l'assistant.
 function handleKeydown(event: KeyboardEvent) {
@@ -160,11 +159,9 @@ function initials(name: string): string {
 }
 
 onMounted(() => {
-  document.addEventListener("click", handleOutsideClick);
   document.addEventListener("keydown", handleKeydown);
 });
 onBeforeUnmount(() => {
-  document.removeEventListener("click", handleOutsideClick);
   document.removeEventListener("keydown", handleKeydown);
 });
 </script>

@@ -2,6 +2,7 @@
 import { onBeforeUnmount, onMounted, ref } from "vue";
 
 import { useChatAgents } from "@/composables/useChatAgents";
+import { useOutsideClick } from "@/composables/useOutsideClick";
 
 // Les agents de l'analyse, interrogeables dans le chat. Sans mention, le plan du chat choisit lui-même celui qui répond ;
 // avec `@Nom`, l'agent nommé répond à coup sûr. Choisir un agent dans ce menu place sa mention dans la zone de saisie.
@@ -19,20 +20,18 @@ function pick(name: string) {
   opened.value = false;
 }
 
-function onDocumentClick(event: MouseEvent) {
-  if (opened.value && root.value && !root.value.contains(event.target as Node)) opened.value = false;
-}
+useOutsideClick(root, () => {
+  opened.value = false;
+});
 
 function onKeydown(event: KeyboardEvent) {
   if (event.key === "Escape") opened.value = false;
 }
 
 onMounted(() => {
-  document.addEventListener("click", onDocumentClick);
   document.addEventListener("keydown", onKeydown);
 });
 onBeforeUnmount(() => {
-  document.removeEventListener("click", onDocumentClick);
   document.removeEventListener("keydown", onKeydown);
 });
 </script>
