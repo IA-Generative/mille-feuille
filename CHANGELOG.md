@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.64.0](https://github.com/IA-Generative/mille-feuille/compare/v0.63.0...v0.64.0) (2026-11-19)
+
+
+### Features
+
+* **fron:** put new tutorial panel into the user menu ([5a9e192](https://github.com/IA-Generative/mille-feuille/commit/5a9e192b7f226241d0eec1e939455742ff3a1926))
+* **front:** add Tutorial Hint component and correct reduce button for tutorial Panel ([e33c32f](https://github.com/IA-Generative/mille-feuille/commit/e33c32f2e6df505bf85e40b1dab1bb728133e097))
+* **front:** add TutorialPanel component ([4e8f8e2](https://github.com/IA-Generative/mille-feuille/commit/4e8f8e22d2760f07443033f406e983eab137bde8))
+* **front:** edit app.vue ([6ac741c](https://github.com/IA-Generative/mille-feuille/commit/6ac741c00147a6c2f1e29c7fef87262bd9b7f942))
+* **front:** edit useTutorials to make it more complete ([12100a6](https://github.com/IA-Generative/mille-feuille/commit/12100a6bf35fb51352872645aba927a4ee386444))
+
+
+### Bug Fixes
+
+* **dashboard:** choisir n'importe quel dossier visible pour son agenda ([3464219](https://github.com/IA-Generative/mille-feuille/commit/3464219d45ad561e5119a780e845f5b27b6abf35))
+* **dashboard:** planifier aussi les dossiers non urgents dans l'agenda ([642df87](https://github.com/IA-Generative/mille-feuille/commit/642df8732a22346a92361f799e4b205b38009b11))
+* **front:** cleaner code ([9024752](https://github.com/IA-Generative/mille-feuille/commit/902475249dc7e3089d20651dc019be5912314cc2))
+* **front:** correct code in analyse page ([45fb969](https://github.com/IA-Generative/mille-feuille/commit/45fb96929074e8115e23c235a90d0bcf77978eb3))
+
 ## [0.63.0](https://github.com/IA-Generative/mille-feuille/compare/v0.62.0...v0.63.0) (2026-11-18)
 
 
