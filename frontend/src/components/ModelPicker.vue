@@ -9,6 +9,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
 
 import { useModels } from "@/composables/useModels";
+import { useOutsideClick } from "@/composables/useOutsideClick";
 
 const props = withDefaults(
   defineProps<{
@@ -101,12 +102,7 @@ function select(value: string, event?: Event) {
   if (value !== props.modelValue) emit("update:modelValue", value);
 }
 
-function onDocumentClick(event: MouseEvent) {
-  if (!isOpen.value) return;
-  const target = event.target as Node;
-  if (rootRef.value?.contains(target) || menuRef.value?.contains(target)) return;
-  close();
-}
+useOutsideClick([rootRef, menuRef], close);
 
 function onViewportChange(event: Event) {
   // Le défilement de la liste elle-même ne doit pas la repositionner.
@@ -123,12 +119,10 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  document.addEventListener("click", onDocumentClick);
   window.addEventListener("resize", onViewportChange);
   window.addEventListener("scroll", onViewportChange, true);
 });
 onBeforeUnmount(() => {
-  document.removeEventListener("click", onDocumentClick);
   window.removeEventListener("resize", onViewportChange);
   window.removeEventListener("scroll", onViewportChange, true);
 });
