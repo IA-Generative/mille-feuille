@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.65.0](https://github.com/IA-Generative/mille-feuille/compare/v0.64.0...v0.65.0) (2026-11-19)
+
+
+### Features
+
+* **backend:** exemples de label et entités sur plusieurs labels ([c7b8267](https://github.com/IA-Generative/mille-feuille/commit/c7b8267d60c37a062ba228cf7c7da36c0131fadf))
+* **backend:** label et zones où chercher une entité, ids stables des définitions ([1796263](https://github.com/IA-Generative/mille-feuille/commit/179626337f74deac3ca0f6b530c493d973b8525b))
+* **backend:** réserver labels, entités et exemples au créateur et aux administrateurs ([b7f342e](https://github.com/IA-Generative/mille-feuille/commit/b7f342e9e3279ee59954462b12a5ddfbb26bbfe7))
+* **frontend:** exemples de label et entités sur plusieurs labels avec zones ([65630c2](https://github.com/IA-Generative/mille-feuille/commit/65630c2bc823482aefe31125b56c027d07cd0cef))
+
 ## [0.64.0](https://github.com/IA-Generative/mille-feuille/compare/v0.63.0...v0.64.0) (2026-11-19)
 
 
