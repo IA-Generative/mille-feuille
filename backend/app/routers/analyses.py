@@ -18,7 +18,12 @@ from app.models.analyse import (
 )
 from app.models.analyse_share import AnalyseShareKind
 from app.models.dossier import Dossier
-from app.repositories.analyse_repository import AnalyseRepository, StatusInUseError, StatusValidationError
+from app.repositories.analyse_repository import (
+    AnalyseRepository,
+    DefinitionValidationError,
+    StatusInUseError,
+    StatusValidationError,
+)
 from app.repositories.document_source_repository import DocumentSourceRepository, SourceNameTakenError
 from app.schemas.analyse import (
     AgentCreate,
@@ -62,6 +67,14 @@ async def _get_or_404(repository: AnalyseRepository, analyse_id: uuid.UUID) -> A
     if analyse is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analyse introuvable")
     return analyse
+
+
+async def _definitions_or_422(operation) -> None:
+    """Attend une modification de labels ou d'entités ; une liste qui ne respecte pas les règles donne un 422."""
+    try:
+        await operation
+    except DefinitionValidationError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
 
 
 def _require_can_manage(analyse: Analyse, user: RequestContext) -> None:
@@ -287,8 +300,8 @@ async def update_classification_labels(
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    labels = [LabelDefinition(name=lbl.name, definition=lbl.definition) for lbl in body.labels]
-    await repository.update_classification_labels(analyse, labels)
+    labels = [LabelDefinition(id=lbl.id, name=lbl.name, definition=lbl.definition) for lbl in body.labels]
+    await _definitions_or_422(repository.update_classification_labels(analyse, labels))
     return repository.to_schema(analyse)
 
 
@@ -303,7 +316,9 @@ async def restore_classification_labels(
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    await repository.restore_field_version(analyse, VersionedField.CLASSIFICATION_LABELS, version_id)
+    await _definitions_or_422(
+        repository.restore_field_version(analyse, VersionedField.CLASSIFICATION_LABELS, version_id)
+    )
     return repository.to_schema(analyse)
 
 
@@ -340,10 +355,18 @@ async def update_extraction_entities(
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
     entities = [
-        EntityDefinition(name=ent.name, definition=ent.definition, type=ent.type, nature=ent.nature)
+        EntityDefinition(
+            id=ent.id,
+            name=ent.name,
+            definition=ent.definition,
+            type=ent.type,
+            nature=ent.nature,
+            label_id=ent.label_id,
+            zones=[zone.model_dump(mode="json") for zone in ent.zones],
+        )
         for ent in body.entities
     ]
-    await repository.update_extraction_entities(analyse, entities)
+    await _definitions_or_422(repository.update_extraction_entities(analyse, entities))
     return repository.to_schema(analyse)
 
 
@@ -355,7 +378,7 @@ async def restore_extraction_entities(
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    await repository.restore_field_version(analyse, VersionedField.EXTRACTION_ENTITIES, version_id)
+    await _definitions_or_422(repository.restore_field_version(analyse, VersionedField.EXTRACTION_ENTITIES, version_id))
     return repository.to_schema(analyse)
 
 

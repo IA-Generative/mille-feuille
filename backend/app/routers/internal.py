@@ -30,6 +30,7 @@ from app.schemas.dossier import (
     FileHashIn,
     InternalAnalyseOut,
     InternalDossierOut,
+    InternalPageLabelsOut,
     PageTextBoxIn,
     PageTextBoxOut,
     TextExtractionStatusIn,
@@ -44,6 +45,7 @@ from app.schemas.user_task import UserTaskOut, UserTaskUpdateIn
 from app.services import analysis_builder, analysis_carryover
 from app.services.execution_steps import complete_step
 from app.services.internal_analyse import build_internal_analyse
+from app.services.page_labels import page_label_ids
 from app.services.user_task_service import update_task
 
 # Routes appelées par les workers Celery (pas par le navigateur) : le worker
@@ -286,6 +288,19 @@ async def get_internal_dossier(dossier_id: uuid.UUID, db: Annotated[AsyncSession
     if dossier is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dossier introuvable")
     return dossier
+
+
+@router.get("/dossiers/{dossier_id}/page-labels", response_model=InternalPageLabelsOut)
+async def get_internal_page_labels(dossier_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]):
+    """Labels dans lesquels chaque page du dossier est classée (valeur retenue : la correction d'un instructeur prime,
+    un label rejeté ne compte pas). Le worker d'extraction s'en sert pour limiter une entité aux pages de son label."""
+    dossier = await DossierRepository(db).get(dossier_id)
+    if dossier is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dossier introuvable")
+    if dossier.analyse_id is None:
+        return InternalPageLabelsOut(pages={})
+    pages = await page_label_ids(db, dossier_id, dossier.analyse_id)
+    return InternalPageLabelsOut(pages={page_id: sorted(ids) for page_id, ids in pages.items()})
 
 
 @router.get("/analyses/{analyse_id}", response_model=InternalAnalyseOut)

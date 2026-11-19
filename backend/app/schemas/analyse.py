@@ -16,6 +16,9 @@ class Version[T](BaseModel):
 
 
 class LabelDefinitionIn(BaseModel):
+    # Absent pour un nouveau label ; fourni pour conserver l'identité d'un label existant (les entités et les
+    # prédictions s'y réfèrent).
+    id: uuid.UUID | None = None
     name: str
     definition: str = ""
 
@@ -26,11 +29,37 @@ class LabelDefinitionOut(LabelDefinitionIn):
     id: uuid.UUID
 
 
+MAX_ENTITY_ZONES = 20
+
+
+class EntityZone(BaseModel):
+    """Zone de la page où chercher une entité : un rectangle en fractions (0 à 1) de la page, tracé sur un exemple du
+    label (facultatif : une zone vaut pour toutes les pages lues)."""
+
+    example_id: uuid.UUID | None = None
+    x0: float = Field(ge=0, le=1)
+    y0: float = Field(ge=0, le=1)
+    x1: float = Field(ge=0, le=1)
+    y1: float = Field(ge=0, le=1)
+
+    @model_validator(mode="after")
+    def _rectangle(self) -> "EntityZone":
+        if self.x1 <= self.x0 or self.y1 <= self.y0:
+            raise ValueError("Une zone doit avoir une largeur et une hauteur positives (x1 > x0, y1 > y0).")
+        return self
+
+
 class EntityDefinitionIn(BaseModel):
+    # Absent pour une nouvelle entité ; fourni pour conserver son identité (les prédictions s'y réfèrent).
+    id: uuid.UUID | None = None
     name: str
     definition: str = ""
     type: EntityType
     nature: EntityNature = EntityNature.ENTITE
+    # Où chercher : seulement dans les pages classées dans ce label (absent : tout le dossier), et, facultatif,
+    # seulement dans ces zones (absentes : la page entière).
+    label_id: uuid.UUID | None = None
+    zones: list[EntityZone] = Field(default_factory=list, max_length=MAX_ENTITY_ZONES)
 
 
 class EntityDefinitionOut(EntityDefinitionIn):
