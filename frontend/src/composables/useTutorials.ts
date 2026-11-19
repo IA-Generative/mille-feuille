@@ -120,7 +120,7 @@ function loadState(): PersistedState {
       return {
         slug: typeof s.slug === "string" ? s.slug : null,
         step: Number.isInteger(s.step) ? (s.step as number) : 0,
-        minimized : s.minimized === true,
+        minimized: s.minimized === true,
       };
     }
   } catch {
@@ -144,7 +144,6 @@ export function splitSteps(md: string): TutorialStep[] {
     return { title: title.trim(), html: renderMarkdown(text) };
   });
 }
-
 
 export function useTutorials() {
   const progress = computed(() => ({
@@ -187,14 +186,14 @@ export function useTutorials() {
     try {
       const res = await fetch(tutorial.url);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const parsed = splitSteps( await res.text());
-      if (token !== loadToken) return; 
+      const parsed = splitSteps(await res.text());
+      if (token !== loadToken) return;
       steps.value = parsed;
       // L'étape sauvegardée peut dépasser si le Markdown a changé : on la borne.
-      stepIndex.value = Math.min(Math.max(step, 0), parsed.length -1);
+      stepIndex.value = Math.min(Math.max(step, 0), parsed.length - 1);
       markSeen(slug);
     } catch {
-      if(token === loadToken) {
+      if (token === loadToken) {
         error.value = "Impossible de charger ce tutoriel. Réessayez plus tard.";
       }
     } finally {
@@ -208,12 +207,12 @@ export function useTutorials() {
     minimized.value = false;
     if (slug && slug !== currentSlug.value) return load(slug);
     // Rechargement de page : on a le slug et l'étape sauvegardés, mais pas encore le contenu.
-    if(currentSlug.value && steps.value.length === 0) return load(currentSlug.value, stepIndex.value)
+    if (currentSlug.value && steps.value.length === 0) return load(currentSlug.value, stepIndex.value);
   }
 
   /** Ferme le panneau SANS perdre le tutoriel ni l'étape. */
   function closePanel() {
-    panelOpen.value = false
+    panelOpen.value = false;
   }
 
   function toggleMinimize() {
@@ -221,7 +220,7 @@ export function useTutorials() {
   }
 
   const currentStep = computed(() => steps.value[stepIndex.value]);
-  const isLastStep = computed(() => stepIndex.value >= steps.value.length - 1)
+  const isLastStep = computed(() => stepIndex.value >= steps.value.length - 1);
   const next = () => { if (!isLastStep.value) stepIndex.value++; };
   const prev = () => { if (stepIndex.value > 0) stepIndex.value--; };
 
