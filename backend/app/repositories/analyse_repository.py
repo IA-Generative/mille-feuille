@@ -1,6 +1,7 @@
 import asyncio
 import uuid
 from collections.abc import Sequence
+from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -47,6 +48,20 @@ class StatusValidationError(ValueError):
 
 class DefinitionValidationError(ValueError):
     """La liste de labels ou d'entités proposée ne respecte pas les règles (message destiné à l'utilisateur)."""
+
+
+@dataclass
+class EntityInput:
+    """Une entité proposée (route ou restauration d'une version) : ``label_ids`` et ``zones`` y sont des données,
+    pas une relation."""
+
+    name: str
+    definition: str
+    type: str
+    nature: str
+    id: uuid.UUID | None = None
+    label_ids: list[uuid.UUID] = field(default_factory=list)
+    zones: list[dict] = field(default_factory=list)
 
 
 class StatusInUseError(Exception):
@@ -158,7 +173,7 @@ class AnalyseRepository:
         l'appelant de la traduire en réponse HTTP (409).
 
         Les modèles de document de l'analyse partent avec elle (cascade) ; leurs fichiers S3, qui ne
-        sont pas des lignes, sont supprimés ensuite (issue #139)."""
+        sont pas des lignes, sont supprimés ensuite (issue #139), comme ceux des exemples de label."""
         keys = (
             await self.db.execute(
                 select(DocumentTemplateVersion.file_key)
@@ -166,7 +181,7 @@ class AnalyseRepository:
                 .where(DocumentTemplate.analyse_id == analyse.id)
             )
         ).scalars()
-        template_files = set(keys)
+        template_files = set(keys) | {example.s3_key for label in analyse.labels for example in label.examples}
         await self.db.delete(analyse)
         await self.db.commit()
         for key in template_files:
@@ -265,7 +280,7 @@ class AnalyseRepository:
         if not allow_unknown_ids and any(label_id not in existing for label_id in ids):
             raise DefinitionValidationError("Label inconnu : il n'appartient pas à cette analyse.")
         removed = {label_id for label_id in existing if label_id not in ids}
-        users = [entity.name for entity in analyse.entities if entity.label_id in removed]
+        users = [entity.name for entity in analyse.entities if removed.intersection(entity.label_ids)]
         if users:
             raise DefinitionValidationError(
                 "Ce label est utilisé pour chercher " + ", ".join(f"« {name} »" for name in users) + " : "
@@ -280,11 +295,29 @@ class AnalyseRepository:
                 row = LabelDefinition(id=incoming.id, analyse_id=analyse.id)
             row.name, row.definition, row.position = incoming.name, incoming.definition, position
             kept.append(row)
+        gone_examples = {example.id: example for label_id in removed for example in existing[label_id].examples}
         for label_id in removed:
             await self.db.delete(existing[label_id])
+        self.forget_examples_in_zones(analyse, set(gone_examples))
         analyse.labels = kept
         await self.db.commit()
-        await self.db.refresh(analyse)
+        await self.get(analyse.id)  # recharge tout (exemples et liens compris), même objet
+        for example in gone_examples.values():
+            s3_connector.delete(example.s3_key)
+
+    @staticmethod
+    def forget_examples_in_zones(analyse: Analyse, example_ids: set[uuid.UUID]) -> None:
+        """Les zones tracées sur ces exemples gardent leur rectangle mais ne désignent plus d'exemple."""
+        for entity in analyse.entities:
+            if any(
+                zone.get("example_id") and uuid.UUID(str(zone["example_id"])) in example_ids for zone in entity.zones
+            ):
+                entity.zones = [
+                    {**zone, "example_id": None}
+                    if zone.get("example_id") and uuid.UUID(str(zone["example_id"])) in example_ids
+                    else zone
+                    for zone in entity.zones
+                ]
 
     # --- Extraction ---
 
@@ -305,61 +338,71 @@ class AnalyseRepository:
                 "definition": entity.definition,
                 "type": entity.type,
                 "nature": entity.nature,
-                "label_id": str(entity.label_id) if entity.label_id else None,
+                "label_ids": [str(label_id) for label_id in entity.label_ids],
                 "zones": entity.zones or [],
             }
             for entity in entities
         ]
 
     @staticmethod
-    def _entity_from_snapshot(item: dict) -> EntityDefinition:
+    def _entity_from_snapshot(item: dict) -> "EntityInput":
         """Une entité d'un historique (celles d'avant les identifiants, les labels et les zones n'ont ni ``id``, ni
-        ``label_id``, ni ``zones``)."""
-        return EntityDefinition(
+        ``label_ids``, ni ``zones``)."""
+        return EntityInput(
             id=uuid.UUID(item["id"]) if item.get("id") else None,
             name=item["name"],
             definition=item.get("definition", ""),
             type=item["type"],
             nature=item.get("nature", EntityNature.ENTITE),
-            label_id=uuid.UUID(item["label_id"]) if item.get("label_id") else None,
+            label_ids=[uuid.UUID(label_id) for label_id in item.get("label_ids") or []],
             zones=item.get("zones") or [],
         )
 
     async def update_extraction_entities(
-        self, analyse: Analyse, entities: list[EntityDefinition], *, allow_unknown_ids: bool = False
+        self, analyse: Analyse, entities: "list[EntityInput | EntityDefinition]", *, allow_unknown_ids: bool = False
     ) -> None:
-        """Remplace la liste des entités en **conservant l'identité** de celles dont l'``id`` est fourni. Le label où
-        chercher doit être l'un des labels de l'analyse ; à la restauration d'une version, un label disparu depuis
-        est écarté (l'entité cherche alors dans tout le dossier)."""
+        """Remplace la liste des entités en **conservant l'identité** de celles dont l'``id`` est fourni. Les labels où
+        chercher doivent être des labels de l'analyse, et les zones tracées sur un exemple de l'un d'eux ; à la
+        restauration d'une version, un label ou un exemple disparu depuis est écarté (l'entité cherche alors dans
+        tout le dossier, ou sur toute la page)."""
         existing = {entity.id: entity for entity in analyse.entities}
         ids = [entity.id for entity in entities if entity.id is not None]
         if len(set(ids)) != len(ids):
             raise DefinitionValidationError("Une entité apparaît deux fois dans la liste.")
         if not allow_unknown_ids and any(entity_id not in existing for entity_id in ids):
             raise DefinitionValidationError("Entité inconnue : elle n'appartient pas à cette analyse.")
-        label_ids = {label.id for label in analyse.labels}
+        labels = {label.id: label for label in analyse.labels}
+        example_ids = {example.id for label in analyse.labels for example in label.examples}
+        resolved: list[tuple[list[LabelDefinition], list[dict]]] = []
         for entity in entities:
-            if entity.label_id is not None and entity.label_id not in label_ids:
-                if not allow_unknown_ids:
-                    raise DefinitionValidationError(f"« {entity.name} » : ce label n'existe pas dans cette analyse.")
-                entity.label_id = None
+            wanted = list(dict.fromkeys(entity.label_ids))
+            unknown = [label_id for label_id in wanted if label_id not in labels]
+            if unknown and not allow_unknown_ids:
+                raise DefinitionValidationError(f"« {entity.name} » : ce label n'existe pas dans cette analyse.")
+            zones = [dict(zone) for zone in entity.zones or []]
+            for zone in zones:
+                if zone.get("example_id") and uuid.UUID(str(zone["example_id"])) not in example_ids:
+                    if not allow_unknown_ids:
+                        raise DefinitionValidationError(f"« {entity.name} » : cet exemple n'existe pas.")
+                    zone["example_id"] = None
+            resolved.append(([labels[label_id] for label_id in wanted if label_id in labels], zones))
 
         self._record_version(analyse, VersionedField.EXTRACTION_ENTITIES, self._entity_snapshot(analyse.entities))
         kept: list[EntityDefinition] = []
-        for position, incoming in enumerate(entities):
+        for position, (incoming, (entity_labels, zones)) in enumerate(zip(entities, resolved, strict=True)):
             row = existing.get(incoming.id) if incoming.id is not None else None
             if row is None:
                 row = EntityDefinition(id=incoming.id, analyse_id=analyse.id)
             row.name, row.definition = incoming.name, incoming.definition
             row.type, row.nature, row.position = incoming.type, incoming.nature, position
-            row.label_id, row.zones = incoming.label_id, list(incoming.zones or [])
+            row.labels, row.zones = entity_labels, zones
             kept.append(row)
         for entity_id, entity in existing.items():
             if entity_id not in ids:
                 await self.db.delete(entity)
         analyse.entities = kept
         await self.db.commit()
-        await self.db.refresh(analyse)
+        await self.get(analyse.id)  # recharge tout (labels et zones compris), même objet
 
     # --- Statuts de dossier (issue #168) ---
 

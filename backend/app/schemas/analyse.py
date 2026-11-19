@@ -23,10 +23,23 @@ class LabelDefinitionIn(BaseModel):
     definition: str = ""
 
 
+class LabelExampleOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    content_type: str
+    size: int
+    kind: Literal["image", "pdf"]
+    created_at: datetime
+
+
 class LabelDefinitionOut(LabelDefinitionIn):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    # Documents d'exemple du label (`/classification/labels/{id}/examples`).
+    examples: list[LabelExampleOut] = Field(default_factory=list)
 
 
 MAX_ENTITY_ZONES = 20
@@ -56,9 +69,9 @@ class EntityDefinitionIn(BaseModel):
     definition: str = ""
     type: EntityType
     nature: EntityNature = EntityNature.ENTITE
-    # Où chercher : seulement dans les pages classées dans ce label (absent : tout le dossier), et, facultatif,
+    # Où chercher : seulement dans les pages classées dans l'un de ces labels (aucun : tout le dossier), et, facultatif,
     # seulement dans ces zones (absentes : la page entière).
-    label_id: uuid.UUID | None = None
+    label_ids: list[uuid.UUID] = Field(default_factory=list)
     zones: list[EntityZone] = Field(default_factory=list, max_length=MAX_ENTITY_ZONES)
 
 

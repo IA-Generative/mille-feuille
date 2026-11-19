@@ -725,9 +725,9 @@ class InternalEntityDefinitionOut(BaseModel):
     definition: str
     type: str
     nature: str
-    # Où chercher : seulement dans les pages classées dans ce label (absent : tout le dossier) et, facultatif,
+    # Où chercher : seulement dans les pages classées dans l'un de ces labels (aucun : tout le dossier) et, facultatif,
     # seulement dans ces zones (rectangles en fractions de la page). Voir EntityDefinition.
-    label_id: uuid.UUID | None = None
+    label_ids: list[uuid.UUID] = []
     zones: list[dict] = []
 
 

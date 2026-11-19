@@ -1,19 +1,21 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import KeycloakSettings, SharingSettings
+from app.connectors import s3_connector
 from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
 from app.models.analyse import (
     Agent,
     Analyse,
-    EntityDefinition,
     LabelDefinition,
+    LabelExample,
     VersionedField,
 )
 from app.models.analyse_share import AnalyseShareKind
@@ -21,6 +23,7 @@ from app.models.dossier import Dossier
 from app.repositories.analyse_repository import (
     AnalyseRepository,
     DefinitionValidationError,
+    EntityInput,
     StatusInUseError,
     StatusValidationError,
 )
@@ -39,6 +42,7 @@ from app.schemas.analyse import (
     DueSettingsIn,
     DueSettingsOut,
     EntitiesUpdate,
+    LabelExampleOut,
     LabelsUpdate,
     ModelUpdate,
     OutputUpdate,
@@ -322,6 +326,126 @@ async def restore_classification_labels(
     return repository.to_schema(analyse)
 
 
+# --- Documents d'exemple d'un label ---
+
+MAX_EXAMPLES_PER_LABEL = 10
+MAX_EXAMPLE_SIZE = 10 * 1024 * 1024
+EXAMPLE_TYPES = {"image/png", "image/jpeg", "image/webp", "application/pdf"}
+
+
+def _label_or_404(analyse: Analyse, label_id: uuid.UUID) -> LabelDefinition:
+    label = next((label for label in analyse.labels if label.id == label_id), None)
+    if label is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Label introuvable")
+    return label
+
+
+def _example_or_404(label: LabelDefinition, example_id: uuid.UUID) -> LabelExample:
+    example = next((example for example in label.examples if example.id == example_id), None)
+    if example is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exemple introuvable")
+    return example
+
+
+@router.get("/{analyse_id}/classification/labels/{label_id}/examples", response_model=list[LabelExampleOut])
+async def list_label_examples(
+    analyse_id: uuid.UUID, label_id: uuid.UUID, db: Annotated[AsyncSession, Depends(get_db)]
+) -> list[LabelExampleOut]:
+    analyse = await _get_or_404(AnalyseRepository(db), analyse_id)
+    return [LabelExampleOut.model_validate(example) for example in _label_or_404(analyse, label_id).examples]
+
+
+@router.post(
+    "/{analyse_id}/classification/labels/{label_id}/examples",
+    response_model=list[LabelExampleOut],
+    status_code=status.HTTP_201_CREATED,
+)
+async def add_label_examples(
+    analyse_id: uuid.UUID,
+    label_id: uuid.UUID,
+    files: Annotated[list[UploadFile], File()],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> list[LabelExampleOut]:
+    """Ajoute des documents d'exemple au label (PDF, PNG, JPEG ou WebP, 10 Mo au plus, 10 par label). Tout ou rien :
+    un fichier refusé n'en laisse entrer aucun."""
+    analyse = await _get_or_404(AnalyseRepository(db), analyse_id)
+    label = _label_or_404(analyse, label_id)
+    if len(label.examples) + len(files) > MAX_EXAMPLES_PER_LABEL:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=f"{MAX_EXAMPLES_PER_LABEL} exemples au plus par label.",
+        )
+    contents: list[tuple[str, str, bytes]] = []
+    for upload in files:
+        name = (upload.filename or "exemple").rsplit("/", 1)[-1]
+        if upload.content_type not in EXAMPLE_TYPES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"« {name} » : format non pris en charge (PDF, PNG, JPEG ou WebP).",
+            )
+        data = await upload.read(MAX_EXAMPLE_SIZE + 1)
+        if len(data) > MAX_EXAMPLE_SIZE:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+                detail=f"« {name} » : plus de {MAX_EXAMPLE_SIZE // (1024 * 1024)} Mo.",
+            )
+        contents.append((name, upload.content_type, data))
+
+    created: list[LabelExample] = []
+    for name, content_type, data in contents:
+        example_id = uuid.uuid4()
+        key = f"analyses/{analyse_id}/label-examples/{example_id}-{name}"
+        await run_in_threadpool(s3_connector.upload, key, data, content_type)
+        created.append(
+            LabelExample(
+                id=example_id, label_id=label.id, name=name, content_type=content_type, size=len(data), s3_key=key
+            )
+        )
+    try:
+        db.add_all(created)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        for example in created:
+            await run_in_threadpool(s3_connector.delete, example.s3_key)
+        raise
+    return [LabelExampleOut.model_validate(example) for example in created]
+
+
+@router.get("/{analyse_id}/classification/labels/{label_id}/examples/{example_id}/file")
+async def get_label_example_file(
+    analyse_id: uuid.UUID,
+    label_id: uuid.UUID,
+    example_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    analyse = await _get_or_404(AnalyseRepository(db), analyse_id)
+    example = _example_or_404(_label_or_404(analyse, label_id), example_id)
+    data, content_type = await run_in_threadpool(s3_connector.download, example.s3_key)
+    return Response(content=data, media_type=content_type)
+
+
+@router.delete(
+    "/{analyse_id}/classification/labels/{label_id}/examples/{example_id}", status_code=status.HTTP_204_NO_CONTENT
+)
+async def delete_label_example(
+    analyse_id: uuid.UUID,
+    label_id: uuid.UUID,
+    example_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Retire un exemple. Les zones tracées dessus gardent leur rectangle mais ne désignent plus d'exemple."""
+    repository = AnalyseRepository(db)
+    analyse = await _get_or_404(repository, analyse_id)
+    example = _example_or_404(_label_or_404(analyse, label_id), example_id)
+    repository.forget_examples_in_zones(analyse, {example.id})
+    key = example.s3_key
+    await db.delete(example)
+    await db.commit()
+    await run_in_threadpool(s3_connector.delete, key)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.put("/{analyse_id}/extraction/prompt", response_model=AnalyseOut)
 async def update_extraction_prompt(
     analyse_id: uuid.UUID,
@@ -355,13 +479,13 @@ async def update_extraction_entities(
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
     entities = [
-        EntityDefinition(
+        EntityInput(
             id=ent.id,
             name=ent.name,
             definition=ent.definition,
             type=ent.type,
             nature=ent.nature,
-            label_id=ent.label_id,
+            label_ids=ent.label_ids,
             zones=[zone.model_dump(mode="json") for zone in ent.zones],
         )
         for ent in body.entities
