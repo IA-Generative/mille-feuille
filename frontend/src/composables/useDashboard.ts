@@ -106,6 +106,12 @@ export function useDashboard() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
+  /** Recharge sans l'état « Chargement » : l'agenda reste affiché. */
+  async function refreshDashboard() {
+    if (mockScenario()) return;
+    data.value = mapDashboard(await apiFetch<any>("/api/dashboard"));
+  }
+
   async function fetchDashboard() {
     loading.value = true;
     error.value = null;
@@ -135,7 +141,13 @@ export function useDashboard() {
    */
   async function setSchedule(dossierId: string, slot: SlotDraft | null) {
     const target = [...(data.value?.urgencies ?? []), ...(data.value?.others ?? [])].find((u) => u.dossierId === dossierId);
-    if (!target) return;
+    if (!target) {
+      // Dossier qui n'est pas encore dans mon agenda (choisi parmi tous les dossiers) : le serveur le renvoie ensuite.
+      if (!slot) return;
+      await apiFetch<any>(`/api/dossiers/${dossierId}/slot`, { method: "PUT", body: JSON.stringify(slot) });
+      await refreshDashboard();
+      return;
+    }
     if (slot) {
       const saved = await apiFetch<any>(`/api/dossiers/${dossierId}/slot`, { method: "PUT", body: JSON.stringify(slot) });
       target.plannedStart = saved.start;
@@ -145,6 +157,8 @@ export function useDashboard() {
     } else {
       await apiFetch<void>(`/api/dossiers/${dossierId}/slot`, { method: "DELETE" });
       target.plannedStart = target.plannedEnd = target.recurrence = target.reminders = undefined;
+      // Un dossier qui n'était là que pour son créneau quitte l'agenda.
+      if (data.value) data.value.others = data.value.others.filter((u) => u.dossierId !== dossierId);
     }
   }
 

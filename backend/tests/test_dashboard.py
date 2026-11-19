@@ -74,7 +74,9 @@ def test_empty_dashboard_for_a_new_person(client: TestClient, me) -> None:
         "avg_processing_days": 0.0,
         "on_time_rate": 0.0,
     }
-    assert board["urgencies"] == [] and board["others"] == [] and board["status_counts"] == [] and board["activity"] == []
+    assert (
+        board["urgencies"] == [] and board["others"] == [] and board["status_counts"] == [] and board["activity"] == []
+    )
 
 
 def test_only_my_dossiers_count(client: TestClient, analyse: dict, me) -> None:
@@ -124,18 +126,21 @@ def test_urgencies_follow_the_thresholds_and_skip_closed_dossiers(client: TestCl
     assert urgencies[0]["status_label"]
 
 
-def test_others_hold_open_dossiers_that_are_not_urgent(client: TestClient, analyse: dict, me) -> None:
-    _assigned_dossier(client, analyse, me, "Bientôt", due=5)
+def test_others_are_the_dossiers_I_put_in_my_agenda(client: TestClient, analyse: dict, me) -> None:
+    urgent = _assigned_dossier(client, analyse, me, "Bientôt", due=5)
     far = _assigned_dossier(client, analyse, me, "Loin", due=200)
-    no_due = _assigned_dossier(client, analyse, me, "Sans échéance")
-    closed = _assigned_dossier(client, analyse, me, "Clos", due=200)
-    _close(client, analyse, closed["id"])
+    _assigned_dossier(client, analyse, me, "Pas dans l'agenda", due=200)
+    someone_else = client.post("/api/dossiers", json={"name": "À quelqu'un", "analyse_id": analyse["id"]}).json()
+    day = _day(1)
+    slot = {"start": f"{day}T09:00:00+02:00", "end": f"{day}T10:00:00+02:00", "reminders": []}
+    for dossier in (urgent, far, someone_else):
+        assert client.put(f"/api/dossiers/{dossier['id']}/slot", json=slot).status_code == 200
 
     board = _dashboard(client)
 
-    assert [o["dossier_id"] for o in board["others"]] == [far["id"], no_due["id"]]  # sans échéance en dernier
-    assert board["others"][1]["due_at"] is None and board["others"][0]["slot"] is None
-    assert len(board["urgencies"]) == 1
+    assert [u["dossier_id"] for u in board["urgencies"]] == [urgent["id"]]
+    assert {o["dossier_id"] for o in board["others"]} == {far["id"], someone_else["id"]}
+    assert all(o["slot"] and o["analyse_name"] == analyse["name"] for o in board["others"])
 
 
 def test_thresholds_of_each_analyse_decide_who_is_urgent(client: TestClient, analyse: dict, me) -> None:
@@ -210,3 +215,12 @@ def test_my_own_actions_are_not_activity(client: TestClient, analyse: dict, me) 
     _close(client, analyse, dossier["id"])  # par moi
 
     assert _dashboard(client)["activity"] == []
+
+
+def test_dossier_list_can_be_searched_by_name(client: TestClient, analyse: dict, me) -> None:
+    wanted = client.post("/api/dossiers", json={"name": "Zorglub 100%", "analyse_id": analyse["id"]}).json()
+    client.post("/api/dossiers", json={"name": "Autre", "analyse_id": analyse["id"]})
+
+    found = client.get("/api/dossiers", params={"search": "zorglub 100%"}).json()
+
+    assert [d["id"] for d in found["items"]] == [wanted["id"]]  # casse ignorée, « % » pris littéralement

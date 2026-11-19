@@ -195,12 +195,8 @@ const overdueToReplan = computed(() =>
     : [],
 );
 
-/** Dossiers proposés au choix rapide : sans créneau, les plus urgents d'abord. */
-const unplannedCandidates = computed(() =>
-  props.urgencies
-    .filter((u) => !u.plannedStart)
-    .sort((a, b) => Number(b.level === "overdue") - Number(a.level === "overdue")),
-);
+/** Dossiers déjà dans mon agenda : le choix rapide (tous les dossiers visibles) ne les repropose pas. */
+const plannedIds = computed(() => props.urgencies.filter((u) => u.plannedStart).map((u) => u.dossierId));
 
 /** À planifier : dossiers sans créneau ce jour-là, plus ceux en retard (aujourd'hui). */
 const toPlan = computed(() => [...overdueToReplan.value, ...unplannedItems.value.map((e) => e.u)]);
@@ -470,7 +466,7 @@ function cellLabel(c: (typeof cells.value)[number]) {
           v-if="pickerHour !== null"
           class="cal__picker"
           :style="{ top: pickerTop }"
-          :candidates="unplannedCandidates"
+          :planned-ids="plannedIds"
           :time-label="hourLabel(pickerHour)"
           @pick="onPick"
           @close="pickerHour = null"
