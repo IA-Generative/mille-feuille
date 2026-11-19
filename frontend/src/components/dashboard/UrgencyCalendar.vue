@@ -132,7 +132,8 @@ const byDay = computed(() => {
       for (const occ of occurrenceStarts(new Date(u.plannedStart), u.recurrence, range.value.from, range.value.to)) {
         add(dayKey(occ), { u, start: occ, end: new Date(occ.getTime() + duration), key: `${u.dossierId}|${occ.toISOString()}` });
       }
-    } else {
+    } else if (u.dueAt && u.level !== "ok") {
+      // Les dossiers sans urgence ne s'affichent qu'une fois planifiés ; ils restent proposés au choix rapide.
       add(dayKey(new Date(u.dueAt)), { u, start: null, end: null, key: u.dossierId });
     }
   }
@@ -190,7 +191,7 @@ const unplannedItems = computed(() => selectedItems.value.filter((e) => !e.start
 /** Aujourd'hui : dossiers en retard et sans créneau, à replanifier en priorité. */
 const overdueToReplan = computed(() =>
   isSelectedToday.value
-    ? props.urgencies.filter((u) => !u.plannedStart && dayKey(new Date(u.dueAt)) < todayKey)
+    ? props.urgencies.filter((u) => !u.plannedStart && u.dueAt && u.level !== "ok" && dayKey(new Date(u.dueAt)) < todayKey)
     : [],
 );
 

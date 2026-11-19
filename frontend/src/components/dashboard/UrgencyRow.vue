@@ -58,6 +58,7 @@ function onRemove() {
         <span class="urow__sub">{{ urgency.analyseName }} · {{ urgency.statusLabel }}</span>
       </span>
       <span
+        v-if="urgency.level !== 'ok'"
         class="fr-badge fr-badge--sm fr-badge--no-icon"
         :class="urgency.level === 'overdue' ? 'fr-badge--error' : 'fr-badge--warning'"
       >

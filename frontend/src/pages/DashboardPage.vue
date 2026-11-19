@@ -32,9 +32,11 @@ const notifOpen = ref(false);
 const unassignedOpen = ref(false);
 const activityOpen = ref(false);
 
-const urgencies = computed(() => data.value?.urgencies ?? []);
+// L'agenda propose tous mes dossiers ouverts (urgents ou non) ; la liste et les compteurs d'urgences, seulement les urgences.
+const agendaDossiers = computed(() => [...(data.value?.urgencies ?? []), ...(data.value?.others ?? [])]);
+const isUrgent = (u: { level: string }) => u.level !== "ok";
 const { search, dueFilter, analyseFilter, sorted, analyseOptions, searched, filtered, hasActiveFilters, reset } =
-  useUrgencyFilters(urgencies, computed(() => view.value === "list"));
+  useUrgencyFilters(agendaDossiers, computed(() => view.value === "list"));
 
 const scheduleError = ref("");
 
@@ -94,8 +96,8 @@ async function onSchedule(dossierId: string, slot: SlotDraft | null) {
 
       <UrgencyListView
         v-if="view === 'list'"
-        :urgencies="filtered"
-        :no-urgency-at-all="sorted.length === 0"
+        :urgencies="filtered.filter(isUrgent)"
+        :no-urgency-at-all="!sorted.some(isUrgent)"
         @schedule="onSchedule"
       />
       <UrgencyCalendar v-else v-model:view="view" :urgencies="searched" @schedule="onSchedule" />
