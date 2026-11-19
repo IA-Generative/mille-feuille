@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { FIELD_ORIGIN_LABELS, FIELD_STATUS_LABELS, valueToText, type DraftField, type FieldVersion } from "@/types/documentDraft";
 
+import AppModal from "@/components/AppModal.vue";
 // Historique d'un champ : toutes ses versions, de la plus récente à la plus ancienne. Restaurer ajoute une version
 // (validée d'office, c'est une décision de la personne), rien n'est supprimé ni écrasé.
 defineProps<{
@@ -15,7 +16,7 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", ti
 </script>
 
 <template>
-  <DsfrModal :opened="field !== null" :title="field ? `Historique : ${field.label}` : ''" icon="ri-history-line" size="lg" @close="emit('close')">
+  <AppModal :opened="field !== null" :title="field ? `Historique : ${field.label}` : ''" icon="ri-history-line" size="lg" @close="emit('close')">
     <p v-if="loading" class="fr-text--sm">Chargement…</p>
     <ul v-else class="field-history">
       <li v-for="(version, index) in versions" :key="version.id" class="field-history__item">
@@ -42,7 +43,7 @@ const dateFormatter = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", ti
         />
       </li>
     </ul>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

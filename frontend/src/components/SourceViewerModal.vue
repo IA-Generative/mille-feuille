@@ -7,6 +7,7 @@
  */
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import type { ChatWindowSource } from "@/components/ChatWindow.vue";
 import { API_BASE_URL, apiFetch } from "@/utils/api";
 import { highlightExcerpt } from "@/utils/highlightExcerpt";
@@ -98,7 +99,7 @@ onBeforeUnmount(releaseImage);
 </script>
 
 <template>
-  <DsfrModal :opened="opened" :title="title" icon="ri-file-text-line" size="lg" @close="emit('close')">
+  <AppModal :opened="opened" :title="title" icon="ri-file-text-line" size="lg" @close="emit('close')">
     <div v-if="pages.length > 1" class="source-viewer__pager">
       <DsfrButton
         label="Page précédente"
@@ -157,7 +158,7 @@ onBeforeUnmount(releaseImage);
         </p>
       </div>
     </div>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

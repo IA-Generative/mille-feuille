@@ -9,6 +9,7 @@
  */
 import { computed, onMounted, ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import PaginationBar from "@/components/PaginationBar.vue";
 import { useDossierNotes } from "@/composables/useDossierNotes";
 import { usePageSize } from "@/composables/usePageSize";
@@ -248,7 +249,7 @@ const pagedNotes = computed(() => {
       Afficher les notes archivées
     </label>
 
-    <DsfrModal :opened="!!historyNote" title="Historique de la note" @close="historyNote = null">
+    <AppModal :opened="!!historyNote" title="Historique de la note" @close="historyNote = null">
       <p v-if="historyLoading">Chargement…</p>
       <ol v-else class="history" aria-label="Versions de la note">
         <li v-for="version in historyVersions" :key="version.id" class="history__item">
@@ -270,7 +271,7 @@ const pagedNotes = computed(() => {
           <p class="note__content">{{ version.content }}</p>
         </li>
       </ol>
-    </DsfrModal>
+    </AppModal>
   </section>
 </template>
 

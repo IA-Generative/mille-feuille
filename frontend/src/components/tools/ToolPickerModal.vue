@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import ToolPicker from "@/components/tools/ToolPicker.vue";
 
 const opened = defineModel<boolean>("opened", { default: false });
@@ -23,7 +24,7 @@ function confirm() {
 <template>
   <!-- Téléportée : une carte parente avec un transform enfermerait sinon la modale (position: fixed). -->
   <Teleport to="body">
-  <DsfrModal
+  <AppModal
     :opened="opened"
     title="Choisir les outils de l'agent"
     size="lg"
@@ -34,6 +35,6 @@ function confirm() {
     @close="opened = false"
   >
     <ToolPicker v-model="draft" />
-  </DsfrModal>
+  </AppModal>
   </Teleport>
 </template>

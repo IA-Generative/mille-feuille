@@ -5,6 +5,7 @@
  */
 import { ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import DocumentFileList from "@/components/dossiers/DocumentFileList.vue";
 import SourcePicker from "@/components/dossiers/SourcePicker.vue";
 import { fetchDossierSources, resolveSourceChoice } from "@/composables/useDocumentSources";
@@ -58,7 +59,7 @@ async function submit() {
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="opened"
     title="Ajouter des documents"
     size="lg"
@@ -83,5 +84,5 @@ async function submit() {
     </div>
 
     <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mt-2w" />
-  </DsfrModal>
+  </AppModal>
 </template>

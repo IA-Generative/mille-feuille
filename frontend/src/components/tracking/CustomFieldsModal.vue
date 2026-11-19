@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { FIELD_TYPE_LABELS, type CustomField, type CustomValue, type FieldType } from "@/types/tracking";
@@ -130,7 +131,7 @@ const defaultAsString = (v: CustomValue) => (v === null ? "" : String(v));
 </script>
 
 <template>
-  <DsfrModal :opened="true" title="Colonnes personnalisées" icon="ri-table-line" size="lg" :actions="actions" @close="emit('close')">
+  <AppModal :opened="true" title="Colonnes personnalisées" icon="ri-table-line" size="lg" :actions="actions" @close="emit('close')">
     <p class="cf__hint">
       Définissez les informations propres à votre métier à suivre pour chaque dossier. Chaque modification crée une version restaurable.
     </p>
@@ -223,7 +224,7 @@ const defaultAsString = (v: CustomValue) => (v === null ? "" : String(v));
     <div class="cf__history">
       <VersionHistory :versions="fieldsVersions" :format-content="summarize" @restore="restore" />
     </div>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

@@ -5,6 +5,7 @@
  */
 import { computed } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import type { MessageExecution } from "@/types/conversation";
 
 const props = defineProps<{ execution: MessageExecution | null }>();
@@ -58,7 +59,7 @@ function pretty(value: unknown): string {
 </script>
 
 <template>
-  <DsfrModal :opened="opened" title="Détail de l'exécution" size="lg" @close="opened = false">
+  <AppModal :opened="opened" title="Détail de l'exécution" size="lg" @close="opened = false">
     <template v-if="execution">
       <dl class="execution-detail__summary">
         <div v-for="item in summary" :key="item.label">
@@ -100,7 +101,7 @@ function pretty(value: unknown): string {
         {{ execution.omittedSteps }} appel(s) de plus ne sont pas affichés.
       </p>
     </template>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

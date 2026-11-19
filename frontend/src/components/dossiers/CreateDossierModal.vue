@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import GroupPicker from "@/components/access/GroupPicker.vue";
 import DocumentFileList from "@/components/dossiers/DocumentFileList.vue";
 import SourcePicker from "@/components/dossiers/SourcePicker.vue";
@@ -77,7 +78,7 @@ async function submit() {
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="opened"
     @close="opened = false"
     title="Créer un dossier"
@@ -140,5 +141,5 @@ async function submit() {
     <div v-if="files.length > 0" class="fr-mt-3w">
       <SourcePicker v-model="sourceChoice" :sources="sources" id="create-dossier-source" />
     </div>
-  </DsfrModal>
+  </AppModal>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import ModelPicker from "@/components/ModelPicker.vue";
 import ToolAuthBadge from "@/components/tools/ToolAuthBadge.vue";
 import ToolTestPrompt from "@/components/tools/ToolTestPrompt.vue";
@@ -54,7 +55,7 @@ async function execute() {
 <template>
   <!-- Téléportée : une carte parente avec un transform enfermerait sinon la modale (position: fixed). -->
   <Teleport to="body">
-    <DsfrModal
+    <AppModal
       :opened="opened"
       :title="`Tester « ${tool.name} »`"
       size="xl"
@@ -93,7 +94,7 @@ async function execute() {
           <ToolTestResult :run="run" :loading="loading" />
         </section>
       </div>
-    </DsfrModal>
+    </AppModal>
   </Teleport>
 </template>
 

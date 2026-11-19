@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
 
+import AppModal from "@/components/AppModal.vue";
 import type { DashboardUnassigned } from "@/types/dashboard";
 import { formatRelativeTime } from "@/utils/dates";
 
@@ -11,7 +12,7 @@ const emit = defineEmits<{ close: [] }>();
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="true"
     title="Dossiers à prendre en charge"
     icon="ri-user-add-line"
@@ -34,7 +35,7 @@ const emit = defineEmits<{ close: [] }>();
         </RouterLink>
       </li>
     </ul>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

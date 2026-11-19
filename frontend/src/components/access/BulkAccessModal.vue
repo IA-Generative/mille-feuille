@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 
 import GroupPicker from "@/components/access/GroupPicker.vue";
+import AppModal from "@/components/AppModal.vue";
 import { useDossierAccess } from "@/composables/useDossierAccess";
 import { VISIBILITY_HINTS, VISIBILITY_LABELS, type DossierAccess, type Visibility } from "@/types/access";
 
@@ -27,7 +28,7 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="true"
     :title="`Définir l'accès de ${count} dossier${count > 1 ? 's' : ''}`"
     icon="ri-lock-line"
@@ -48,7 +49,7 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
     <GroupPicker v-if="visibility === 'restricted'" v-model="groups" :options="myGroups" legend="Groupes ayant accès" hint="Vos propres groupes uniquement. Ils remplacent les groupes actuels de chaque dossier." :error="error" />
 
     <p class="ba__note">Les affectations des personnes qui perdraient l'accès seront annulées et tracées dans l'historique de chaque dossier.</p>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

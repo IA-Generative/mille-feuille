@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { RouterLink } from "vue-router";
 
+import AppModal from "@/components/AppModal.vue";
 import ErrorList from "@/components/ErrorList.vue";
 import {
   MAX_REMINDERS,
@@ -274,7 +275,7 @@ const actions = computed(() => [
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="true"
     :title="initial ? 'Modifier le créneau' : 'Planifier le traitement'"
     icon="ri-calendar-event-line"
@@ -422,7 +423,7 @@ const actions = computed(() => [
     </section>
 
     <ErrorList :errors="errors" class="fr-mt-2w" />
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import BarList from "@/components/dashboard/BarList.vue";
 import MetricCard from "@/components/dashboard/MetricCard.vue";
 import type { DashboardStats, DashboardStatusCount, DashboardUrgency } from "@/types/dashboard";
@@ -71,7 +72,7 @@ const weekHint = computed(() => `${props.stats.completedPrevWeek} la semaine der
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="true"
     title="Mes indicateurs"
     icon="ri-bar-chart-2-line"
@@ -121,7 +122,7 @@ const weekHint = computed(() => `${props.stats.completedPrevWeek} la semaine der
         <MetricCard label="7 prochains jours" :value="formatDuration(week.reduce((a, b) => a + b, 0))" :hint="`${week.length} créneau${week.length > 1 ? 'x' : ''}`" />
       </div>
     </section>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

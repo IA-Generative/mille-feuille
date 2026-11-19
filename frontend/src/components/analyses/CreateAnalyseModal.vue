@@ -2,6 +2,7 @@
 import { ref, watch } from "vue";
 
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
+import AppModal from "@/components/AppModal.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { ASSIST_MIN_WORDS_HINT, hasEnoughWords, suggestAnalyseDescription } from "@/composables/useLlmAssist";
 
@@ -41,7 +42,7 @@ async function submit() {
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="opened"
     @close="opened = false"
     title="Créer une analyse"
@@ -68,5 +69,5 @@ async function submit() {
       :disabled-hint="ASSIST_MIN_WORDS_HINT"
       @click="applySuggestion"
     />
-  </DsfrModal>
+  </AppModal>
 </template>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import type { LlmCapability } from "@/types/llmModel";
 
 // `capability` : celle qu'on modifie ; `null` avec `opened` : une nouvelle.
@@ -21,7 +22,7 @@ watch(
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="opened"
     :title="capability ? 'Modifier la capacité' : 'Nouvelle capacité'"
     icon="ri-sparkling-line"
@@ -52,7 +53,7 @@ watch(
         @click="emit('save', { id: capability?.id, name: name.trim(), description: description.trim() })"
       />
     </div>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

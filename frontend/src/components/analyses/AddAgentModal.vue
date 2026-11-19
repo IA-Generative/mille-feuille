@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
+import AppModal from "@/components/AppModal.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { ASSIST_MIN_WORDS_HINT, hasEnoughWords, suggestAgentPrompt } from "@/composables/useLlmAssist";
 import ModelPicker from "@/components/ModelPicker.vue";
@@ -64,7 +65,7 @@ async function submit() {
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="opened"
     @close="opened = false"
     title="Créer un agent"
@@ -106,5 +107,5 @@ async function submit() {
       class="fr-mt-2w"
     />
     <ModelPicker v-model="model" show-label block class="fr-mt-2w" />
-  </DsfrModal>
+  </AppModal>
 </template>

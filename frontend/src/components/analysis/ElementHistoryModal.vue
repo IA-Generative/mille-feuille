@@ -6,6 +6,7 @@
  */
 import { computed, ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import {
   VERSION_ORIGIN_LABELS,
   VERSION_SOURCE_LABELS,
@@ -68,7 +69,7 @@ function describe(version: ElementVersion): string {
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="!!element"
     :title="`Historique : ${element?.definitionName ?? 'élément'}`"
     @close="emit('close')"
@@ -123,7 +124,7 @@ function describe(version: ElementVersion): string {
         />
       </section>
     </div>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

@@ -3,6 +3,7 @@ import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import AccessBadge from "@/components/access/AccessBadge.vue";
+import AppModal from "@/components/AppModal.vue";
 import WorkflowStatusPicker from "@/components/statuses/WorkflowStatusPicker.vue";
 import AccessModal from "@/components/access/AccessModal.vue";
 import ModelPicker from "@/components/ModelPicker.vue";
@@ -778,7 +779,7 @@ async function onDeleteConversation() {
       @close="isSourceOpened = false"
     />
 
-    <DsfrModal
+    <AppModal
       :opened="isDetailsModalOpened"
       @close="isDetailsModalOpened = false"
       title="Détail du dossier"
@@ -835,7 +836,7 @@ async function onDeleteConversation() {
         @change-source="onChangeDocumentSource"
       />
       <DossierSearchIndexCard :dossier-id="dossier.id" />
-    </DsfrModal>
+    </AppModal>
 
     <FeedbackReasonsModal v-model:opened="feedbackReasonsModalOpened" @submit="submitDownFeedback" />
     <ExecutionDetailModal v-model:opened="executionOpened" :execution="executionShown" />

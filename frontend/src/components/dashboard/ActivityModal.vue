@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from "vue-router";
 
+import AppModal from "@/components/AppModal.vue";
 import type { ActivityKind, DashboardActivity } from "@/types/dashboard";
 import { formatRelativeTime } from "@/utils/dates";
 
@@ -17,7 +18,7 @@ const ICONS: Record<ActivityKind, string> = {
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="true"
     title="Activité récente"
     icon="ri-history-line"
@@ -38,7 +39,7 @@ const ICONS: Record<ActivityKind, string> = {
         </RouterLink>
       </li>
     </ul>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

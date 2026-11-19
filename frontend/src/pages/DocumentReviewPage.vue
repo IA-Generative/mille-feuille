@@ -7,6 +7,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
+import AppModal from "@/components/AppModal.vue";
 import DraftFieldCard from "@/components/documents/DraftFieldCard.vue";
 import FieldHistoryModal from "@/components/documents/FieldHistoryModal.vue";
 import PdfPreview from "@/components/documents/PdfPreview.vue";
@@ -260,7 +261,7 @@ async function generateDocument(confirm = false) {
       @restore="restoreVersion"
     />
 
-    <DsfrModal
+    <AppModal
       :opened="confirmIncomplete !== null"
       title="Générer un document incomplet ?"
       icon="ri-alert-line"
@@ -274,7 +275,7 @@ async function generateDocument(confirm = false) {
         Ces champs obligatoires ne sont pas validés : <strong>{{ confirmIncomplete?.map(labelOf).join(', ') }}</strong>.
       </p>
       <p class="fr-text--sm">Ils seront écrits « [non renseigné] » dans le document, et cela sera consigné.</p>
-    </DsfrModal>
+    </AppModal>
   </div>
 </template>
 

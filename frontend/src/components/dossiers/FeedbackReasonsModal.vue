@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import { FEEDBACK_REASON_LABELS, type FeedbackReasonCode } from "@/types/conversation";
 
 const opened = defineModel<boolean>("opened", { default: false });
@@ -29,7 +30,7 @@ function submit() {
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="opened"
     @close="opened = false"
     title="Que s'est-il mal passé ?"
@@ -41,5 +42,5 @@ function submit() {
   >
     <DsfrCheckboxSet v-model="reasons" legend="Raison(s)" :options="reasonOptions" small />
     <DsfrInput v-model="comment" label="Commentaire (optionnel)" label-visible is-textarea class="fr-mt-2w" />
-  </DsfrModal>
+  </AppModal>
 </template>

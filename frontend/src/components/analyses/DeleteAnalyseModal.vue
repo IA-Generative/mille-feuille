@@ -5,6 +5,7 @@
  */
 import { ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import type { Analyse } from "@/types/analyse";
 import { userMessage } from "@/utils/api";
@@ -37,7 +38,7 @@ async function confirm() {
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="opened"
     title="Supprimer l'analyse ?"
     @close="opened = false"
@@ -51,5 +52,5 @@ async function confirm() {
       historique. Cette action est définitive.
     </p>
     <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mt-2w" />
-  </DsfrModal>
+  </AppModal>
 </template>
