@@ -22,6 +22,14 @@ avant.
   restaurent toujours. À la restauration, un label ou un exemple disparu depuis est écarté (l'entité cherche alors
   partout, ou sur toute la page).
 
+## Droits
+
+Modifier les **labels**, les **entités** et les **exemples** (ajout, retrait, restauration d'une version) est réservé au
+**créateur de l'analyse et aux administrateurs** (403 sinon), comme le nom et la description. La lecture reste ouverte à
+toute personne connectée : l'analyse, la liste des exemples et leurs fichiers. L'interface passe en lecture seule pour les
+autres (pas de bouton de modification, de suppression ni de restauration). Le reste de la configuration d'une analyse
+(prompts, agents, statuts…) reste ouvert à tout utilisateur connecté en attendant #576.
+
 ## Pour le worker d'extraction
 
 Le backend expose déjà ce qu'il faudra lire, **le worker ne s'en sert pas encore** :

@@ -12,7 +12,13 @@ import { useLabelExamples } from "@/composables/useLabelExamples";
 import { suggestLabelDefinition, suggestLabels } from "@/composables/useLlmAssist";
 import type { LabelDefinition, Version } from "@/types/analyse";
 
-const props = defineProps<{ analyseId: string; labels: LabelDefinition[]; versions: Version<LabelDefinition[]>[] }>();
+const props = defineProps<{
+  analyseId: string;
+  labels: LabelDefinition[];
+  versions: Version<LabelDefinition[]>[];
+  /** Lecture seule : seuls le créateur de l'analyse et les administrateurs modifient les labels. */
+  readonly?: boolean;
+}>();
 const emit = defineEmits<{ save: [LabelDefinition[]]; restore: [string] }>();
 
 const draftLabels = ref<LabelDefinition[]>(cloneLabels(props.labels));
@@ -133,7 +139,7 @@ function formatVersionContent(labels: LabelDefinition[]) {
             </p>
             <CollapsibleText v-if="item.definition" :text="item.definition" />
           </div>
-          <div class="labels-editor__buttons">
+          <div v-if="!readonly" class="labels-editor__buttons">
             <DsfrButton :label="`Modifier le label « ${item.name || 'sans nom'} »`" icon-only tertiary no-outline icon="ri-edit-line" size="sm" @click="editingId = item.id" />
             <DsfrButton
               :label="`Supprimer le label « ${item.name || 'sans nom'} »`"
@@ -169,15 +175,18 @@ function formatVersionContent(labels: LabelDefinition[]) {
 
     <PaginationBar v-model:page-index="pageIndex" v-model:page-size="pageSize" :total="filtered.length" label="Par page" />
 
-    <div class="labels-editor__actions">
+    <div v-if="!readonly" class="labels-editor__actions">
       <DsfrButton label="Ajouter un label" tertiary icon="ri-add-line" size="sm" @click="addLabel" />
       <LlmAssistButton label="Suggérer des labels" :loading="isSuggestingList" @click="applySuggestions" />
       <DsfrButton label="Enregistrer" :disabled="!isDirty" size="sm" @click="save" />
     </div>
 
-    <p v-if="!isDirty" class="fr-hint-text fr-mb-0">Aucune modification à enregistrer.</p>
+        <p v-if="readonly" class="fr-hint-text fr-mb-0">
+      Seuls le créateur de l'analyse et les administrateurs peuvent modifier les labels.
+    </p>
+    <p v-else-if="!isDirty" class="fr-hint-text fr-mb-0">Aucune modification à enregistrer.</p>
 
-    <VersionHistory :versions="versions" :format-content="formatVersionContent" @restore="emit('restore', $event)" />
+    <VersionHistory :versions="versions" :format-content="formatVersionContent" :readonly="readonly" @restore="emit('restore', $event)" />
   </div>
 </template>
 
