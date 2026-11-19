@@ -6,6 +6,7 @@ import CreateAnalyseModal from "@/components/analyses/CreateAnalyseModal.vue";
 import MarkdownText from "@/components/MarkdownText.vue";
 import PagerNav from "@/components/PagerNav.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
+import TutorialHint from "@/components/TutorialHint.vue";
 
 const BROWSE_PAGE_SIZE = 6;
 // Pas de recherche côté serveur (GET /analyses n'a pas de paramètre `q`) :
@@ -73,7 +74,13 @@ function onAnalyseCreated(id: string) {
       </div>
       <DsfrButton label="Créer une analyse" icon="ri-add-line" @click="isCreateModalOpened = true" />
     </div>
-
+    <TutorialHint
+      class="fr-mt-3w"
+      slug="01-demarrage"
+      title="Première analyse ? Un tutoriel vous guide."
+      content="Le tutoriel « Démarrage » s'ouvre à côté de l'application : vous pouvez le suivre étape par étape tout en créant votre analyse. Il reste disponible à tout moment dans le menu utilisateur, en bas de la barre latérale, rubrique « Tutoriels »."
+    />
+    
     <DsfrSearchBar
       label="Rechercher une analyse"
       placeholder="Nom ou description..."

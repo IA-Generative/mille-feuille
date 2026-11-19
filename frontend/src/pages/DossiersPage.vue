@@ -7,6 +7,7 @@ import PagerNav from "@/components/PagerNav.vue";
 import DossierDueBadge from "@/components/dossiers/DossierDueBadge.vue";
 import CreateDossierModal from "@/components/dossiers/CreateDossierModal.vue";
 import WorkflowStatusBadge from "@/components/statuses/WorkflowStatusBadge.vue";
+import TutorialHint from "@/components/TutorialHint.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { useDossiers } from "@/composables/useDossiers";
 import {
@@ -118,6 +119,13 @@ function isUnassigned(dossier: Dossier) {
       </div>
       <DsfrButton label="Créer un dossier" icon="ri-add-line" @click="isCreateModalOpened = true" />
     </div>
+
+    <TutorialHint
+      class="fr-mt-3w"
+      slug="01-demarrage"
+      title="Premier dossier ? Un tutoriel vous guide."
+      content="Le tutoriel « Démarrage » s'ouvre à côté de l'application : vous pouvez le suivre étape par étape tout en créant votre dossier. Il reste disponible à tout moment dans le menu utilisateur, en bas de la barre latérale, rubrique « Tutoriels »."
+    />
 
     <div class="dossiers-page__filters">
       <div>
