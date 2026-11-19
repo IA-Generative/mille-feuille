@@ -2,7 +2,7 @@
 # Utilisé par docker-compose.override.yaml (fusionné automatiquement par
 # `docker compose up`). Les sources sont montées en bind mount, donc les
 # modifications sont détectées par Vite instantanément.
-FROM node:22-alpine
+FROM node:26-alpine
 WORKDIR /app
 # Cache corepack partagé : sans ça, pnpm est téléchargé dans ~root au build,
 # puis re-téléchargé au démarrage par l'utilisateur `node` (cache vide), ce
