@@ -702,6 +702,13 @@ class InternalDossierOut(BaseModel):
     documents: list[InternalDossierDocumentOut]
 
 
+class InternalPageLabelsOut(BaseModel):
+    """Labels dans lesquels chaque page du dossier est classée (valeur retenue) : `pages` associe l'identifiant d'une
+    page aux identifiants de ses labels ; une page non classée n'y figure pas."""
+
+    pages: dict[uuid.UUID, list[uuid.UUID]]
+
+
 class InternalLabelDefinitionOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -718,6 +725,10 @@ class InternalEntityDefinitionOut(BaseModel):
     definition: str
     type: str
     nature: str
+    # Où chercher : seulement dans les pages classées dans ce label (absent : tout le dossier) et, facultatif,
+    # seulement dans ces zones (rectangles en fractions de la page). Voir EntityDefinition.
+    label_id: uuid.UUID | None = None
+    zones: list[dict] = []
 
 
 class InternalClassificationOut(BaseModel):

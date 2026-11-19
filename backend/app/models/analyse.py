@@ -119,10 +119,14 @@ class Analyse(UUIDMixin, TimestampMixin, Base):
     extraction_prompt: Mapped[str] = mapped_column(Text, nullable=False, default="")
 
     labels: Mapped[list["LabelDefinition"]] = relationship(
-        back_populates="analyse", cascade="all, delete-orphan", order_by="LabelDefinition.created_at"
+        back_populates="analyse",
+        cascade="all, delete-orphan",
+        order_by="(LabelDefinition.position, LabelDefinition.created_at)",
     )
     entities: Mapped[list["EntityDefinition"]] = relationship(
-        back_populates="analyse", cascade="all, delete-orphan", order_by="EntityDefinition.created_at"
+        back_populates="analyse",
+        cascade="all, delete-orphan",
+        order_by="(EntityDefinition.position, EntityDefinition.created_at)",
     )
     statuses: Mapped[list["StatusDefinition"]] = relationship(
         back_populates="analyse", cascade="all, delete-orphan", order_by="StatusDefinition.position"
@@ -146,6 +150,9 @@ class LabelDefinition(UUIDMixin, TimestampMixin, Base):
     )
     name: Mapped[str] = mapped_column(String, nullable=False)
     definition: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    # Rang dans la liste de l'analyse : l'identifiant d'un label est stable d'un enregistrement à l'autre (les entités
+    # et les prédictions s'y réfèrent), l'ordre est donc porté explicitement.
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     analyse: Mapped["Analyse"] = relationship(back_populates="labels")
 
@@ -165,6 +172,15 @@ class EntityDefinition(UUIDMixin, TimestampMixin, Base):
         default=EntityNature.ENTITE,
         server_default=EntityNature.ENTITE.name,
     )
+    # Rang dans la liste de l'analyse (voir LabelDefinition.position).
+    position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # Où chercher l'entité : seulement dans les pages classées dans ce label (NULL : tout le dossier) et, facultatif,
+    # seulement dans ces zones (rectangles en fractions de la page : x0, y0, x1, y1, et l'exemple du label sur lequel
+    # la zone a été tracée). Sans zone : la page entière.
+    label_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("label_definitions.id", ondelete="SET NULL"), nullable=True
+    )
+    zones: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
 
     analyse: Mapped["Analyse"] = relationship(back_populates="entities")
 

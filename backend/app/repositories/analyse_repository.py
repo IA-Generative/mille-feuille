@@ -14,6 +14,7 @@ from app.models.analyse import (
     Agent,
     Analyse,
     EntityDefinition,
+    EntityNature,
     FieldVersion,
     LabelDefinition,
     StatusDefinition,
@@ -42,6 +43,10 @@ DEFAULT_STATUSES = [
 
 class StatusValidationError(ValueError):
     """La liste de statuts proposée ne respecte pas les règles (message destiné à l'utilisateur)."""
+
+
+class DefinitionValidationError(ValueError):
+    """La liste de labels ou d'entités proposée ne respecte pas les règles (message destiné à l'utilisateur)."""
 
 
 class StatusInUseError(Exception):
@@ -210,11 +215,15 @@ class AnalyseRepository:
         if field == VersionedField.CLASSIFICATION_PROMPT:
             await self.update_classification_prompt(analyse, content)
         elif field == VersionedField.CLASSIFICATION_LABELS:
-            await self.update_classification_labels(analyse, [LabelDefinition(**item) for item in content])
+            await self.update_classification_labels(
+                analyse, [self._label_from_snapshot(item) for item in content], allow_unknown_ids=True
+            )
         elif field == VersionedField.EXTRACTION_PROMPT:
             await self.update_extraction_prompt(analyse, content)
         elif field == VersionedField.EXTRACTION_ENTITIES:
-            await self.update_extraction_entities(analyse, [EntityDefinition(**item) for item in content])
+            await self.update_extraction_entities(
+                analyse, [self._entity_from_snapshot(item) for item in content], allow_unknown_ids=True
+            )
         elif field == VersionedField.AGENT_PROMPT and agent:
             await self.update_agent_prompt(analyse, agent, content)
         elif field == VersionedField.AGENT_TOOLS and agent:
@@ -234,14 +243,46 @@ class AnalyseRepository:
         await self.db.commit()
         await self.db.refresh(analyse)
 
-    async def update_classification_labels(self, analyse: Analyse, labels: list[LabelDefinition]) -> None:
-        snapshot = [{"name": label.name, "definition": label.definition} for label in analyse.labels]
-        self._record_version(analyse, VersionedField.CLASSIFICATION_LABELS, snapshot)
-        for existing in list(analyse.labels):
-            await self.db.delete(existing)
-        analyse.labels = [
-            LabelDefinition(analyse_id=analyse.id, name=lbl.name, definition=lbl.definition) for lbl in labels
-        ]
+    @staticmethod
+    def _label_snapshot(labels) -> list[dict]:
+        return [{"id": str(label.id), "name": label.name, "definition": label.definition} for label in labels]
+
+    @staticmethod
+    def _label_from_snapshot(item: dict) -> LabelDefinition:
+        """Un label d'un historique (les versions d'avant les identifiants stables n'ont pas d'``id``)."""
+        label_id = uuid.UUID(item["id"]) if item.get("id") else None
+        return LabelDefinition(id=label_id, name=item["name"], definition=item.get("definition", ""))
+
+    async def update_classification_labels(
+        self, analyse: Analyse, labels: list[LabelDefinition], *, allow_unknown_ids: bool = False
+    ) -> None:
+        """Remplace la liste des labels en **conservant l'identité** de ceux dont l'``id`` est fourni (les entités et
+        les prédictions s'y réfèrent). Un label encore utilisé par une entité ne peut pas être retiré."""
+        existing = {label.id: label for label in analyse.labels}
+        ids = [label.id for label in labels if label.id is not None]
+        if len(set(ids)) != len(ids):
+            raise DefinitionValidationError("Un label apparaît deux fois dans la liste.")
+        if not allow_unknown_ids and any(label_id not in existing for label_id in ids):
+            raise DefinitionValidationError("Label inconnu : il n'appartient pas à cette analyse.")
+        removed = {label_id for label_id in existing if label_id not in ids}
+        users = [entity.name for entity in analyse.entities if entity.label_id in removed]
+        if users:
+            raise DefinitionValidationError(
+                "Ce label est utilisé pour chercher " + ", ".join(f"« {name} »" for name in users) + " : "
+                "changez l'endroit où chercher ces entités avant de le retirer."
+            )
+
+        self._record_version(analyse, VersionedField.CLASSIFICATION_LABELS, self._label_snapshot(analyse.labels))
+        kept: list[LabelDefinition] = []
+        for position, incoming in enumerate(labels):
+            row = existing.get(incoming.id) if incoming.id is not None else None
+            if row is None:
+                row = LabelDefinition(id=incoming.id, analyse_id=analyse.id)
+            row.name, row.definition, row.position = incoming.name, incoming.definition, position
+            kept.append(row)
+        for label_id in removed:
+            await self.db.delete(existing[label_id])
+        analyse.labels = kept
         await self.db.commit()
         await self.db.refresh(analyse)
 
@@ -255,24 +296,68 @@ class AnalyseRepository:
         await self.db.commit()
         await self.db.refresh(analyse)
 
-    async def update_extraction_entities(self, analyse: Analyse, entities: list[EntityDefinition]) -> None:
-        snapshot = [
-            {"name": entity.name, "definition": entity.definition, "type": entity.type, "nature": entity.nature}
-            for entity in analyse.entities
+    @staticmethod
+    def _entity_snapshot(entities) -> list[dict]:
+        return [
+            {
+                "id": str(entity.id),
+                "name": entity.name,
+                "definition": entity.definition,
+                "type": entity.type,
+                "nature": entity.nature,
+                "label_id": str(entity.label_id) if entity.label_id else None,
+                "zones": entity.zones or [],
+            }
+            for entity in entities
         ]
-        self._record_version(analyse, VersionedField.EXTRACTION_ENTITIES, snapshot)
-        for existing in list(analyse.entities):
-            await self.db.delete(existing)
-        analyse.entities = [
-            EntityDefinition(
-                analyse_id=analyse.id,
-                name=ent.name,
-                definition=ent.definition,
-                type=ent.type,
-                nature=ent.nature,
-            )
-            for ent in entities
-        ]
+
+    @staticmethod
+    def _entity_from_snapshot(item: dict) -> EntityDefinition:
+        """Une entité d'un historique (celles d'avant les identifiants, les labels et les zones n'ont ni ``id``, ni
+        ``label_id``, ni ``zones``)."""
+        return EntityDefinition(
+            id=uuid.UUID(item["id"]) if item.get("id") else None,
+            name=item["name"],
+            definition=item.get("definition", ""),
+            type=item["type"],
+            nature=item.get("nature", EntityNature.ENTITE),
+            label_id=uuid.UUID(item["label_id"]) if item.get("label_id") else None,
+            zones=item.get("zones") or [],
+        )
+
+    async def update_extraction_entities(
+        self, analyse: Analyse, entities: list[EntityDefinition], *, allow_unknown_ids: bool = False
+    ) -> None:
+        """Remplace la liste des entités en **conservant l'identité** de celles dont l'``id`` est fourni. Le label où
+        chercher doit être l'un des labels de l'analyse ; à la restauration d'une version, un label disparu depuis
+        est écarté (l'entité cherche alors dans tout le dossier)."""
+        existing = {entity.id: entity for entity in analyse.entities}
+        ids = [entity.id for entity in entities if entity.id is not None]
+        if len(set(ids)) != len(ids):
+            raise DefinitionValidationError("Une entité apparaît deux fois dans la liste.")
+        if not allow_unknown_ids and any(entity_id not in existing for entity_id in ids):
+            raise DefinitionValidationError("Entité inconnue : elle n'appartient pas à cette analyse.")
+        label_ids = {label.id for label in analyse.labels}
+        for entity in entities:
+            if entity.label_id is not None and entity.label_id not in label_ids:
+                if not allow_unknown_ids:
+                    raise DefinitionValidationError(f"« {entity.name} » : ce label n'existe pas dans cette analyse.")
+                entity.label_id = None
+
+        self._record_version(analyse, VersionedField.EXTRACTION_ENTITIES, self._entity_snapshot(analyse.entities))
+        kept: list[EntityDefinition] = []
+        for position, incoming in enumerate(entities):
+            row = existing.get(incoming.id) if incoming.id is not None else None
+            if row is None:
+                row = EntityDefinition(id=incoming.id, analyse_id=analyse.id)
+            row.name, row.definition = incoming.name, incoming.definition
+            row.type, row.nature, row.position = incoming.type, incoming.nature, position
+            row.label_id, row.zones = incoming.label_id, list(incoming.zones or [])
+            kept.append(row)
+        for entity_id, entity in existing.items():
+            if entity_id not in ids:
+                await self.db.delete(entity)
+        analyse.entities = kept
         await self.db.commit()
         await self.db.refresh(analyse)
 
@@ -783,7 +868,7 @@ class AnalyseRepository:
             labels_versions=[
                 Version(
                     id=v.id,
-                    content=[LabelDefinitionOut(id=uuid.uuid4(), **item) for item in v.content],
+                    content=[LabelDefinitionOut(**{"id": uuid.uuid4(), **item}) for item in v.content],
                     created_at=v.created_at,
                 )
                 for v in self.field_versions(analyse, VersionedField.CLASSIFICATION_LABELS)
@@ -799,7 +884,7 @@ class AnalyseRepository:
             entities_versions=[
                 Version(
                     id=v.id,
-                    content=[EntityDefinitionOut(id=uuid.uuid4(), **item) for item in v.content],
+                    content=[EntityDefinitionOut(**{"id": uuid.uuid4(), **item}) for item in v.content],
                     created_at=v.created_at,
                 )
                 for v in self.field_versions(analyse, VersionedField.EXTRACTION_ENTITIES)
