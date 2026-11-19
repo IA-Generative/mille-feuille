@@ -10,6 +10,7 @@ from app.models.dossier_event import DossierEvent
 from app.repositories.work_slot_repository import WorkSlotRepository
 from app.schemas.dashboard import (
     DashboardActivityOut,
+    DashboardOtherOut,
     DashboardStatsOut,
     DashboardStatusCountOut,
     DashboardUnassignedOut,
@@ -71,40 +72,54 @@ class DashboardRepository:
             on_time_rate=round(on_time / with_due, 2) if with_due else 0.0,
         )
 
-    async def urgencies(self, user: RequestContext) -> list[DashboardUrgencyOut]:
-        """Dossiers ouverts dont l'échéance est proche ou dépassée selon les seuils de leur analyse (#172)."""
+    async def agenda(self, user: RequestContext) -> tuple[list[DashboardUrgencyOut], list[DashboardOtherOut]]:
+        """Mes dossiers ouverts, pour l'agenda : d'un côté les urgences (échéance proche ou dépassée selon les seuils
+        de leur analyse, #172), de l'autre les autres (échéance lointaine ou absente), qu'on veut aussi pouvoir
+        planifier."""
         result = await self.db.execute(
             select(Dossier, Analyse.name, Analyse.due_thresholds, StatusDefinition.name)
             .join(Analyse, Analyse.id == Dossier.analyse_id)
             .outerjoin(StatusDefinition, StatusDefinition.id == Dossier.workflow_status_id)
-            .where(*self._mine(user), Dossier.closed_at.is_(None), Dossier.due_at.is_not(None))
-            .order_by(Dossier.due_at.asc(), Dossier.ref_number.asc())
+            .where(*self._mine(user), Dossier.closed_at.is_(None))
+            .order_by(Dossier.due_at.asc().nulls_last(), Dossier.ref_number.asc())
         )
         today = today_in_paris()
         rows = result.all()
         slots = await WorkSlotRepository(self.db).map_for(user.user_id, [row[0].id for row in rows])
-        urgencies = []
+        urgencies: list[DashboardUrgencyOut] = []
+        others: list[DashboardOtherOut] = []
         for dossier, analyse_name, thresholds, status_name in rows:
+            slot = SlotOut.model_validate(slots[dossier.id]) if dossier.id in slots else None
             info = due_info(dossier.due_at, thresholds, today)
-            if info is None or info.level not in ("soon", "overdue"):
-                continue
-            urgencies.append(
-                DashboardUrgencyOut(
-                    dossier_id=dossier.id,
-                    dossier_name=dossier.name,
-                    analyse_id=dossier.analyse_id,
-                    analyse_name=analyse_name,
-                    status_label=status_name,
-                    due_at=dossier.due_at,
-                    level=info.level,
-                    days_left=info.days_left,
-                    color=info.color,
-                    slot=SlotOut.model_validate(slots[dossier.id]) if dossier.id in slots else None,
+            if info is not None and info.level in ("soon", "overdue"):
+                if len(urgencies) < URGENCY_LIMIT:
+                    urgencies.append(
+                        DashboardUrgencyOut(
+                            dossier_id=dossier.id,
+                            dossier_name=dossier.name,
+                            analyse_id=dossier.analyse_id,
+                            analyse_name=analyse_name,
+                            status_label=status_name,
+                            due_at=dossier.due_at,
+                            level=info.level,
+                            days_left=info.days_left,
+                            color=info.color,
+                            slot=slot,
+                        )
+                    )
+            elif len(others) < URGENCY_LIMIT:
+                others.append(
+                    DashboardOtherOut(
+                        dossier_id=dossier.id,
+                        dossier_name=dossier.name,
+                        analyse_id=dossier.analyse_id,
+                        analyse_name=analyse_name,
+                        status_label=status_name,
+                        due_at=dossier.due_at,
+                        slot=slot,
+                    )
                 )
-            )
-            if len(urgencies) >= URGENCY_LIMIT:
-                break
-        return urgencies
+        return urgencies, others
 
     async def status_counts(self, user: RequestContext) -> list[DashboardStatusCountOut]:
         """Mes dossiers ouverts par statut, dans l'ordre des statuts (les statuts finaux n'y figurent pas)."""

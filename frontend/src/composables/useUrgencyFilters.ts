@@ -14,6 +14,7 @@ export const DUE_FILTER_OPTIONS: { value: DueFilter; text: string }[] = [
 ];
 
 export function matchesDue(u: DashboardUrgency, filter: DueFilter): boolean {
+  if (!u.dueAt) return filter === "all";
   const offset = dayOffset(u.dueAt);
   switch (filter) {
     case "overdue":
@@ -40,7 +41,9 @@ export function useUrgencyFilters(urgencies: Ref<DashboardUrgency[]>, isListView
   const analyseFilter = ref("");
 
   const sorted = computed(() =>
-    [...urgencies.value].sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime()),
+    [...urgencies.value].sort(
+      (a, b) => (a.dueAt ? new Date(a.dueAt).getTime() : Infinity) - (b.dueAt ? new Date(b.dueAt).getTime() : Infinity),
+    ),
   );
 
   const analyseOptions = computed(() => [

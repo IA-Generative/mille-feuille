@@ -74,7 +74,7 @@ def test_empty_dashboard_for_a_new_person(client: TestClient, me) -> None:
         "avg_processing_days": 0.0,
         "on_time_rate": 0.0,
     }
-    assert board["urgencies"] == [] and board["status_counts"] == [] and board["activity"] == []
+    assert board["urgencies"] == [] and board["others"] == [] and board["status_counts"] == [] and board["activity"] == []
 
 
 def test_only_my_dossiers_count(client: TestClient, analyse: dict, me) -> None:
@@ -122,6 +122,20 @@ def test_urgencies_follow_the_thresholds_and_skip_closed_dossiers(client: TestCl
     assert [(u["level"], u["days_left"]) for u in urgencies] == [("overdue", -3), ("soon", 5)]
     assert urgencies[0]["analyse_name"] == analyse["name"] and urgencies[0]["color"]
     assert urgencies[0]["status_label"]
+
+
+def test_others_hold_open_dossiers_that_are_not_urgent(client: TestClient, analyse: dict, me) -> None:
+    _assigned_dossier(client, analyse, me, "Bientôt", due=5)
+    far = _assigned_dossier(client, analyse, me, "Loin", due=200)
+    no_due = _assigned_dossier(client, analyse, me, "Sans échéance")
+    closed = _assigned_dossier(client, analyse, me, "Clos", due=200)
+    _close(client, analyse, closed["id"])
+
+    board = _dashboard(client)
+
+    assert [o["dossier_id"] for o in board["others"]] == [far["id"], no_due["id"]]  # sans échéance en dernier
+    assert board["others"][1]["due_at"] is None and board["others"][0]["slot"] is None
+    assert len(board["urgencies"]) == 1
 
 
 def test_thresholds_of_each_analyse_decide_who_is_urgent(client: TestClient, analyse: dict, me) -> None:

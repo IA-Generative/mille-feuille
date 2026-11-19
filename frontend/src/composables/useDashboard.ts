@@ -20,13 +20,18 @@ function mapUrgency(api: any): DashboardUrgency {
     analyseId: api.analyse_id,
     analyseName: api.analyse_name,
     statusLabel: api.status_label ?? "",
-    dueAt: api.due_at,
+    dueAt: api.due_at ?? undefined,
     level: api.level,
     plannedStart: slot?.start,
     plannedEnd: slot?.end,
     recurrence: slot?.recurrence ?? undefined,
     reminders: slot?.reminders,
   };
+}
+
+/** Dossier ouvert non urgent : même forme qu'une urgence, au niveau « ok ». */
+function mapOther(api: any): DashboardUrgency {
+  return mapUrgency({ ...api, level: "ok" });
 }
 
 function mapActivity(api: any): DashboardActivity {
@@ -62,6 +67,7 @@ function mapDashboard(api: any): DashboardData {
       onTimeRate: api.stats.on_time_rate,
     },
     urgencies: api.urgencies.map(mapUrgency),
+    others: (api.others ?? []).map(mapOther),
     statusCounts: mapStatusCounts(api.status_counts),
     unassigned:
       api.unassigned === null
@@ -87,6 +93,7 @@ const emptyDashboard = (): DashboardData => ({
     onTimeRate: 0,
   },
   urgencies: [],
+  others: [],
   statusCounts: [],
   unassigned: [],
   activity: [],
@@ -127,7 +134,7 @@ export function useDashboard() {
    * l'erreur est relancée et l'agenda reste tel qu'il était.
    */
   async function setSchedule(dossierId: string, slot: SlotDraft | null) {
-    const target = data.value?.urgencies.find((u) => u.dossierId === dossierId);
+    const target = [...(data.value?.urgencies ?? []), ...(data.value?.others ?? [])].find((u) => u.dossierId === dossierId);
     if (!target) return;
     if (slot) {
       const saved = await apiFetch<any>(`/api/dossiers/${dossierId}/slot`, { method: "PUT", body: JSON.stringify(slot) });

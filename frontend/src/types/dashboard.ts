@@ -3,11 +3,13 @@ import type { Recurrence } from "@/types/schedule";
 // Tableau de bord utilisateur (issue #174). Les indicateurs, urgences, statuts, non affectés et activité viennent
 // de l'API (useDashboard) ; les créneaux et les notifications restent simulés.
 
-export type DueLevel = "overdue" | "soon";
+/** « ok » : dossier ouvert qui n'est pas une urgence (échéance lointaine ou absente), planifiable quand même. */
+export type DueLevel = "overdue" | "soon" | "ok";
 
 export const DUE_LEVEL_LABELS: Record<DueLevel, string> = {
   overdue: "Échéance dépassée",
   soon: "Échéance proche",
+  ok: "",
 };
 
 export interface DashboardUrgency {
@@ -16,7 +18,8 @@ export interface DashboardUrgency {
   analyseId: string;
   analyseName: string;
   statusLabel: string;
-  dueAt: string;
+  /** Absente pour un dossier sans échéance. */
+  dueAt?: string;
   level: DueLevel;
   /** Créneau de traitement planifié par l'utilisateur (ISO). Les deux ensemble, ou aucun. */
   plannedStart?: string;
@@ -72,6 +75,8 @@ export interface DashboardStats {
 export interface DashboardData {
   stats: DashboardStats;
   urgencies: DashboardUrgency[];
+  /** Mes autres dossiers ouverts (niveau « ok »), pour les planifier aussi. */
+  others: DashboardUrgency[];
   statusCounts: DashboardStatusCount[];
   /** `null` : l'utilisateur n'a pas le droit de voir les dossiers non affectés. */
   unassigned: DashboardUnassigned[] | null;

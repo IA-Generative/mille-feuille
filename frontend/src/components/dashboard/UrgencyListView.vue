@@ -34,10 +34,10 @@ const groups = computed(() => {
   const start = (page.value - 1) * PAGE_SIZE;
   const out: { label: string; overdue: boolean; items: DashboardUrgency[] }[] = [];
   for (const u of props.urgencies.slice(start, start + PAGE_SIZE)) {
-    const label = dayLabel(u.dueAt);
+    const label = dayLabel(u.dueAt!); // la liste ne reçoit que des urgences, toutes datées
     const last = out[out.length - 1];
     if (last && last.label === label) last.items.push(u);
-    else out.push({ label, overdue: dayOffset(u.dueAt) < 0, items: [u] });
+    else out.push({ label, overdue: dayOffset(u.dueAt!) < 0, items: [u] });
   }
   return out;
 });
@@ -52,7 +52,7 @@ const groups = computed(() => {
         <h2 class="list__day-title" :class="{ 'list__day-title--overdue': g.overdue }">{{ g.label }}</h2>
         <ul class="list__items">
           <li v-for="u in g.items" :key="u.dossierId">
-            <UrgencyRow :urgency="u" :meta="formatDue(u.dueAt)" @schedule="(id, slot) => $emit('schedule', id, slot)" />
+            <UrgencyRow :urgency="u" :meta="formatDue(u.dueAt!)" @schedule="(id, slot) => $emit('schedule', id, slot)" />
           </li>
         </ul>
       </section>

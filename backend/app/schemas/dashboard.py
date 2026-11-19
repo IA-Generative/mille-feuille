@@ -38,6 +38,18 @@ class DashboardUrgencyOut(BaseModel):
     slot: SlotOut | None = None
 
 
+class DashboardOtherOut(BaseModel):
+    """Dossier ouvert qui n'est pas une urgence (échéance lointaine ou absente) : il reste planifiable dans l'agenda."""
+
+    dossier_id: uuid.UUID
+    dossier_name: str
+    analyse_id: uuid.UUID
+    analyse_name: str
+    status_label: str | None
+    due_at: date | None
+    slot: SlotOut | None = None
+
+
 class DashboardStatusCountOut(BaseModel):
     status_id: uuid.UUID
     label: str
@@ -65,6 +77,8 @@ class DashboardActivityOut(BaseModel):
 class DashboardOut(BaseModel):
     stats: DashboardStatsOut
     urgencies: list[DashboardUrgencyOut]
+    # Mes autres dossiers ouverts (ni proches ni dépassés, ou sans échéance), pour les planifier aussi.
+    others: list[DashboardOtherOut]
     status_counts: list[DashboardStatusCountOut]
     # ``null`` : la personne n'a pas le droit de voir les dossiers non affectés.
     unassigned: list[DashboardUnassignedOut] | None

@@ -19,13 +19,15 @@ async def get_dashboard(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> DashboardOut:
-    """Indicateurs, urgences (échéance proche ou dépassée), mes dossiers par statut, dossiers non affectés et activité
+    """Indicateurs, urgences (échéance proche ou dépassée), mes autres dossiers ouverts (planifiables), mes dossiers par statut, dossiers non affectés et activité
     récente d'autres personnes sur mes dossiers. Les non affectés ne sont montrés qu'aux administrateurs : le rôle
     d'instruction (#178) élargira ce droit."""
     repository = DashboardRepository(db)
+    urgencies, others = await repository.agenda(user)
     return DashboardOut(
         stats=await repository.stats(user, today_in_paris()),
-        urgencies=await repository.urgencies(user),
+        urgencies=urgencies,
+        others=others,
         status_counts=await repository.status_counts(user),
         unassigned=await repository.unassigned(user) if user.is_admin else None,
         activity=await repository.activity(user),
