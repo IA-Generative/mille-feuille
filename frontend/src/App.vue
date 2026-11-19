@@ -4,9 +4,11 @@ import { RouterLink, RouterView, useRoute, type RouteLocationNormalizedLoaded } 
 
 import UserMenu from "@/components/UserMenu.vue";
 import CguGate from "@/components/CguGate.vue";
+import TutorialPanel from "@/components/TutorialPanel.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useMyConversations } from "@/composables/useMyConversations";
 import { useNotifications } from "@/composables/useNotifications";
+import { useTutorials } from "@/composables/useTutorials";
 
 const route = useRoute();
 
@@ -20,6 +22,8 @@ function pageKey(current: RouteLocationNormalizedLoaded): string | undefined {
 const { unreadCount, badgeLabel, startPolling, stopPolling } = useNotifications();
 const { fetchProfile, isAuthenticated } = useAuth();
 const { list: conversations, fetchList: fetchConversations, deleteConversation } = useMyConversations();
+// Tutoriel : on n'a besoin ici que de l'état d'affichage, pour réserver la place du panneau dans la mise en page.
+const { panelOpen: tutorialOpen, minimized: tutorialMinimized } = useTutorials();
 
 async function onDeleteConversation(dossierId: string, conversationId: string) {
   if (!confirm("Supprimer cette conversation ? Le dossier et ses documents ne seront pas affectés.")) return;
@@ -91,7 +95,14 @@ const navItems = [
   </RouterView>
 
   <!-- Application (connecté) : sidebar façon Muffin + contenu -->
-  <div v-else class="app-shell">
+  <div
+    v-else
+    class="app-shell"
+    :class="{
+      'app-shell--tutorial-open': tutorialOpen && !tutorialMinimized,
+      'app-shell--tutorial-min': tutorialOpen && tutorialMinimized,
+    }"
+  >
     <DsfrSkipLinks :links="[{ id: 'contenu-principal', text: 'Aller au contenu principal' }]" />
     <aside class="app-sidebar" :class="{ 'app-sidebar--collapsed': isSidebarCollapsed }">
       <!-- Brand : logo Marianne officiel DSFR + bouton collapse -->
@@ -183,6 +194,10 @@ const navItems = [
         <component :is="Component" :key="pageKey(current)" />
       </RouterView>
     </main>
+
+    <!-- Après <main> dans le DOM : le Tab y arrive naturellement depuis le contenu.
+         Monté ici (et pas dans UserMenu), il survit aux changements de page. -->
+    <TutorialPanel />
   </div>
 </template>
 
@@ -433,6 +448,19 @@ const navItems = [
   flex: 1;
   padding: 2rem;
   overflow-y: auto;
+}
+
+/* Le panneau de tutoriel réduit (barre flottante) ne doit pas masquer le bas de la page. */
+.app-shell--tutorial-min .app-shell__content {
+  padding-bottom: 5rem;
+}
+
+/* Sous 1248 px, le panneau déplié est un volet en bas de l'écran : on réserve sa place
+   (même point de rupture que dans TutorialPanel.vue, max-height: 45vh). */
+@media (max-width: 77.99em) {
+  .app-shell--tutorial-open .app-shell__content {
+    padding-bottom: calc(45vh + 1rem);
+  }
 }
 
 /* Pages qui ont un élément « sticky » au bas de l'écran (zone d'envoi du chat d'un dossier) : un contenu en
