@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { RouterLink } from "vue-router";
 
+import AppModal from "@/components/AppModal.vue";
 import { useNotifications } from "@/composables/useNotifications";
 import {
   NOTIFICATION_CATEGORIES,
@@ -61,7 +62,7 @@ function open(id: string) {
 </script>
 
 <template>
-  <DsfrModal :opened="true" title="Notifications" icon="ri-notification-3-line" size="lg" :actions="actions" @close="emit('close')">
+  <AppModal :opened="true" title="Notifications" icon="ri-notification-3-line" size="lg" :actions="actions" @close="emit('close')">
     <!-- Alertes du navigateur : activables d'un clic, l'autorisation est demandée à ce moment-là. -->
     <div v-if="browserPermission !== 'unsupported'" class="notifs__browser">
       <p v-if="browserPermission === 'denied'" class="notifs__browser-text">
@@ -125,7 +126,7 @@ function open(id: string) {
         </RouterLink>
       </li>
     </ul>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import ToolImportList from "@/components/tools/ToolImportList.vue";
 import ToolServerForm from "@/components/tools/ToolServerForm.vue";
 import { useTools } from "@/composables/useTools";
@@ -81,7 +82,7 @@ const actions = computed(() =>
 <template>
   <!-- Téléportée : une carte parente avec un transform enfermerait sinon la modale (position: fixed). -->
   <Teleport to="body">
-  <DsfrModal
+  <AppModal
     :opened="opened"
     :title="step === 'form' ? 'Ajouter un serveur MCP' : `Tools de ${draft.name}`"
     size="lg"
@@ -91,6 +92,6 @@ const actions = computed(() =>
     <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mb-2w" />
     <ToolServerForm v-if="step === 'form'" v-model="draft" />
     <ToolImportList v-else v-model="selected" :tools="discovered" />
-  </DsfrModal>
+  </AppModal>
   </Teleport>
 </template>

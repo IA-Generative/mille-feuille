@@ -7,6 +7,7 @@ import { ref, watch } from "vue";
 
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
+import AppModal from "@/components/AppModal.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { ASSIST_MIN_WORDS_HINT, hasEnoughWords, suggestAnalyseDescription } from "@/composables/useLlmAssist";
 import type { Analyse } from "@/types/analyse";
@@ -68,7 +69,7 @@ async function save() {
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="opened"
     title="Modifier l'analyse"
     @close="opened = false"
@@ -112,7 +113,7 @@ async function save() {
 
     <hr class="analyse-identity__divider" />
     <DsfrButton label="Supprimer l'analyse" icon="ri-delete-bin-line" tertiary size="sm" @click="emit('delete')" />
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

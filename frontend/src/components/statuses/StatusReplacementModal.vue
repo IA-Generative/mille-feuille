@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 // Un statut supprimé est encore utilisé par des dossiers : on choisit, pour
 // chacun, le statut qui reprend ses dossiers (le serveur répond 409 sinon).
 const props = defineProps<{
@@ -21,7 +22,7 @@ const actions = computed(() => [
 </script>
 
 <template>
-  <DsfrModal :opened="true" title="Des dossiers utilisent ces statuts" icon="ri-flag-line" :actions="actions" @close="emit('cancel')">
+  <AppModal :opened="true" title="Des dossiers utilisent ces statuts" icon="ri-flag-line" :actions="actions" @close="emit('cancel')">
     <p>Choisissez le statut qui reprendra les dossiers de chaque statut supprimé. Le changement est enregistré dans l'historique des statuts.</p>
     <div v-for="s in inUse" :key="s.id" class="srm__row">
       <label :for="`srm-${s.id}`">
@@ -32,7 +33,7 @@ const actions = computed(() => [
         <option v-for="c in candidates" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
     </div>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

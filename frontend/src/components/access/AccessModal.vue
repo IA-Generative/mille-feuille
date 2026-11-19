@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 
 import GroupPicker from "@/components/access/GroupPicker.vue";
+import AppModal from "@/components/AppModal.vue";
 import ErrorList from "@/components/ErrorList.vue";
 import { useDossierAccess } from "@/composables/useDossierAccess";
 import {
@@ -107,7 +108,7 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
 </script>
 
 <template>
-  <DsfrModal :opened="true" title="Accès au dossier" icon="ri-lock-line" size="lg" :actions="actions" @close="emit('close')">
+  <AppModal :opened="true" title="Accès au dossier" icon="ri-lock-line" size="lg" :actions="actions" @close="emit('close')">
     <p class="am__name">{{ dossierName }}</p>
 
     <DsfrAlert v-if="loadError" alert type="error" small :description="loadError" class="fr-mb-2w" />
@@ -162,7 +163,7 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
     <p v-else-if="state.visibility === 'analyse'" class="am__hint">Aucun groupe : le dossier suit l'accès à son analyse.</p>
     </template>
     <p v-else class="am__hint" role="status">Chargement…</p>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

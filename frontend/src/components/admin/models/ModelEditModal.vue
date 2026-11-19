@@ -2,6 +2,7 @@
 import { ref, watch } from "vue";
 
 import ModelTypeChips from "@/components/admin/models/ModelTypeChips.vue";
+import AppModal from "@/components/AppModal.vue";
 import type { LlmCapability, LlmModel } from "@/types/llmModel";
 
 const props = defineProps<{ model: LlmModel | null; capabilities: LlmCapability[] }>();
@@ -19,7 +20,7 @@ watch(
 </script>
 
 <template>
-  <DsfrModal :opened="!!model" :title="model?.name ?? ''" icon="ri-cpu-line" @close="emit('close')">
+  <AppModal :opened="!!model" :title="model?.name ?? ''" icon="ri-cpu-line" @close="emit('close')">
     <ModelTypeChips v-if="model" :types="model.types" class="edit-modal__types" />
 
     <fieldset class="edit-modal__group">
@@ -40,7 +41,7 @@ watch(
       <DsfrButton label="Retirer de la liste" tertiary no-outline icon="ri-delete-bin-line" @click="emit('remove')" />
       <DsfrButton label="Enregistrer" @click="emit('save', selected)" />
     </div>
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

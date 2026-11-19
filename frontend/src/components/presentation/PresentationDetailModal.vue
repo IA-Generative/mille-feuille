@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppModal from "@/components/AppModal.vue";
 import type { ChatWindowSource } from "@/components/ChatWindow.vue";
 import DossierResultsDetail from "@/components/dossiers/DossierResultsDetail.vue";
 
@@ -9,7 +10,7 @@ const emit = defineEmits<{ close: []; viewPage: [source: ChatWindowSource] }>();
 </script>
 
 <template>
-  <DsfrModal
+  <AppModal
     :opened="opened"
     :title="kind === 'label' ? 'Classification' : 'Informations extraites'"
     :icon="kind === 'label' ? 'ri-price-tag-3-line' : 'ri-braces-line'"
@@ -17,5 +18,5 @@ const emit = defineEmits<{ close: []; viewPage: [source: ChatWindowSource] }>();
     @close="emit('close')"
   >
     <DossierResultsDetail v-if="opened" :key="kind" :dossier-id="dossierId" :kind="kind" @view-page="emit('viewPage', $event)" />
-  </DsfrModal>
+  </AppModal>
 </template>

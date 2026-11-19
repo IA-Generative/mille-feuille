@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import type { ColumnDef, ColumnId } from "@/types/tracking";
 
 // Choix des colonnes visibles et de leur ordre, propres à l'utilisateur.
@@ -44,7 +45,7 @@ const actions = () => [
 </script>
 
 <template>
-  <DsfrModal :opened="true" title="Colonnes du tableau" icon="ri-layout-column-line" :actions="actions()" @close="emit('close')">
+  <AppModal :opened="true" title="Colonnes du tableau" icon="ri-layout-column-line" :actions="actions()" @close="emit('close')">
     <p class="cm__hint">Cochez les colonnes à afficher et ordonnez-les avec les flèches. Ce choix est personnel.</p>
     <ul class="cm__list">
       <li v-for="(id, i) in order" :key="id" class="cm__row">
@@ -66,7 +67,7 @@ const actions = () => [
       </li>
     </ul>
     <DsfrAlert v-if="visibleCount() === 0" alert type="error" small description="Gardez au moins une colonne visible." class="fr-mt-2w" />
-  </DsfrModal>
+  </AppModal>
 </template>
 
 <style scoped>

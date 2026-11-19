@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import PaginationBar from "@/components/PaginationBar.vue";
 import CollectionRow from "@/components/tools/CollectionRow.vue";
 import CollectionSourceChoice from "@/components/tools/CollectionSourceChoice.vue";
@@ -70,7 +71,7 @@ watch([pageIndex, pageSize], () => opened.value && load(query.value, pageIndex.v
 
 <template>
   <Teleport to="body">
-    <DsfrModal
+    <AppModal
       :opened="opened"
       title="Collections de la base de connaissances"
       size="lg"
@@ -118,7 +119,7 @@ watch([pageIndex, pageSize], () => opened.value && load(query.value, pageIndex.v
         </p>
         <PaginationBar v-model:page-index="pageIndex" v-model:page-size="pageSize" :total="total" label="Collections par page" />
       </template>
-    </DsfrModal>
+    </AppModal>
   </Teleport>
 </template>
 

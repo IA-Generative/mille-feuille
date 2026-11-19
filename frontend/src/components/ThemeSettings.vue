@@ -2,6 +2,7 @@
 import { ref } from "vue";
 
 import ThemeChoice from "./ThemeChoice.vue";
+import AppModal from "@/components/AppModal.vue";
 
 const opened = ref(false)
 const trigger = ref<HTMLButtonElement | null>(null)
@@ -19,13 +20,13 @@ const trigger = ref<HTMLButtonElement | null>(null)
     </button>
 
     <Teleport to="body">
-        <DsfrModal
+        <AppModal
             :opened="opened"
             title="Paramètres d'affichage"
             :origin="trigger ?? undefined"
             @close="opened = false"
         >
             <ThemeChoice />
-        </DsfrModal>
+        </AppModal>
     </Teleport>
 </template>

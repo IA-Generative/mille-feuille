@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 
+import AppModal from "@/components/AppModal.vue";
 import KnowledgeSourceForm from "@/components/tools/KnowledgeSourceForm.vue";
 import { useKnowledgeSources } from "@/composables/useKnowledgeSources";
 import type { KnowledgeSourceDraft } from "@/types/knowledge";
@@ -48,7 +49,7 @@ async function submit() {
 
 <template>
   <Teleport to="body">
-    <DsfrModal
+    <AppModal
       :opened="opened"
       title="Ajouter une source de connaissances"
       size="lg"
@@ -60,6 +61,6 @@ async function submit() {
     >
       <DsfrAlert v-if="error" alert type="error" small :description="error" class="fr-mb-2w" />
       <KnowledgeSourceForm v-model="draft" />
-    </DsfrModal>
+    </AppModal>
   </Teleport>
 </template>
