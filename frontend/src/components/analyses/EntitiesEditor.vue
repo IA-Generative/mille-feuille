@@ -8,7 +8,6 @@ import PaginationBar from "@/components/PaginationBar.vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import EditorIntro from "@/components/analyses/EditorIntro.vue";
 import { useListView } from "@/composables/useListView";
-import { useEntityLocations } from "@/composables/useEntityLocations";
 import { suggestEntities, suggestEntityDefinition } from "@/composables/useLlmAssist";
 import type { EntityDefinition, EntityNature, EntityType, LabelDefinition, Version } from "@/types/analyse";
 
@@ -29,7 +28,6 @@ const editingId = ref<string | null>(null);
 const { query, pageIndex, pageSize, hasSearch, filtered, paged, reveal } = useListView(draftEntities, (item) => `${item.name} ${item.definition}`);
 const isSuggestingList = ref(false);
 const suggestingDefinitionId = ref<string | null>(null);
-const { locationOf, zoneCount, forget } = useEntityLocations();
 const statusMessage = ref("");
 
 // On vide puis on remplit au tick suivant : un message identique au précédent est ainsi annoncé de nouveau.
@@ -38,13 +36,12 @@ function announce(message: string) {
   nextTick(() => (statusMessage.value = message));
 }
 
-function labelNameOf(entityId: string): string | null {
-  const id = locationOf(entityId).labelId;
-  return id ? (props.labels.find((label) => label.id === id)?.name ?? null) : null;
+function labelNamesOf(entity: EntityDefinition): string[] {
+  return entity.labelIds.map((id) => props.labels.find((label) => label.id === id)?.name).filter((name): name is string => !!name);
 }
 
 function cloneEntities(entities: EntityDefinition[]): EntityDefinition[] {
-  return entities.map((entity) => ({ ...entity }));
+  return entities.map((entity) => ({ ...entity, labelIds: [...entity.labelIds], zones: entity.zones.map((zone) => ({ ...zone })) }));
 }
 
 watch(
@@ -65,13 +62,20 @@ watch(
 );
 
 function addEntity() {
-  draftEntities.value.push({ id: `entity-${Date.now()}`, name: "", definition: "", type: "texte", nature: "entité" });
+  draftEntities.value.push({
+    id: `entity-${Date.now()}`,
+    name: "",
+    definition: "",
+    type: "texte",
+    nature: "entité",
+    labelIds: [],
+    zones: [],
+  });
   editingId.value = draftEntities.value[draftEntities.value.length - 1].id;
   reveal(editingId.value);
 }
 
 function removeEntity(id: string) {
-  forget(id);
   draftEntities.value = draftEntities.value.filter((entity) => entity.id !== id);
   if (editingId.value === id) editingId.value = null;
 }
@@ -81,7 +85,12 @@ async function applySuggestions(model: string | null) {
   announce("Génération en cours…");
   try {
     const suggestions = await suggestEntities(model);
-    draftEntities.value = suggestions.map((entity, index) => ({ ...entity, id: `entity-suggestion-${index}` }));
+    draftEntities.value = suggestions.map((entity, index) => ({
+      ...entity,
+      id: `entity-suggestion-${index}`,
+      labelIds: [],
+      zones: [],
+    }));
     editingId.value = null;
     announce("Liste proposée : vérifiez-la, puis enregistrez.");
   } catch (error) {
@@ -150,9 +159,9 @@ function formatVersionContent(entities: EntityDefinition[]) {
               <span class="fr-badge fr-badge--sm fr-badge--no-icon" :class="item.nature === 'sémantique' ? 'fr-badge--purple-glycine' : 'fr-badge--green-menthe'">
                 {{ item.nature }}
               </span>
-              <span v-if="labelNameOf(item.id)" class="fr-badge fr-badge--sm fr-badge--info fr-badge--no-icon">{{ labelNameOf(item.id) }}</span>
-              <span v-if="zoneCount(item.id) > 0" class="fr-badge fr-badge--sm fr-badge--no-icon">
-                {{ zoneCount(item.id) }} zone{{ zoneCount(item.id) > 1 ? "s" : "" }}
+              <span v-for="name in labelNamesOf(item)" :key="name" class="fr-badge fr-badge--sm fr-badge--info fr-badge--no-icon">{{ name }}</span>
+              <span v-if="item.zones.length > 0" class="fr-badge fr-badge--sm fr-badge--no-icon">
+                {{ item.zones.length }} zone{{ item.zones.length > 1 ? "s" : "" }}
               </span>
             </p>
             <CollapsibleText v-if="item.definition" :text="item.definition" />
@@ -178,7 +187,7 @@ function formatVersionContent(entities: EntityDefinition[]) {
             <DsfrSelect v-model="item.nature" label="Nature" :options="entityNatures" />
           </div>
           <DsfrInput v-model="item.definition" label="Définition" label-visible is-textarea rows="3" />
-          <EntityLocation :entity-id="item.id" :labels="labels" />
+          <EntityLocation v-model:label-ids="item.labelIds" v-model:zones="item.zones" :labels="labels" />
           <div class="entities-editor__form-actions">
             <LlmAssistButton
               compact

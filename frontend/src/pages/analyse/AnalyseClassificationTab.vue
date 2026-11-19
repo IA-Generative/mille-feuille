@@ -41,6 +41,7 @@ onMounted(() => {
     </PromptEditor>
     <hr class="analyse-tab__divider" />
     <LabelsEditor
+      :analyse-id="analyse.id"
       :labels="analyse.classification.labels"
       :versions="analyse.classification.labelsVersions"
       @save="(labels) => updateClassificationLabels(analyse!.id, labels)"

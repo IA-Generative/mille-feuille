@@ -12,7 +12,7 @@ import { useLabelExamples } from "@/composables/useLabelExamples";
 import { suggestLabelDefinition, suggestLabels } from "@/composables/useLlmAssist";
 import type { LabelDefinition, Version } from "@/types/analyse";
 
-const props = defineProps<{ labels: LabelDefinition[]; versions: Version<LabelDefinition[]>[] }>();
+const props = defineProps<{ analyseId: string; labels: LabelDefinition[]; versions: Version<LabelDefinition[]>[] }>();
 const emit = defineEmits<{ save: [LabelDefinition[]]; restore: [string] }>();
 
 const draftLabels = ref<LabelDefinition[]>(cloneLabels(props.labels));
@@ -153,7 +153,7 @@ function formatVersionContent(labels: LabelDefinition[]) {
             
           </div>
           <DsfrInput v-model="item.definition" label="Définition" label-visible is-textarea rows="3" />
-          <LabelExamples :label-id="item.id" />
+          <LabelExamples :analyse-id="analyseId" :label-id="item.id" :saved="labels.some((label) => label.id === item.id)" />
           <div class="labels-editor__form-actions">
             <LlmAssistButton
               compact

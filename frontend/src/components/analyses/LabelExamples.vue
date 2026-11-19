@@ -10,7 +10,7 @@ import {
   useLabelExamples,
 } from "@/composables/useLabelExamples";
 
-const props = defineProps<{ labelId: string }>();
+const props = defineProps<{ analyseId: string; labelId: string; saved: boolean }>();
 
 const { examplesOf, addFiles, removeExample } = useLabelExamples();
 const examples = examplesOf(props.labelId);
@@ -19,9 +19,18 @@ const input = ref<HTMLInputElement | null>(null);
 const isDragging = ref(false);
 const errors = ref<string[]>([]);
 
-function receive(files: FileList | null) {
+const busy = ref(false);
+
+async function receive(files: FileList | null) {
   if (!files || files.length === 0) return;
-  errors.value = addFiles(props.labelId, Array.from(files));
+  busy.value = true;
+  errors.value = await addFiles(props.analyseId, props.labelId, Array.from(files));
+  busy.value = false;
+}
+
+async function remove(exampleId: string) {
+  const error = await removeExample(props.analyseId, props.labelId, exampleId);
+  errors.value = error ? [error] : [];
 }
 
 function onChange(event: Event) {
@@ -40,14 +49,17 @@ function onDrop(event: DragEvent) {
   <div class="label-examples">
     <p class="label-examples__title">Documents d'exemple</p>
     <p class="fr-hint-text label-examples__hint">
-      Ajoutez des PDF ou des images qui ressemblent aux pages de ce label : la classification visuelle les compare aux pages du
-      dossier, en plus de la définition.
+      Ajoutez des PDF ou des images qui ressemblent aux pages de ce label. Dans l'onglet Extraction, vous pourrez y tracer les
+      zones où chercher une entité.
     </p>
 
+    <p v-if="!saved" class="label-examples__empty">Enregistrez d'abord ce label : vous pourrez ensuite lui ajouter des exemples.</p>
     <button
+      v-else
       type="button"
       class="label-examples__drop"
       :class="{ 'label-examples__drop--active': isDragging }"
+      :disabled="busy"
       @click="input?.click()"
       @dragover.prevent="isDragging = true"
       @dragleave.prevent="isDragging = false"
@@ -59,7 +71,7 @@ function onDrop(event: DragEvent) {
         PDF, PNG, JPEG ou WebP · {{ formatSize(MAX_EXAMPLE_SIZE) }} maximum · {{ MAX_EXAMPLES_PER_LABEL }} exemples par label
       </span>
     </button>
-    <input ref="input" class="label-examples__input" type="file" multiple :accept="EXAMPLE_ACCEPT" tabindex="-1" @change="onChange" />
+    <input v-if="saved" ref="input" class="label-examples__input" type="file" multiple :accept="EXAMPLE_ACCEPT" tabindex="-1" @change="onChange" />
 
     <ErrorList :errors="errors" />
 
@@ -83,7 +95,7 @@ function onDrop(event: DragEvent) {
           no-outline
           icon="ri-close-line"
           size="sm"
-          @click="removeExample(labelId, example.id)"
+          @click="remove(example.id)"
         />
       </li>
     </ul>

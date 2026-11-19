@@ -3,79 +3,100 @@ import { computed, ref } from "vue";
 
 import ZoneCrop from "@/components/analyses/ZoneCrop.vue";
 import ZoneDrawer from "@/components/analyses/ZoneDrawer.vue";
-import { useEntityLocations, type ZonePage, type ZoneRect } from "@/composables/useEntityLocations";
 import { useLabelExamples } from "@/composables/useLabelExamples";
-import type { LabelDefinition } from "@/types/analyse";
+import type { EntityZone, LabelDefinition, ZoneRect } from "@/types/analyse";
 
-const props = defineProps<{ entityId: string; labels: LabelDefinition[] }>();
+// « Où chercher » une entité : dans quels labels de classification (un ou plusieurs, aucun = tout le dossier) et, facultatif,
+// dans quelles zones. Les zones se tracent sur les documents d'exemple des labels choisis ; elles sont enregistrées avec
+// l'entité.
+const props = defineProps<{ labels: LabelDefinition[] }>();
+const labelIds = defineModel<string[]>("labelIds", { required: true });
+const zones = defineModel<EntityZone[]>("zones", { required: true });
 
-const { locationOf, update, addZone, removeZone } = useEntityLocations();
 const { listOf } = useLabelExamples();
-
-const location = computed(() => locationOf(props.entityId));
-const input = ref<HTMLInputElement | null>(null);
 const activeId = ref<string | null>(null);
 
-const labelOptions = computed(() => [
-  { value: "", text: "Toutes les pages du dossier" },
-  ...props.labels.map((label) => ({ value: label.id, text: label.name || "(sans nom)" })),
-]);
+const labelOptions = computed(() =>
+  props.labels.map((label) => ({ name: `label-${label.id}`, label: label.name || "(sans nom)", value: label.id })),
+);
 
-// Les pages sur lesquelles on peut désigner la zone : les images d'exemple du label choisi, puis celles ajoutées à la main.
-const pages = computed<ZonePage[]>(() => {
-  const fromLabel = location.value.labelId
-    ? listOf(location.value.labelId)
+interface ZonePage {
+  id: string;
+  name: string;
+  url: string;
+  labelName: string;
+}
+
+// Les pages sur lesquelles on peut désigner une zone : les images d'exemple des labels choisis.
+const pages = computed<ZonePage[]>(() =>
+  props.labels
+    .filter((label) => labelIds.value.includes(label.id))
+    .flatMap((label) =>
+      listOf(label.id)
         .filter((example) => example.previewUrl)
-        .map((example) => ({ id: example.id, name: example.name, url: example.previewUrl! }))
-    : [];
-  return [...fromLabel, ...location.value.pages];
-});
+        .map((example) => ({ id: example.id, name: example.name, url: example.previewUrl!, labelName: label.name })),
+    ),
+);
+
+const pdfCount = computed(
+  () =>
+    props.labels
+      .filter((label) => labelIds.value.includes(label.id))
+      .flatMap((label) => listOf(label.id))
+      .filter((example) => example.kind === "pdf").length,
+);
 
 const active = computed(() => pages.value.find((page) => page.id === activeId.value) ?? null);
 
-function setLabel(value: string | number | undefined) {
-  activeId.value = null;
-  update(props.entityId, { labelId: value ? String(value) : null });
+function setLabels(value: unknown) {
+  const next = (Array.isArray(value) ? value : []) as string[];
+  labelIds.value = next;
+  // Les zones tracées sur l'exemple d'un label retiré n'ont plus de page où s'afficher : on les retire.
+  const kept = new Set(props.labels.filter((label) => next.includes(label.id)).flatMap((label) => listOf(label.id).map((e) => e.id)));
+  zones.value = zones.value.filter((zone) => zone.exampleId === null || kept.has(zone.exampleId));
+  if (activeId.value && !kept.has(activeId.value)) activeId.value = null;
 }
 
-function onFile(event: Event) {
-  const target = event.target as HTMLInputElement;
-  const file = target.files?.[0];
-  target.value = "";
-  if (!file) return;
-  const page = { id: `page-${Date.now()}`, name: file.name, url: URL.createObjectURL(file) };
-  update(props.entityId, { pages: [...location.value.pages, page] });
-  activeId.value = page.id;
-}
+const rectsOf = (pageId: string): ZoneRect[] => zones.value.filter((zone) => zone.exampleId === pageId);
 
 function toggle(pageId: string) {
   activeId.value = activeId.value === pageId ? null : pageId;
 }
 
 function onAdd(rect: ZoneRect) {
-  if (active.value) addZone(props.entityId, active.value.id, rect);
+  if (active.value) zones.value = [...zones.value, { exampleId: active.value.id, ...rect }];
 }
 
-const rectsOf = (pageId: string) => location.value.zones[pageId] ?? [];
+function removeZone(pageId: string, index: number) {
+  let seen = -1;
+  zones.value = zones.value.filter((zone) => zone.exampleId !== pageId || ++seen !== index);
+}
 </script>
 
 <template>
   <div class="entity-location">
-    <DsfrSelect
-      :model-value="location.labelId ?? ''"
-      label="Où chercher"
-      hint="Seules les pages classées dans ce label sont lues pour cette entité."
+    <DsfrCheckboxSet
+      :model-value="labelIds"
+      legend="Où chercher"
       :options="labelOptions"
-      :disabled="labels.length === 0"
-      @update:model-value="setLabel"
+      small
+      @update:model-value="setLabels"
     />
-    <p v-if="labels.length === 0" class="entity-location__note">Aucun label de classification défini : l'entité est cherchée dans toutes les pages.</p>
+    <p class="entity-location__note">
+      {{
+        labels.length === 0
+          ? "Aucun label de classification défini : l'entité est cherchée dans toutes les pages."
+          : labelIds.length === 0
+            ? "Aucun label coché : l'entité est cherchée dans toutes les pages du dossier."
+            : "Seules les pages classées dans l'un des labels cochés sont lues pour cette entité."
+      }}
+    </p>
 
-    <div class="entity-location__zones">
+    <div v-if="labelIds.length > 0" class="entity-location__zones">
       <p class="entity-location__legend">Zones <span class="entity-location__optional">(facultatif)</span></p>
       <p class="entity-location__note">
-        Sur un document type, désignez l'endroit où se trouve l'information : le modèle lit cette zone en priorité. À faire seulement
-        pour les documents où l'emplacement est connu ; les autres restent lus avec la définition.
+        Sur un document d'exemple, désignez l'endroit où se trouve l'information : le modèle lit cette zone en priorité. À faire
+        seulement pour les documents où l'emplacement est connu ; les autres restent lus avec la définition.
       </p>
 
       <ul v-if="pages.length > 0" class="entity-location__pages">
@@ -83,6 +104,7 @@ const rectsOf = (pageId: string) => location.value.zones[pageId] ?? [];
           <img :src="page.url" alt="" class="entity-location__thumb" />
           <span class="entity-location__meta">
             <span class="entity-location__name" :title="page.name">{{ page.name }}</span>
+            <span class="entity-location__label">{{ page.labelName }}</span>
             <span v-if="rectsOf(page.id).length > 0" class="entity-location__state entity-location__state--set">
               {{ rectsOf(page.id).length }} zone{{ rectsOf(page.id).length > 1 ? "s" : "" }} définie{{ rectsOf(page.id).length > 1 ? "s" : "" }}
             </span>
@@ -97,13 +119,15 @@ const rectsOf = (pageId: string) => location.value.zones[pageId] ?? [];
         </li>
       </ul>
       <p v-else class="entity-location__note">
-        {{ location.labelId ? "Ce label n'a pas d'image d'exemple." : "Choisissez un label pour utiliser ses exemples," }}
-        ou ajoutez une page.
+        Ces labels n'ont pas d'image d'exemple : ajoutez-en dans l'onglet Classification pour tracer une zone.
+      </p>
+      <p v-if="pdfCount > 0" class="entity-location__note">
+        {{ pdfCount }} exemple{{ pdfCount > 1 ? "s" : "" }} PDF : on ne trace de zone que sur une image.
       </p>
 
       <div v-if="active" class="entity-location__draw">
         <p class="entity-location__note">
-          Tracez un rectangle sur « {{ active.name }} » pour ajouter une zone ; une page peut en avoir plusieurs.
+          Tracez un rectangle sur « {{ active.name }} » pour ajouter une zone ; un exemple peut en avoir plusieurs.
         </p>
         <ZoneDrawer :url="active.url" :rects="rectsOf(active.id)" @add="onAdd" />
         <ul v-if="rectsOf(active.id).length > 0" class="entity-location__rects">
@@ -117,15 +141,10 @@ const rectsOf = (pageId: string) => location.value.zones[pageId] ?? [];
               no-outline
               icon="ri-delete-bin-line"
               size="sm"
-              @click="removeZone(entityId, active.id, index)"
+              @click="removeZone(active.id, index)"
             />
           </li>
         </ul>
-      </div>
-
-      <div>
-        <DsfrButton label="Ajouter une page" tertiary size="sm" icon="ri-image-add-line" @click="input?.click()" />
-        <input ref="input" class="entity-location__input" type="file" accept="image/png,image/jpeg,image/webp" tabindex="-1" @change="onFile" />
       </div>
     </div>
   </div>
