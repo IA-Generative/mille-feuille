@@ -2,7 +2,7 @@ import enum
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, Column, Enum, ForeignKey, Integer, String, Table, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -142,6 +142,26 @@ class Analyse(UUIDMixin, TimestampMixin, Base):
     )
 
 
+# Labels dans lesquels une entité est cherchée (aucun : tout le dossier). Table d'association pure : la relation n'a pas
+# d'attribut propre.
+entity_definition_labels = Table(
+    "entity_definition_labels",
+    Base.metadata,
+    Column(
+        "entity_definition_id",
+        PG_UUID(as_uuid=True),
+        ForeignKey("entity_definitions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "label_definition_id",
+        PG_UUID(as_uuid=True),
+        ForeignKey("label_definitions.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
+
+
 class LabelDefinition(UUIDMixin, TimestampMixin, Base):
     __tablename__ = "label_definitions"
 
@@ -155,6 +175,28 @@ class LabelDefinition(UUIDMixin, TimestampMixin, Base):
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     analyse: Mapped["Analyse"] = relationship(back_populates="labels")
+    # Documents d'exemple du label : à quoi ressemble une page de ce label, et sur quoi on trace les zones des entités.
+    examples: Mapped[list["LabelExample"]] = relationship(
+        cascade="all, delete-orphan", order_by="LabelExample.created_at", lazy="selectin"
+    )
+
+
+class LabelExample(UUIDMixin, TimestampMixin, Base):
+    """Un document d'exemple d'un label (PDF ou image), conservé dans S3."""
+
+    __tablename__ = "label_examples"
+
+    label_id: Mapped[uuid.UUID] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("label_definitions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    content_type: Mapped[str] = mapped_column(String, nullable=False)
+    size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    s3_key: Mapped[str] = mapped_column(String, nullable=False)
+
+    @property
+    def kind(self) -> str:
+        return "pdf" if self.content_type == "application/pdf" else "image"
 
 
 class EntityDefinition(UUIDMixin, TimestampMixin, Base):
@@ -174,15 +216,17 @@ class EntityDefinition(UUIDMixin, TimestampMixin, Base):
     )
     # Rang dans la liste de l'analyse (voir LabelDefinition.position).
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
-    # Où chercher l'entité : seulement dans les pages classées dans ce label (NULL : tout le dossier) et, facultatif,
-    # seulement dans ces zones (rectangles en fractions de la page : x0, y0, x1, y1, et l'exemple du label sur lequel
+    # Où chercher l'entité : seulement dans les pages classées dans l'un de ces labels (aucun : tout le dossier) et,
+    # facultatif, seulement dans ces zones (rectangles en fractions de la page : x0, y0, x1, y1, et l'exemple sur lequel
     # la zone a été tracée). Sans zone : la page entière.
-    label_id: Mapped[uuid.UUID | None] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("label_definitions.id", ondelete="SET NULL"), nullable=True
-    )
+    labels: Mapped[list["LabelDefinition"]] = relationship(secondary=entity_definition_labels, lazy="selectin")
     zones: Mapped[list] = mapped_column(JSONB, nullable=False, default=list, server_default="[]")
 
     analyse: Mapped["Analyse"] = relationship(back_populates="entities")
+
+    @property
+    def label_ids(self) -> list[uuid.UUID]:
+        return [label.id for label in self.labels]
 
 
 class StatusDefinition(UUIDMixin, TimestampMixin, Base):

@@ -1,4 +1,5 @@
-"""Labels et entités d'une analyse : identifiants stables, ordre, et « où chercher » une entité (label et zones)."""
+"""Labels et entités d'une analyse : identifiants stables, ordre, exemples de label, et « où chercher » une entité
+(un ou plusieurs labels, et des zones)."""
 
 import uuid
 
@@ -52,17 +53,27 @@ def test_a_label_of_another_analyse_is_refused(client: TestClient) -> None:
     assert response.status_code == 422
 
 
-def test_an_entity_searches_in_a_label_and_zones(client: TestClient) -> None:
+def test_an_entity_searches_in_one_or_several_labels_and_zones(client: TestClient) -> None:
     analyse_id = _analyse(client)
-    label = _put_labels(client, analyse_id, [{"name": "CNI"}]).json()["classification"]["labels"][0]
+    cni, passeport = _put_labels(client, analyse_id, [{"name": "CNI"}, {"name": "Passeport"}]).json()["classification"][
+        "labels"
+    ]
     zone = {"x0": 0.1, "y0": 0.2, "x1": 0.6, "y1": 0.4}
 
     saved = _put_entities(
-        client, analyse_id, [_entity("nom", label_id=label["id"], zones=[zone]), _entity("ville")]
+        client,
+        analyse_id,
+        [
+            _entity("nom", label_ids=[cni["id"], passeport["id"]], zones=[zone]),
+            _entity("numéro", label_ids=[cni["id"]]),
+            _entity("ville"),
+        ],
     ).json()["extraction"]["entities"]
 
-    assert saved[0]["label_id"] == label["id"] and saved[0]["zones"] == [{**zone, "example_id": None}]
-    assert saved[1]["label_id"] is None and saved[1]["zones"] == []  # sans portée : tout le dossier
+    assert saved[0]["label_ids"] == [cni["id"], passeport["id"]]
+    assert saved[0]["zones"] == [{**zone, "example_id": None}]
+    assert saved[1]["label_ids"] == [cni["id"]]
+    assert saved[2]["label_ids"] == [] and saved[2]["zones"] == []  # sans portée : tout le dossier
 
 
 def test_an_entity_keeps_its_identity_when_saved_again(client: TestClient) -> None:
@@ -76,7 +87,7 @@ def test_an_entity_keeps_its_identity_when_saved_again(client: TestClient) -> No
 def test_an_entity_cannot_point_to_an_unknown_label(client: TestClient) -> None:
     analyse_id = _analyse(client)
 
-    response = _put_entities(client, analyse_id, [_entity("nom", label_id=str(uuid.uuid4()))])
+    response = _put_entities(client, analyse_id, [_entity("nom", label_ids=[str(uuid.uuid4())])])
 
     assert response.status_code == 422
 
@@ -93,7 +104,7 @@ def test_invalid_zones_are_refused(client: TestClient) -> None:
 def test_a_label_used_by_an_entity_cannot_be_removed(client: TestClient) -> None:
     analyse_id = _analyse(client)
     label = _put_labels(client, analyse_id, [{"name": "CNI"}]).json()["classification"]["labels"][0]
-    _put_entities(client, analyse_id, [_entity("nom", label_id=label["id"])])
+    _put_entities(client, analyse_id, [_entity("nom", label_ids=[label["id"]])])
 
     response = _put_labels(client, analyse_id, [])
 
@@ -105,11 +116,11 @@ def test_a_label_used_by_an_entity_cannot_be_removed(client: TestClient) -> None
     assert _put_labels(client, analyse_id, []).status_code == 200
 
 
-def test_restoring_entities_brings_back_label_and_zones(client: TestClient) -> None:
+def test_restoring_entities_brings_back_labels_and_zones(client: TestClient) -> None:
     analyse_id = _analyse(client)
     label = _put_labels(client, analyse_id, [{"name": "CNI"}]).json()["classification"]["labels"][0]
     zone = {"x0": 0.1, "y0": 0.2, "x1": 0.6, "y1": 0.4}
-    _put_entities(client, analyse_id, [_entity("nom", label_id=label["id"], zones=[zone])])
+    _put_entities(client, analyse_id, [_entity("nom", label_ids=[label["id"]], zones=[zone])])
     _put_entities(client, analyse_id, [_entity("nom")])  # l'entité perd sa portée
 
     versions = client.get(f"/api/analyses/{analyse_id}").json()["extraction"]["entities_versions"]
@@ -118,7 +129,7 @@ def test_restoring_entities_brings_back_label_and_zones(client: TestClient) -> N
 
     assert restored.status_code == 200
     entity = _entities(client, analyse_id)[0]
-    assert entity["label_id"] == label["id"] and entity["zones"] == [{**zone, "example_id": None}]
+    assert entity["label_ids"] == [label["id"]] and entity["zones"] == [{**zone, "example_id": None}]
 
 
 def test_restoring_labels_brings_back_the_previous_list(client: TestClient) -> None:
@@ -131,6 +142,85 @@ def test_restoring_labels_brings_back_the_previous_list(client: TestClient) -> N
 
     assert restored.status_code == 200
     assert [label["name"] for label in _labels(client, analyse_id)] == ["CNI"]
+
+
+# --- Documents d'exemple d'un label ---
+
+
+def _upload(client: TestClient, analyse_id: str, label_id: str, *names: str, content_type: str = "image/png"):
+    files = [("files", (name, b"\x89PNG-" + name.encode(), content_type)) for name in names]
+    return client.post(f"/api/analyses/{analyse_id}/classification/labels/{label_id}/examples", files=files)
+
+
+def _label_with_examples(client: TestClient, *names: str) -> tuple[str, dict]:
+    analyse_id = _analyse(client)
+    label = _put_labels(client, analyse_id, [{"name": "CNI"}]).json()["classification"]["labels"][0]
+    if names:
+        assert _upload(client, analyse_id, label["id"], *names).status_code == 201
+    return analyse_id, label
+
+
+def test_a_label_has_several_example_documents(client: TestClient) -> None:
+    analyse_id, label = _label_with_examples(client, "recto.png", "verso.png")
+
+    listed = client.get(f"/api/analyses/{analyse_id}/classification/labels/{label['id']}/examples").json()
+    in_analyse = _labels(client, analyse_id)[0]["examples"]
+
+    assert [e["name"] for e in listed] == ["recto.png", "verso.png"]
+    assert [e["id"] for e in in_analyse] == [e["id"] for e in listed]
+    assert listed[0]["kind"] == "image" and listed[0]["content_type"] == "image/png" and listed[0]["size"] > 0
+    file = client.get(f"/api/analyses/{analyse_id}/classification/labels/{label['id']}/examples/{listed[0]['id']}/file")
+    assert file.status_code == 200 and file.headers["content-type"] == "image/png"
+
+
+def test_a_pdf_example_is_accepted_and_other_formats_are_refused(client: TestClient) -> None:
+    analyse_id, label = _label_with_examples(client)
+
+    assert _upload(client, analyse_id, label["id"], "modele.pdf", content_type="application/pdf").status_code == 201
+    refused = _upload(client, analyse_id, label["id"], "notes.txt", content_type="text/plain")
+
+    assert refused.status_code == 422 and "notes.txt" in refused.json()["detail"]
+    assert [e["kind"] for e in _labels(client, analyse_id)[0]["examples"]] == ["pdf"]
+
+
+def test_a_label_takes_ten_examples_at_most(client: TestClient) -> None:
+    analyse_id, label = _label_with_examples(client, *(f"e{i}.png" for i in range(10)))
+
+    assert _upload(client, analyse_id, label["id"], "de-trop.png").status_code == 422
+    assert len(_labels(client, analyse_id)[0]["examples"]) == 10
+
+
+def test_a_zone_can_be_drawn_on_an_example_and_deleting_it_keeps_the_rectangle(client: TestClient) -> None:
+    analyse_id, label = _label_with_examples(client, "recto.png")
+    example = _labels(client, analyse_id)[0]["examples"][0]
+    zone = {"example_id": example["id"], "x0": 0.1, "y0": 0.2, "x1": 0.6, "y1": 0.4}
+    _put_entities(client, analyse_id, [_entity("nom", label_ids=[label["id"]], zones=[zone])])
+
+    assert _entities(client, analyse_id)[0]["zones"] == [zone]
+
+    deleted = client.delete(f"/api/analyses/{analyse_id}/classification/labels/{label['id']}/examples/{example['id']}")
+
+    assert deleted.status_code == 204
+    assert _entities(client, analyse_id)[0]["zones"] == [{**zone, "example_id": None}]
+    assert _labels(client, analyse_id)[0]["examples"] == []
+
+
+def test_a_zone_cannot_point_to_an_unknown_example(client: TestClient) -> None:
+    analyse_id = _analyse(client)
+    zone = {"example_id": str(uuid.uuid4()), "x0": 0.1, "y0": 0.2, "x1": 0.6, "y1": 0.4}
+
+    assert _put_entities(client, analyse_id, [_entity("nom", zones=[zone])]).status_code == 422
+
+
+def test_removing_a_label_removes_its_examples(client: TestClient) -> None:
+    analyse_id, label = _label_with_examples(client, "recto.png")
+    example = _labels(client, analyse_id)[0]["examples"][0]
+
+    assert _put_labels(client, analyse_id, []).status_code == 200
+
+    assert client.get(f"/api/analyses/{analyse_id}").json()["classification"]["labels"] == []
+    missing = client.get(f"/api/analyses/{analyse_id}/classification/labels/{label['id']}/examples")
+    assert missing.status_code == 404 and example["id"]
 
 
 # --- Labels de chaque page (lus par le worker d'extraction) ---
