@@ -7,9 +7,9 @@ import { useHelperAgent } from "@/composables/useHelperAgent";
 import InfoModal from "@/components/InfoModal.vue";
 import ReportFormModal from "@/components/ReportFormModal.vue";
 import TaskDrawer from "@/components/TaskDrawer.vue";
-import TutorialModal from "@/components/TutorialModal.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useCgu } from "@/composables/useCgu";
+import { useTutorials } from "@/composables/useTutorials";
 import { useUserTasks } from "@/composables/useUserTasks";
 import { renderMarkdown } from "@/utils/markdown";
 
@@ -20,6 +20,7 @@ const router = useRouter();
 const { isAuthenticated, userName, isAdmin, profile, loading, login, logout } = useAuth();
 const { fetchActive } = useCgu();
 const { isOpen: showHelperAgent, openHelper, closeHelper } = useHelperAgent();
+const { openPanel: openTutorialPanel } = useTutorials();
 
 const showUserMenu = ref(false);
 const userWrapper = ref<HTMLElement>();
@@ -28,7 +29,6 @@ const userWrapper = ref<HTMLElement>();
 const showChangelog = ref(false);
 const showCgu = ref(false);
 const showReport = ref(false);
-const showTutorials = ref(false);
 const showTaskDrawer = ref(false);
 
 // Tâches utilisateur (issue #62)
@@ -123,7 +123,8 @@ function openHelperAgent() {
 
 function openTutorials() {
   closeMenu();
-  showTutorials.value = true;
+  // Reprend le tutoriel et l'étape en cours, ou affiche la liste s'il n'y en a pas.
+  openTutorialPanel();
 }
 
 function openTaskDrawer() {
@@ -283,8 +284,6 @@ onBeforeUnmount(() => {
   <ReportFormModal :open="showReport" @close="showReport = false" />
 
   <HelperAgentModal :open="showHelperAgent" @close="closeHelper" />
-
-  <TutorialModal :open="showTutorials" @close="showTutorials = false" />
 
   <TaskDrawer :open="showTaskDrawer" @close="showTaskDrawer = false" />
 </template>
