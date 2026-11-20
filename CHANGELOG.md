@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.66.0](https://github.com/IA-Generative/mille-feuille/compare/v0.65.0...v0.66.0) (2026-11-20)
+
+
+### Features
+
+* **front:** add AppModal, to make the same rule to all modals ([aee0dc6](https://github.com/IA-Generative/mille-feuille/commit/aee0dc628516ae689f85e4275fec5f609a5b0fdf))
+* **front:** add useBackdropClose composable to have better controle on closing pop-ups ([182de59](https://github.com/IA-Generative/mille-feuille/commit/182de59cb735996146601471f75ba8054c5ae1a0))
+* **front:** add useOutsideClick composable to close menus when click outside ([bbcc7f6](https://github.com/IA-Generative/mille-feuille/commit/bbcc7f60aeb19d098264b61bbabf9dbbd77e6922))
+* **front:** configure backdrop in InfoModal et TaskDrawer components ([d244fe3](https://github.com/IA-Generative/mille-feuille/commit/d244fe3a888899839024fe0c8c8b685d7f132edf))
+* **front:** replacing DSFRModals by AppModal component ([615ca0d](https://github.com/IA-Generative/mille-feuille/commit/615ca0d563d65ae563196fee9ee1d820b37f220b))
+
 ## [0.65.0](https://github.com/IA-Generative/mille-feuille/compare/v0.64.0...v0.65.0) (2026-11-19)
 
 

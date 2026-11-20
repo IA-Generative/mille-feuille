@@ -1,6 +1,6 @@
 [project]
 name = "mille-feuille-worker-extraction"
-version = "0.65.0"
+version = "0.66.0"
 description = "Worker Celery : extraction des entités d'un dossier (LLM)"
 requires-python = ">=3.12"
 dependencies = [
