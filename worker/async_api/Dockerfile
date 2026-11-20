@@ -8,7 +8,7 @@
 # (jeton avec accès en lecture à ce dépôt) est nécessaire au build. Il n'est jamais écrit dans
 # une couche : il n'existe que le temps de la commande `uv sync`.
 
-FROM python:3.13-slim AS builder
+FROM python:3.15-slim AS builder
 # git : `mic-worker` (async-api) est installé depuis un dépôt Git, il n'est pas publié sur PyPI.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
@@ -25,7 +25,7 @@ RUN --mount=type=secret,id=github_token \
     GIT_CONFIG_VALUE_0="https://github.com/" \
     uv sync --frozen --no-dev
 
-FROM python:3.13-slim AS runtime
+FROM python:3.15-slim AS runtime
 # pip est un outil de build : l\'image d\'exécution n\'installe rien, et le pip livré avec l\'image de base porte des CVE
 # connues. Retiré plutôt que mis à jour, il n\'y a rien à maintenir.
 RUN python -m pip uninstall -y pip
