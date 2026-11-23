@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.70.0](https://github.com/IA-Generative/mille-feuille/compare/v0.69.0...v0.70.0) (2026-11-23)
+
+
+### Features
+
+* **front:** add scroll utils and also edit AppModal and SourcePiker ([aa38a41](https://github.com/IA-Generative/mille-feuille/commit/aa38a419325723de3698e3ec2879e526853cf5b5))
+* **front:** add useSelectedFiles composable ([ef5530b](https://github.com/IA-Generative/mille-feuille/commit/ef5530bd1ea48d2e2e8968f27e6d442c7c6cc893))
+* **front:** last scroll edits and turning scroll bar visible to every modal ([dbb846f](https://github.com/IA-Generative/mille-feuille/commit/dbb846f7c3c0ec38bb9f01d02935fa36c223666d))
+
+
+### Bug Fixes
+
+* **front:** edit create dossier modal component for scroll ([8be7b3c](https://github.com/IA-Generative/mille-feuille/commit/8be7b3c77d7593d7cc2b4317f9437eccfe6ed66a))
+
 ## [0.69.0](https://github.com/IA-Generative/mille-feuille/compare/v0.68.0...v0.69.0) (2026-11-23)
 
 
