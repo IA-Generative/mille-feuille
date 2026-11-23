@@ -4,9 +4,10 @@
  * crée rien lui-même : il émet le choix, que l'écran résout à l'envoi (une nouvelle source n'existe qu'une fois le
  * dépôt confirmé).
  */
-import { computed, useId } from "vue";
+import { computed, nextTick, useId, useTemplateRef } from "vue";
 
 import type { DocumentSource, SourceChoice } from "@/types/documentSource";
+import { scrollIntoViewSoft } from "@/utils/scroll";
 
 const props = defineProps<{ sources: DocumentSource[]; id?: string }>();
 const choice = defineModel<SourceChoice>({ required: true });
@@ -18,14 +19,26 @@ const NONE = "__none__";
 const generatedId = useId();
 const selectId = computed(() => props.id ?? generatedId);
 
+const newForm = useTemplateRef<HTMLElement>("newForm")
+
 const selected = computed({
   get: () => (choice.value.kind === "existing" ? choice.value.id : choice.value.kind === "new" ? NEW : NONE),
   set: (value: string) => {
-    if (value === NEW) choice.value = { kind: "new", name: "", description: "" };
-    else if (value === NONE) choice.value = { kind: "none" };
+    if (value === NEW) {
+    choice.value = { kind: "new", name: "", description: "" };
+    revealNewForm();
+    } else if (value === NONE) choice.value = { kind: "none" };
     else choice.value = { kind: "existing", id: value };
   },
 });
+
+// Le formulaire apparaît sous le choix, parfois hors de vue : on l'y amène et on met le focus sur son premier champ.
+// Le setter ci-dessus n'est appelé que par un choix de la personne : aucun focus parasite quand le parent remet le choix à zéro.
+async function revealNewForm() {
+  await nextTick();
+  newForm.value?.querySelector<HTMLInputElement>("input")?.focus({ preventScroll: true });
+  scrollIntoViewSoft(newForm.value);
+}
 
 // DsfrSelect attend un tableau d'options { value, text } au lieu de <option> écrits à la main.
 const options = computed(() => [
@@ -57,7 +70,7 @@ function patchNew(field: "name" | "description", value: string | number | undefi
 
     <p v-if="description" class="fr-hint-text fr-mt-1w fr-mb-0">{{ description }}</p>
 
-    <div v-if="choice.kind === 'new'" class="fr-mt-2w">
+    <div v-if="choice.kind === 'new'" ref="newForm" role="group" aria-label="Nouvelle source" class="fr-mt-2w">
       <div class="fr-mb-2w">
         <DsfrInput
           :model-value="choice.name"
