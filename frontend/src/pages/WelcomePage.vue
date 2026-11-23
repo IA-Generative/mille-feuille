@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref, type ComponentPublicInstance } from "vue";
 import { useRouter } from "vue-router";
 import ThemeSettings from "@/components/ThemeSettings.vue";
+import BackendStatus from "@/components/welcome/BackendStatus.vue";
 import WelcomeAuthAction from "@/components/welcome/WelcomeAuthAction.vue";
 
 import { useAuth } from "@/composables/useAuth";
@@ -271,11 +272,15 @@ const footerLinks = [
 
     <DsfrFooter
       logo-text="MilleFeuille"
-      desc-text="© 2026 MilleFeuille — Instruction assistée des dossiers usagers"
       :mandatory-links="[]"
       :after-mandatory-links="footerLinks"
       licence-text=""
-    />
+    >
+      <template #description>
+        © 2026 MilleFeuille — Instruction assistée des dossiers usagers
+        <BackendStatus />
+      </template>
+    </DsfrFooter>
   </div>
 </template>
 
