@@ -62,6 +62,7 @@ watch(opened, async (isOpened) => {
     name.value = "";
     files.value = [];
     status.value = "";
+    accessTouched.value = false;
     sourceChoice.value = NO_SOURCE;
     aRanger.value = false;
     restricted.value = true;
@@ -124,8 +125,8 @@ async function submit() {
     </p>
 
     <!-- Section 1 : quel dossier ? -->
-    <div role="group" :aria-labelledby="infoTitleId" class="fr-mb-4w">
-      <h2 :id="infoTitleId" class="fr-h6 fr-mb-2w">Informations du dossier</h2>
+    <div role="group" :aria-labelledby="infoTitleId" class="fr-mb-3w">
+      <h2 :id="infoTitleId" class="fr-h5 fr-mb-2w">Informations du dossier</h2>
 
       <div class="fr-mb-2w">
         <DsfrInput v-model="name" label="Nom du dossier" label-visible required />
@@ -143,10 +144,11 @@ async function submit() {
         <DsfrSelect v-model="analyseId" label="Analyse" required :options="analyseOptions" />
       </div>
     </div>
+    <hr class="fr-hr" aria-hidden="true" />
 
     <!-- Section 2 : qui peut le voir ? -->
-    <div role="group" :aria-labelledby="accessTitleId" class="fr-mb-4w">
-      <h2 :id="accessTitleId" class="fr-h6 fr-mb-2w">Accès</h2>
+    <div role="group" :aria-labelledby="accessTitleId" class="fr-mb-3w">
+      <h2 :id="accessTitleId" class="fr-h5 fr-mb-2w">Accès</h2>
 
       <div class="fr-mb-2w">
         <DsfrToggleSwitch
@@ -171,10 +173,11 @@ async function submit() {
         @update:model-value="accessTouched = true"
       />
     </div>
+    <hr class="fr-hr" aria-hidden="true" />
 
     <!-- Section 3 : quels documents ? -->
     <div role="group" :aria-labelledby="docsTitleId">
-      <h2 :id="docsTitleId" class="fr-h6 fr-mb-2w">Documents (facultatif)</h2>
+      <h2 :id="docsTitleId" class="fr-h5 fr-mb-2w">Documents (facultatif)</h2>
 
       <DsfrFileUpload
         :id="fileUploadId"

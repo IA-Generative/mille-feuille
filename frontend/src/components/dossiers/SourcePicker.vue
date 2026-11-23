@@ -55,7 +55,7 @@ function patchNew(field: "name" | "description", value: string | number | undefi
       @update:model-value="selected = String($event)"
     />
 
-    <p v-if="description" class="fr-text--sm fr-text-mention--grey fr-mt-1w fr-mb-0">{{ description }}</p>
+    <p v-if="description" class="fr-hint-text fr-mt-1w fr-mb-0">{{ description }}</p>
 
     <div v-if="choice.kind === 'new'" class="fr-mt-2w">
       <div class="fr-mb-2w">
