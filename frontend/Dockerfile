@@ -23,7 +23,11 @@ FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
 # The base image is rebuilt rarely: pull the Alpine security fixes published since (openssl, libxml2, zlib, curl...).
 # Needs root for apk; USER nginx below drops it again.
 USER root
-RUN apk upgrade --no-cache
+# nginx est épinglé (nginx=<version>) dans l'image de base, et ses modules exigent cette version exacte : `apk upgrade`
+# seul laisse donc nginx en place. On retire les modules (inutilisés ici), puis on met nginx à jour avec le reste.
+RUN apk del --no-cache $(apk info -q | grep '^nginx-module-' || true) \
+ && apk add --no-cache --upgrade nginx \
+ && apk upgrade --no-cache
 COPY --chown=nginx:nginx docker/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --chown=nginx:nginx --from=build /app/dist /usr/share/nginx/html
 USER nginx
