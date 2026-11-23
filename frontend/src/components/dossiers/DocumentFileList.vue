@@ -9,31 +9,18 @@ function formatSize(bytes: number) {
 </script>
 
 <template>
-  <ul v-if="files.length > 0" class="document-file-list">
-    <li v-for="(file, index) in files" :key="`${file.name}-${index}`" class="document-file-list__file">
-      <span>{{ file.name }} ({{ formatSize(file.size) }})</span>
-      <DsfrButton label="Retirer le fichier" icon-only tertiary icon="ri-close-line" size="sm" @click="emit('remove', index)" />
+  <ul v-if="files.length > 0" class="fr-raw-list fr-mt-2w">
+    <li v-for="(file, index) in files" :key="`${file.name}-${index}`" class="fr-grid-row fr-grid-row--middle fr-grid-row--gutters fr-mb-1w">
+      <span class="fr-col fr-text--sm fr-mb-0">{{ file.name }} ({{ formatSize(file.size) }})</span>
+      <DsfrButton 
+      :label="`Retirer le fichier ${file.name}`"
+      icon-only
+      tertiary
+      no-outline
+      icon="ri-close-line"
+      size="sm"
+      @click="emit('remove', index)"
+      />
     </li>
   </ul>
 </template>
-
-<style scoped>
-.document-file-list {
-  list-style: none;
-  margin: 1rem 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.document-file-list__file {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.5rem 0.75rem;
-  border: 1px solid var(--border-default-grey);
-  border-radius: 0.25rem;
-}
-</style>
