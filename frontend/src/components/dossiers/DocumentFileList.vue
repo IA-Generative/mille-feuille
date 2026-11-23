@@ -1,15 +1,32 @@
 <script setup lang="ts">
+import { nextTick, useTemplateRef } from "vue";
+
 // Fichiers choisis avant l'envoi (création d'un dossier, ajout de documents), avec un bouton pour retirer chacun.
-defineProps<{ files: File[] }>();
+// `focusOnEmpty` : id de l'élément qui reçoit le focus quand le dernier fichier est retiré (le champ de dépôt).
+const props = defineProps<{ files: File[]; focusOnEmpty?: string }>();
 const emit = defineEmits<{ remove: [index: number] }>();
+
+const list = useTemplateRef<HTMLUListElement>("list");
 
 function formatSize(bytes: number) {
   return bytes < 1_000_000 ? `${Math.round(bytes / 1000)} Ko` : `${(bytes / 1_000_000).toFixed(1)} Mo`;
 }
+
+// Le bouton cliqué disparaît avec son fichier : sans cela, le focus tomberait sur la page.
+async function remove(index: number) {
+  emit("remove", index);
+  await nextTick();
+  if(props.files.length === 0) {
+    if (props.focusOnEmpty) document.getElementById(props.focusOnEmpty)?.focus();
+    return;
+  }
+  const buttons = list.value?.querySelectorAll<HTMLButtonElement>("button");
+  buttons?.[Math.min(index, props.files.length - 1)]?.focus();
+}
 </script>
 
 <template>
-  <ul v-if="files.length > 0" class="fr-raw-list fr-mt-2w">
+  <ul v-if="files.length > 0" ref="list" class="fr-raw-list fr-mt-2w">
     <li
       v-for="(file, index) in files"
       :key="`${file.name}-${index}`"
@@ -23,7 +40,7 @@ function formatSize(bytes: number) {
         no-outline
         icon="ri-close-line"
         size="sm"
-        @click="emit('remove', index)"
+        @click="remove(index)"
       />
     </li>
   </ul>

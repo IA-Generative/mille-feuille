@@ -23,6 +23,9 @@ const { myGroups } = useDossierAccess();
 const restricted = ref(true);
 const accessGroups = ref<string[]>([]);
 const accessInvalid = computed(() => restricted.value && accessGroups.value.length === 0);
+// L'erreur « au moins un groupe » ne s'affiche qu'après une action sur les cases (pas dès l'ouverture).
+const accessTouched = ref(false);
+
 
 const analyseOptions = computed(() => analyses.value.map((analyse) => ({ value: analyse.id, text: analyse.name })));
 
@@ -164,7 +167,8 @@ async function submit() {
         legend="Groupes ayant accès"
         hint="Au moins un groupe, parmi les vôtres."
         required
-        :error="accessInvalid ? 'Choisissez au moins un groupe.' : null"
+        :error="accessInvalid && accessTouched ? 'Choisissez au moins un groupe.' : null"
+        @update:model-value="accessTouched = true"
       />
     </div>
 
@@ -181,7 +185,7 @@ async function submit() {
         @change="onFilesSelected"
       />
 
-      <DocumentFileList :files="files" @remove="removeFile" />
+      <DocumentFileList :files="files" :focus-on-empty="fileUploadId" @remove="removeFile" />
 
       <div v-if="files.length > 0" class="fr-mt-3w">
         <SourcePicker v-model="sourceChoice" :sources="sources" :id="sourceFieldId" />

@@ -77,7 +77,7 @@ async function submit() {
       multiple
       @change="onFilesSelected"
     />
-    <DocumentFileList :files="files" @remove="files.splice($event, 1)" />
+    <DocumentFileList :files="files" focus-on-empty="add-documents" @remove="files.splice($event, 1)" />
 
     <div class="fr-mt-3w">
       <SourcePicker v-model="choice" :sources="sources" id="add-documents-source" />
