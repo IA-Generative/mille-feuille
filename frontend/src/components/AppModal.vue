@@ -22,7 +22,7 @@ const modalProps = computed(() => {
 const backdrop = useBackdropClose(
   (event) => event.target instanceof Element && event.target.closest(".fr-modal__body") === null,
   () => {
-    if (!props.closeOnBackdrop) return; 
+    if (!props.closeOnBackdrop) return;
     props.origin?.focus(); // DsfrModal le fait dans sa propre fermeture : on garde le retour du focus
     emit("close");
   },
@@ -66,5 +66,29 @@ onBeforeUnmount(() => footerObserver?.disconnect());
 <style scoped>
 .app-modal {
   display: contents;
+}
+
+/* Barre de défilement toujours visible, y compris sur macOS (qui masque la barre native tant qu'on ne défile pas) :
+   sans elle, rien n'indique qu'il reste du contenu sous la zone visible. Même principe que la description d'analyse. */
+.app-modal :deep(.fr-modal__body)::-webkit-scrollbar {
+  width: 0.75rem;
+}
+
+.app-modal :deep(.fr-modal__body)::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-modal :deep(.fr-modal__body)::-webkit-scrollbar-thumb {
+  border: 3px solid var(--background-lifted-grey);
+  border-radius: 999px;
+  background: var(--border-plain-grey);
+}
+
+/* Firefox : pas de ::-webkit-scrollbar, on utilise les propriétés standard. */
+@supports not selector(::-webkit-scrollbar) {
+  .app-modal :deep(.fr-modal__body) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-plain-grey) transparent;
+  }
 }
 </style>
