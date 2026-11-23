@@ -2,7 +2,8 @@
 
 FROM node:26-alpine AS build
 WORKDIR /app
-RUN corepack enable
+# Node 25+ n'embarque plus corepack.
+RUN npm install -g corepack && corepack enable
 COPY package.json pnpm-lock.yaml* .dsfr.yml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
