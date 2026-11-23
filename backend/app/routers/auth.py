@@ -1,5 +1,6 @@
 import base64
 import hashlib
+import logging
 import secrets
 from typing import Annotated
 from urllib.parse import urlencode
@@ -15,6 +16,8 @@ from app.core.security.keycloak_client import keycloak_openid, session_store
 from app.core.security.session import PendingAuth
 from app.db import get_db
 from app.repositories.user_directory_repository import UserDirectoryRepository
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Auth"])
 
@@ -114,6 +117,7 @@ async def callback(code: str, state: str) -> RedirectResponse:
         jwt_claims = decode_access_token(token_response["access_token"])
         claims = {**claims, "resource_access": jwt_claims.get("resource_access", {})}
     except Exception as error:
+        logger.exception("Keycloak callback failed (redirect_uri=%s)", _keycloak_settings.callback_url)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Login failed") from error
 
     identity = extract_identity(claims, _keycloak_settings.KEYCLOAK_CLIENT_ID)
