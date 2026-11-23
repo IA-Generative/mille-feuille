@@ -12,6 +12,7 @@ keycloak_openid = KeycloakOpenID(
     realm_name=keycloak_settings.KEYCLOAK_REALM,
     client_secret_key=keycloak_settings.KEYCLOAK_CLIENT_SECRET,
     verify=TlsSettings().verify,
+    proxies=keycloak_settings.proxies,
 )
 
 session_store = SessionStore(
