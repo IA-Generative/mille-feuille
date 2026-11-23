@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.68.0](https://github.com/IA-Generative/mille-feuille/compare/v0.67.0...v0.68.0) (2026-11-23)
+
+
+### Features
+
+* **front:** corrections on edits in create dossier components ([ad8898e](https://github.com/IA-Generative/mille-feuille/commit/ad8898eddead8087c5c78bceb4ce8f4cf68f4fc2))
+* **front:** edit CreateDossierModal component and correctinf other files ([15bc5ef](https://github.com/IA-Generative/mille-feuille/commit/15bc5ef78c2e84607d25ab6a87827e7c90683bc6))
+* **front:** edit DocumentFileList component ([616dac3](https://github.com/IA-Generative/mille-feuille/commit/616dac374ac6dfffa89bb65f1d73d107d71a4f76))
+* **front:** edit GroupPicker component to make it DSFR ([18dfb9d](https://github.com/IA-Generative/mille-feuille/commit/18dfb9d4cc5c042c75201a40ca095e5987ac3f2c))
+* **front:** edit sourcePicker component ([a8cf2e4](https://github.com/IA-Generative/mille-feuille/commit/a8cf2e43c907e9354ed4539dbfee29471679be64))
+* **front:** edits on create dossier components ([652cb1d](https://github.com/IA-Generative/mille-feuille/commit/652cb1d0e2fdf00a103cc42fbfa8b1739d6ae680))
+* **front:** last edits in configuration of create dossier pop-up ([4f86afb](https://github.com/IA-Generative/mille-feuille/commit/4f86afb2e29003cc27cae35062176c9d75860ce3))
+
+
+### Bug Fixes
+
+* **front:** clean unused style in GroupPicker component ([a3f86dd](https://github.com/IA-Generative/mille-feuille/commit/a3f86dd49483a26d8260a20c7be9c3448e223e96))
+
 ## [0.67.0](https://github.com/IA-Generative/mille-feuille/compare/v0.66.0...v0.67.0) (2026-11-23)
 
 
