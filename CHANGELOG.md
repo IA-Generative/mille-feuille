@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.69.0](https://github.com/IA-Generative/mille-feuille/compare/v0.68.0...v0.69.0) (2026-11-23)
+
+
+### Features
+
+* **frontend:** version et santé du backend sur la landing page ([4d13260](https://github.com/IA-Generative/mille-feuille/commit/4d13260cda4c2c865effdcc8d2340e9d2387d9ea))
+
 ## [0.68.0](https://github.com/IA-Generative/mille-feuille/compare/v0.67.0...v0.68.0) (2026-11-23)
 
 
