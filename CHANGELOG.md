@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.67.0](https://github.com/IA-Generative/mille-feuille/compare/v0.66.0...v0.67.0) (2026-11-23)
+
+
+### Features
+
+* **backend:** tracer chaque étape du callback de connexion Keycloak ([f6806ef](https://github.com/IA-Generative/mille-feuille/commit/f6806efdd574c209136cb1cac1d996b989dc323d))
+
+
+### Bug Fixes
+
+* **backend:** logger l'erreur Keycloak lors du callback de connexion ([fa47e16](https://github.com/IA-Generative/mille-feuille/commit/fa47e166385cac2975cd5ad494413e51928a7aeb))
+
 ## [0.66.0](https://github.com/IA-Generative/mille-feuille/compare/v0.65.0...v0.66.0) (2026-11-20)
 
 
