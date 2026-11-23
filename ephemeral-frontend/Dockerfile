@@ -20,7 +20,11 @@ FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
 # La 1.27 n'est plus maintenue ; l'image de base est reconstruite rarement : récupérer les correctifs Alpine publiés
 # depuis (nginx, openssl...). Il faut root pour apk ; USER nginx le retire plus bas.
 USER root
-RUN apk upgrade --no-cache
+# nginx est épinglé (nginx=<version>) dans l'image de base, et ses modules exigent cette version exacte : `apk upgrade`
+# seul laisse donc nginx en place. On retire les modules (inutilisés ici), puis on met nginx à jour avec le reste.
+RUN apk del --no-cache $(apk info -q | grep '^nginx-module-' || true) \
+ && apk add --no-cache --upgrade nginx \
+ && apk upgrade --no-cache
 COPY --chown=nginx:nginx docker/nginx.conf /etc/nginx/conf.d/default.conf
 # Lancé par l'entrypoint de l'image avant nginx : écrit /tmp/config.js (seul dossier inscriptible du conteneur).
 COPY --chown=nginx:nginx --chmod=755 docker/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
