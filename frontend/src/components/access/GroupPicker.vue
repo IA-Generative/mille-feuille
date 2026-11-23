@@ -1,40 +1,49 @@
 <script setup lang="ts">
-import { useId } from "vue";
+import { computed, useId } from "vue";
 
 import { groupLabel } from "@/types/access";
+import { DsfrCheckboxSet } from "@gouvminint/vue-dsfr";
 
 // Choix de groupes parmi ceux de l'utilisateur (on ne peut associer qu'un
 // groupe dont on est membre). `locked` : groupes déjà associés mais hors des
 // groupes de l'utilisateur, affichés et retirables par un administrateur.
 const selected = defineModel<string[]>({ required: true });
 const props = defineProps<{ options: string[]; legend: string; hint?: string; disabled?: boolean; error?: string | null }>();
-const errorId = useId();
-
-function toggle(group: string, checked: boolean) {
-  selected.value = checked ? [...selected.value, group] : selected.value.filter((g) => g !== group);
-}
+const baseId = useId();
 
 const isMember = (g: string) => props.options.includes(g);
-const all = () => [...new Set([...props.options, ...selected.value])];
+
+// Mêmes groupes qu'avant : ceux de l'utilisateur + ceux déjà associés (non-membre).
+const checkboxes = computed(() =>
+[...new Set([...props.options, ...selected.value])].map((g) => ({
+  id: `${baseId}-${g}`,
+  name: `${baseId}-groups`,
+  value: g,
+  label: groupLabel(g),
+  // L'identifiant technique et la mention « non-membre » deviennent l'aide DSFR du choix.
+  hint: isMember(g) ? g : `${g} · vous n'en êtes pas membre`,
+})),
+);
 </script>
 
 <template>
-  <fieldset class="gp" :disabled="disabled" :aria-describedby="error ? errorId : undefined">
-    <legend class="gp__legend">{{ legend }}</legend>
-    <p v-if="hint" class="gp__hint">{{ hint }}</p>
-    <ul class="gp__list">
-      <li v-for="g in all()" :key="g">
-        <label class="gp__item">
-          <input type="checkbox" :checked="selected.includes(g)" @change="toggle(g, ($event.target as HTMLInputElement).checked)" />
-          <span>{{ groupLabel(g) }}</span>
-          <span class="gp__note">{{ g }}</span>
-          <span v-if="!isMember(g)" class="gp__note">vous n'en êtes pas membre</span>
-        </label>
-      </li>
-    </ul>
-    <p v-if="options.length === 0" class="gp__hint">Vous n'appartenez à aucun groupe : demandez à un administrateur de vous en attribuer un.</p>
-    <p v-if="error" :id="errorId" class="fr-error-text fr-mt-1w">{{ error }}</p>
-  </fieldset>
+  <p v-if="options.length === 0" class="fr-text--sm">
+    Vous n'appartenez à aucun groupe : demandez à un administrateur de vous en attribuer un.
+  </p>
+  <DsfrCheckboxSet
+    v-else
+    v-model="selected"
+    :options="checkboxes"
+    :disabled="disabled"
+    :error-message="error ?? undefined"
+    :aria-invalid="!!error"
+    small
+  >
+    <template #legend>
+      {{ legend }}
+      <span v-if="hint" class="fr-hint-text">{{ hint }}</span>
+    </template>
+  </DsfrCheckboxSet>
 </template>
 
 <style scoped>
