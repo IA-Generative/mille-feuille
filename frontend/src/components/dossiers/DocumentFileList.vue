@@ -16,7 +16,7 @@ function formatSize(bytes: number) {
 async function remove(index: number) {
   emit("remove", index);
   await nextTick();
-  if(props.files.length === 0) {
+  if (props.files.length === 0) {
     if (props.focusOnEmpty) document.getElementById(props.focusOnEmpty)?.focus();
     return;
   }
