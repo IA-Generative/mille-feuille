@@ -7,7 +7,6 @@
 import { computed, useId } from "vue";
 
 import type { DocumentSource, SourceChoice } from "@/types/documentSource";
-import { DsfrInput, DsfrSelect } from "@gouvminint/vue-dsfr";
 
 const props = defineProps<{ sources: DocumentSource[]; id?: string }>();
 const choice = defineModel<SourceChoice>({ required: true });
@@ -30,9 +29,9 @@ const selected = computed({
 
 // DsfrSelect attend un tableau d'options { value, text } au lieu de <option> écrits à la main.
 const options = computed(() => [
-  { value: NONE, text: "Sans source"},
+  { value: NONE, text: "Sans source" },
   ...props.sources.map((source) => ({ value: source.id, text: source.name })),
-  { value: NEW, text:"+ Nouvelle source…"}
+  { value: NEW, text: "+ Nouvelle source…" },
 ]);
 
 const description = computed(() => {
@@ -48,25 +47,26 @@ function patchNew(field: "name" | "description", value: string | number | undefi
 <template>
   <div>
     <DsfrSelect
-    :model-value="selected"
-    :select-id="selectId"
-    label="Source des fichiers"
-    hint="D'où viennent ces fichiers ? Facultatif."
-    :options="options"
-    @update:model-value="selected = String($event)"
+      :model-value="selected"
+      :select-id="selectId"
+      label="Source des fichiers"
+      hint="D'où viennent ces fichiers ? Facultatif."
+      :options="options"
+      @update:model-value="selected = String($event)"
     />
 
     <p v-if="description" class="fr-text--sm fr-text-mention--grey fr-mt-1w fr-mb-0">{{ description }}</p>
 
     <div v-if="choice.kind === 'new'" class="fr-mt-2w">
-      <DsfrInput
-        :model-value="choice.name"
-        label="Nom de la source"
-        label-visible
-        placeholder="Ex. : Courrier de la préfecture"
-        class="fr-mb-2w"
-        @update:model-value="patchNew('name', $event)"
-      />
+      <div class="fr-mb-2w">
+        <DsfrInput
+          :model-value="choice.name"
+          label="Nom de la source"
+          label-visible
+          placeholder="Ex. : Courrier de la préfecture"
+          @update:model-value="patchNew('name', $event)"
+        />
+      </div>
       <DsfrInput
         :model-value="choice.description"
         label="Description"

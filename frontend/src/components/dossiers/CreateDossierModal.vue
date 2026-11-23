@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, ref, useId, watch } from "vue";
 
 import AppModal from "@/components/AppModal.vue";
 import GroupPicker from "@/components/access/GroupPicker.vue";
@@ -33,6 +33,13 @@ const files = ref<File[]>([]);
 // Source des fichiers : celles de l'analyse choisie ; un dossier « à ranger » n'en a pas encore (on peut en créer une).
 const sources = ref<DocumentSource[]>([]);
 const sourceChoice = ref<SourceChoice>(NO_SOURCE);
+
+// Ids qui relient chaque titre de section à son groupe (aria-labelledby), et ids des champs de la section Documents.
+const infoTitleId = useId();
+const accessTitleId = useId();
+const docsTitleId = useId();
+const fileUploadId = useId();
+const sourceId = useId();
 
 watch(opened, async (isOpened) => {
   if (isOpened) {
@@ -88,58 +95,74 @@ async function submit() {
       { label: 'Créer', onClick: submit, disabled: !name.trim() || (!aRanger && !analyseId) || accessInvalid },
     ]"
   >
-    <DsfrInput v-model="name" label="Nom du dossier" label-visible required />
+    <p class="fr-text--sm fr-mb-3w">
+      Les champs marqués d'un astérisque (<span class="fr-text--bold">*</span>) sont obligatoires.
+    </p>
 
-    <div class="fr-mt-2w">
-      <DsfrToggleSwitch
-        v-model="aRanger"
-        label="Dossier à ranger (sans analyse)"
-        hint="Crée le dossier sans analyse rattachée. Des suggestions d'analyse seront générées automatiquement à partir des résumés des documents."
-        inline
-      />
+    <!-- Section 1 : quel dossier ? -->
+    <div role="group" :aria-labelledby="infoTitleId" class="fr-mb-4w">
+      <h2 :id="infoTitleId" class="fr-h6 fr-mb-2w">Informations du dossier</h2>
+
+      <div class="fr-mb-2w">
+        <DsfrInput v-model="name" label="Nom du dossier" label-visible required />
+      </div>
+      <div class="fr-mb-2w">
+        <DsfrToggleSwitch
+          v-model="aRanger"
+          label="Dossier à ranger (sans analyse)"
+          hint="Crée le dossier sans analyse rattachée. Des suggestions d'analyse seront générées automatiquement à partir des résumés des documents."
+        />
+      </div>
+
+      <div v-if="!aRanger">
+        <DsfrSelect v-model="analyseId" label="Analyse" required :options="analyseOptions" />
+      </div>
     </div>
 
-    <DsfrSelect
-      v-if="!aRanger"
-      v-model="analyseId"
-      label="Analyse"
-      hint="Obligatoire : un dossier doit être lié à une analyse."
-      required
-      class="fr-mt-2w"
-      :options="analyseOptions"
-    />
+    <!-- Section 2 : qui peut le voir ? -->
+    <div role="group" :aria-labelledby="accessTitleId" class="fr-mb-4w">
+      <h2 :id="accessTitleId" class="fr-h6 fr-mb-2w">Accès</h2>
 
-    <div class="fr-mt-2w">
-      <DsfrToggleSwitch
-        v-model="restricted"
-        label="Dossier restreint"
-        hint="Seuls les groupes choisis (et les administrateurs) voient ce dossier. Sinon, toute personne ayant accès à l'analyse le voit."
-        inline
-      />
+      <div class="fr-mb-2w">
+        <DsfrToggleSwitch
+          v-model="restricted"
+          label="Dossier restreint"
+          :hint="
+            restricted
+              ? 'Seuls les groupes choisis et les administrateurs voient ce dossier.'
+              : 'Toute personne ayant accès à l\'analyse voit ce dossier.'
+          "
+        />
+      </div>
       <GroupPicker
         v-if="restricted"
         v-model="accessGroups"
         :options="myGroups"
         legend="Groupes ayant accès"
-        hint="Au moins un groupe est obligatoire : vos propres groupes uniquement."
+        hint="Au moins un groupe, parmi les vôtres."
+        required
         :error="accessInvalid ? 'Choisissez au moins un groupe.' : null"
       />
     </div>
 
-    <DsfrFileUpload
-      id="dossier-documents"
-      label="Documents et images du dossier"
-      hint="PDF, JPG ou PNG."
-      accept=".pdf,image/*"
-      multiple
-      class="fr-mt-2w"
-      @change="onFilesSelected"
-    />
+    <!-- Section 3 : quels documents ? -->
+    <div role="group" :aria-labelledby="docsTitleId">
+      <h2 :id="docsTitleId" class="fr-h6 fr-mb-2w">Documents (facultatif)</h2>
 
-    <DocumentFileList :files="files" @remove="files.splice($event, 1)" />
+      <DsfrFileUpload
+        :id="fileUploadId"
+        label="Documents et images du dossier"
+        hint="PDF, JPG ou PNG."
+        accept=".pdf,image/*"
+        multiple
+        @change="onFilesSelected"
+      />
 
-    <div v-if="files.length > 0" class="fr-mt-3w">
-      <SourcePicker v-model="sourceChoice" :sources="sources" id="create-dossier-source" />
+      <DocumentFileList :files="files" @remove="files.splice($event, 1)" />
+
+      <div v-if="files.length > 0" class="fr-mt-3w">
+        <SourcePicker v-model="sourceChoice" :sources="sources" :id="sourceId" />
+      </div>
     </div>
   </AppModal>
 </template>
