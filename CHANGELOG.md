@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.71.0](https://github.com/IA-Generative/mille-feuille/compare/v0.70.0...v0.71.0) (2026-11-23)
+
+
+### Features
+
+* **backend:** proxy dédié aux appels vers Keycloak ([0133317](https://github.com/IA-Generative/mille-feuille/commit/0133317339f31a7b06b25ff95efff6dad93566e2))
+
 ## [0.70.0](https://github.com/IA-Generative/mille-feuille/compare/v0.69.0...v0.70.0) (2026-11-23)
 
 
