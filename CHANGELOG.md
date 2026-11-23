@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.71.1](https://github.com/IA-Generative/mille-feuille/compare/v0.71.0...v0.71.1) (2026-11-23)
+
+
+### Bug Fixes
+
+* **ephemeral-frontend:** corepack pour node 26, nginx 1.30 et correctifs Alpine ([1066593](https://github.com/IA-Generative/mille-feuille/commit/1066593d7f4a6092245f198c7dcdfe4a906b29c2))
+* **ephemeral-frontend:** mettre à jour nginx malgré l'épinglage de l'image de base ([52c4733](https://github.com/IA-Generative/mille-feuille/commit/52c47335f6d1573fcdd49cfb555819f7005e830b))
+* **frontend:** installer corepack, absent de l'image node 26 ([aa8a87c](https://github.com/IA-Generative/mille-feuille/commit/aa8a87c1a16fdb242f01013db8c4c9b93302ff7f))
+* **frontend:** mettre à jour nginx malgré l'épinglage de l'image de base ([fe6596e](https://github.com/IA-Generative/mille-feuille/commit/fe6596e4ebc5c7a447e561881339d44b83e7fd1b))
+
 ## [0.71.0](https://github.com/IA-Generative/mille-feuille/compare/v0.70.0...v0.71.0) (2026-11-23)
 
 
