@@ -39,12 +39,26 @@ const infoTitleId = useId();
 const accessTitleId = useId();
 const docsTitleId = useId();
 const fileUploadId = useId();
-const sourceId = useId();
+const sourceFieldId = useId();
+
+// Zone d'annonce pour les lecteurs d'écran : dit ce qui apparaît ou disparaît quand on agit sur un interrupteur ou
+// sur le dépôt de fichiers. Alimentée par les actions de l'utilisateur (pas par des watchers) pour ne rien annoncer
+// quand la pop-up remet ses valeurs à zéro à l'ouverture.
+const status = ref("");
+
+function onARangerChange(value: boolean) {
+  status.value = value ? "Choix de l'analyse masqué." : "Choix de l'analyse affiché.";
+}
+
+function onRestrictedChange(value: boolean) {
+  status.value = value ? "Liste des groupes affichée." : "Liste des groupes masquée.";
+}
 
 watch(opened, async (isOpened) => {
   if (isOpened) {
     name.value = "";
     files.value = [];
+    status.value = "";
     sourceChoice.value = NO_SOURCE;
     aRanger.value = false;
     restricted.value = true;
@@ -64,7 +78,14 @@ watch([analyseId, aRanger], async () => {
 });
 
 function onFilesSelected(fileList: FileList) {
+  const hadFiles = files.value.length > 0;
   files.value.push(...Array.from(fileList));
+  if (!hadFiles && files.value.length > 0) status.value = "Choix de la source des fichiers affiché.";
+}
+
+function removeFile(index: number) {
+  files.value.splice(index, 1);
+  if (files.value.length === 0) status.value = "Choix de la source des fichiers masqué.";
 }
 
 async function submit() {
@@ -111,6 +132,7 @@ async function submit() {
           v-model="aRanger"
           label="Dossier à ranger (sans analyse)"
           hint="Crée le dossier sans analyse rattachée. Des suggestions d'analyse seront générées automatiquement à partir des résumés des documents."
+          @update:model-value="onARangerChange"
         />
       </div>
 
@@ -132,6 +154,7 @@ async function submit() {
               ? 'Seuls les groupes choisis et les administrateurs voient ce dossier.'
               : 'Toute personne ayant accès à l\'analyse voit ce dossier.'
           "
+          @update:model-value="onRestrictedChange"
         />
       </div>
       <GroupPicker
@@ -158,11 +181,13 @@ async function submit() {
         @change="onFilesSelected"
       />
 
-      <DocumentFileList :files="files" @remove="files.splice($event, 1)" />
+      <DocumentFileList :files="files" @remove="removeFile" />
 
       <div v-if="files.length > 0" class="fr-mt-3w">
-        <SourcePicker v-model="sourceChoice" :sources="sources" :id="sourceId" />
+        <SourcePicker v-model="sourceChoice" :sources="sources" :id="sourceFieldId" />
       </div>
     </div>
+
+    <p class="fr-sr-only" role="status">{{ status }}</p>
   </AppModal>
 </template>

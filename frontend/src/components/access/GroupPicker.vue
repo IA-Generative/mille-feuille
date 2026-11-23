@@ -7,7 +7,7 @@ import { groupLabel } from "@/types/access";
 // groupe dont on est membre). Les groupes déjà associés mais hors des
 // groupes de l'utilisateur sont affichés et retirables par un administrateur.
 const selected = defineModel<string[]>({ required: true });
-const props = defineProps<{ options: string[]; legend: string; hint?: string; disabled?: boolean; error?: string | null }>();
+const props = defineProps<{ options: string[]; legend: string; hint?: string; disabled?: boolean; error?: string | null; required?: boolean }>();
 const baseId = useId();
 
 const isMember = (g: string) => props.options.includes(g);
@@ -26,6 +26,7 @@ const groups = computed(() =>
   <DsfrCheckboxSet :disabled="disabled" :error-message="error ?? undefined" :aria-invalid="!!error" small>
     <template #legend>
       {{ legend }}
+      <span v-if="required" class="required">&nbsp;*</span>
       <span v-if="hint" class="fr-hint-text">{{ hint }}</span>
     </template>
 
