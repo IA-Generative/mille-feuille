@@ -102,8 +102,18 @@ async def login(request: Request, redirect: str = "/") -> RedirectResponse:
 async def callback(code: str, state: str) -> RedirectResponse:
     pending = _session_store.pop_pending(state)
     if pending is None:
+        logger.warning("Keycloak callback: unknown or expired state (already used, expired, or Redis lost it)")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired login attempt")
 
+    logger.info(
+        "Keycloak callback: exchanging code (keycloak_url=%s, realm=%s, client_id=%s, redirect_uri=%s, has_secret=%s)",
+        _keycloak_settings.KEYCLOAK_URL,
+        _keycloak_settings.KEYCLOAK_REALM,
+        _keycloak_settings.KEYCLOAK_CLIENT_ID,
+        _keycloak_settings.callback_url,
+        bool(_keycloak_settings.KEYCLOAK_CLIENT_SECRET),
+    )
+    step = "token"
     try:
         token_response = _keycloak_openid.token(
             grant_type="authorization_code",
@@ -111,17 +121,31 @@ async def callback(code: str, state: str) -> RedirectResponse:
             redirect_uri=_keycloak_settings.callback_url,
             code_verifier=pending.code_verifier,
         )
+        logger.info("Keycloak callback: token exchange ok")
+        step = "userinfo"
         claims = _keycloak_openid.userinfo(token_response["access_token"])
+        logger.info("Keycloak callback: userinfo ok (claims=%s)", sorted(claims))
         # userinfo does not include resource_access (client roles), so we
         # decode the JWT payload to enrich the claims with role information.
+        step = "decode_access_token"
         jwt_claims = decode_access_token(token_response["access_token"])
         claims = {**claims, "resource_access": jwt_claims.get("resource_access", {})}
     except Exception as error:
-        logger.exception("Keycloak callback failed (redirect_uri=%s)", _keycloak_settings.callback_url)
+        logger.exception(
+            "Keycloak callback failed at step '%s' (keycloak_url=%s, redirect_uri=%s)",
+            step,
+            _keycloak_settings.KEYCLOAK_URL,
+            _keycloak_settings.callback_url,
+        )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Login failed") from error
 
     identity = extract_identity(claims, _keycloak_settings.KEYCLOAK_CLIENT_ID)
     if identity is None:
+        logger.warning(
+            "Keycloak callback: could not resolve identity (claims=%s, resource_access_clients=%s)",
+            sorted(claims),
+            sorted(claims.get("resource_access", {})),
+        )
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Could not resolve identity")
 
     session_id = _session_store.create_session(identity, token_response)
