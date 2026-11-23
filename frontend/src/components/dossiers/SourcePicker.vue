@@ -4,15 +4,20 @@
  * crée rien lui-même : il émet le choix, que l'écran résout à l'envoi (une nouvelle source n'existe qu'une fois le
  * dépôt confirmé).
  */
-import { computed } from "vue";
+import { computed, useId } from "vue";
 
 import type { DocumentSource, SourceChoice } from "@/types/documentSource";
+import { DsfrInput, DsfrSelect } from "@gouvminint/vue-dsfr";
 
 const props = defineProps<{ sources: DocumentSource[]; id?: string }>();
 const choice = defineModel<SourceChoice>({ required: true });
 
 const NEW = "__new__";
 const NONE = "__none__";
+
+// Plus d'id en dur : l'`id` fourni par le parent reste prioritaire (AddDocumentsModal le passe encore).
+const generatedId = useId();
+const selectId = computed(() => props.id ?? generatedId);
 
 const selected = computed({
   get: () => (choice.value.kind === "existing" ? choice.value.id : choice.value.kind === "new" ? NEW : NONE),
@@ -23,39 +28,44 @@ const selected = computed({
   },
 });
 
+// DsfrSelect attend un tableau d'options { value, text } au lieu de <option> écrits à la main.
+const options = computed(() => [
+  { value: NONE, text: "Sans source"},
+  ...props.sources.map((source) => ({ value: source.id, text: source.name })),
+  { value: NEW, text:"+ Nouvelle source…"}
+]);
+
 const description = computed(() => {
   const current = choice.value;
   return current.kind === "existing" ? props.sources.find((s) => s.id === current.id)?.description : "";
 });
 
-function patchNew(patch: Partial<{ name: string; description: string }>) {
-  if (choice.value.kind === "new") choice.value = { ...choice.value, ...patch };
+function patchNew(field: "name" | "description", value: string | number | undefined) {
+  if (choice.value.kind === "new") choice.value = { ...choice.value, [field]: String(value ?? "") };
 }
 </script>
 
 <template>
-  <div class="source-picker">
-    <div class="fr-select-group">
-      <label class="fr-label" :for="id ?? 'source-picker'">
-        Source des fichiers
-        <span class="fr-hint-text">D'où viennent ces fichiers ? Facultatif.</span>
-      </label>
-      <select :id="id ?? 'source-picker'" v-model="selected" class="fr-select">
-        <option :value="NONE">Sans source</option>
-        <option v-for="source in sources" :key="source.id" :value="source.id">{{ source.name }}</option>
-        <option :value="NEW">+ Nouvelle source…</option>
-      </select>
-    </div>
+  <div>
+    <DsfrSelect
+    :model-value="selected"
+    :select-id="selectId"
+    label="Source des fichiers"
+    hint="D'où viennent ces fichiers ? Facultatif."
+    :options="options"
+    @update:model-value="selected = String($event)"
+    />
 
-    <p v-if="description" class="fr-text--sm source-picker__description">{{ description }}</p>
+    <p v-if="description" class="fr-text--sm fr-text-mention--grey fr-mt-1w fr-mb-0">{{ description }}</p>
 
-    <div v-if="choice.kind === 'new'" class="source-picker__new">
+    <div v-if="choice.kind === 'new'" class="fr-mt-2w">
       <DsfrInput
         :model-value="choice.name"
         label="Nom de la source"
         label-visible
         placeholder="Ex. : Courrier de la préfecture"
-        @update:model-value="patchNew({ name: $event })"
+        class="fr-mb-2w"
+        @update:model-value="patchNew('name', $event)"
       />
       <DsfrInput
         :model-value="choice.description"
@@ -63,26 +73,8 @@ function patchNew(patch: Partial<{ name: string; description: string }>) {
         hint="Aide à comprendre la pièce : l'IA la reçoit en contexte."
         label-visible
         is-textarea
-        @update:model-value="patchNew({ description: $event })"
+        @update:model-value="patchNew('description', $event)"
       />
     </div>
   </div>
 </template>
-
-<style scoped>
-.source-picker__description {
-  margin: 0.5rem 0 0;
-  color: var(--text-mention-grey);
-}
-
-.source-picker__new {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  margin-top: 1rem;
-  padding: 1rem;
-  border: 1px solid var(--border-default-grey);
-  border-left: 3px solid var(--border-action-high-blue-france);
-  border-radius: 0.5rem;
-}
-</style>
