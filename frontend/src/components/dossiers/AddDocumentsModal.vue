@@ -3,15 +3,17 @@
  * Ajout de fichiers à un dossier déjà créé, avec leur source. Jamais refusé selon l'état du dossier : si l'analyse a
  * déjà tourné, la page propose ensuite de la relancer pour prendre les nouveaux fichiers en compte.
  */
-import { ref, watch } from "vue";
+import { nextTick, ref, useTemplateRef, watch } from "vue";
 
 import AppModal from "@/components/AppModal.vue";
 import DocumentFileList from "@/components/dossiers/DocumentFileList.vue";
 import SourcePicker from "@/components/dossiers/SourcePicker.vue";
 import { fetchDossierSources, resolveSourceChoice } from "@/composables/useDocumentSources";
 import { useDossiers } from "@/composables/useDossiers";
+import { useSelectedFiles } from "@/composables/useSelectedFiles";
 import { NO_SOURCE, type DocumentSource, type SourceChoice } from "@/types/documentSource";
 import { userMessage } from "@/utils/api";
+import { scrollIntoViewSoft } from "@/utils/scroll";
 
 const props = defineProps<{
   dossierId: string;
@@ -23,7 +25,16 @@ const emit = defineEmits<{ added: [count: number] }>();
 
 const { addDocuments } = useDossiers();
 
-const files = ref<File[]>([]);
+// Fichiers choisis : la liste, un résumé visible sous le champ de dépôt et l'erreur d'un type refusé.
+const {
+  files,
+  message: filesMessage,
+  error: filesError,
+  reset: resetFiles,
+  add: addFiles,
+  remove: removeFile,
+} = useSelectedFiles();
+const filesSummary = useTemplateRef<HTMLElement>("filesSummary");
 const sources = ref<DocumentSource[]>([]);
 const choice = ref<SourceChoice>(NO_SOURCE);
 const busy = ref(false);
@@ -31,14 +42,16 @@ const error = ref("");
 
 watch(opened, async (isOpened) => {
   if (!isOpened) return;
-  files.value = [...(props.initialFiles ?? [])];
+  resetFiles(props.initialFiles);
   choice.value = NO_SOURCE;
   error.value = "";
   sources.value = await fetchDossierSources(props.dossierId).catch(() => []);
 });
 
-function onFilesSelected(fileList: FileList) {
-  files.value.push(...Array.from(fileList));
+async function onFilesSelected(fileList: FileList) {
+  addFiles(fileList);
+  await nextTick();
+  scrollIntoViewSoft(filesSummary.value);
 }
 
 async function submit() {
@@ -61,6 +74,7 @@ async function submit() {
 <template>
   <AppModal
     :opened="opened"
+    :close-on-backdrop="false"
     title="Ajouter des documents"
     size="lg"
     :actions="[
@@ -75,9 +89,13 @@ async function submit() {
       hint="PDF, JPG ou PNG."
       accept=".pdf,image/*"
       multiple
+      :error="filesError"
       @change="onFilesSelected"
     />
-    <DocumentFileList :files="files" focus-on-empty="add-documents" @remove="files.splice($event, 1)" />
+    <!-- Toujours rendu (même vide) : une zone role="status" créée en même temps que son texte n'est pas annoncée. -->
+    <p ref="filesSummary" role="status" class="fr-text--sm fr-mb-0" :class="{ 'fr-mt-1w': filesMessage }">{{ filesMessage }}</p>
+
+    <DocumentFileList :files="files" focus-on-empty="add-documents" @remove="removeFile" />
 
     <div class="fr-mt-3w">
       <SourcePicker v-model="choice" :sources="sources" id="add-documents-source" />

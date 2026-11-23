@@ -28,7 +28,6 @@ const accessInvalid = computed(() => restricted.value && accessGroups.value.leng
 // L'erreur « au moins un groupe » ne s'affiche qu'après une action sur les cases (pas dès l'ouverture).
 const accessTouched = ref(false);
 
-
 const analyseOptions = computed(() => analyses.value.map((analyse) => ({ value: analyse.id, text: analyse.name })));
 
 const name = ref("");
@@ -189,7 +188,6 @@ async function submit() {
       </div>
       <div v-if="restricted" ref="groupsBlock">
         <GroupPicker
-          v-if="restricted"
           v-model="accessGroups"
           :options="myGroups"
           legend="Groupes ayant accès"
