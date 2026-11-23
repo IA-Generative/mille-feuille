@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, useId, watch } from "vue";
+import { computed, nextTick, ref, useId, useTemplateRef, watch } from "vue";
 
 import AppModal from "@/components/AppModal.vue";
 import GroupPicker from "@/components/access/GroupPicker.vue";
@@ -9,7 +9,9 @@ import { fetchAnalyseSources, resolveSourceChoice } from "@/composables/useDocum
 import { useAnalyses } from "@/composables/useAnalyses";
 import { useDossierAccess } from "@/composables/useDossierAccess";
 import { useDossiers } from "@/composables/useDossiers";
+import { useSelectedFiles } from "@/composables/useSelectedFiles";
 import { NO_SOURCE, type DocumentSource, type SourceChoice } from "@/types/documentSource";
+import { scrollIntoViewSoft } from "@/utils/scroll";
 
 const opened = defineModel<boolean>("opened", { default: false });
 const emit = defineEmits<{ created: [] }>();
@@ -32,7 +34,14 @@ const analyseOptions = computed(() => analyses.value.map((analyse) => ({ value: 
 const name = ref("");
 const analyseId = ref<string | undefined>(undefined);
 const aRanger = ref(false);
-const files = ref<File[]>([]);
+const {
+  files,
+  message: filesMessage,
+  error: filesError,
+  reset: resetFiles,
+  add: addFiles,
+  remove: removeFile,
+} = useSelectedFiles();
 // Source des fichiers : celles de l'analyse choisie ; un dossier « à ranger » n'en a pas encore (on peut en créer une).
 const sources = ref<DocumentSource[]>([]);
 const sourceChoice = ref<SourceChoice>(NO_SOURCE);
@@ -44,23 +53,36 @@ const docsTitleId = useId();
 const fileUploadId = useId();
 const sourceFieldId = useId();
 
+// Blocs qui apparaissent sous un interrupteur ou sous le champ de dépôt : on les amène dans la zone visible.
+const analyseBlock = useTemplateRef<HTMLElement>("analyseBlock");
+const groupsBlock = useTemplateRef<HTMLElement>("groupsBlock");
+const filesSummary = useTemplateRef<HTMLElement>("filesSummary");
+
 // Zone d'annonce pour les lecteurs d'écran : dit ce qui apparaît ou disparaît quand on agit sur un interrupteur ou
 // sur le dépôt de fichiers. Alimentée par les actions de l'utilisateur (pas par des watchers) pour ne rien annoncer
 // quand la pop-up remet ses valeurs à zéro à l'ouverture.
 const status = ref("");
 
-function onARangerChange(value: boolean) {
+async function onARangerChange(value: boolean) {
   status.value = value ? "Choix de l'analyse masqué." : "Choix de l'analyse affiché.";
+  if (!value) {
+    await nextTick();
+    scrollIntoViewSoft(analyseBlock.value);
+  }
 }
 
-function onRestrictedChange(value: boolean) {
+async function onRestrictedChange(value: boolean) {
   status.value = value ? "Liste des groupes affichée." : "Liste des groupes masquée.";
+  if (value) {
+    await nextTick();
+    scrollIntoViewSoft(groupsBlock.value);
+  }
 }
 
 watch(opened, async (isOpened) => {
   if (isOpened) {
     name.value = "";
-    files.value = [];
+    resetFiles();
     status.value = "";
     accessTouched.value = false;
     sourceChoice.value = NO_SOURCE;
@@ -81,14 +103,16 @@ watch([analyseId, aRanger], async () => {
   sources.value = !aRanger.value && analyseId.value ? await fetchAnalyseSources(analyseId.value).catch(() => []) : [];
 });
 
-function onFilesSelected(fileList: FileList) {
+async function onFilesSelected(fileList: FileList) {
   const hadFiles = files.value.length > 0;
-  files.value.push(...Array.from(fileList));
+  addFiles(fileList);
   if (!hadFiles && files.value.length > 0) status.value = "Choix de la source des fichiers affiché.";
+  await nextTick();
+  scrollIntoViewSoft(filesSummary.value);
 }
 
-function removeFile(index: number) {
-  files.value.splice(index, 1);
+function onRemoveFile(index: number) {
+  removeFile(index);
   if (files.value.length === 0) status.value = "Choix de la source des fichiers masqué.";
 }
 
@@ -112,6 +136,7 @@ async function submit() {
 <template>
   <AppModal
     :opened="opened"
+    :close-on-backdrop="false"
     @close="opened = false"
     title="Créer un dossier"
     size="lg"
@@ -140,7 +165,7 @@ async function submit() {
         />
       </div>
 
-      <div v-if="!aRanger">
+      <div v-if="!aRanger" ref="analyseBlock">
         <DsfrSelect v-model="analyseId" label="Analyse" required :options="analyseOptions" />
       </div>
     </div>
@@ -162,16 +187,18 @@ async function submit() {
           @update:model-value="onRestrictedChange"
         />
       </div>
-      <GroupPicker
-        v-if="restricted"
-        v-model="accessGroups"
-        :options="myGroups"
-        legend="Groupes ayant accès"
-        hint="Au moins un groupe, parmi les vôtres."
-        required
-        :error="accessInvalid && accessTouched ? 'Choisissez au moins un groupe.' : null"
-        @update:model-value="accessTouched = true"
-      />
+      <div v-if="restricted" ref="groupsBlock">
+        <GroupPicker
+          v-if="restricted"
+          v-model="accessGroups"
+          :options="myGroups"
+          legend="Groupes ayant accès"
+          hint="Au moins un groupe, parmi les vôtres."
+          required
+          :error="accessInvalid && accessTouched ? 'Choisissez au moins un groupe.' : null"
+          @update:model-value="accessTouched = true"
+        />
+      </div>
     </div>
     <hr class="fr-hr" aria-hidden="true" />
 
@@ -184,11 +211,14 @@ async function submit() {
         label="Documents et images du dossier"
         hint="PDF, JPG ou PNG."
         accept=".pdf,image/*"
+        :error="filesError"
         multiple
         @change="onFilesSelected"
       />
+      <!-- Toujours rendu (même vide) : une zone role="status" créée en même temps que son texte n'est pas annoncée. -->
+      <p ref="filesSummary" role="status" class="fr-text--sm fr-mb-0" :class="{ 'fr-mt-1w': filesMessage }">{{ filesMessage }}</p>
 
-      <DocumentFileList :files="files" :focus-on-empty="fileUploadId" @remove="removeFile" />
+      <DocumentFileList :files="files" :focus-on-empty="fileUploadId" @remove="onRemoveFile" />
 
       <div v-if="files.length > 0" class="fr-mt-3w">
         <SourcePicker v-model="sourceChoice" :sources="sources" :id="sourceFieldId" />
