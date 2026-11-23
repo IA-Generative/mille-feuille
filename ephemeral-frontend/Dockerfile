@@ -2,7 +2,8 @@
 
 FROM node:26-alpine AS build
 WORKDIR /app
-RUN corepack enable
+# Node 25+ n'embarque plus corepack.
+RUN npm install -g corepack && corepack enable
 COPY package.json pnpm-lock.yaml* .dsfr.yml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
@@ -15,7 +16,11 @@ RUN pnpm build
 # required to get a non-root container. USER is repeated explicitly below
 # anyway: Trivy's Dockerfile config scan (DS-0002) reads the Dockerfile
 # text, not the base image's own config, and flags a missing USER line.
-FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
+# La 1.27 n'est plus maintenue ; l'image de base est reconstruite rarement : récupérer les correctifs Alpine publiés
+# depuis (nginx, openssl...). Il faut root pour apk ; USER nginx le retire plus bas.
+USER root
+RUN apk upgrade --no-cache
 COPY --chown=nginx:nginx docker/nginx.conf /etc/nginx/conf.d/default.conf
 # Lancé par l'entrypoint de l'image avant nginx : écrit /tmp/config.js (seul dossier inscriptible du conteneur).
 COPY --chown=nginx:nginx --chmod=755 docker/40-runtime-config.sh /docker-entrypoint.d/40-runtime-config.sh
