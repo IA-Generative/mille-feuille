@@ -11,6 +11,9 @@ class KeycloakSettings(BaseSettings):
     KEYCLOAK_REALM: str = "mille-feuille"
     KEYCLOAK_CLIENT_ID: str = "mille-feuille-backend"
     KEYCLOAK_CLIENT_SECRET: str | None = None
+    # Proxy réservé aux appels backend → Keycloak (ex. http://10.224.32.127:80), pour un SSO que le proxy général
+    # (`HTTPS_PROXY`) ne sait pas joindre. Vide = le comportement par défaut de `requests` (`HTTPS_PROXY`, `NO_PROXY`).
+    KEYCLOAK_PROXY_URL: str | None = None
 
     # Used to build the fixed OAuth2 redirect_uri registered in the Keycloak client.
     BACKEND_PUBLIC_URL: str = "http://localhost:8000"
@@ -26,6 +29,13 @@ class KeycloakSettings(BaseSettings):
     SESSION_TTL_SECONDS: int = 7 * 24 * 60 * 60
 
     model_config = SettingsConfigDict(case_sensitive=True, env_file=(".env", ".env.local"), extra="ignore")
+
+    @property
+    def proxies(self) -> dict[str, str] | None:
+        """Valeur du paramètre `proxies` de python-keycloak : prioritaire sur `HTTPS_PROXY` et `NO_PROXY`."""
+        if not self.KEYCLOAK_PROXY_URL:
+            return None
+        return {"http": self.KEYCLOAK_PROXY_URL, "https": self.KEYCLOAK_PROXY_URL}
 
     @property
     def public_url(self) -> str:
