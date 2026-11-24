@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.73.0](https://github.com/IA-Generative/mille-feuille/compare/v0.72.0...v0.73.0) (2026-11-24)
+
+
+### Features
+
+* **ui:** create paginationPage util ([72dc6f7](https://github.com/IA-Generative/mille-feuille/commit/72dc6f7f84d33e3d883022f7886987df9b60c875))
+
+
+### Bug Fixes
+
+* **ui:** addingPagerNav to needed documents for pagination and cleaning code ([e1320e6](https://github.com/IA-Generative/mille-feuille/commit/e1320e6aa70e4db25722958b30a838d83f9200e9))
+* **ui:** configure PageNac and PaginationBar with paginationPages ([aea5cf2](https://github.com/IA-Generative/mille-feuille/commit/aea5cf222eb7ff8b05dc44b409edbf748c245a82))
+* **ux:** edit accessibility dore Me guider pas à pas tutorial ([02bd906](https://github.com/IA-Generative/mille-feuille/commit/02bd90627d5abcf6a7d1cf21756c2faeee93116c))
+* **ux:** edit pas à pas button to make it a full tutorial ([e9823a3](https://github.com/IA-Generative/mille-feuille/commit/e9823a3b152498a2da87a3214dd72b7b1404a58f))
+
 ## [0.72.0](https://github.com/IA-Generative/mille-feuille/compare/v0.71.1...v0.72.0) (2026-11-24)
 
 
