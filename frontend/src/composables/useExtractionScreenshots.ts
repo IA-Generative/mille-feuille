@@ -1,6 +1,6 @@
-import { onBeforeUnmount, reactive } from "vue";
+import { reactive } from "vue";
 
-import { API_BASE_URL } from "@/utils/api";
+import { loadScreenshot } from "@/utils/pageScreenshotCache";
 
 /**
  * Captures des pages d'un document, chargées à la demande et gardées pour ne pas les redemander en revenant sur une
@@ -13,20 +13,14 @@ export function useExtractionScreenshots(dossierId: () => string, documentId: ()
   async function load(pageId: string) {
     if (urls[pageId] || state[pageId] === "loading") return;
     state[pageId] = "loading";
-    try {
-      const response = await fetch(
-        `${API_BASE_URL}/api/dossiers/${dossierId()}/documents/${documentId()}/pages/${pageId}/screenshot`,
-        { credentials: "include" },
-      );
-      if (!response.ok) throw new Error(String(response.status));
-      urls[pageId] = URL.createObjectURL(await response.blob());
+    const url = await loadScreenshot(dossierId(), documentId(), pageId);
+    if (url) {
+      urls[pageId] = url;
       delete state[pageId];
-    } catch {
+    } else {
       state[pageId] = "failed";
     }
   }
-
-  onBeforeUnmount(() => Object.values(urls).forEach((url) => URL.revokeObjectURL(url)));
 
   return { urls, state, load };
 }
