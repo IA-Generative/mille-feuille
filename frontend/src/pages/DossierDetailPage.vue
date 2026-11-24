@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, onUnmounted, ref, watch } from "vue";
 import { RouterLink, useRoute, useRouter } from "vue-router";
 
 import AccessBadge from "@/components/access/AccessBadge.vue";
@@ -27,6 +27,7 @@ import ChatProposals from "@/components/analysis/ChatProposals.vue";
 import { userMessage } from "@/utils/api";
 import { parseAssistantSuggestion, parseMessageMarkers } from "@/utils/assistantSuggestion";
 import { chatSourcesOf } from "@/utils/chatSources";
+import { releaseDossierScreenshots } from "@/utils/pageScreenshotCache";
 import { setDocumentSource, useDossierSources } from "@/composables/useDocumentSources";
 import ChatToolsMenu from "@/components/tools/ChatToolsMenu.vue";
 import SourceCarousel from "@/components/tools/SourceCarousel.vue";
@@ -130,6 +131,16 @@ function openAddDocuments(files: File[] = []) {
 const { sources: documentSources, load: loadDocumentSources } = useDossierSources(dossierId);
 // Fichiers ajoutés à un dossier « à ranger » depuis les dernières suggestions : à regénérer.
 const addedSinceSuggestions = ref(0);
+
+// Une liste par message, recalculée seulement si les messages ou les noms de documents changent
+// (et non à chaque touche tapée dans ChatWindow).
+const sourcesByMessage = computed(
+  () => new Map(messages.value.map((message) => [message.id, chatSourcesOf(message, documentName)])),
+);
+const sourcesOf = (message: { id: string }) => sourcesByMessage.value.get(message.id) ?? [];
+
+// Quitter le dossier : on libère les captures gardées en mémoire (et seulement là, pas à chaque redessin).
+onBeforeUnmount(() => releaseDossierScreenshots(dossierId));
 
 async function onDocumentsAdded(count: number) {
   addedSinceSuggestions.value += count;
@@ -657,7 +668,7 @@ async function onDeleteConversation() {
     >
       <template #message-sources="{ message }">
         <SourceCarousel
-          :sources="chatSourcesOf(message, documentName)"
+          :sources="sourcesOf(message)"
           :dossier-id="dossierId"
           :message-id="message.id"
           :default-expanded="message.id === messages[messages.length - 1]?.id"
