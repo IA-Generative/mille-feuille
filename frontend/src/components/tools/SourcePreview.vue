@@ -1,15 +1,17 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 
 import type { ExternalBox } from "@/types/knowledge";
 
 // L'aperçu d'une source : l'image de la page (ou la capture du site), avec le passage surligné quand on connaît ses
 // zones (coordonnées normalisées 0..1). C'est un lien (source externe) ou un bouton (page du dossier, qui ouvre la modale).
-const props = defineProps<{ src: string; boxes: ExternalBox[]; label: string; href?: string | null }>();
+// `src` vaut null tant que la capture n'est pas prête (ou n'existe pas) : on affiche alors l'espace réservé.
+const props = defineProps<{ src: string | null ; boxes: ExternalBox[]; label: string; href?: string | null }>();
 const emit = defineEmits<{ open: [] }>();
 
 const failed = ref(false);
 watch(() => props.src, () => (failed.value = false));
+const showImage = computed(() => Boolean(props.src) && !failed.value);
 
 const percent = (value: number) => `${(value * 100).toFixed(2)}%`;
 </script>
@@ -17,7 +19,6 @@ const percent = (value: number) => `${(value * 100).toFixed(2)}%`;
 <template>
   <component
     :is="href ? 'a' : 'button'"
-    v-if="!failed"
     class="source-preview"
     :href="href || undefined"
     :target="href ? '_blank' : undefined"
@@ -26,27 +27,33 @@ const percent = (value: number) => `${(value * 100).toFixed(2)}%`;
     :aria-label="label"
     @click="!href && emit('open')"
   >
-    <img class="source-preview__image" :src="src" alt="" loading="lazy" referrerpolicy="no-referrer" @error="failed = true" />
-    <span
-      v-for="(box, index) in boxes"
-      :key="index"
-      class="source-preview__box"
-      :style="{
-        left: percent(box.xMin),
-        top: percent(box.yMin),
-        width: percent(box.xMax - box.xMin),
-        height: percent(box.yMax - box.yMin),
-      }"
-    />
+    <template v-if="showImage">
+      <img class="source-preview__image" :src="src!" alt="" loading="lazy" referrerpolicy="no-referrer" @error="failed = true" />
+      <span
+        v-for="(box, index) in boxes"
+        :key="index"
+        class="source-preview__box"
+        :style="{
+          left: percent(box.xMin),
+          top: percent(box.yMin),
+          width: percent(box.xMax - box.xMin),
+          height: percent(box.yMax - box.yMin),
+        }"
+      />
+    </template>
+    <VIcon v-else name="ri-file-text-line" class="source-preview__placeholder" aria-hidden="true" />
   </component>
 </template>
 
 <style scoped>
 .source-preview {
   position: relative;
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
   width: 7rem;
+  aspect-ratio: 1 / 1.414; /* hauteur réservée dès le départ : la carte ne bouge ni à l'arrivée ni à l'échec de l'image */
   align-self: flex-start;
   padding: 0;
   border: 1px solid var(--border-default-grey);
@@ -69,9 +76,16 @@ const percent = (value: number) => `${(value * 100).toFixed(2)}%`;
 }
 
 .source-preview__image {
-  display: block;
+  position: absolute;
+  inset: 0;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: cover;
+  object-position: top; /* une capture de site plus haute que la page est coupée par le bas, pas centrée */
+}
+
+.source-preview__placeholder {
+  color: var(--text-mention-grey); /* jeton DSFR : contraste correct en thème clair et sombre */
 }
 
 .source-preview__box {

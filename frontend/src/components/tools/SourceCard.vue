@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, toRef } from "vue";
+import { computed } from "vue";
 
 import SourcePreview from "@/components/tools/SourcePreview.vue";
 import { useDossierPageImage } from "@/composables/useDossierPageImage";
@@ -10,11 +10,14 @@ const props = defineProps<{ source: ChatSource; dossierId: string }>();
 const emit = defineEmits<{ open: [source: ChatSource] }>();
 
 const { url: pageImage } = useDossierPageImage(
-  toRef(props, "dossierId"),
-  computed(() => (props.source.dossier ? { documentId: props.source.dossier.documentId, pageId: props.source.dossier.pageId } : null)),
+  () => props.dossierId,
+  () => props.source.dossier?.documentId,
+  () => props.source.dossier?.pageId,
 );
 
 const previewSrc = computed(() => props.source.previewUrl ?? pageImage.value);
+// Connu dès le premier rendu, indépendant du chargement : l'emplacement de l'aperçu ne bouge jamais.
+const hasPreview = computed(() => Boolean(props.source.previewUrl || props.source.dossier));
 const kindLabel = computed(() => (props.source.origin === "dossier" ? "Dossier" : props.source.kind === "web" ? "Site web" : "Document"));
 const meta = computed(() => [kindLabel.value, props.source.pageLabel, props.source.context].filter(Boolean).join(" · "));
 </script>
@@ -22,7 +25,7 @@ const meta = computed(() => [kindLabel.value, props.source.pageLabel, props.sour
 <template>
   <article class="source-card">
     <SourcePreview
-      v-if="previewSrc"
+      v-if="hasPreview"
       :src="previewSrc"
       :boxes="source.boxes"
       :href="source.url"
