@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from "vue";
+import { computed, nextTick, onMounted, ref } from "vue";
 import { RouterLink, RouterView, useRoute, useRouter } from "vue-router";
 
 import MarkdownText from "@/components/MarkdownText.vue";
@@ -10,7 +10,7 @@ import DeleteAnalyseModal from "@/components/analyses/DeleteAnalyseModal.vue";
 import BackLink from "@/components/BackLink.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useCanManageAnalyse } from "@/composables/useCanManageAnalyse";
-import { visibleGroups } from "@/pages/analyse/analyseGroups";
+import { GUIDE_QUERY, guideStartRoute, guideSteps as allGuideSteps, visibleGroups } from "@/pages/analyse/analyseGroups";
 
 const route = useRoute();
 const router = useRouter();
@@ -24,6 +24,7 @@ const canManageAnalyse = useCanManageAnalyse();
 const canManage = computed(() => (analyse.value ? canManageAnalyse(analyse.value.createdBy) : false));
 const isEditing = ref(false);
 const isDeleting = ref(false);
+const guideButton = ref<{ $el: HTMLElement } | null>(null);
 
 async function onDeleted() {
   const id = String(route.params.id);
@@ -59,29 +60,29 @@ const activeTabIndex = computed(() => {
 const activeGroup = computed(() => groups.value[activeTabIndex.value]);
 
 function goToSection(routeName: string, query = route.query) {
-  router.push({ name: routeName, params: route.params, query });
+  return router.push({ name: routeName, params: route.params, query });
 }
 
 function selectTab(index: number) {
   const group = groups.value[index];
-  if (group) goToSection(group.sections[0].routeName, guideMode.value ? route.query : {});
+  if (group) goToSection(group.sections[0].routeName, isGuiding.value ? route.query : {});
 }
 
-// Assistant pas à pas : ?guide=all enchaîne toutes les sections (après la création), ?guide=group celles du groupe.
-const guideMode = computed(() => (["all", "group"].includes(String(route.query.guide)) ? String(route.query.guide) : null));
-const guideSteps = computed(() => {
-  if (guideMode.value === "all") return groups.value.flatMap((group) => group.sections);
-  return guideMode.value === "group" ? (activeGroup.value?.sections ?? []) : [];
-});
+// Assistant pas à pas : ?guide=all enchaîne toutes les sections des onglets visibles (après la création ou via le bouton).
+const isGuiding = computed(() => route.query.guide === GUIDE_QUERY.guide);
+const guideSteps = computed(() => (isGuiding.value ? allGuideSteps(isAdmin.value) : []));
 const guideIndex = computed(() => Math.max(0, guideSteps.value.findIndex((step) => step.routeName === route.name)));
 
 function startGuide() {
-  const first = activeGroup.value?.sections[0];
-  if (first) goToSection(first.routeName, { guide: "group" });
+  router.push(guideStartRoute(String(route.params.id), isAdmin.value));
+  // Le focus arrive sur la barre : elle le prend elle-même à son montage (voir AnalyseGuideBar).
 }
 
-function quitGuide() {
-  goToSection(String(route.name), {});
+async function quitGuide() {
+  await goToSection(String(route.name), {});
+  // La barre disparaît : on rend le focus au bouton qui l'a lancée, plutôt que de le laisser tomber sur la page.
+  await nextTick();
+  guideButton.value?.$el.focus();
 }
 </script>
 
@@ -103,6 +104,17 @@ function quitGuide() {
           <MarkdownText :content="analyse.description" class="fr-text--lead" />
         </div>
       </div>
+    </div>
+    <div v-if="!isGuiding || canManage" class="analyse-detail__actions">
+      <DsfrButton
+        v-if="!isGuiding"
+        ref="guideButton"
+        label="Me guider pas à pas"
+        icon="ri-footprint-line"
+        tertiary
+        size="sm"
+        @click="startGuide"
+      />
       <DsfrButton v-if="canManage" label="Modifier l'analyse" icon="ri-edit-line" tertiary size="sm" @click="isEditing = true" />
     </div>
 
@@ -110,6 +122,14 @@ function quitGuide() {
       <AnalyseIdentityModal v-model:opened="isEditing" :analyse="analyse" @delete="askDelete" />
       <DeleteAnalyseModal v-model:opened="isDeleting" :analyse="analyse" @deleted="onDeleted" />
     </template>
+
+    <AnalyseGuideBar
+      v-if="isGuiding"
+      :steps="guideSteps"
+      :current="guideIndex"
+      @go="(i) => goToSection(guideSteps[i].routeName)"
+      @quit="quitGuide"
+    />
 
     <DsfrTabs
       :model-value="activeTabIndex"
@@ -121,14 +141,7 @@ function quitGuide() {
            zone, avec un seul panneau les onglets autres que le premier étaient coupés. Seul le groupe actif est rendu. -->
       <DsfrTabContent v-for="(group, index) in groups" :key="group.id" :panel-id="tabs[index].panelId" :tab-id="tabs[index].tabId">
         <template v-if="group.id === activeGroup?.id">
-          <AnalyseGuideBar
-            v-if="guideMode"
-            :steps="guideSteps"
-            :current="guideIndex"
-            @go="(i) => goToSection(guideSteps[i].routeName)"
-            @quit="quitGuide"
-          />
-          <div v-else-if="group.sections.length > 1" class="analyse-detail__subnav">
+          <div v-if="!isGuiding && group.sections.length > 1" class="analyse-detail__subnav">
             <nav class="analyse-detail__sections" :aria-label="`Sections : ${group.title}`">
               <RouterLink
                 v-for="section in group.sections"
@@ -140,7 +153,6 @@ function quitGuide() {
                 {{ section.title }}
               </RouterLink>
             </nav>
-            <DsfrButton label="Pas à pas" icon="ri-footprint-line" tertiary size="sm" @click="startGuide" />
           </div>
           <RouterView />
         </template>
@@ -154,6 +166,14 @@ function quitGuide() {
 </template>
 
 <style scoped>
+.analyse-detail__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
 .analyse-detail__back {
   display: inline-flex;
   margin-bottom: 1.5rem;
@@ -209,7 +229,7 @@ function quitGuide() {
   align-items: flex-start;
   justify-content: space-between;
   gap: 1rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem; /* la rangée d'actions (pas à pas, modifier) prend le relais */
 }
 
 /* Colonne de gauche : prend la place restante sans pousser le bouton « Modifier l'analyse ». */
