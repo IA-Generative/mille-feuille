@@ -7,6 +7,7 @@ import { RouterLink, useRoute } from "vue-router";
 import EventFilters from "@/components/history/EventFilters.vue";
 import EventTimeline from "@/components/history/EventTimeline.vue";
 import BackLink from "@/components/BackLink.vue";
+import PagerNav from "@/components/PagerNav.vue";
 import { useDossierEvents } from "@/composables/useDossierEvents";
 import { useDossiers } from "@/composables/useDossiers";
 import { EVENT_CATEGORIES, type EventCategory } from "@/types/dossierEvent";
@@ -44,13 +45,6 @@ watch([categories, actor], () => {
 });
 watch(page, load);
 
-// DsfrPagination travaille avec un index de page commençant à 0.
-const pageIndex = computed({
-  get: () => page.value - 1,
-  set: (index: number) => (page.value = index + 1),
-});
-const pages = computed(() => Array.from({ length: pageCount.value }, (_, i) => ({ label: String(i + 1), title: `Page ${i + 1}` })));
-
 const documentName = (documentId: string) => dossier.value?.documents.find((d) => d.id === documentId)?.name;
 const noCategory = computed(() => categories.value.length === 0);
 </script>
@@ -79,7 +73,7 @@ const noCategory = computed(() => categories.value.length === 0);
     <p v-else-if="events.length === 0" class="history__state">Aucun événement ne correspond à ces critères.</p>
     <template v-else>
       <EventTimeline :events="events" :document-name="documentName" />
-      <DsfrPagination v-if="pageCount > 1" v-model:current-page="pageIndex" :pages="pages" />
+      <PagerNav v-model:page="page" :page-count="pageCount" />
     </template>
   </div>
 </template>

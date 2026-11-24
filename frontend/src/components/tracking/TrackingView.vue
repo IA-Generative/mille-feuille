@@ -9,6 +9,7 @@ import CustomFieldsModal from "@/components/tracking/CustomFieldsModal.vue";
 import TrackingFiltersPanel from "@/components/tracking/TrackingFilters.vue";
 import TrackingTable from "@/components/tracking/TrackingTable.vue";
 import TrackingViewsBar from "@/components/tracking/TrackingViewsBar.vue";
+import PagerNav from "@/components/PagerNav.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import { useAuth } from "@/composables/useAuth";
 import { useDossierAccess } from "@/composables/useDossierAccess";
@@ -107,14 +108,7 @@ const modified = computed(
     JSON.stringify(sort.value) !== JSON.stringify(activeView.value.sort),
 );
 
-// DsfrPagination travaille avec un index de page commençant à 0.
-const pageIndex = computed({
-  get: () => page.value - 1,
-  set: (index: number) => (page.value = index + 1),
-});
-
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)));
-const pages = computed(() => Array.from({ length: pageCount.value }, (_, i) => ({ label: String(i + 1), title: `Page ${i + 1}` })));
 
 let requestSeq = 0;
 async function load() {
@@ -366,7 +360,7 @@ async function exportCsv() {
       @set-value="onSetValue"
     />
 
-    <DsfrPagination v-if="pageCount > 1" v-model:current-page="pageIndex" :pages="pages" class="track__pagination" />
+    <PagerNav v-model:page="page" :page-count="pageCount" class="track__pagination" />
 
     <p class="track__notice" role="status">{{ notice }}</p>
 

@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { paginationPages } from "@/utils/paginationPages";
-
 /**
  * Pagination d'une liste affichée côté interface : choix du nombre d'éléments par page (5, 10 ou 20) et navigation.
  * Rien ne s'affiche tant que la liste tient dans la plus petite page.
@@ -8,6 +6,7 @@ import { paginationPages } from "@/utils/paginationPages";
 import { computed } from "vue";
 
 import { PAGE_SIZE_OPTIONS } from "@/composables/usePageSize";
+import { paginationPages } from "@/utils/paginationPages";
 
 const props = defineProps<{ total: number; label?: string }>();
 
