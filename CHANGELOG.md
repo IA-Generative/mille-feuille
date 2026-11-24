@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.72.0](https://github.com/IA-Generative/mille-feuille/compare/v0.71.1...v0.72.0) (2026-11-24)
+
+
+### Features
+
+* **ui:** create pageScrenneshotCache util ([ea69a1f](https://github.com/IA-Generative/mille-feuille/commit/ea69a1f6d7c213828259dfe1270f5a1f5e6c55e0))
+
+
+### Bug Fixes
+
+* **ui:** cleaning code in SourceCard and SourcePreview components ([38b106c](https://github.com/IA-Generative/mille-feuille/commit/38b106c945d02438d8d1fadbd96bc851ebf9cead))
+* **ui:** edit DossierDetailPage page ([7abbbee](https://github.com/IA-Generative/mille-feuille/commit/7abbbee6e402318e479afe0bebf441e9d26aae6e))
+* **ui:** edit SourceCard and SourcePreview components ([0d82d9d](https://github.com/IA-Generative/mille-feuille/commit/0d82d9dfbadfdd14dece8b868845c25bc167d241))
+* **ui:** edit useDossierPageImage composable ([c3b0470](https://github.com/IA-Generative/mille-feuille/commit/c3b0470010cb113b6d1eff522502036e61cef803))
+* **ui:** edit useExtratctionScreenshots composable ([8cd2a5d](https://github.com/IA-Generative/mille-feuille/commit/8cd2a5d037aadef883e12ed23773ca6cdf105d4f))
+
 ## [0.71.1](https://github.com/IA-Generative/mille-feuille/compare/v0.71.0...v0.71.1) (2026-11-23)
 
 
