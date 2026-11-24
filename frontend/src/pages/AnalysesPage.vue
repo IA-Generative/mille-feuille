@@ -7,6 +7,10 @@ import MarkdownText from "@/components/MarkdownText.vue";
 import PagerNav from "@/components/PagerNav.vue";
 import TutorialHint from "@/components/TutorialHint.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
+import { useAuth } from "@/composables/useAuth";
+import { guideStartRoute } from "@/pages/analyse/analyseGroups";
+
+const { isAdmin } = useAuth();
 
 const BROWSE_PAGE_SIZE = 6;
 // Pas de recherche côté serveur (GET /analyses n'a pas de paramètre `q`) :
@@ -61,7 +65,7 @@ function formatDate(iso: string) {
 function onAnalyseCreated(id: string) {
   currentPage.value = 1;
   // Une analyse fraîchement créée est vide : on enchaîne directement sur l'assistant pas à pas.
-  router.push({ name: "analyse-classification", params: { id }, query: { guide: "all" } });
+  router.push(guideStartRoute(id, isAdmin.value));
 }
 </script>
 

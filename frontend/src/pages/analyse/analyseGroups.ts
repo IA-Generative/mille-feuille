@@ -1,3 +1,5 @@
+import type { RouteLocationRaw } from "vue-router";
+
 /**
  * Regroupement des sections d'une analyse en quatre entrées de premier niveau. Chaque section reste une route
  * enfant de `analyse-detail` (liens directs conservés) ; le groupe actif se déduit du nom de la route.
@@ -73,4 +75,17 @@ export const ANALYSE_GROUPS: AnalyseGroup[] = [
 
 export function visibleGroups(isAdmin: boolean): AnalyseGroup[] {
   return ANALYSE_GROUPS.filter((group) => !group.adminOnly || isAdmin);
+}
+
+/** Paramètre d'adresse qui active l'assistant pas à pas. Un seul mode : le parcours complet. */
+export const GUIDE_QUERY = { guide: "all" } as const;
+
+/** Les étapes du pas à pas : toutes les sections des onglets visibles, dans l'ordre des onglets (9, ou 10 pour un administrateur). */
+export function guideSteps(isAdmin: boolean): AnalyseSection[] {
+  return visibleGroups(isAdmin).flatMap((group) => group.sections);
+}
+
+/** Où envoyer la personne pour démarrer le pas à pas : la même route pour la création et pour le bouton. */
+export function guideStartRoute(analyseId: string, isAdmin: boolean): RouteLocationRaw {
+  return { name: guideSteps(isAdmin)[0].routeName, params: { id: analyseId }, query: GUIDE_QUERY };
 }
