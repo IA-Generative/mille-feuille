@@ -1,6 +1,6 @@
-import { onBeforeUnmount, ref, watch, type Ref } from "vue";
+import { computed, ref, toValue, watch, type MaybeRefOrGetter } from "vue";
 
-import { API_BASE_URL } from "@/utils/api";
+import { loadScreenshot, peekScreenshot, screenshotKey } from "@/utils/pageScreenshotCache";
 
 /**
  * La capture d'une page d'un document du dossier, pour l'aperçu d'une source. La route demande la session de la
@@ -8,37 +8,38 @@ import { API_BASE_URL } from "@/utils/api";
  * page sans capture (404) n'a simplement pas d'aperçu.
  */
 export function useDossierPageImage(
-  dossierId: Ref<string>,
-  target: Ref<{ documentId: string; pageId: string } | null>,
+  dossierId: MaybeRefOrGetter<string>,
+  documentId: MaybeRefOrGetter<string | undefined>,
+  pageId: MaybeRefOrGetter<string | undefined>
 ) {
+  // Une chaîne (valeur primitive) : le watch ne se déclenche que si dossier, document ou page changent vraiment.
+  const key = computed(() => {
+    const d = toValue(dossierId);
+    const doc = toValue(documentId);
+    const p = toValue(pageId);
+    return d && doc && p ? screenshotKey(d, doc, p) : null;
+  })
+
   const url = ref<string | null>(null);
-  let token = 0;
 
-  function release() {
-    if (url.value) URL.revokeObjectURL(url.value);
-    url.value = null;
-  }
-
-  async function load() {
-    release();
-    const wanted = target.value;
-    if (!wanted) return;
-    const current = ++token;
-    try {
-      const path = `/api/dossiers/${dossierId.value}/documents/${wanted.documentId}/pages/${wanted.pageId}/screenshot`;
-      const response = await fetch(`${API_BASE_URL}${path}`, { credentials: "include" });
-      if (current !== token || !response.ok) return;
-      url.value = URL.createObjectURL(await response.blob());
-    } catch {
-      // Pas de capture : la carte s'affiche sans aperçu.
-    }
-  }
-
-  watch(target, load, { immediate: true });
-  onBeforeUnmount(() => {
-    token++;
-    release();
-  });
+  watch(
+    key,
+    async (current) => {
+      if (!current) {
+        url.value = null;
+        return;
+      }
+      const known = peekScreenshot(current);
+      if(known !== undefined) {
+        url.value = known; // déjà en cache : affichage immédiat, sans aucun aller-retour
+        return;
+      }
+      // `url` n'est volontairement pas remis à null ici : l'ancienne image reste jusqu'à l'arrivée de la nouvelle.
+      const shot = await loadScreenshot(toValue(dossierId), toValue(documentId)!, toValue(pageId)!);
+      if (key.value == current) url.value = shot; // la source a pu changer pendant le chargement
+    },
+    { immediate : true },
+  ); 
 
   return { url };
 }
