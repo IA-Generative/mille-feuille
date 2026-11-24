@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from "vue";
 
 import ExtractionResults from "@/components/dossiers/ExtractionResults.vue";
 import PageThumbnail from "@/components/dossiers/PageThumbnail.vue";
+import PagerNav from "@/components/PagerNav.vue";
 import type { ChatWindowSource } from "@/components/ChatWindow.vue";
 import { type ResultKind, type ResultRow, useDossierResults } from "@/composables/useDossierResults";
 
@@ -16,11 +17,7 @@ const { breakdown, rows, total, pageCount, isLoading, error, loadBreakdown, load
 const isLabel = computed(() => props.kind === "label");
 const unitLabel = computed(() => (isLabel.value ? "classification" : "entité"));
 
-// DsfrPagination travaille avec un index de page commençant à 0.
-const pageIndex = ref(0);
-const pages = computed(() =>
-  Array.from({ length: pageCount.value }, (_, i) => ({ label: String(i + 1), title: `Page ${i + 1}` })),
-);
+const page = ref(1);
 
 function pagesLabel(row: ResultRow): string {
   const numbers = row.pages.map((p) => p.pageNumber);
@@ -44,8 +41,8 @@ onMounted(() => {
   loadBreakdown();
   loadRows(props.kind, 1);
 });
-watch(pageIndex, (index) => {
-  if (isLabel.value) loadRows(props.kind, index + 1);
+watch(page, (value) => {
+  if (isLabel.value) loadRows(props.kind, value);
 });
 </script>
 
@@ -101,7 +98,7 @@ watch(pageIndex, (index) => {
         </li>
       </ul>
 
-      <DsfrPagination v-if="pageCount > 1" v-model:current-page="pageIndex" :pages="pages" />
+      <PagerNav v-model:page="page" :page-count="pageCount" />
     </section>
   </div>
 </template>

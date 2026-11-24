@@ -2,6 +2,7 @@
 import { computed, ref, watch } from "vue";
 
 import UrgencyRow from "@/components/dashboard/UrgencyRow.vue";
+import PagerNav from "@/components/PagerNav.vue";
 import type { DashboardUrgency } from "@/types/dashboard";
 import type { SlotDraft } from "@/types/schedule";
 import { dayLabel, dayOffset, formatDue } from "@/utils/dates";
@@ -19,16 +20,7 @@ const PAGE_SIZE = 8;
 const page = ref(1);
 watch(() => props.urgencies, () => (page.value = 1));
 
-// DsfrPagination travaille avec un index de page commençant à 0.
-const pageIndex = computed({
-  get: () => page.value - 1,
-  set: (index: number) => (page.value = index + 1),
-});
-
 const pageCount = computed(() => Math.max(1, Math.ceil(props.urgencies.length / PAGE_SIZE)));
-const pages = computed(() =>
-  Array.from({ length: pageCount.value }, (_, i) => ({ label: String(i + 1), title: `Page ${i + 1}` })),
-);
 
 const groups = computed(() => {
   const start = (page.value - 1) * PAGE_SIZE;
@@ -56,7 +48,7 @@ const groups = computed(() => {
           </li>
         </ul>
       </section>
-      <DsfrPagination v-if="pageCount > 1" v-model:current-page="pageIndex" :pages="pages" class="list__pagination" />
+      <PagerNav v-model:page="page" :page-count="pageCount" class="list__pagination" />
     </template>
   </section>
 </template>
