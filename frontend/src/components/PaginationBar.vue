@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { paginationPages } from "@/utils/paginationPages";
+
 /**
  * Pagination d'une liste affichée côté interface : choix du nombre d'éléments par page (5, 10 ou 20) et navigation.
  * Rien ne s'affiche tant que la liste tient dans la plus petite page.
@@ -14,9 +16,7 @@ const pageIndex = defineModel<number>("pageIndex", { required: true });
 const pageSize = defineModel<number>("pageSize", { required: true });
 
 const pageCount = computed(() => Math.max(1, Math.ceil(props.total / pageSize.value)));
-const pages = computed(() =>
-  Array.from({ length: pageCount.value }, (_, i) => ({ label: String(i + 1), title: `Page ${i + 1}` })),
-);
+const pages = computed(() => paginationPages(pageCount.value));
 const from = computed(() => Math.min(props.total, pageIndex.value * pageSize.value + 1));
 const to = computed(() => Math.min(props.total, (pageIndex.value + 1) * pageSize.value));
 const selectId = `page-size-${Math.random().toString(36).slice(2, 8)}`;
