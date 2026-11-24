@@ -6,7 +6,7 @@ import type { ExternalBox } from "@/types/knowledge";
 // L'aperçu d'une source : l'image de la page (ou la capture du site), avec le passage surligné quand on connaît ses
 // zones (coordonnées normalisées 0..1). C'est un lien (source externe) ou un bouton (page du dossier, qui ouvre la modale).
 // `src` vaut null tant que la capture n'est pas prête (ou n'existe pas) : on affiche alors l'espace réservé.
-const props = defineProps<{ src: string | null ; boxes: ExternalBox[]; label: string; href?: string | null }>();
+const props = defineProps<{ src: string | null; boxes: ExternalBox[]; label: string; href?: string | null }>();
 const emit = defineEmits<{ open: [] }>();
 
 const failed = ref(false);
