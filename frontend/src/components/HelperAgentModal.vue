@@ -553,4 +553,9 @@ function formatRelativeTime(iso: string): string {
 .helper-agent__pipeline-link:hover {
   text-decoration: underline;
 }
+
+/* La pop-up est plus basse que 16rem à fort zoom : la liste doit pouvoir rétrécir, pas pousser la saisie dehors. */
+.helper-agent__chat-inner :deep(.chat-window) {
+  min-height: 0;
+}
 </style>

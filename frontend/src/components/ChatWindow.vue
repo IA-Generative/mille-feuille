@@ -167,27 +167,105 @@ const messagesEndRef = ref<HTMLElement | null>(null);
 
 const topSentinelRef = ref<HTMLElement | null>(null);
 
-// Le bas de la discussion est-il visible ? Sinon, un bouton ramène au dernier message.
-const atBottom = ref(true);
-let bottomObserver: IntersectionObserver | undefined;
+/** En dessous de cette distance (px) du bas, on est « en bas » : couvre zoom, densités non entières, flux. */
+const BOTTOM_TOLERANCE = 24;
 
+const messagesRef = ref<HTMLElement | null>(null); // .chat-window__messages
+const contentRef = ref<HTMLElement | null>(null); // .chat-window__inner de la liste
+const formRef = ref<HTMLFormElement | null>(null);
+const toLastRef = ref<HTMLButtonElement | null>(null);
+
+const atBottom = ref(true); // pilote l'affichage du bouton
+// Vrai tant que la personne n'a pas remonté volontairement. Seul un défilement le modifie, jamais la croissance
+// du contenu : c'est ce qui garde en bas sans ramener de force quelqu'un qui est remonté.
+let following = true;
+
+const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Distance entre le bas du dernier message et le haut de la zone d'envoi. Pas de scrollTop : dans la page d'un
+// dossier, c'est la fenêtre qui défile, pas .chat-window__messages.
+function distanceToBottom(): number {
+  const end = messagesEndRef.value;
+  const form = formRef.value;
+  if (!end || !form) return 0;
+  return end.getBoundingClientRect().bottom - form.getBoundingClientRect().top;
+}
+
+function updateAtBottom() {
+  atBottom.value = distanceToBottom() <= BOTTOM_TOLERANCE;
+}
+
+function scrollToBottom(behavior: ScrollBehavior) {
+  messagesEndRef.value?.scrollIntoView({ block: "end", behavior });
+}
+
+// Position de défilement de la liste : la fenêtre dans la page d'un dossier, la liste dans la pop-up.
+const currentScrollTop = () => (props.pageComposer ? window.scrollY : (messagesRef.value?.scrollTop ?? 0));
+let lastScrollTop = 0;
+
+// Au plus une mesure par image affichée.
+let frame = 0;
+function onScroll() {
+  if (frame) return;
+  frame = requestAnimationFrame(() => {
+    frame = 0;
+    const top = currentScrollTop();
+    // Seule une remontée de la personne coupe le suivi. Un défilement vers le bas (le nôtre) ou un contenu
+    // qui grandit ne le coupent pas, même si la mesure voit brièvement plus de 24 px à parcourir.
+    const movedUp = top < lastScrollTop - 1;
+    lastScrollTop = top;
+    updateAtBottom();
+    if (atBottom.value) following = true;
+    else if (movedUp) following = false;
+  });
+}
+
+// Le contenu ou la fenêtre change de taille (images, Markdown, flux → réponse finale, zoom, pop-up
+// redimensionnée, zone de saisie qui grandit).
+function onContentResize() {
+  if (following && !heightBeforePrepend) scrollToBottom("auto"); // jamais animé : une animation serait coupée
+  updateAtBottom();
+}
+
+let resizeObserver: ResizeObserver | undefined;
 watch(
-  messagesEndRef,
-  (end) => {
-    bottomObserver?.disconnect();
-    bottomObserver = undefined;
-    if (!end || typeof IntersectionObserver === "undefined") return;
-    bottomObserver = new IntersectionObserver((entries) => {
-      atBottom.value = entries.some((entry) => entry.isIntersecting);
+  [messagesRef, contentRef, formRef],
+  ([scroller, content, form]) => {
+    resizeObserver?.disconnect();
+    resizeObserver = undefined;
+    if (!scroller || !content || !form || typeof ResizeObserver === "undefined") return;
+    let first = true;
+    resizeObserver = new ResizeObserver(() => {
+      // L'observation initiale ne doit pas faire défiler (la page d'un dossier garde sa position à l'arrivée).
+      if (first) {
+        first = false;
+        updateAtBottom();
+        return;
+      }
+      onContentResize();
     });
-    bottomObserver.observe(end);
+    [scroller, content, form].forEach((el) => resizeObserver!.observe(el));
   },
   { flush: "post" },
 );
 
-function scrollToLastMessage() {
-  messagesEndRef.value?.scrollIntoView({ behavior: "smooth", block: "end" });
+function onToLastClick() {
+  following = true; // le contenu qui grandit pendant l'animation est suivi
+  scrollToBottom(prefersReducedMotion() ? "auto" : "smooth");
 }
+
+// Quand le bouton disparaît alors qu'il avait le focus, le focus ne doit pas tomber sur <body>.
+// flush "pre" : on lit document.activeElement avant que Vue retire le bouton du DOM.
+watch(
+  atBottom,
+  (isBottom) => {
+    if (!isBottom || !toLastRef.value || document.activeElement !== toLastRef.value) return;
+    const composer = textareaRef.value;
+    // La saisie est désactivée pendant la réponse : on retombe sur la liste.
+    (composer && !composer.disabled ? composer : messagesRef.value)?.focus({ preventScroll: true });
+  },
+  { flush: "pre" },
+);
 
 // Conteneur qui défile réellement (la zone de messages ou, selon la mise en
 // page, un ancêtre / la page) : nécessaire pour garder la position de lecture
@@ -202,28 +280,45 @@ function getScrollParent(el: HTMLElement | null): HTMLElement {
   return (document.scrollingElement as HTMLElement) ?? document.documentElement;
 }
 
-let previousLastId: string | undefined;
+let previousFirstId: string | undefined;
 let heightBeforePrepend: { scroller: HTMLElement; scrollHeight: number; scrollTop: number } | null = null;
 
 watch(
   () => props.messages,
   (messages) => {
-    const lastId = messages[messages.length - 1]?.id;
-    const appended = lastId !== previousLastId;
-    previousLastId = lastId;
+    const firstId = messages[0]?.id;
+    // Premier chargement ou autre conversation : on repart du bas. Une insertion en tête change aussi le
+    // premier id, mais ce n'est pas un changement de conversation (heightBeforePrepend est alors renseigné).
+    const switched = firstId !== previousFirstId && !heightBeforePrepend;
+    previousFirstId = firstId;
     nextTick(() => {
       if (heightBeforePrepend) {
         // Messages plus anciens insérés en haut : on conserve la position.
         const { scroller, scrollHeight, scrollTop } = heightBeforePrepend;
         heightBeforePrepend = null;
         scroller.scrollTop = scrollTop + (scroller.scrollHeight - scrollHeight);
-      } else if (appended) {
-        messagesEndRef.value?.scrollIntoView({ behavior: "smooth" });
+      } else if (switched) {
+        following = true;
+        scrollToBottom("auto");
       }
+      updateAtBottom();
     });
   },
   { deep: true },
 );
+
+// Annonce aux lecteurs d'écran : une seule phrase, et seulement si la réponse arrive hors de vue.
+const announcement = ref("");
+watch(
+  () => props.messages[props.messages.length - 1]?.id,
+  () => {
+    const last = props.messages[props.messages.length - 1];
+    announcement.value = last?.role === "assistant" && !following ? "Nouvelle réponse de l'assistant." : "";
+  },
+);
+watch(atBottom, (isBottom) => {
+  if (isBottom) announcement.value = "";
+});
 
 // Défilement infini vers le haut : quand le repère en tête de liste devient
 // visible, on demande la page de messages précédente. L'observateur est
@@ -254,16 +349,11 @@ watch(
 
 onBeforeUnmount(() => {
   observer?.disconnect();
-  bottomObserver?.disconnect();
+  resizeObserver?.disconnect();
+  cancelAnimationFrame(frame);
+  window.removeEventListener("scroll", onScroll);
+  window.removeEventListener("resize", onScroll);
 });
-
-watch(
-  () => [props.streamEvents, props.streamText],
-  () => {
-    nextTick(() => messagesEndRef.value?.scrollIntoView({ behavior: "smooth" }));
-  },
-  { deep: true },
-);
 
 function resizeTextarea() {
   const el = textareaRef.value;
@@ -287,6 +377,7 @@ function onFilesSelected(event: Event) {
 function submit() {
   const content = draft.value.trim();
   if (!content || props.isRunning) return;
+  following = true;
   emit("submit", content);
   draft.value = "";
   nextTick(resizeTextarea);
@@ -295,6 +386,10 @@ function submit() {
 // Un texte pré-rempli à l'ouverture doit aussi redimensionner la zone de saisie.
 onMounted(() => {
   if (draft.value) nextTick(resizeTextarea);
+  if (props.pageComposer) {
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+  }
 });
 
 defineExpose({ resizeTextarea });
@@ -320,8 +415,16 @@ defineExpose({ resizeTextarea });
       <p v-if="introText" class="fr-text--sm">{{ introText }}</p>
     </div>
 
-    <div v-else-if="messages.length > 0" class="chat-window__messages">
-      <div class="chat-window__inner">
+    <div
+      v-else-if="messages.length > 0"
+      ref="messagesRef"
+      class="chat-window__messages"
+      role="region"
+      aria-label="Messages de la discussion"
+      :tabindex="pageComposer ? -1 : 0"
+      @scroll.passive="onScroll"
+    >
+      <div ref="contentRef" class="chat-window__inner">
         <div v-if="hasMore" ref="topSentinelRef" class="chat-window__sentinel" aria-live="polite">
           <span v-if="loadingMore">Chargement des messages précédents…</span>
         </div>
@@ -413,22 +516,26 @@ defineExpose({ resizeTextarea });
           </div>
         </div>
 
-        <div ref="messagesEndRef" />
+        <div ref="messagesEndRef" class="chat-window__end" aria-hidden="true" />
       </div>
     </div>
 
-    <form class="chat-window__form" @submit.prevent="submit">
-      <button
-        v-if="messages.length > 0 && !atBottom"
-        type="button"
-        class="chat-window__to-last"
-        aria-label="Aller au dernier message"
-        title="Aller au dernier message"
-        @click="scrollToLastMessage"
-      >
-        <VIcon name="ri-arrow-down-line" />
-        <span>Dernier message</span>
-      </button>
+    <form ref="formRef" class="chat-window__form" @submit.prevent="submit">
+      <p class="fr-sr-only" role="status">{{ announcement }}</p>
+
+      <!-- Ligne réservée, de hauteur fixe : le bouton n'est jamais posé sur le texte et rien ne saute à son apparition. -->
+      <div v-if="messages.length > 0" class="chat-window__inner chat-window__to-last-row">
+        <button
+          v-if="!atBottom"
+          ref="toLastRef"
+          type="button"
+          class="fr-btn fr-btn--secondary fr-btn--sm chat-window__to-last"
+          @click="onToLastClick"
+        >
+          <VIcon name="ri-arrow-down-line" aria-hidden="true" />
+          Aller au dernier message
+        </button>
+      </div>
       <div class="chat-window__inner">
         <slot name="composer-extra" />
 
@@ -547,6 +654,16 @@ defineExpose({ resizeTextarea });
   /* Position de lecture restaurée à la main à l'insertion des anciens messages. */
   overflow-anchor: none;
   padding-top: 1rem;
+  padding-bottom: 1rem;
+}
+
+.chat-window__messages:focus-visible {
+  outline: 2px solid var(--border-action-high-blue-france);
+  outline-offset: -2px;
+}
+
+.chat-window__end {
+  height: 1px;
 }
 
 .chat-message {
@@ -739,36 +856,26 @@ defineExpose({ resizeTextarea });
 }
 
 /* Composer collé en bas de l'écran pendant que la discussion défile. */
-.chat-window__to-last {
-  position: absolute;
-  bottom: calc(100% + 0.5rem);
-  left: 50%;
-  transform: translateX(-50%);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.875rem;
-  border: 1px solid var(--border-default-grey);
-  border-radius: 999px;
-  background: var(--background-default-grey);
-  color: var(--text-action-high-blue-france);
-  font: inherit;
-  font-size: 0.875rem;
-  box-shadow: var(--raised-shadow);
-  cursor: pointer;
-}
-
-.chat-window__to-last:hover {
-  background: var(--background-alt-blue-france);
-}
-
 .chat-window__form {
   position: sticky;
   bottom: 0;
   z-index: 5;
-  padding: 0.5rem 0 1rem;
+  padding: 0 0 1rem;
   background: var(--background-default-grey);
   flex-shrink: 0;
+}
+
+.chat-window__to-last-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.5rem;
+}
+
+.chat-window__to-last {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .chat-window__chips {
