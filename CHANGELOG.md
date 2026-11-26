@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.74.0](https://github.com/IA-Generative/mille-feuille/compare/v0.73.1...v0.74.0) (2026-11-26)
+
+
+### Features
+
+* **backend:** certificat client mtls pour les appels au s3 ([47bafee](https://github.com/IA-Generative/mille-feuille/commit/47bafee09645b0713d71e5a62160dd5d588bb3a6))
+
 ## [0.73.1](https://github.com/IA-Generative/mille-feuille/compare/v0.73.0...v0.73.1) (2026-11-26)
 
 
