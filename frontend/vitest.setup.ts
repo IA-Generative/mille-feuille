@@ -32,6 +32,7 @@ afterEach(async () => {
   try { unexpected(); } finally { mockApi.reset(); }
   vi.useRealTimers();
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs(); // rétablit le fuseau posé par useTimezone() (src/test/timezones.ts)
   localStorage.clear();
   document.documentElement.removeAttribute("data-fr-theme");
   document.documentElement.removeAttribute("data-fr-scheme");

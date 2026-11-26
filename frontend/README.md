@@ -33,8 +33,9 @@ connexion et quel que soit `TZ`.
 - Un test se range **à côté du fichier testé** : `ErrorList.vue` → `ErrorList.test.ts`.
 - `vitest.setup.ts` s'exécute avant chaque fichier de test. Il installe `vue-dsfr` exactement comme `main.ts`
   (mêmes noms de composants, mêmes icônes : aucune doublure), fait échouer tout appel `apiFetch` non prévu, nettoie le
-  DOM, les horloges et le `localStorage` après chaque test.
-- `vitest.global-setup.ts` fixe `TZ=UTC` pour toute la suite.
+  DOM, les horloges, les variables d'environnement stubées (dont le fuseau) et le `localStorage` après chaque test.
+- `vitest.global-setup.ts` fixe `TZ=UTC` par défaut pour toute la suite. Un test qui a besoin d'un autre fuseau le pose
+  lui-même (voir [Tester des dates et des fuseaux horaires](#tester-des-dates-et-des-fuseaux-horaires)).
 - `src/test/` contient les outils partagés :
 
 | Fichier | Rôle |
@@ -42,6 +43,7 @@ connexion et quel que soit `TZ`.
 | `mockApi.ts` | simule `apiFetch` |
 | `mount.ts` | `mountWithDsfr` : `mount()` avec un router mémoire |
 | `clock.ts` | `freezeTime`, `advance`, `FROZEN_NOW` |
+| `timezones.ts` | `useTimezone`, `TIMEZONES`, `WEST_TIMEZONE` : lancer un test dans un fuseau donné |
 | `singletons.ts` | `freshImport` : réinitialise l'état d'un composable |
 
 ### Écrire un test
@@ -100,12 +102,68 @@ Le chemin peut être une chaîne exacte ou une `RegExp`. Pour tester `api.ts` lu
 ```ts
 import { advance, freezeTime, FROZEN_NOW } from "@/test/clock";
 
-freezeTime();             // 2026-01-15T10:00:00Z (FROZEN_NOW), ou freezeTime("2025-12-31T23:59:59Z")
-await advance(5_000);     // avance de 5 s, y compris les minuteurs
+freezeTime();                          // 2026-01-15T10:00:00Z (FROZEN_NOW)
+freezeTime("2025-12-31T23:59:59Z");    // un autre instant
+freezeTime(new Date(2026, 0, 15, 10)); // une heure LOCALE : à préférer pour les dates (voir ci-dessous)
+await advance(5_000);                  // avance de 5 s, y compris les minuteurs
 ```
 
 Les minuteurs réels sont rétablis automatiquement après chaque test. `nextTick` et les micro-tâches ne sont pas
 figés : Vue continue de se mettre à jour.
+
+### Tester des dates et des fuseaux horaires
+
+Un test de date ne doit dépendre ni de l'heure réelle, ni du fuseau de la machine : la CI tourne en UTC, un poste de
+développement en heure de Paris, et un même instant tombe sur des jours différents selon le fuseau.
+
+1. **Figer l'horloge dans un `beforeEach`** (`freezeTime`), pour qu'aucun test ne lise l'heure réelle, même par oubli.
+2. **Construire les dates en heure locale** : `new Date(2026, 0, 15, 10)` (les mois commencent à 0), pas
+   `"2026-01-15T10:00:00Z"`. Le jour calendaire est alors le même dans tous les fuseaux, donc les mêmes valeurs
+   attendues valent partout. Ne garder un instant UTC que pour tester volontairement l'effet du fuseau.
+3. **Créer les dates dans le test ou le `beforeEach`**, jamais au chargement du fichier, ni dans les lignes d'un
+   `it.each` : une `Date` créée avant `useTimezone()` garde son instant mais change d'heure locale. Dans un tableau,
+   mettre des nombres (`[2026, 1, 15, 10]`) et construire la date dans le test.
+4. **Lancer les cas dans au moins deux fuseaux** avec `describe.each(TIMEZONES)` et `useTimezone(tz)` :
+   `TIMEZONES` vaut `UTC` et `Pacific/Auckland` (changements d'heure en septembre et en avril, jours de 23 h et de 25 h).
+   `WEST_TIMEZONE` (`America/Martinique`, à l'ouest de UTC) sert aux bugs « date lue en UTC, affichée la veille ».
+   `useTimezone` vérifie que le fuseau est bien appliqué et fait échouer le test sinon : il ne peut pas « passer pour
+   rien ». Le setup le rétablit après chaque test.
+
+```ts
+import { beforeEach, describe, expect, it } from "vitest";
+
+import { freezeTime } from "@/test/clock";
+import { TIMEZONES, useTimezone } from "@/test/timezones";
+
+import { dayOffset } from "./dates";
+
+describe.each(TIMEZONES)("dayOffset, fuseau %s", (tz) => {
+  beforeEach(() => {
+    useTimezone(tz);
+    freezeTime(new Date(2026, 0, 15, 10)); // jeudi 15 janvier 2026, 10 h, heure locale
+  });
+
+  it("le lendemain à minuit vaut 1", () => {
+    expect(dayOffset(new Date(2026, 0, 16, 0, 0).toISOString())).toBe(1);
+  });
+});
+```
+
+`TZ=Asia/Tokyo pnpm test` ne change rien à ces tests : ils posent leur propre fuseau.
+
+**Cas particuliers**
+
+- **Module qui crée un `Intl.DateTimeFormat` à l'import** (c'est le cas de `dates.ts`) : le formateur garde le fuseau
+  du moment de l'import. Après `useTimezone`, recharger le module avec `freshImport(() => import("./dates"))`.
+- **Formats `Intl` (nombres, montants, dates)** : selon la version d'ICU, l'espace des milliers et celle avant `€` sont
+  insécables (U+202F ou U+00A0). Comparer après `s.replace(/[  ]/g, " ")`.
+
+### Défauts connus : `it.fails`
+
+Quand un test révèle un défaut du code que cette PR ne corrige pas (une date invalide qui affiche « NaN », par
+exemple), on écrit le test de ce qu'on **veut**, marqué `it.fails` et commenté avec le défaut actuel. La suite reste
+verte tant que le défaut existe ; le jour où il est corrigé, le test devient rouge (« expected to fail ») et il suffit
+de retirer `.fails`. Ouvrir une issue pour chaque défaut, et ne jamais écrire un test qui fige un comportement faux.
 
 ### Réinitialiser un singleton
 
