@@ -43,6 +43,11 @@ class S3Connector:
 
     def __init__(self, settings: StorageSettings) -> None:
         self.bucket = settings.AWS_S3_BUCKET_NAME
+        client_cert = (
+            (settings.S3_MTLS_CERT_PATH, settings.S3_MTLS_KEY_PATH)
+            if settings.S3_MTLS_CERT_PATH and settings.S3_MTLS_KEY_PATH
+            else None
+        )
         self.client = boto3.client(
             "s3",
             endpoint_url=settings.AWS_ENDPOINT_URL,
@@ -50,7 +55,9 @@ class S3Connector:
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_DEFAULT_REGION,
             verify=TlsSettings().verify,
-            config=BotoConfig(connect_timeout=2, read_timeout=2, retries={"max_attempts": 0}),
+            config=BotoConfig(
+                connect_timeout=2, read_timeout=2, retries={"max_attempts": 0}, client_cert=client_cert
+            ),
         )
 
     def get_health(self) -> Health:

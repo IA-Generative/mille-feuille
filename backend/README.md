@@ -30,6 +30,8 @@ voir `.env.example` à la racine du repo et la section _Configuration_ du
 | `AWS_SECRET_ACCESS_KEY`   | `rustfsadmin`           |                                                   |
 | `AWS_S3_BUCKET_NAME`       | `mille-feuille`           |                                                   |
 | `AWS_DEFAULT_REGION`       | `us-east-1`             |                                                   |
+| `S3_MTLS_CERT_PATH` | _(vide)_ | Chemin du certificat client PEM présenté au S3 (mTLS). Il faut aussi `S3_MTLS_KEY_PATH`. |
+| `S3_MTLS_KEY_PATH`  | _(vide)_ | Chemin de la clé privée PEM du certificat client. |
 
 ### TLS des appels sortants (`TlsSettings`)
 
