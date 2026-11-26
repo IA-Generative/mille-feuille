@@ -1,5 +1,5 @@
 import type { DueInfo } from "@/types/dossier";
-import { dayOffset } from "@/utils/dates";
+import { dayOffset, NO_VALUE, parseCalendarDate } from "@/utils/dates";
 
 export type DueTone = "none" | "ok" | "warning" | "danger" | "overdue";
 
@@ -8,8 +8,9 @@ const THRESHOLDS = { ok: 30, warning: 7 };
 
 /** Libellé et niveau d'une date d'échéance : la couleur n'est jamais le seul signal. */
 export function dueInfo(iso: string | null): { label: string; tone: DueTone; days: number | null } {
-  if (!iso) return { label: "Sans échéance", tone: "none", days: null };
-  const days = dayOffset(iso);
+  const days = iso ? dayOffset(iso) : NaN;
+  // Une date absente ou illisible n'est pas « dans NaN j » : elle compte comme sans échéance.
+  if (Number.isNaN(days)) return { label: "Sans échéance", tone: "none", days: null };
   if (days < 0) return { label: `Échéance dépassée depuis ${-days} j`, tone: "overdue", days };
   if (days === 0) return { label: "Échéance aujourd'hui", tone: "danger", days };
   const label = `Échéance dans ${days} j`;
@@ -32,6 +33,6 @@ export function dueLabel(due: DueInfo, compact = false): string {
 
 /** Date d'échéance (AAAA-MM-JJ, un jour du calendrier) en français, sans décalage de fuseau. */
 export function formatDueDate(dueAt: string): string {
-  const [y, m, d] = dueAt.split("-").map(Number);
-  return new Date(y, m - 1, d).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  const day = parseCalendarDate(dueAt);
+  return day ? day.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" }) : NO_VALUE;
 }

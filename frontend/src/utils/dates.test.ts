@@ -31,12 +31,9 @@ describe.each(TIMEZONES)("dates, fuseau %s", (tz) => {
       expect(dates.formatRelativeTime(ago(ms))).toBe(expected);
     });
 
-    for (const bad of ["", "abc"]) {
-      // Défaut actuel : « il y a NaN j ».
-      it.fails(`devrait refuser une date invalide (${JSON.stringify(bad)})`, () => {
-        expect(dates.formatRelativeTime(bad)).not.toContain("NaN");
-      });
-    }
+    it.each(["", "abc"])("une date invalide (%j) donne « — » et non « il y a NaN j »", (bad) => {
+      expect(dates.formatRelativeTime(bad)).toBe("—");
+    });
   });
 
   describe("dayOffset", () => {
@@ -86,13 +83,30 @@ describe.each(TIMEZONES)("dates, fuseau %s", (tz) => {
       expect(dates.formatDue(at(target).toISOString())).toBe(expected);
     });
 
-    // Défauts actuels : dayLabel("abc") lève une RangeError (l'agenda planterait) ; formatDue("abc") → « NaN j de retard ».
-    it.fails("dayLabel ne devrait pas lever d'exception sur une date invalide", () => {
-      expect(() => dates.dayLabel("abc")).not.toThrow();
+    it.each(["", "abc"])("une date invalide (%j) donne « — » : dayLabel ne lève plus d'exception, formatDue n'affiche plus NaN", (bad) => {
+      expect(dates.dayLabel(bad)).toBe("—");
+      expect(dates.formatDue(bad)).toBe("—");
+    });
+  });
+
+  describe("parseCalendarDate", () => {
+    const ymd = (d: Date | null) => d && [d.getFullYear(), d.getMonth() + 1, d.getDate()];
+
+    it.each<[string, number[]]>([
+      ["2026-01-15", [2026, 1, 15]],
+      ["2028-02-29", [2028, 2, 29]], // bissextile
+      ["2026-12-31", [2026, 12, 31]],
+    ])("« %s » est le jour %j, lu en heure locale", (text, expected) => {
+      expect(ymd(dates.parseCalendarDate(text))).toEqual(expected);
     });
 
-    it.fails("formatDue ne devrait pas afficher NaN", () => {
-      expect(dates.formatDue("abc")).not.toContain("NaN");
+    it.each(["2026-02-30", "2026-02-29", "2026-04-31", "2026-13-01", "2026-00-10", "abc", ""])(
+      "« %s » est refusé (jour inexistant ou texte illisible)",
+      (text) => expect(dates.parseCalendarDate(text)).toBeNull(),
+    );
+
+    it("une date ISO complète reste acceptée", () => {
+      expect(dates.parseCalendarDate("2026-01-15T10:00:00Z")).not.toBeNull();
     });
   });
 });

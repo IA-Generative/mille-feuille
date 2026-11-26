@@ -1,5 +1,10 @@
+/** Affiché à la place d'une valeur absente ou illisible. */
+export const NO_VALUE = "—";
+
 export function formatRelativeTime(iso: string): string {
-  const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
+  const time = new Date(iso).getTime();
+  if (Number.isNaN(time)) return NO_VALUE;
+  const minutes = Math.round((Date.now() - time) / 60_000);
   if (minutes < 1) return "à l'instant";
   if (minutes < 60) return `il y a ${minutes} min`;
   const hours = Math.round(minutes / 60);
@@ -24,6 +29,7 @@ export function formatDayLabel(date: Date): string {
 /** Titre de groupe d'agenda : « En retard », « Aujourd'hui », « Demain » ou la date. */
 export function dayLabel(iso: string): string {
   const offset = dayOffset(iso);
+  if (Number.isNaN(offset)) return NO_VALUE;
   if (offset < 0) return "En retard";
   if (offset === 0) return "Aujourd'hui";
   if (offset === 1) return "Demain";
@@ -33,7 +39,23 @@ export function dayLabel(iso: string): string {
 /** « dans 3 j », « demain », « 2 j de retard »… */
 export function formatDue(iso: string): string {
   const offset = dayOffset(iso);
+  if (Number.isNaN(offset)) return NO_VALUE;
   if (offset === 0) return "aujourd'hui";
   if (offset === 1) return "demain";
   return offset > 0 ? `dans ${offset} j` : `${-offset} j de retard`;
+}
+
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/** « AAAA-MM-JJ » = un jour du calendrier, lu en heure locale (pas en UTC) ; jour inexistant refusé. Sinon : ISO complet. */
+export function parseCalendarDate(text: string): Date | null {
+  const match = DATE_ONLY.exec(text);
+  if (match) {
+    const [y, m, d] = match.slice(1).map(Number);
+    const date = new Date(y, m - 1, d);
+    // Date « déborde » (30 février → 2 mars) : on vérifie que le jour n'a pas bougé.
+    return date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d ? date : null;
+  }
+  const date = new Date(text);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
