@@ -14,6 +14,7 @@ from .analyse import (
 )
 from .analyse_ephemere import AnalyseEphemere
 from .analyse_share import AnalyseShare, AnalyseShareKind
+from .analyse_theme import AnalyseTheme, AnalyseThemeVersion
 from .analysis_proposal import (
     AnalysisProposal,
     AnalysisProposalEvent,
@@ -155,6 +156,8 @@ __all__ = [
     "Analyse",
     "AnalyseEphemere",
     "AnalyseShare",
+    "AnalyseTheme",
+    "AnalyseThemeVersion",
     "AnalyseShareKind",
     "AppToken",
     "Base",

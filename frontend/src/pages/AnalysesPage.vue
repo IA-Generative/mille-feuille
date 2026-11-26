@@ -1,69 +1,73 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import CreateAnalyseModal from "@/components/analyses/CreateAnalyseModal.vue";
-import MarkdownText from "@/components/MarkdownText.vue";
-import PagerNav from "@/components/PagerNav.vue";
+import ThemeModal from "@/components/analyses/ThemeModal.vue";
+import ThemeSection from "@/components/analyses/ThemeSection.vue";
 import TutorialHint from "@/components/TutorialHint.vue";
-import { useAnalyses } from "@/composables/useAnalyses";
+import { useAnalyseThemes } from "@/composables/useAnalyseThemes";
 import { useAuth } from "@/composables/useAuth";
 import { guideStartRoute } from "@/pages/analyse/analyseGroups";
+import type { AnalyseTheme } from "@/types/theme";
+import { userMessage } from "@/utils/api";
 
+const SEARCH_DELAY_MS = 250;
+
+// Les thèmes sont gérés par les administrateurs (le backend reste juge).
 const { isAdmin } = useAuth();
 
-const BROWSE_PAGE_SIZE = 6;
-// Pas de recherche côté serveur (GET /analyses n'a pas de paramètre `q`) :
-// une recherche charge une page large et filtre côté client plutôt que de
-// dépendre de la pagination normale.
-const SEARCH_PAGE_SIZE = 100;
-
 const router = useRouter();
-const { list, pageCount: serverPageCount, fetchList } = useAnalyses();
+const { themes, unthemedCount, fetchThemes, deleteTheme } = useAnalyseThemes();
 
+const searchInput = ref("");
 const searchQuery = ref("");
-const currentPage = ref(1);
+const isLoaded = ref(false);
+const error = ref("");
 const isCreateModalOpened = ref(false);
-const isSearching = computed(() => searchQuery.value.trim().length > 0);
+const isThemeModalOpened = ref(false);
+const editedTheme = ref<AnalyseTheme | null>(null);
 
-const filteredAnalyses = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase();
-  if (!query) return list.value;
-  return list.value.filter(
-    (analyse) => analyse.name.toLowerCase().includes(query) || analyse.description.toLowerCase().includes(query),
-  );
-});
-
-const pageCount = computed(() =>
-  isSearching.value ? Math.max(1, Math.ceil(filteredAnalyses.value.length / BROWSE_PAGE_SIZE)) : serverPageCount.value,
-);
-
-const paginatedAnalyses = computed(() => {
-  if (!isSearching.value) return list.value;
-  const start = (currentPage.value - 1) * BROWSE_PAGE_SIZE;
-  return filteredAnalyses.value.slice(start, start + BROWSE_PAGE_SIZE);
-});
-
-watch(
-  [currentPage, isSearching],
-  async ([page, searching]) => {
-    if (searching) await fetchList(1, SEARCH_PAGE_SIZE);
-    else await fetchList(page, BROWSE_PAGE_SIZE);
-  },
-  { immediate: true },
-);
-
-function onSearch(query: string) {
-  searchQuery.value = query;
-  currentPage.value = 1;
+async function load() {
+  try {
+    await fetchThemes(searchQuery.value);
+    error.value = "";
+    isLoaded.value = true;
+  } catch (cause) {
+    error.value = userMessage(cause, "Les analyses n'ont pas pu être chargées.");
+  }
 }
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" });
+let timer: ReturnType<typeof setTimeout> | undefined;
+watch(searchInput, (value) => {
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    searchQuery.value = value.trim();
+    load();
+  }, SEARCH_DELAY_MS);
+});
+onBeforeUnmount(() => clearTimeout(timer));
+onMounted(load);
+
+/** Les thèmes vides ne sont montrés qu'à qui peut les gérer, et jamais pendant une recherche. */
+const isShown = (theme: AnalyseTheme) => theme.analyseCount > 0 || (isAdmin.value && !searchQuery.value);
+
+function openThemeModal(theme: AnalyseTheme | null) {
+  editedTheme.value = theme;
+  isThemeModalOpened.value = true;
+}
+
+async function onThemeRemove(theme: AnalyseTheme) {
+  if (!confirm(`Supprimer le thème « ${theme.name} » ? Ses analyses sont conservées.`)) return;
+  try {
+    await deleteTheme(theme.id);
+    await load();
+  } catch (cause) {
+    error.value = userMessage(cause, "Le thème n'a pas pu être supprimé.");
+  }
 }
 
 function onAnalyseCreated(id: string) {
-  currentPage.value = 1;
   // Une analyse fraîchement créée est vide : on enchaîne directement sur l'assistant pas à pas.
   router.push(guideStartRoute(id, isAdmin.value));
 }
@@ -74,9 +78,12 @@ function onAnalyseCreated(id: string) {
     <div class="analyses-page__header">
       <div>
         <h1 class="fr-h2">Analyses</h1>
-        <p class="fr-text--lead">Retrouvez vos analyses ou créez-en une nouvelle.</p>
+        <p class="fr-text--lead">Retrouvez vos analyses, rangées par thème, ou créez-en une nouvelle.</p>
       </div>
-      <DsfrButton label="Créer une analyse" icon="ri-add-line" @click="isCreateModalOpened = true" />
+      <div class="analyses-page__actions">
+        <DsfrButton v-if="isAdmin" label="Créer un thème" icon="ri-folder-add-line" secondary @click="openThemeModal(null)" />
+        <DsfrButton label="Créer une analyse" icon="ri-add-line" @click="isCreateModalOpened = true" />
+      </div>
     </div>
 
     <TutorialHint
@@ -89,41 +96,46 @@ function onAnalyseCreated(id: string) {
     <DsfrSearchBar
       label="Rechercher une analyse"
       placeholder="Nom ou description..."
-      :model-value="searchQuery"
+      :model-value="searchInput"
       class="analyses-page__search"
-      @update:model-value="onSearch"
-      @search="onSearch"
+      @update:model-value="searchInput = $event"
     />
 
-    <p v-if="paginatedAnalyses.length === 0" class="fr-text--sm">Aucune analyse ne correspond à cette recherche.</p>
+    <p v-if="error" class="fr-error-text" role="alert">{{ error }}</p>
+    <p v-else-if="!isLoaded" class="fr-text--sm">Chargement…</p>
+    <p v-else-if="unthemedCount === 0 && !themes.some(isShown)" class="fr-text--sm">
+      {{ searchQuery ? "Aucune analyse ne correspond à cette recherche." : "Aucune analyse pour le moment." }}
+    </p>
 
-    <div v-else class="analyses-page__grid">
-      <div v-for="analyse in paginatedAnalyses" :key="analyse.id" class="fr-card fr-enlarge-link">
-        <div class="fr-card__body">
-          <div class="fr-card__content">
-            <h3 class="fr-card__title">
-              <RouterLink :to="{ name: 'analyse-detail', params: { id: analyse.id } }">{{ analyse.name }}</RouterLink>
-            </h3>
-            <!-- Pas de <p> : le rendu markdown produit lui-même des blocs. -->
-            <div class="fr-card__desc">
-              <MarkdownText :content="analyse.description" :lines="3" />
-            </div>
-            <div class="fr-card__start">
-              <p class="fr-card__detail"><VIcon name="ri-calendar-line" scale="0.8" /> {{ formatDate(analyse.createdAt) }}</p>
-            </div>
-            <div class="fr-card__end">
-              <p class="fr-card__detail">
-                <VIcon name="ri-robot-line" scale="0.8" />
-                {{ analyse.agentCount }} agent{{ analyse.agentCount > 1 ? "s" : "" }}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <template v-if="isLoaded">
+      <ThemeSection
+        v-for="theme in themes.filter(isShown)"
+        :key="theme.id"
+        :theme-id="theme.id"
+        :title="theme.name"
+        :description="theme.description"
+        :count="theme.analyseCount"
+        :query="searchQuery"
+        :editable="isAdmin"
+        @edit="openThemeModal(theme)"
+        @remove="onThemeRemove(theme)"
+      />
+      <ThemeSection
+        v-if="unthemedCount > 0"
+        key="sans-theme"
+        :theme-id="null"
+        title="Sans thème"
+        :count="unthemedCount"
+        :query="searchQuery"
+      />
+    </template>
 
-    <PagerNav v-model:page="currentPage" :page-count="pageCount" class="analyses-page__pagination" />
-
+    <ThemeModal
+      :opened="isThemeModalOpened"
+      :theme="editedTheme"
+      @close="isThemeModalOpened = false"
+      @saved="load"
+    />
     <CreateAnalyseModal v-model:opened="isCreateModalOpened" @created="onAnalyseCreated" />
   </div>
 </template>
@@ -136,28 +148,13 @@ function onAnalyseCreated(id: string) {
   gap: 1rem;
 }
 
+.analyses-page__actions {
+  display: flex;
+  gap: 0.75rem;
+}
+
 .analyses-page__search {
   max-width: 32rem;
   margin: 1.5rem 0 2rem;
-}
-
-.analyses-page__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
-  gap: 1.5rem;
-}
-
-/* La troncature à 3 lignes est portée par MarkdownText ; on neutralise celle du bloc DSFR qui coupait en pleine ligne. */
-.analyses-page__grid :deep(.fr-card__desc) {
-  overflow: visible;
-  max-height: none;
-  font-size: 0.875rem;
-  line-height: 1.5rem;
-}
-
-.analyses-page__pagination {
-  margin-top: 2rem;
-  display: flex;
-  justify-content: center;
 }
 </style>

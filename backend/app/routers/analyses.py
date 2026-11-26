@@ -19,6 +19,7 @@ from app.models.analyse import (
     VersionedField,
 )
 from app.models.analyse_share import AnalyseShareKind
+from app.models.analyse_theme import AnalyseTheme
 from app.models.dossier import Dossier
 from app.repositories.analyse_repository import (
     AnalyseRepository,
@@ -52,6 +53,7 @@ from app.schemas.analyse import (
     StatusesUpdate,
     ToolsUpdate,
 )
+from app.schemas.analyse_theme import AnalyseThemeAssignment
 from app.schemas.document_source import DocumentSourceIn, DocumentSourceOut
 from app.schemas.pagination import Page
 from app.services.tools.agent_tools import ToolsRefusedError, validate_agent_tools
@@ -126,10 +128,14 @@ async def list_analyses(
     db: Annotated[AsyncSession, Depends(get_db)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
-    q: Annotated[str | None, Query(description="Recherche par nom (insensible à la casse)")] = None,
+    q: Annotated[str | None, Query(description="Recherche dans le nom ou la description")] = None,
+    theme_id: Annotated[uuid.UUID | None, Query(description="Analyses de ce thème")] = None,
+    unthemed: Annotated[bool, Query(description="Analyses sans thème")] = False,
 ) -> Page[AnalyseListItem]:
     repository = AnalyseRepository(db)
-    analyses, total = await repository.list_paginated(page=page, page_size=page_size, q=q)
+    analyses, total = await repository.list_paginated(
+        page=page, page_size=page_size, q=q, theme_id=theme_id, unthemed=unthemed
+    )
     items = [
         AnalyseListItem(
             id=a.id,
@@ -138,6 +144,7 @@ async def list_analyses(
             created_by=a.created_by,
             created_at=a.created_at,
             agent_count=len(a.agents),
+            theme_id=a.theme_id,
             statuses=[StatusDefinitionOut.model_validate(s) for s in a.statuses],
         )
         for a in analyses
@@ -219,6 +226,49 @@ async def restore_description_version(
 ) -> AnalyseOut:
     """Restaure une ancienne description ; la description courante devient elle-même une version."""
     return await _restore_identity(analyse_id, VersionedField.DESCRIPTION, version_id, db, user)
+
+
+async def _theme_or_404(db: AsyncSession, theme_id: uuid.UUID) -> AnalyseTheme:
+    theme = await db.get(AnalyseTheme, theme_id)
+    if theme is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Thème introuvable")
+    return theme
+
+
+@router.put("/{analyse_id}/theme", response_model=AnalyseOut)
+async def update_analyse_theme(
+    analyse_id: uuid.UUID,
+    body: AnalyseThemeAssignment,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> AnalyseOut:
+    """Range l'analyse dans un thème, ou aucun (le créateur et les administrateurs)."""
+    repository = AnalyseRepository(db)
+    analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(analyse, user)
+    theme = await _theme_or_404(db, body.theme_id) if body.theme_id else None
+    await repository.update_theme(analyse, theme)
+    return repository.to_schema(await _get_or_404(repository, analyse_id))
+
+
+@router.post("/{analyse_id}/theme/restore/{version_id}", response_model=AnalyseOut)
+async def restore_theme_assignment(
+    analyse_id: uuid.UUID,
+    version_id: uuid.UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
+) -> AnalyseOut:
+    """Remet l'analyse dans un thème précédent ; 404 si ce thème a été supprimé depuis."""
+    repository = AnalyseRepository(db)
+    analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(analyse, user)
+    version = repository.identity_version(analyse, VersionedField.THEME, version_id)
+    if version is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version introuvable")
+    previous = version.content["theme_id"]
+    theme = await _theme_or_404(db, uuid.UUID(previous)) if previous else None
+    await repository.update_theme(analyse, theme)
+    return repository.to_schema(await _get_or_404(repository, analyse_id))
 
 
 @router.delete("/{analyse_id}", status_code=status.HTTP_204_NO_CONTENT)

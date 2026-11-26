@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from sqlalchemy import func, select, text, update
+from sqlalchemy import func, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -22,6 +22,7 @@ from app.models.analyse import (
     VersionedField,
 )
 from app.models.analyse_share import AnalyseShare, AnalyseShareKind
+from app.models.analyse_theme import AnalyseTheme
 from app.models.document_template import DocumentTemplate, DocumentTemplateVersion
 from app.models.dossier import Dossier
 from app.models.dossier_event import DossierEventType
@@ -73,6 +74,11 @@ class StatusInUseError(Exception):
         self.in_use = in_use
 
 
+def analyse_search_filters(q: str | None) -> list:
+    """Recherche d'analyses : dans le nom ou la description, insensible à la casse."""
+    return [or_(Analyse.name.ilike(f"%{q}%"), Analyse.description.ilike(f"%{q}%"))] if q else []
+
+
 def _closed_at_for(is_final: bool):
     """Valeur de Dossier.closed_at quand un dossier entre dans un statut : posée à la première clôture
     (conservée s'il passe d'un statut final à un autre), effacée dans un statut non final."""
@@ -121,11 +127,21 @@ class AnalyseRepository:
         result = await self.db.execute(self._base_query().order_by(Analyse.created_at.desc()))
         return result.scalars().all()
 
-    async def list_paginated(self, *, page: int, page_size: int, q: str | None = None) -> tuple[Sequence[Analyse], int]:
-        # Recherche par nom, insensible à la casse - utilisée par le tool
-        # search_analyses de l'agent helper (issue #50) en plus de la liste
-        # simple côté UI.
-        filters = [Analyse.name.ilike(f"%{q}%")] if q else []
+    async def list_paginated(
+        self,
+        *,
+        page: int,
+        page_size: int,
+        q: str | None = None,
+        theme_id: uuid.UUID | None = None,
+        unthemed: bool = False,
+    ) -> tuple[Sequence[Analyse], int]:
+        # Recherche utilisée par le tool search_analyses de l'agent helper (issue #50) en plus de la liste côté UI.
+        filters = analyse_search_filters(q)
+        if theme_id is not None:
+            filters.append(Analyse.theme_id == theme_id)
+        elif unthemed:
+            filters.append(Analyse.theme_id.is_(None))
         total = await self.db.scalar(select(func.count()).select_from(Analyse).where(*filters))
         result = await self.db.execute(
             self._base_query()
@@ -754,6 +770,23 @@ class AnalyseRepository:
     def identity_version(self, analyse: Analyse, field: VersionedField, version_id: uuid.UUID):
         return next((v for v in self.field_versions(analyse, field) if v.id == version_id), None)
 
+    # --- Thème ---
+
+    async def update_theme(self, analyse: Analyse, theme: AnalyseTheme | None) -> None:
+        """Range l'analyse dans un thème (ou aucun) ; le précédent est conservé dans l'historique (restaurable)."""
+        theme_id = theme.id if theme else None
+        if theme_id == analyse.theme_id:
+            return
+        previous = await self.db.get(AnalyseTheme, analyse.theme_id) if analyse.theme_id else None
+        self._record_version(
+            analyse,
+            VersionedField.THEME,
+            {"theme_id": str(previous.id) if previous else None, "name": previous.name if previous else None},
+        )
+        analyse.theme_id = theme_id
+        await self.db.commit()
+        await self.db.refresh(analyse)
+
     # --- Questions fréquentes ---
 
     async def update_frequent_questions(self, analyse: Analyse, questions: list[str]) -> None:
@@ -845,9 +878,11 @@ class AnalyseRepository:
 
     def get_version_label(self, analyse: Analyse) -> str:
         """v1 at the start, +1 per saved change - every FieldVersion row,
-        prompt/labels/entities/agents alike, counts once. Renaming the analyse does not count: it changes nothing of
-        how a dossier is processed (the description does, it is the agents' global instruction)."""
-        return f"v{len([v for v in analyse.field_versions if v.field != VersionedField.NAME]) + 1}"
+        prompt/labels/entities/agents alike, counts once. Renaming the analyse or moving it to a theme
+        does not count: it changes nothing of how a dossier is processed (the description does, it is the agents' global
+        instruction)."""
+        unversioned = (VersionedField.NAME, VersionedField.THEME)
+        return f"v{len([v for v in analyse.field_versions if v.field not in unversioned]) + 1}"
 
     # --- Serialization: the ORM shape (flat field_versions) doesn't match the
     # API's nested shape (promptVersions/labelsVersions per field), so it's
@@ -945,6 +980,11 @@ class AnalyseRepository:
             description_versions=[
                 Version(id=v.id, content=v.content, created_at=v.created_at)
                 for v in self.field_versions(analyse, VersionedField.DESCRIPTION)
+            ],
+            theme_id=analyse.theme_id,
+            theme_versions=[
+                Version(id=v.id, content=v.content, created_at=v.created_at)
+                for v in self.field_versions(analyse, VersionedField.THEME)
             ],
             created_at=analyse.created_at,
             version=self.get_version_label(analyse),

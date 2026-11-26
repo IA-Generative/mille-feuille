@@ -139,7 +139,15 @@ export interface DueThresholds {
   overdueColor: string;
 }
 
+/** Thème qu'avait une analyse ; le nom reste lisible si le thème a été supprimé depuis. */
+export interface ThemeRef {
+  theme_id: string | null;
+  name: string | null;
+}
+
 export interface Analyse {
+  themeId: string | null;
+  themeVersions: Version<ThemeRef>[];
   id: string;
   name: string;
   description: string;
@@ -165,6 +173,7 @@ export interface Analyse {
 
 /** Version allégée renvoyée par la liste des analyses (GET /api/analyses). */
 export interface AnalyseSummary {
+  themeId: string | null;
   id: string;
   name: string;
   description: string;

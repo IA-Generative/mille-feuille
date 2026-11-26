@@ -72,6 +72,8 @@ class VersionedField(enum.StrEnum):
     # Nom et description de l'analyse : leur ancienne valeur est gardée à chaque modification.
     NAME = "name"
     DESCRIPTION = "description"
+    # Thème dans lequel l'analyse est rangée : {theme_id, name}.
+    THEME = "theme"
 
 
 class Analyse(UUIDMixin, TimestampMixin, Base):
@@ -83,6 +85,11 @@ class Analyse(UUIDMixin, TimestampMixin, Base):
     # NULL pour les analyses créées sans session utilisateur (clé d'API, jeton d'application) et celles d'avant cette
     # colonne : seuls les administrateurs les gèrent.
     created_by: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Thème de rangement (aucun droit n'en dépend). La suppression du thème repasse l'analyse « sans thème ».
+    theme_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("analyse_themes.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # Classification et extraction sont des analyses simples (un prompt
     # appliqué systématiquement, pas un agent) : un seul jeu de labels/

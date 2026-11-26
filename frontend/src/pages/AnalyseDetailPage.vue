@@ -6,6 +6,7 @@ import MarkdownText from "@/components/MarkdownText.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
 import AnalyseGuideBar from "@/components/analyses/AnalyseGuideBar.vue";
 import AnalyseIdentityModal from "@/components/analyses/AnalyseIdentityModal.vue";
+import AnalyseThemeSelect from "@/components/analyses/AnalyseThemeSelect.vue";
 import DeleteAnalyseModal from "@/components/analyses/DeleteAnalyseModal.vue";
 import BackLink from "@/components/BackLink.vue";
 import { useAuth } from "@/composables/useAuth";
@@ -105,7 +106,8 @@ async function quitGuide() {
         </div>
       </div>
     </div>
-    <div v-if="!isGuiding || canManage" class="analyse-detail__actions">
+    <div class="analyse-detail__actions">
+      <AnalyseThemeSelect :analyse="analyse" :editable="canManage" class="analyse-detail__theme" />
       <DsfrButton
         v-if="!isGuiding"
         ref="guideButton"
@@ -169,9 +171,15 @@ async function quitGuide() {
 .analyse-detail__actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: flex-end;
   gap: 0.5rem;
   margin-bottom: 1.5rem;
+}
+
+/* Le thème à gauche, les actions à droite. */
+.analyse-detail__theme {
+  margin-right: auto;
 }
 
 .analyse-detail__back {
