@@ -148,8 +148,9 @@ La **couverture** indique quelle part du code de l'application est *exécutée* 
 
 1. **Voir ce qui reste à tester** : le rapport montre, fichier par fichier et ligne par ligne, le code qu'aucun test
    n'exécute.
-2. **Empêcher qu'elle baisse sans que personne ne le voie** : un **seuil** fait échouer la commande (et donc la CI) si
-   la couverture globale passe en dessous.
+2. **Empêcher qu'elle baisse sans que personne ne le voie** : un **seuil** fait échouer la commande
+   `pnpm test:coverage` si la couverture globale passe en dessous. Pour l'instant, cette vérification se fait **en
+   local** : la CI ne lance pas encore la couverture (voir [Dans la CI](#dans-la-ci)).
 
 Elle ne dit **pas** si le code est correct : une ligne est « couverte » dès qu'un test l'exécute, même sans la
 vérifier (un test sans `expect` couvre du code sans rien prouver). Elle complète la relecture et les
@@ -160,7 +161,7 @@ vérifier (un test sans `expect` couvre du code sans rien prouver). Elle complè
 | Situation | Commande |
 |---|---|
 | Vérifier que mes tests passent, trouver pourquoi l'un échoue | `pnpm test` (ou `pnpm test:watch`) |
-| Voir ce que mes tests couvrent, vérifier les seuils avant une PR | `pnpm test:coverage` |
+| Voir ce que mes tests couvrent, vérifier les seuils avant une PR (la CI ne le fait pas encore) | `pnpm test:coverage` |
 
 `pnpm test` ne produit aucun rapport et ne regarde pas les seuils. `pnpm test:coverage` lance **les mêmes tests**, plus
 la mesure : elle n'aide pas à comprendre un test qui échoue (la sortie de `pnpm test` le fait déjà).
@@ -213,12 +214,19 @@ testé, par exemple), en discuter dans la PR avant de toucher au seuil.
 |---|---|
 | `vitest.config.ts`, bloc `coverage` | fichiers mesurés, formats de rapport, **seuils** |
 | `package.json` | script `test:coverage` (sans l'option `--coverage`, la mesure n'a pas lieu) et dépendance `@vitest/coverage-v8` |
-| `.github/workflows/unit-tests.yml`, job `unit-tests-frontend` | lance `pnpm run test:coverage` et publie le rapport |
+| `.github/workflows/unit-tests.yml`, job `unit-tests-frontend` | lance `pnpm run test` (sans couverture pour l'instant) |
 | `.gitignore`, `frontend/.dockerignore` | empêchent de commiter `coverage/` ou de l'envoyer dans le build Docker |
 
 #### Dans la CI
 
-Le job « Unit Tests / Frontend » lance `pnpm run test:coverage` quand `frontend/**` change. Il échoue si un test échoue
-**ou** si un seuil n'est pas atteint, et bloque alors la fusion. Le rapport complet est publié dans l'artefact
-`frontend-coverage` (conservé 14 jours, y compris quand le job échoue) : sur la page de l'exécution dans l'onglet
-Actions, section « Artifacts », puis ouvrir `index.html` après décompression.
+Le job « Unit Tests / Frontend » lance `pnpm run test` quand `frontend/**` change. Il échoue si un test échoue, et
+bloque alors la fusion.
+
+**La couverture n'est pas encore mesurée en CI** : aucun seuil n'y est vérifié et aucun rapport n'y est publié. Elle
+sera ajoutée à la CI plus tard, une fois que les sous-issues de tests auront fait monter la couverture. D'ici là :
+
+- les seuils ne se vérifient qu'en local : lancer `pnpm test:coverage` avant d'ouvrir une PR de tests ;
+- la couverture sert déjà à voir ce qui reste à tester et à appliquer la règle de relèvement ci-dessus.
+
+Quand elle sera ajoutée, le job lancera `pnpm run test:coverage` à la place de `pnpm run test`, et publiera le dossier
+`coverage/` en artefact.
