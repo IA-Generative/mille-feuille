@@ -25,9 +25,8 @@ describe.each(TIMEZONES)("due, fuseau %s", (tz) => {
     ])("à %i jour(s) → %s", (days, tone, label) => {
       expect(dueInfo(inDays(days))).toEqual({ label, tone, days });
     });
-    // Défaut actuel : une date invalide donne « Échéance dans NaN j » avec le niveau « ok » (le plus rassurant).
-    it.fails("ne devrait pas classer une date invalide comme « ok »", () => {
-      expect(dueInfo("abc").tone).not.toBe("ok");
+    it("une date invalide compte comme sans échéance, jamais comme « ok »", () => {
+      expect(dueInfo("abc")).toEqual({ label: "Sans échéance", tone: "none", days: null });
     });
   });
 
@@ -47,11 +46,8 @@ describe.each(TIMEZONES)("due, fuseau %s", (tz) => {
     it.each([
       ["2026-01-15", "15 janvier 2026"], ["2028-02-29", "29 février 2028"], ["2026-12-31", "31 décembre 2026"],
     ])("%s → %s", (input, expected) => expect(formatDueDate(input)).toBe(expected));
-    it("ne valide pas : un jour impossible déborde sur le mois suivant (comportement actuel)", () => {
-      expect(formatDueDate("2026-02-30")).toBe("2 mars 2026");
-    });
-    it.fails("ne devrait pas afficher « Invalid Date »", () => {
-      expect(formatDueDate("")).not.toContain("Invalid");
+    it.each(["2026-02-30", "2026-13-01", "", "abc"])("« %s » (jour inexistant ou illisible) donne « — »", (input) => {
+      expect(formatDueDate(input)).toBe("—");
     });
   });
 });

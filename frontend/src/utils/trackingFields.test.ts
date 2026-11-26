@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { freezeTime } from "@/test/clock";
-import { TIMEZONES, useTimezone, WEST_TIMEZONE } from "@/test/timezones";
+import { TIMEZONES, useTimezone, WEST_TIMEZONE, type Timezone } from "@/test/timezones";
 import type { CustomField, CustomValue, FieldFilter, FieldType } from "@/types/tracking";
 
 import { formatValue, matchesFieldFilter, parseInput, validateValue } from "./trackingFields";
@@ -42,9 +42,8 @@ describe("validateValue", () => {
     ["texte avec balises, CJK, emoji, NUL", field("text"), SPECIAL, null],
   ])("%s", (_l, f, value, expected) => expect(validateValue(f, value as CustomValue)).toBe(expected));
 
-  // Défaut actuel : Date.parse accepte « 2026-02-30 » (le moteur le décale au 2 mars).
-  it.fails("devrait refuser un jour qui n'existe pas", () => {
-    expect(validateValue(field("date"), "2026-02-30")).not.toBeNull();
+  it.each(["2026-02-30", "2026-04-31"])("une date au jour inexistant (%s) est refusée", (value) => {
+    expect(validateValue(field("date"), value)).toBe("Saisissez une date valide.");
   });
 });
 
@@ -57,9 +56,11 @@ describe("parseInput", () => {
     ["texte : la virgule n'est pas touchée", "text", "12,5", "12,5"], ["accents", "text", "été", "été"], ["date inchangée", "date", "2026-01-15", "2026-01-15"],
   ])("%s", (_l, type, raw, expected) => expect(parseInput(field(type), raw)).toEqual(expected));
 
-  // Défaut actuel : « 
-  it.fails("des espaces seuls ne devraient pas devenir 0", () => {
+  it("des espaces seuls sont une saisie vide, pas un zéro", () => {
     expect(parseInput(field("number"), "  ")).toBeNull();
+  });
+  it("les espaces autour d'un nombre sont ignorés", () => {
+    expect(parseInput(field("number"), " 12,5 ")).toBe(12.5);
   });
 });
 
@@ -75,25 +76,19 @@ describe("formatValue", () => {
   it("un texte de 100 000 caractères est rendu en entier", () => {
     expect(formatValue(field("text"), LONG)).toHaveLength(100_000);
   });
-  it("une devise invalide fait lever Intl (comportement actuel)", () => {
-    expect(() => formatValue(field("amount", { currency: "EU" }), 7)).toThrow(RangeError);
+  it("une devise invalide n'empêche pas d'afficher le montant", () => {
+    expect(plain(formatValue(field("amount", { currency: "EU" }), 7))).toBe("7 EU");
   });
-  it.fails("un montant non numérique ne devrait pas afficher « NaN »", () => {
-    expect(formatValue(field("amount"), "abc")).not.toContain("NaN");
+  it.each(["amount", "number"] as const)("une valeur non numérique (%s) donne « — » et non « NaN »", (type) => {
+    expect(formatValue(field(type), "abc")).toBe("—");
   });
-  it.fails("une date invalide ne devrait pas afficher « Invalid Date »", () => {
-    expect(formatValue(field("date"), "abc")).not.toContain("Invalid");
+  it.each(["abc", "2026-02-30"])("une date illisible (%s) donne « — » et non « Invalid Date »", (value) => {
+    expect(formatValue(field("date"), value)).toBe("—");
   });
 
-  describe.each(TIMEZONES)("date, fuseau %s", (tz) => {
+  describe.each<Timezone>([...TIMEZONES, WEST_TIMEZONE])("date, fuseau %s", (tz) => {
     beforeEach(() => { useTimezone(tz); freezeTime(new Date(2026, 0, 15, 10)); });
     it("« 2026-01-15 » s'affiche 15/01/2026", () => expect(formatValue(field("date"), "2026-01-15")).toBe("15/01/2026"));
-  });
-  // Défaut réel : « 2026-01-15 » est lu comme minuit UTC, puis affiché en heure locale → la veille à l'ouest de UTC
-  // (Guadeloupe, Martinique, Guyane, Saint-Pierre-et-Miquelon).
-  it.fails("une date AAAA-MM-JJ ne devrait pas reculer d'un jour à l'ouest de UTC", () => {
-    useTimezone(WEST_TIMEZONE);
-    expect(formatValue(field("date"), "2026-01-15")).toBe("15/01/2026");
   });
 });
 
