@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.75.0](https://github.com/IA-Generative/mille-feuille/compare/v0.74.2...v0.75.0) (2026-11-26)
+
+
+### Features
+
+* ranger les analyses par thème avec pagination et historique ([a02b561](https://github.com/IA-Generative/mille-feuille/commit/a02b561e479fd544b829efba7c00ec7ca49aeb53))
+
 ## [0.74.2](https://github.com/IA-Generative/mille-feuille/compare/v0.74.1...v0.74.2) (2026-11-26)
 
 
