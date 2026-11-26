@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.73.1](https://github.com/IA-Generative/mille-feuille/compare/v0.73.0...v0.73.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* **chart:** ingress OpenShift sans bloc tls et avec port des services ([d13bda9](https://github.com/IA-Generative/mille-feuille/commit/d13bda92b778e91158cbfcc115c7cd285186839d))
+* **chart:** suppression des values du secret tls des ingress openshift ([ce693e0](https://github.com/IA-Generative/mille-feuille/commit/ce693e064ce3279e610176059d8d1fdd69398547))
+
 ## [0.73.0](https://github.com/IA-Generative/mille-feuille/compare/v0.72.0...v0.73.0) (2026-11-24)
 
 
