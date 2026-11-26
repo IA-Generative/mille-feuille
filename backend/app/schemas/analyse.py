@@ -303,6 +303,7 @@ class AnalyseListItem(BaseModel):
     created_by: str | None = None
     created_at: datetime
     agent_count: int
+    theme_id: uuid.UUID | None = None
     # Statuts de dossier de l'analyse (issue #168) : la liste des dossiers s'en sert pour son filtre.
     statuses: list["StatusDefinitionOut"] = []
 
@@ -318,6 +319,9 @@ class AnalyseOut(BaseModel):
     # Historique du nom et de la description (ancienne valeur de chaque modification).
     name_versions: list[Version[str]] = []
     description_versions: list[Version[str]] = []
+    # Thème de rangement et thèmes précédents ({theme_id, name}).
+    theme_id: uuid.UUID | None = None
+    theme_versions: list[Version[dict[str, str | None]]] = []
     created_at: datetime
     # Version courante (v1, v2...) : un dossier garde celle de son dernier lancement, ce qui permet de voir qu'il
     # a été traité avec une version plus ancienne.

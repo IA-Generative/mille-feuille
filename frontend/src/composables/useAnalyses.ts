@@ -11,6 +11,7 @@ import type {
   LabelDefinition,
   Version,
   StatusDraft,
+  ThemeRef,
   DueSettings,
   WorkflowStatus,
 } from "@/types/analyse";
@@ -101,6 +102,8 @@ function mapAgent(api: any): Agent {
 function mapAnalyse(api: any): Analyse {
   seedExamples(api.id, api.classification.labels);
   return {
+    themeId: api.theme_id ?? null,
+    themeVersions: (api.theme_versions ?? []).map((v: any) => mapVersion(v, identity<ThemeRef>)),
     id: api.id,
     name: api.name,
     description: api.description,
@@ -141,6 +144,7 @@ function mapAnalyse(api: any): Analyse {
 
 function mapSummary(api: any): AnalyseSummary {
   return {
+    themeId: api.theme_id ?? null,
     id: api.id,
     name: api.name,
     description: api.description,
@@ -201,6 +205,27 @@ export function useAnalyses() {
     cache[analyse.id] = analyse;
     await fetchList(1, pageSize.value);
     return analyse;
+  };
+
+  /** Une page d'analyses d'un thème (null : sans thème), sans toucher à la liste partagée. */
+  const fetchPage = async (params: { page: number; size: number; q: string; themeId: string | null }) => {
+    const query = new URLSearchParams({ page: String(params.page), page_size: String(params.size) });
+    if (params.q) query.set("q", params.q);
+    if (params.themeId) query.set("theme_id", params.themeId);
+    else query.set("unthemed", "true");
+    const data = await apiFetch<{ items: any[]; pages: number }>(`/api/analyses?${query}`);
+    return { items: data.items.map(mapSummary), pages: data.pages };
+  };
+
+  const setTheme = async (analyseId: string, themeId: string | null) => {
+    const body = JSON.stringify({ theme_id: themeId });
+    const data = await apiFetch<any>(`/api/analyses/${analyseId}/theme`, { method: "PUT", body });
+    cache[analyseId] = mapAnalyse(data);
+  };
+
+  const restoreThemeAssignment = async (analyseId: string, versionId: string) => {
+    const data = await apiFetch<any>(`/api/analyses/${analyseId}/theme/restore/${versionId}`, { method: "POST" });
+    cache[analyseId] = mapAnalyse(data);
   };
 
   // --- Nom, description, suppression (le créateur et les administrateurs) ---
@@ -502,6 +527,9 @@ export function useAnalyses() {
     updateIdentity,
     restoreNameVersion,
     restoreDescriptionVersion,
+    fetchPage,
+    setTheme,
+    restoreThemeAssignment,
     remove,
     forget,
     updateClassificationPrompt,
