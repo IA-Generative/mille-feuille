@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.74.1](https://github.com/IA-Generative/mille-feuille/compare/v0.74.0...v0.74.1) (2026-11-26)
+
+
+### Bug Fixes
+
+* **ci:** edit workflow so that coverage doesn't bloc GitHub Actions now ([47b1c7a](https://github.com/IA-Generative/mille-feuille/commit/47b1c7afcdb0c2c55525166af50b016fa6dff362))
+* **ui:** edit ChatWindow and HelperAgentModal to fix go to last message button ([2a3c4ea](https://github.com/IA-Generative/mille-feuille/commit/2a3c4ea794946f02e9e0c23d9f951fad1ee31cfa))
+
 ## [0.74.0](https://github.com/IA-Generative/mille-feuille/compare/v0.73.1...v0.74.0) (2026-11-26)
 
 
