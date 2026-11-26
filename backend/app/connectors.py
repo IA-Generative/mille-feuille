@@ -55,9 +55,7 @@ class S3Connector:
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             region_name=settings.AWS_DEFAULT_REGION,
             verify=TlsSettings().verify,
-            config=BotoConfig(
-                connect_timeout=2, read_timeout=2, retries={"max_attempts": 0}, client_cert=client_cert
-            ),
+            config=BotoConfig(connect_timeout=2, read_timeout=2, retries={"max_attempts": 0}, client_cert=client_cert),
         )
 
     def get_health(self) -> Health:
