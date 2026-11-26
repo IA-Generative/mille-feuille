@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.74.2](https://github.com/IA-Generative/mille-feuille/compare/v0.74.1...v0.74.2) (2026-11-26)
+
+
+### Bug Fixes
+
+* **front:** correct for invalide date ([f714edc](https://github.com/IA-Generative/mille-feuille/commit/f714edc706e2b12cf52ce74ff9bf33d9b36d355f))
+* **front:** edit readme front and vitest setup ([dbefa38](https://github.com/IA-Generative/mille-feuille/commit/dbefa3848e0c470a67cc7716777a845c06f26ed3))
+
 ## [0.74.1](https://github.com/IA-Generative/mille-feuille/compare/v0.74.0...v0.74.1) (2026-11-26)
 
 
