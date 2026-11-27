@@ -1,0 +1,41 @@
+/* Listes groupées sobres : une carte arrondie, une ligne par élément. */
+.group-card {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-radius: 0.875rem;
+  background: var(--background-alt-grey);
+  overflow: hidden;
+}
+
+.group-card__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  text-align: left;
+}
+
+.group-card__row + .group-card__row,
+.group-card li + li {
+  border-top: 1px solid var(--border-default-grey);
+}
+
+.group-card__main {
+  flex: 1;
+  min-width: 12rem;
+}
+
+.group-card__title {
+  display: block;
+  font-weight: 500;
+}
+
+.group-card__detail {
+  display: block;
+  font-size: 0.8125rem;
+  color: var(--text-mention-grey);
+}

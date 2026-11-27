@@ -23,7 +23,7 @@ function pageKey(current: RouteLocationNormalizedLoaded): string | undefined {
   return id ? `${String(id)}:${String(draftId ?? "")}` : undefined;
 }
 const { unreadCount, badgeLabel, startPolling, stopPolling } = useNotifications();
-const { fetchProfile, isAuthenticated } = useAuth();
+const { fetchProfile, isAuthenticated, isAdmin } = useAuth();
 const { list: conversations, fetchList: fetchConversations, deleteConversation } = useMyConversations();
 const {
   query: searchQuery,
@@ -89,13 +89,15 @@ watch(isSidebarCollapsed, (value) => {
   }
 });
 
-const navItems = [
+const navItems = computed(() => [
   { to: "/dashboard", label: "Tableau de bord", icon: "ri-dashboard-line", badge: true },
   { to: "/analyses", label: "Analyses", icon: "ri-file-list-3-line" },
   { to: "/dossiers", label: "Dossiers", icon: "ri-folder-line" },
   { to: "/suivi", label: "Suivi", icon: "ri-table-line" },
   { to: "/recherche", label: "Recherche", icon: "ri-search-line" },
-];
+  // Maquette (#657) : super admins seulement.
+  ...(isAdmin.value ? [{ to: "/groupes", label: "Groupes", icon: "ri-group-line" }] : []),
+]);
 </script>
 
 <template>
