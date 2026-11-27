@@ -1,12 +1,16 @@
 import os
 from dataclasses import dataclass, field
 
-from fastapi import HTTPException, Request, Security, status
+from fastapi import Depends, HTTPException, Request, Security, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import KeycloakSettings
 from app.core.security.claims import decode_access_token, extract_identity
 from app.core.security.keycloak_client import keycloak_openid, session_store
+from app.db import get_db
+from app.services.memberships import apply_memberships
 
 
 @dataclass
@@ -17,7 +21,10 @@ class RequestContext:
     is_admin: bool
     first_name: str = ""
     last_name: str = ""
+    # Identifiants des groupes de l'application dont la personne est membre.
     groups: list[str] = field(default_factory=list)
+    # Seule une adresse vérifiée rattache les places réservées à cette adresse.
+    email_verified: bool = False
 
 
 class KeycloakToken:
@@ -96,7 +103,21 @@ bearer_scheme = HTTPBearer(
 _bearer_security = Security(bearer_scheme)
 
 
-def get_current_user(
-    request: Request, _credentials: HTTPAuthorizationCredentials | None = _bearer_security
+async def authenticate(request: Request, db: AsyncSession) -> RequestContext:
+    """Qui est là (Keycloak), puis ses groupes, lus en base à chaque requête : un retrait vaut dès la suivante."""
+    # La vérification appelle Keycloak de façon bloquante : hors de la boucle d'événements.
+    user = await run_in_threadpool(TokenVerifier, request)
+    if isinstance(TokenVerifier, KeycloakToken):
+        await apply_memberships(db, user)
+    return user
+
+
+_database = Depends(get_db)
+
+
+async def get_current_user(
+    request: Request,
+    db: AsyncSession = _database,
+    _credentials: HTTPAuthorizationCredentials | None = _bearer_security,
 ) -> RequestContext:
-    return TokenVerifier(request)
+    return await authenticate(request, db)
