@@ -25,9 +25,9 @@ class AppUser(Base):
     email: Mapped[str] = mapped_column(EncryptedString, nullable=False, default="")
     # Empreinte de l'adresse (`app.core.crypto.email_index`) : la retrouver sans la déchiffrer.
     email_index: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
-    # Groupes Keycloak et rôle d'administrateur vus à la dernière connexion (issue #177) : sert à savoir si une
-    # personne a accès à un dossier (on ne propose à l'affectation que des personnes qui y ont accès) sans
-    # interroger Keycloak. Une copie d'un instant : elle se met à jour à la prochaine connexion.
+    # `groups` : copie des groupes de l'application dont la personne est membre, resynchronisée à chaque changement
+    # (`services/memberships.py`). `is_admin` : super admin vu à la dernière connexion. Servent aux calculs faits
+    # sans la personne (qui peut recevoir un dossier, agent qui agit en son nom).
     groups: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     last_seen_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

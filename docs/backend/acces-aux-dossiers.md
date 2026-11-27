@@ -1,6 +1,6 @@
 # Accès aux dossiers par groupe (backend)
 
-Issue #177 (partie 1 : modèle, règle, création, modification, affectation), parent #144. Avoir accès à une **analyse** ne donne plus accès à tous ses **dossiers** : un dossier peut être **restreint** à certains groupes Keycloak.
+Issue #177 (partie 1 : modèle, règle, création, modification, affectation), parent #144. Avoir accès à une **analyse** ne donne plus accès à tous ses **dossiers** : un dossier peut être **restreint** à certains [groupes de l'application](groupes-et-roles.md).
 
 > **État : parties 1 et 2, et agent assistant.** La règle s'applique à **toutes** les routes d'un dossier, au suivi, au tableau de bord, aux notifications, aux créneaux et aux conversations, et l'**agent assistant** agit avec les droits de la personne pour qui il travaille ([détail](acces-de-l-agent-assistant.md)). L'**interface** est branchée ([accès aux dossiers, interface](../frontend/acces-aux-dossiers/README.md)). Restent les rôles et le lien de partage par e-mail (voir « Reste à faire »).
 
@@ -11,7 +11,7 @@ Une seule règle, partagée (`app/services/dossier_access.py`) : aucune route ne
 | Qui | Voit un dossier… |
 | --- | --- |
 | **Administrateur** | tous. |
-| Membre d'un groupe associé | **restreint** : s'il est membre d'un des groupes du dossier (chemin **exact** : pas d'héritage vers un sous-groupe ni vers le groupe parent). |
+| Membre d'un groupe associé | **restreint** : s'il est membre d'un des groupes du dossier (pas d'héritage entre groupes). |
 | Toute personne qui a accès à l'analyse | **« selon l'analyse »** (aujourd'hui, toute personne connectée). |
 | N'importe qui | un dossier **« à ranger »** (sans analyse) suit ses groupes associés : il n'a pas d'analyse dont hériter. |
 
@@ -22,8 +22,8 @@ Une seule règle, partagée (`app/services/dossier_access.py`) : aucune route ne
 ## Modèle
 
 - `dossiers.visibility` : `restricted` ou `analyse`. Les dossiers **existants** sont migrés en `analyse` : personne ne perd d'accès à la mise en production ; ils restent visibles comme avant, sans limite de temps ([#180](https://github.com/IA-Generative/mille-feuille/issues/180)). Seuls les dossiers créés ensuite par un utilisateur sont restreints par défaut.
-- `dossier_group_access` (`dossier_id`, `keycloak_group`, `granted_by`, `created_at`) : les groupes associés, supprimés avec le dossier.
-- `app_users.groups` et `app_users.is_admin` : les groupes et le rôle **vus à la dernière connexion** (annuaire, [affectation](affectation-des-dossiers.md)). Ils servent à savoir si une personne a accès à un dossier sans interroger Keycloak : copie d'un instant, mise à jour à la prochaine connexion ([#179](https://github.com/IA-Generative/mille-feuille/issues/179)).
+- `dossier_group_access` (`dossier_id`, `group_id`, `granted_by`, `created_at`) : les groupes associés, supprimés avec le dossier.
+- `app_users.groups` : copie des groupes de la personne, resynchronisée à chaque changement de membre ; `app_users.is_admin` : super admin **vu à la dernière connexion** (annuaire, [affectation](affectation-des-dossiers.md)).
 
 Schéma : [`data-model.png`](data-model.png). Migration : `20261013_0900_d9e0f1a2b3c4_acces_aux_dossiers.py`.
 
@@ -32,7 +32,7 @@ Schéma : [`data-model.png`](data-model.png). Migration : `20261013_0900_d9e0f1a
 `POST /api/dossiers` accepte `visibility` (`restricted` ou `analyse`) et `group_paths`.
 
 - Sans `visibility` : **restreint**, aux groupes que la personne choisit, **à défaut tous les siens**.
-- Les groupes proposés sont **ceux de la personne**, y compris pour un administrateur (422 `group_not_yours` sinon). Pas d'appel à l'API d'administration de Keycloak.
+- Les groupes proposés sont **ceux de la personne**, y compris pour un administrateur (422 `group_not_yours` sinon).
 - Un dossier restreint a **au moins un groupe** (422 `groups_required`), sinon son créateur lui-même ne pourrait plus l'ouvrir.
 - `analyse` n'a pas de groupe : ceux qu'on enverrait sont ignorés.
 - Les créations **sans session utilisateur** (agent assistant MCP, runs éphémères, routes internes) restent « selon l'analyse », comme avant.
@@ -74,5 +74,5 @@ Un administrateur qui entre dans un dossier **restreint dont il n'est pas membre
 
 - *(fait, #222)* **Agent assistant** : il agit désormais avec les droits de la personne pour qui il travaille : [accès de l'agent assistant](acces-de-l-agent-assistant.md).
 - Un lien de partage par e-mail ne doit jamais donner plus de droits que ceux du destinataire.
-- Prise en compte des changements de groupes Keycloak en cours de session ([#179](https://github.com/IA-Generative/mille-feuille/issues/179)) ; dossier restreint sans groupe actif ([#181](https://github.com/IA-Generative/mille-feuille/issues/181)).
-- Rôles (lecture, instructeur…) : [#178](https://github.com/IA-Generative/mille-feuille/issues/178).
+- Dossier restreint sans groupe actif ([#181](https://github.com/IA-Generative/mille-feuille/issues/181)).
+- Appliquer les permissions des rôles : [#664](https://github.com/IA-Generative/mille-feuille/issues/664).
