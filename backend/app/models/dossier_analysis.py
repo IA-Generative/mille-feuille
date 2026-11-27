@@ -41,6 +41,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
 from app.models.document_page import BoundingBox
+from app.models.encrypted import EncryptedString
 
 
 class DossierAnalysisStatus(enum.StrEnum):
@@ -194,7 +195,7 @@ class AnalysisElement(UUIDMixin, TimestampMixin, Base):
     review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Verrou court par élément (travail à plusieurs, #118) - réservé.
     locked_by: Mapped[str | None] = mapped_column(String, nullable=True)
-    locked_by_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    locked_by_name: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Lecture seule : toutes les versions de l'élément, de la plus ancienne à la
@@ -298,7 +299,7 @@ class AnalysisPresence(Base):
         PG_UUID(as_uuid=True), ForeignKey("dossier_analyses.id", ondelete="CASCADE"), nullable=False
     )
     user_id: Mapped[str] = mapped_column(String, nullable=False)
-    display_name: Mapped[str] = mapped_column(String, nullable=False)
+    display_name: Mapped[str] = mapped_column(EncryptedString, nullable=False)
     # Élément concerné ; vide quand l'instructeur est sur l'analyse sans élément précis.
     element_id: Mapped[uuid.UUID | None] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("analysis_elements.id", ondelete="CASCADE"), nullable=True

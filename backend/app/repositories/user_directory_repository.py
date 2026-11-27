@@ -5,8 +5,10 @@ from sqlalchemy import false, func, or_, select
 from sqlalchemy.dialects.postgresql import array, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.crypto import email_index
 from app.models.app_user import AppUser
 from app.models.dossier_access import Visibility
+from app.utils.sorting import sort_key
 
 if TYPE_CHECKING:
     from app.core.security.factory import RequestContext
@@ -28,6 +30,7 @@ class UserDirectoryRepository:
             user_id=user.user_id,
             name=display_name(user),
             email=user.email or "",
+            email_index=email_index(user.email) if user.email else None,
             groups=list(user.groups),
             is_admin=user.is_admin,
         )
@@ -37,6 +40,7 @@ class UserDirectoryRepository:
                 set_={
                     "name": statement.excluded.name,
                     "email": statement.excluded.email,
+                    "email_index": statement.excluded.email_index,
                     "groups": statement.excluded.groups,
                     "is_admin": statement.excluded.is_admin,
                     "last_seen_at": func.now(),
@@ -54,16 +58,15 @@ class UserDirectoryRepository:
         """Personnes connues, par nom ; ``query`` filtre sur le nom ou l'e-mail (sans casse). ``entitled_to`` =
         (visibilité, a une analyse, groupes du dossier) : ne garde que les personnes qui ont accès au dossier, selon
         l'annuaire (issue #177) ; même règle que `can_view`."""
-        statement = select(AppUser).order_by(func.lower(AppUser.name), AppUser.user_id).limit(limit)
+        statement = select(AppUser)
         if entitled_to is not None:
             visibility, has_analyse, dossier_groups = entitled_to
             if not (visibility == Visibility.ANALYSE.value and has_analyse):
                 by_group = AppUser.groups.has_any(array(list(dossier_groups))) if dossier_groups else false()
                 statement = statement.where(or_(AppUser.is_admin.is_(True), by_group))
+        people = (await self.db.execute(statement)).scalars().all()
+        # Nom et e-mail sont chiffrés en base : recherche et tri se font ici, l'annuaire restant de taille modeste.
         if query and query.strip():
-            escaped = query.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-            pattern = f"%{escaped}%"
-            statement = statement.where(
-                or_(AppUser.name.ilike(pattern, escape="\\"), AppUser.email.ilike(pattern, escape="\\"))
-            )
-        return (await self.db.execute(statement)).scalars().all()
+            wanted = query.strip().casefold()
+            people = [p for p in people if wanted in p.name.casefold() or wanted in p.email.casefold()]
+        return sorted(people, key=lambda p: (sort_key(p.name), p.user_id))[:limit]

@@ -1,11 +1,12 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import BigInteger, DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.encrypted import EncryptedText
 
 
 class Notification(UUIDMixin, TimestampMixin, Base):
@@ -31,7 +32,7 @@ class Notification(UUIDMixin, TimestampMixin, Base):
     )
     # Nom du dossier au moment de la notification (photographie, pour l'afficher sans jointure).
     dossier_name: Mapped[str] = mapped_column(String, nullable=False)
-    message: Mapped[str] = mapped_column(Text, nullable=False)
+    message: Mapped[str] = mapped_column(EncryptedText, nullable=False)
     dedup_key: Mapped[str] = mapped_column(String, nullable=False)
     read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 

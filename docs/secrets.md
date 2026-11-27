@@ -30,6 +30,7 @@ Le chemin suit toujours le même schéma : **`<mount>/<env>/millefeuille/<secret
 | ------------------------- | ------------------------------ | --------------------------- | ------------------------------------ |
 | `millefeuille-s3`            | `s3`                 | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_render |
 | `millefeuille-keycloak`      | `keycloak`           | Opaque                      | backend                               |
+| `millefeuille-encryption`    | `encryption`         | Opaque                      | backend, job de migration             |
 | `millefeuille-openai`        | `openai`             | Opaque                      | backend, worker_agent, worker_classification, worker_extraction |
 | `millefeuille-worker`        | `worker`             | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_extraction |
 | `millefeuille-redis`         | `redis`              | Opaque                      | backend, worker_document, worker_agent, worker_classification, worker_extraction, worker_render, redis sub-chart, KEDA |
@@ -85,6 +86,36 @@ Variables attendues dans Vault :
 > `KEYCLOAK_REALM`, `KEYCLOAK_CLIENT_ID`, `SESSION_COOKIE_SECURE`.
 
 **Consommateurs** : backend (`KeycloakSettings`, `SharingSettings`, `EphemeralSettings`).
+
+---
+
+## 2 bis. `millefeuille-encryption` — Chiffrement des noms et des e-mails
+
+Les noms et les e-mails des personnes sont chiffrés en base (AES-256-GCM), ainsi que les sessions dans Redis.
+
+| Variable          | Description                                                                     | Exemple                        |
+| ----------------- | ------------------------------------------------------------------------------- | ------------------------------ |
+| `ENCRYPTION_KEYS` | `identifiant:clé`, séparés par des virgules. La **première** chiffre            | `k1:<openssl rand -base64 32>` |
+| `EMAIL_INDEX_KEY` | Clé de l'empreinte des e-mails, distincte                                       | `<openssl rand -base64 32>`    |
+
+```bash
+vault kv put <mount>/<env>/millefeuille/encryption \
+  ENCRYPTION_KEYS="k1:$(openssl rand -base64 32)" \
+  EMAIL_INDEX_KEY="$(openssl rand -base64 32)"
+```
+
+> ⚠️ **Créer ce secret avant la mise à jour** : sans lui le backend ne démarre pas et la migration échoue.
+> **Une clé perdue rend les données illisibles** : la sauvegarder à part des sauvegardes de la base.
+
+**Rotation** de `ENCRYPTION_KEYS` :
+
+1. Ajouter la nouvelle clé **en tête**, en gardant l'ancienne (`k2:…,k1:…`), puis redémarrer le backend.
+2. Rechiffrer : `kubectl exec deploy/<backend> -- python -m app.core.data_encryption`.
+3. Retirer l'ancienne clé et redémarrer. Les sessions ouvertes avec l'ancienne clé sont alors perdues (reconnexion).
+
+Changer `EMAIL_INDEX_KEY` demande de relancer la même commande, qui recalcule les empreintes.
+
+**Consommateurs** : backend (`EncryptionSettings`), job de migration.
 
 ---
 
