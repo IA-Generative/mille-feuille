@@ -6,7 +6,6 @@ import AnalyseAccessModal from "@/components/groups/AnalyseAccessModal.vue";
 import { apiFetch } from "@/utils/api";
 
 vi.mock("@/utils/api", () => ({ apiFetch: vi.fn(), userMessage: (e: Error) => e.message }));
-// jsdom n'a pas ResizeObserver, dont la pop-up de l'application se sert.
 
 const fetchMock = vi.mocked(apiFetch);
 let canEdit = true;
@@ -30,7 +29,6 @@ const renderModal = async () => {
 
 describe("AnalyseAccessModal", () => {
   beforeEach(() => {
-    vi.stubGlobal("ResizeObserver", class { observe() {} disconnect() {} });
     canEdit = true;
     fetchMock.mockReset();
     fetchMock.mockImplementation(async (path) =>

@@ -14,8 +14,9 @@ vi.mock("@/utils/api", async (importOriginal) => {
   return { ...actual, apiFetch: dispatch };
 });
 
-// jsdom n'a pas matchMedia ; useTheme l'appelle à l'import.
+// jsdom n'a ni matchMedia (useTheme l'appelle à l'import) ni ResizeObserver (les pop-up de l'application).
 beforeEach(() => {
+  vi.stubGlobal("ResizeObserver", class { observe() {} unobserve() {} disconnect() {} });
   vi.stubGlobal("matchMedia", (query: string) => ({
     matches: false, media: query, onchange: null,
     addEventListener: vi.fn(), removeEventListener: vi.fn(),
