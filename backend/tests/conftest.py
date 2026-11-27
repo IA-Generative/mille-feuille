@@ -89,6 +89,11 @@ def open_analyses(monkeypatch: pytest.MonkeyPatch) -> None:
     for name in ("group_permissions", "analyse_permissions", "dossier_permissions"):
         monkeypatch.setattr(f"app.services.role_permissions.{name}", everything)
 
+    async def everything_for_each(db, dossiers, user):
+        return {dossier.id: set(Permission) for dossier in dossiers}
+
+    monkeypatch.setattr("app.services.role_permissions.permissions_by_dossier", everything_for_each)
+
 
 @pytest.fixture
 def without_role(monkeypatch: pytest.MonkeyPatch):

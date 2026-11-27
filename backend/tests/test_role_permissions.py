@@ -118,3 +118,13 @@ def test_the_shares_list_needs_the_permission(client: TestClient, world: dict) -
         assert _denied(client.get(f"/api/analyses/{world['analyse']}/shares")) == "analyse.access"
     with signed_in(world["boss"], world["group"]):
         assert client.get(f"/api/analyses/{world['analyse']}/shares").status_code == 200
+
+
+def test_the_list_says_what_can_be_done_on_each_dossier(client: TestClient, world: dict) -> None:
+    """Le calcul par page doit dire la même chose que le calcul d'un dossier."""
+    for person in (world["reader"], world["instructor"], world["boss"]):
+        with signed_in(person, world["group"]):
+            listed = client.get("/api/dossiers", params={"page_size": 100}).json()["items"]
+            item = next(d for d in listed if d["id"] == world["dossier"])
+            single = client.get(f"/api/dossiers/{world['dossier']}/permissions").json()["permissions"]
+            assert item["permissions"] == single
