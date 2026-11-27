@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.76.0](https://github.com/IA-Generative/mille-feuille/compare/v0.75.0...v0.76.0) (2026-11-27)
+
+
+### Features
+
+* ajouter la maquette de la recherche à travers les dossiers ([11e20a7](https://github.com/IA-Generative/mille-feuille/commit/11e20a71331a88a3251e271bfc2c9a962bb64632))
+
 ## [0.75.0](https://github.com/IA-Generative/mille-feuille/compare/v0.74.2...v0.75.0) (2026-11-26)
 
 
