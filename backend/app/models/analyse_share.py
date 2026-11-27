@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.encrypted import EncryptedString
 
 if TYPE_CHECKING:
     from app.models.analyse import Analyse
@@ -26,7 +27,7 @@ class AnalyseShare(UUIDMixin, TimestampMixin, Base):
     )
     kind: Mapped[AnalyseShareKind] = mapped_column(Enum(AnalyseShareKind, name="analyse_share_kind"), nullable=False)
     # kind == EMAIL :
-    email: Mapped[str | None] = mapped_column(String, nullable=True)
+    email: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     # Hash du jeton du lien magique (jamais le jeton lui-même : une fuite de
     # la base ne doit pas suffire à usurper le partage). Voir
     # AnalyseShareRepository.hash_token.

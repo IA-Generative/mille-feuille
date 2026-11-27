@@ -8,6 +8,7 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.encrypted import EncryptedString
 
 
 class ToolAuthMode(enum.StrEnum):
@@ -39,7 +40,7 @@ class ToolServer(UUIDMixin, TimestampMixin, Base):
     )
     # Identifiant Keycloak de la personne qui l'a ajouté, et son nom d'affichage au moment de l'ajout.
     created_by: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    owner_name: Mapped[str] = mapped_column(String, nullable=False, default="")
+    owner_name: Mapped[str] = mapped_column(EncryptedString, nullable=False, default="")
     # Groupes de la personne au moment de l'ajout : ceux qui voient le serveur quand `visibility` vaut `groups`.
     groups: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     # Client Keycloak du serveur : l'`audience` demandée à l'échange de jeton (mode `token_exchange`).

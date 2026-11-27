@@ -3,11 +3,11 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, Identity, Index, String, func
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, UUIDMixin
+from app.models.encrypted import EncryptedPeopleJSON, EncryptedString
 
 
 class DossierEventType(enum.StrEnum):
@@ -58,9 +58,9 @@ class DossierEvent(UUIDMixin, Base):
     # Identifiant (sub Keycloak) de l'auteur ; NULL pour une action du système (fin d'analyse par un worker).
     actor_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     # Nom affiché de l'auteur au moment de l'événement (photographie : l'annuaire est dans Keycloak).
-    actor_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    actor_name: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     # Ordre d'écriture, strictement croissant : plusieurs événements d'une même transaction ont le même
     # `created_at` (now() est l'heure de la transaction), `seq` les départage dans l'ordre où ils ont eu lieu.
     seq: Mapped[int] = mapped_column(BigInteger, Identity(), nullable=False)
-    payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    payload: Mapped[dict] = mapped_column(EncryptedPeopleJSON, nullable=False, default=dict)

@@ -7,6 +7,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 
 from app.agent.runner import agent_runner
 from app.config import KeycloakSettings
+from app.core.crypto import check_configuration as check_encryption_configuration
 from app.logging_config import configure_logging
 from app.mcp.auth import BearerTokenAuthMiddleware
 from app.mcp.helper_server import mcp_server as helper_mcp_server
@@ -111,6 +112,7 @@ def _app_version() -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    check_encryption_configuration()
     async with mcp_app.router.lifespan_context(mcp_app), helper_mcp_app.router.lifespan_context(helper_mcp_app):
         await agent_runner.start_up()
         try:

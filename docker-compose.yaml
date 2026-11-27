@@ -35,6 +35,9 @@ services:
       dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgresql+asyncpg://millefeuille:millefeuille@postgres:5432/millefeuille
+      # Chiffrement des noms et e-mails (issue #658) : clés de développement, publiques - à remplacer partout ailleurs.
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-dev:ZGV2LW9ubHktZW5jcnlwdGlvbi1rZXktMzJieXRlcyE=}
+      EMAIL_INDEX_KEY: ${EMAIL_INDEX_KEY:-ZGV2LW9ubHktZW1haWwtaW5kZXgta2V5LTMyYnl0ZSE=}
     command: ["alembic", "upgrade", "head"]
     depends_on:
       postgres:
@@ -55,6 +58,9 @@ services:
       KEYCLOAK_REALM: mille-feuille
       KEYCLOAK_CLIENT_ID: mille-feuille-backend
       KEYCLOAK_CLIENT_SECRET: dev-only-secret-not-for-prod
+      # Chiffrement des noms et e-mails (issue #658) : clés de développement, publiques - à remplacer partout ailleurs.
+      ENCRYPTION_KEYS: ${ENCRYPTION_KEYS:-dev:ZGV2LW9ubHktZW5jcnlwdGlvbi1rZXktMzJieXRlcyE=}
+      EMAIL_INDEX_KEY: ${EMAIL_INDEX_KEY:-ZGV2LW9ubHktZW1haWwtaW5kZXgta2V5LTMyYnl0ZSE=}
       BACKEND_PUBLIC_URL: http://localhost:8000
       FRONTEND_URL: http://localhost:8081
       # Frontend autonome de l'API éphémère (CORS + redirect post-login).

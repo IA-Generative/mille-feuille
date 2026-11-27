@@ -1,9 +1,15 @@
 import asyncio
+import base64
+import os
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+
+# Clés de chiffrement des tests, construites ici : aucune clé écrite dans le dépôt. Lues à la première utilisation.
+os.environ.setdefault("ENCRYPTION_KEYS", f"test:{base64.b64encode(bytes(32)).decode()}")
+os.environ.setdefault("EMAIL_INDEX_KEY", base64.b64encode(bytes(range(32))).decode())
 
 
 @pytest.fixture(scope="session")

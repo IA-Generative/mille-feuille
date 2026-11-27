@@ -1,6 +1,7 @@
 from .agent import AgentSettings
 from .collaboration import CollaborationSettings
 from .database import DatabaseSettings
+from .encryption import EncryptionSettings
 from .ephemeral import EphemeralSettings
 from .events import DossierEventSettings
 from .keycloak import KeycloakSettings
@@ -17,6 +18,7 @@ __all__ = [
     "CollaborationSettings",
     "DatabaseSettings",
     "DossierEventSettings",
+    "EncryptionSettings",
     "EphemeralSettings",
     "KeycloakSettings",
     "LlmSettings",

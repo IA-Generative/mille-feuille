@@ -31,7 +31,7 @@ Chaque secret Kubernetes est synchronisé par le Vault Secrets Operator depuis l
 
 ```
 <mount>/<env>/millefeuille/<secret>
-   │       │                   └─ nom court : s3, openai, keycloak, worker, redis, db-superuser, db-appuser, db-backups
+   │       │                   └─ nom court : s3, openai, keycloak, encryption, worker, redis, db-superuser, db-appuser, db-backups
    │       └─ global.env.ENVIRONMENT (dev, recette, prod…)
    └─ global.projectName (exploration)
 ```

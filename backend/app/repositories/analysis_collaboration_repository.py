@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import CollaborationSettings
 from app.models.dossier_analysis import AnalysisElement, AnalysisPresence
 from app.schemas.analysis_collaboration import LiveSnapshot, LockOut, PresenceOut
+from app.utils.sorting import sort_key
 
 settings = CollaborationSettings()
 
@@ -181,7 +182,6 @@ class AnalysisCollaborationRepository:
         result = await self.db.execute(
             select(AnalysisPresence)
             .where(AnalysisPresence.analysis_id == analysis_id, AnalysisPresence.updated_at > cutoff)
-            .order_by(AnalysisPresence.display_name, AnalysisPresence.user_id)
             .execution_options(populate_existing=True)
         )
         return [
@@ -192,7 +192,8 @@ class AnalysisCollaborationRepository:
                 mode=p.mode,
                 updated_at=p.updated_at,
             )
-            for p in result.scalars().all()
+            # Le nom est chiffré en base : le tri se fait ici.
+            for p in sorted(result.scalars().all(), key=lambda p: (sort_key(p.display_name), p.user_id))
         ]
 
     async def snapshot(self, analysis_id: uuid.UUID, *, current_user_id: str) -> LiveSnapshot:
