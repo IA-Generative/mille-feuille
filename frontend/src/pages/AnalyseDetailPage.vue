@@ -162,7 +162,10 @@ async function quitGuide() {
               </RouterLink>
             </nav>
           </div>
-          <RouterView />
+          <!-- Sans le droit de configurer, tout ce que contient la section est désactivé (le suivi reste utilisable). -->
+          <fieldset class="read-only-zone" :disabled="loaded && !canManage && route.name !== 'analyse-tracking'">
+            <RouterView />
+          </fieldset>
         </template>
       </DsfrTabContent>
     </DsfrTabs>
@@ -290,5 +293,15 @@ async function quitGuide() {
     scrollbar-width: thin;
     scrollbar-color: var(--border-plain-grey) transparent;
   }
+}
+</style>
+
+<style scoped>
+/* Un fieldset sert à désactiver une zone entière : il ne doit rien changer à la mise en page. */
+.read-only-zone {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 }
 </style>
