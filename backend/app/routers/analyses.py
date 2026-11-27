@@ -83,15 +83,16 @@ async def _definitions_or_422(operation) -> None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
 
 
-def _require_can_manage(analyse: Analyse, user: RequestContext) -> None:
-    """Modifier le nom et la description, restaurer une version, supprimer : le créateur de l'analyse et les
-    administrateurs. Une analyse sans créateur connu n'est gérée que par les administrateurs."""
+def _require_can_manage(
+    analyse: Analyse,
+    user: RequestContext,
+    detail: str = "Seuls le créateur de l'analyse et les administrateurs peuvent la modifier ou la supprimer.",
+) -> None:
+    """Modifier le nom et la description, restaurer une version, supprimer, gérer les partages : le créateur de
+    l'analyse et les administrateurs. Une analyse sans créateur connu n'est gérée que par les administrateurs."""
     if user.is_admin or (analyse.created_by is not None and analyse.created_by == user.user_id):
         return
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail="Seuls le créateur de l'analyse et les administrateurs peuvent la modifier ou la supprimer.",
-    )
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
 
 
 async def _validated_tools(
@@ -851,15 +852,28 @@ async def restore_agent_model(
 # --- Partage ---
 
 
+async def _get_shareable_or_error(
+    repository: AnalyseRepository, analyse_id: uuid.UUID, user: RequestContext
+) -> Analyse:
+    """Un partage ouvre l'analyse à d'autres et sa liste contient des e-mails : le créateur et les administrateurs
+    seulement."""
+    analyse = await _get_or_404(repository, analyse_id)
+    _require_can_manage(
+        analyse, user, "Seuls le créateur de l'analyse et les administrateurs peuvent gérer ses partages."
+    )
+    return analyse
+
+
 @router.get("/{analyse_id}/shares", response_model=Page[AnalyseShareOut])
 async def list_shares(
     analyse_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> Page[AnalyseShareOut]:
     repository = AnalyseRepository(db)
-    await _get_or_404(repository, analyse_id)
+    await _get_shareable_or_error(repository, analyse_id, user)
     shares, total = await repository.list_shares_paginated(analyse_id=analyse_id, page=page, page_size=page_size)
     return Page.of(list(shares), total=total, page=page, page_size=page_size)
 
@@ -876,7 +890,7 @@ async def create_share(
     user: Annotated[RequestContext, Depends(get_current_user)],
 ):
     repository = AnalyseRepository(db)
-    analyse = await _get_or_404(repository, analyse_id)
+    analyse = await _get_shareable_or_error(repository, analyse_id, user)
 
     if body.kind == AnalyseShareKind.EMAIL:
         if not body.email:
@@ -901,8 +915,10 @@ async def revoke_share(
     analyse_id: uuid.UUID,
     share_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
 ):
     repository = AnalyseRepository(db)
+    await _get_shareable_or_error(repository, analyse_id, user)
     share = await repository.get_share_by_id(analyse_id, share_id)
     if share is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partage introuvable")
