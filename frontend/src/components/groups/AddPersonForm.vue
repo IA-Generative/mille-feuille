@@ -8,7 +8,7 @@ const props = defineProps<{
   search?: (query: string) => Promise<{ id: string; name: string }[]>;
   error?: string;
 }>();
-const emit = defineEmits<{ add: [who: { email: string } | { userId: string }, roleId: string] }>();
+const emit = defineEmits<{ add: [who: { email: string } | { userId: string }, roleId: string, label: string] }>();
 
 const id = useId();
 const value = ref("");
@@ -39,7 +39,7 @@ function submit() {
   const person = suggestions.value.find((p) => p.name === text);
   invalid.value = !person && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(text);
   if (invalid.value || !roleId.value) return;
-  emit("add", person ? { userId: person.id } : { email: text }, roleId.value);
+  emit("add", person ? { userId: person.id } : { email: text }, roleId.value, text);
   value.value = "";
 }
 </script>

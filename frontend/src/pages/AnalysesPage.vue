@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 
 import CreateAnalyseModal from "@/components/analyses/CreateAnalyseModal.vue";
@@ -8,6 +8,7 @@ import ThemeSection from "@/components/analyses/ThemeSection.vue";
 import TutorialHint from "@/components/TutorialHint.vue";
 import { useAnalyseThemes } from "@/composables/useAnalyseThemes";
 import { useAuth } from "@/composables/useAuth";
+import { useGroups } from "@/composables/useGroups";
 import { guideStartRoute } from "@/pages/analyse/analyseGroups";
 import type { AnalyseTheme } from "@/types/theme";
 import { userMessage } from "@/utils/api";
@@ -16,6 +17,10 @@ const SEARCH_DELAY_MS = 250;
 
 // Les thèmes sont gérés par les administrateurs (le backend reste juge).
 const { isAdmin } = useAuth();
+// Créer une analyse : un super admin, ou l'admin d'un groupe.
+const { groups: myGroups, fetchGroups } = useGroups();
+const canCreate = computed(() => isAdmin.value || myGroups.value.some((g) => g.canCreateAnalyses));
+onMounted(() => fetchGroups().catch(() => {}));
 
 const router = useRouter();
 const { themes, unthemedCount, fetchThemes, deleteTheme } = useAnalyseThemes();
@@ -82,7 +87,7 @@ function onAnalyseCreated(id: string) {
       </div>
       <div class="analyses-page__actions">
         <DsfrButton v-if="isAdmin" label="Créer un thème" icon="ri-folder-add-line" secondary @click="openThemeModal(null)" />
-        <DsfrButton label="Créer une analyse" icon="ri-add-line" @click="isCreateModalOpened = true" />
+        <DsfrButton v-if="canCreate" label="Créer une analyse" icon="ri-add-line" @click="isCreateModalOpened = true" />
       </div>
     </div>
 

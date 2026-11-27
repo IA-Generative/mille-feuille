@@ -196,10 +196,11 @@ export function useAnalyses() {
     return cache[id];
   };
 
-  const create = async (name: string, description: string) => {
+  /** `groupIds` vide : le serveur associe les groupes de la personne. */
+  const create = async (name: string, description: string, groupIds: string[] = []) => {
     const data = await apiFetch<any>("/api/analyses", {
       method: "POST",
-      body: JSON.stringify({ name, description }),
+      body: JSON.stringify({ name, description, ...(groupIds.length ? { group_ids: groupIds } : {}) }),
     });
     const analyse = mapAnalyse(data);
     cache[analyse.id] = analyse;

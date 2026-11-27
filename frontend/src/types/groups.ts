@@ -39,6 +39,7 @@ export interface Group {
   description: string;
   memberCount: number;
   canManageMembers: boolean;
+  canCreateAnalyses: boolean;
   deletable: boolean;
   versions: FieldVersion[];
 }
