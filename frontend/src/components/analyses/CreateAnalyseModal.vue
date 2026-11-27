@@ -5,16 +5,15 @@ import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import AppModal from "@/components/AppModal.vue";
 import CreationGroupsField from "@/components/groups/CreationGroupsField.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
-import { useAuth } from "@/composables/useAuth";
 import { ASSIST_MIN_WORDS_HINT, hasEnoughWords, suggestAnalyseDescription } from "@/composables/useLlmAssist";
+import { userMessage } from "@/utils/api";
 
 const opened = defineModel<boolean>("opened", { default: false });
 const emit = defineEmits<{ created: [id: string] }>();
 
 const { create } = useAnalyses();
-// Maquette (#657), montrée aux super admins : le choix des groupes n'est ni exigé ni envoyé.
-const { isAdmin } = useAuth();
-const mockGroupIds = ref<string[]>([]);
+const groupIds = ref<string[]>([]);
+const error = ref("");
 
 const name = ref("");
 const description = ref("");
@@ -24,7 +23,8 @@ watch(opened, (isOpened) => {
   if (isOpened) {
     name.value = "";
     description.value = "";
-    mockGroupIds.value = [];
+    groupIds.value = [];
+    error.value = "";
   }
 });
 
@@ -41,9 +41,14 @@ async function applySuggestion(suggestionModel: string | null) {
 
 async function submit() {
   if (!name.value.trim() || !description.value.trim()) return;
-  const analyse = await create(name.value.trim(), description.value.trim());
-  opened.value = false;
-  emit("created", analyse.id);
+  error.value = "";
+  try {
+    const analyse = await create(name.value.trim(), description.value.trim(), groupIds.value);
+    opened.value = false;
+    emit("created", analyse.id);
+  } catch (cause) {
+    error.value = userMessage(cause, "L'analyse n'a pas pu être créée.");
+  }
 }
 </script>
 
@@ -67,7 +72,8 @@ async function submit() {
       hint="Décris le but métier de l'analyse : contexte, objectif, documents concernés et résultat attendu."
       class="fr-mt-2w"
     />
-    <CreationGroupsField v-if="isAdmin" v-model="mockGroupIds" />
+    <CreationGroupsField v-if="opened" v-model="groupIds" />
+    <p v-if="error" class="fr-error-text" role="alert">{{ error }}</p>
     <LlmAssistButton
       label="Structurer la description avec le LLM"
       class="fr-mt-2w"

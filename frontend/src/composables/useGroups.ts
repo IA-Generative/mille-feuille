@@ -16,6 +16,7 @@ const mapGroup = (api: any): Group => ({
   description: api.description,
   memberCount: api.member_count,
   canManageMembers: api.can_manage_members,
+  canCreateAnalyses: api.can_create_analyses,
   deletable: api.deletable,
   versions: api.versions.map(mapVersion),
 });
