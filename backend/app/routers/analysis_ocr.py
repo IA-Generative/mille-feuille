@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.analyse_guard import require_analyse_visible
 from app.core.security.factory import get_current_user
 from app.db import get_db
 from app.models.analyse import Analyse, VersionedField
@@ -11,7 +12,9 @@ from app.repositories.analyse_repository import AnalyseRepository
 from app.schemas.analyse import Version
 from app.schemas.ocr_settings import OcrSettings, OcrSettingsOut
 
-router = APIRouter(prefix="/analyses", tags=["OCR"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/analyses", tags=["OCR"], dependencies=[Depends(get_current_user), Depends(require_analyse_visible)]
+)
 
 
 async def _analyse_or_404(repository: AnalyseRepository, analyse_id: uuid.UUID) -> Analyse:

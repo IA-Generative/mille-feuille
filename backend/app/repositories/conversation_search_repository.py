@@ -66,7 +66,7 @@ class ConversationSearchRepository:
         if not terms:
             return [], 0
         tsquery = _tsquery(terms)
-        mine = [Conversation.user_id == user.user_id, visible_clause(user.is_admin, user.groups)]
+        mine = [Conversation.user_id == user.user_id, visible_clause(user)]
 
         # Par conversation : le message trouvé le plus récent, et le nombre de messages trouvés.
         ranked = (

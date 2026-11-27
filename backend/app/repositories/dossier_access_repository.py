@@ -9,6 +9,7 @@ from app.models.dossier import Dossier
 from app.models.dossier_access import DossierGroupAccess, Visibility
 from app.models.dossier_event import DossierEventType
 from app.repositories.dossier_event_repository import DossierEventRepository
+from app.services.analyse_access import has_membership
 from app.services.dossier_access import can_view
 from app.services.group_names import group_labels
 
@@ -48,6 +49,8 @@ class DossierAccessRepository:
             visibility=visibility,
             has_analyse=analyse_id is not None,
             dossier_groups=groups,
+            has_analyse_access=analyse_id is not None
+            and await has_membership(self.db, analyse_id, user.user_id, user.groups),
         ):
             return "member"
         return "admin_only" if user.is_admin else None
@@ -60,6 +63,8 @@ class DossierAccessRepository:
             visibility=dossier.visibility,
             has_analyse=dossier.analyse_id is not None,
             dossier_groups=await self.group_paths(dossier.id),
+            has_analyse_access=dossier.analyse_id is not None
+            and await has_membership(self.db, dossier.analyse_id, person.user_id, person.groups),
         )
 
     def add_groups(self, dossier_id: uuid.UUID, paths: Collection[str], granted_by: str | None) -> None:

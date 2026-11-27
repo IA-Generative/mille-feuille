@@ -34,7 +34,7 @@ async def list_users(
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dossier introuvable")
         entitled_to = (
             dossier.visibility,
-            dossier.analyse_id is not None,
+            dossier.analyse_id,
             await DossierAccessRepository(db).group_paths(dossier.id),
         )
     people = await UserDirectoryRepository(db).search(q, limit, entitled_to=entitled_to)

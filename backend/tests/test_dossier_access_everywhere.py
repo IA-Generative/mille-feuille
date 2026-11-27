@@ -279,6 +279,6 @@ def test_the_directory_can_be_limited_to_people_with_access(client: TestClient, 
         bob_for_open = _is_proposed(client, world["bob"], open_dossier["id"])
 
     assert proposed == {"alice": True, "bob": False, "carol": True, "root": True}  # bob : /b seulement
-    assert bob_for_open is True  # « selon l'analyse » : tout le monde
+    assert bob_for_open is False  # « selon l'analyse » : seulement qui a accès à l'analyse (#662)
     with As(world["bob"]):
         assert client.get("/api/users", params={"dossier_id": dossier["id"]}).status_code == 404

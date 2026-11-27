@@ -282,6 +282,9 @@ class AnalyseCreate(BaseModel):
             raise ValueError("La description ne peut pas être vide.")
         return value
 
+    # Groupes qui verront l'analyse ; à défaut, ceux de la personne où elle peut en créer.
+    group_ids: list[str] | None = Field(default=None, max_length=50)
+
 
 class AnalyseUpdate(AnalyseCreate):
     """Nom et description de l'analyse : les deux, obligatoires comme à la création."""

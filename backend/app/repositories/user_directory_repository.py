@@ -1,11 +1,13 @@
+import uuid
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from sqlalchemy import false, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.dialects.postgresql import array, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import email_index
+from app.models.analyse_access import AnalyseGroup, AnalysePerson
 from app.models.app_user import AppUser
 from app.models.dossier_access import Visibility
 from app.utils.sorting import sort_key
@@ -53,17 +55,28 @@ class UserDirectoryRepository:
         return await self.db.get(AppUser, user_id)
 
     async def search(
-        self, query: str | None, limit: int, *, entitled_to: tuple[str, bool, Sequence[str]] | None = None
+        self, query: str | None, limit: int, *, entitled_to: tuple[str, uuid.UUID | None, Sequence[str]] | None = None
     ) -> Sequence[AppUser]:
         """Personnes connues, par nom ; ``query`` filtre sur le nom ou l'e-mail (sans casse). ``entitled_to`` =
-        (visibilité, a une analyse, groupes du dossier) : ne garde que les personnes qui ont accès au dossier, selon
+        (visibilité, analyse, groupes du dossier) : ne garde que les personnes qui ont accès au dossier, selon
         l'annuaire (issue #177) ; même règle que `can_view`."""
         statement = select(AppUser)
         if entitled_to is not None:
-            visibility, has_analyse, dossier_groups = entitled_to
-            if not (visibility == Visibility.ANALYSE.value and has_analyse):
-                by_group = AppUser.groups.has_any(array(list(dossier_groups))) if dossier_groups else false()
-                statement = statement.where(or_(AppUser.is_admin.is_(True), by_group))
+            visibility, analyse_id, dossier_groups = entitled_to
+            if visibility == Visibility.ANALYSE.value and analyse_id is not None:
+                analyse_groups = (
+                    await self.db.scalars(select(AnalyseGroup.group_id).where(AnalyseGroup.analyse_id == analyse_id))
+                ).all()
+                added = select(AnalysePerson.user_id).where(
+                    AnalysePerson.analyse_id == analyse_id, AnalysePerson.user_id.is_not(None)
+                )
+                allowed = [AppUser.is_admin.is_(True), AppUser.user_id.in_(added)]
+            else:
+                analyse_groups = dossier_groups
+                allowed = [AppUser.is_admin.is_(True)]
+            if analyse_groups:
+                allowed.append(AppUser.groups.has_any(array(list(analyse_groups))))
+            statement = statement.where(or_(*allowed))
         people = (await self.db.execute(statement)).scalars().all()
         # Nom et e-mail sont chiffrés en base : recherche et tri se font ici, l'annuaire restant de taille modeste.
         if query and query.strip():
