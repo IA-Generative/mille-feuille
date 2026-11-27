@@ -150,7 +150,11 @@ async def list_dossiers(
         search=search,
         user=user,
     )
-    return Page.of(list(dossiers), total=total, page=page, page_size=page_size)
+    granted = await role_permissions.permissions_by_dossier(db, dossiers, user)
+    items = [DossierOut.model_validate(dossier) for dossier in dossiers]
+    for item in items:
+        item.permissions = [p.value for p in Permission if p in granted[item.id]]
+    return Page.of(items, total=total, page=page, page_size=page_size)
 
 
 async def _require_may_create(db: AsyncSession, user: RequestContext, analyse: Analyse | None, groups) -> None:

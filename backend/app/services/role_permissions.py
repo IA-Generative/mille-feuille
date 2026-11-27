@@ -82,3 +82,51 @@ async def dossier_permissions(db: AsyncSession, dossier_id: uuid.UUID, user: Req
     if analyse_id is not None:
         granted |= await _added_person_permissions(db, user.user_id, analyse_id)
     return granted
+
+
+async def permissions_by_dossier(
+    db: AsyncSession, dossiers: Collection[Dossier], user: RequestContext
+) -> dict[uuid.UUID, set[Permission]]:
+    """Comme `dossier_permissions`, pour une page de dossiers, en un nombre fixe de requêtes."""
+    if user.is_admin:
+        return {dossier.id: set(Permission) for dossier in dossiers}
+    mine: dict[str, set[Permission]] = {}
+    memberships = (
+        select(AppGroupMember.group_id, AppRole.permissions, AppRole.system)
+        .join(AppRole, AppRole.id == AppGroupMember.role_id)
+        .where(AppGroupMember.user_id == user.user_id, AppGroupMember.group_id.in_(_group_ids(user.groups)))
+    )
+    for group_id, permissions, system in await db.execute(memberships):
+        mine[str(group_id)] = _of([(permissions, system)])
+
+    analyse_ids = {dossier.analyse_id for dossier in dossiers if dossier.analyse_id}
+    by_analyse: dict[uuid.UUID, set[Permission]] = {}
+    added: dict[uuid.UUID, set[Permission]] = {}
+    if analyse_ids:
+        rows = await db.execute(
+            select(AnalyseGroup.analyse_id, AnalyseGroup.group_id).where(AnalyseGroup.analyse_id.in_(analyse_ids))
+        )
+        for analyse_id, group_id in rows:
+            by_analyse.setdefault(analyse_id, set()).update(mine.get(group_id, set()))
+        rows = await db.execute(
+            select(AnalysePerson.analyse_id, AppRole.permissions, AppRole.system)
+            .join(AppRole, AppRole.id == AnalysePerson.role_id)
+            .where(AnalysePerson.user_id == user.user_id, AnalysePerson.analyse_id.in_(analyse_ids))
+        )
+        for analyse_id, permissions, system in rows:
+            added.setdefault(analyse_id, set()).update(_of([(permissions, system)]))
+    by_groups: dict[uuid.UUID, set[Permission]] = {}
+    rows = await db.execute(
+        select(DossierGroupAccess.dossier_id, DossierGroupAccess.group_id).where(
+            DossierGroupAccess.dossier_id.in_([dossier.id for dossier in dossiers])
+        )
+    )
+    for dossier_id, group_id in rows:
+        by_groups.setdefault(dossier_id, set()).update(mine.get(group_id, set()))
+
+    result = {}
+    for dossier in dossiers:
+        follows_analyse = dossier.visibility == Visibility.ANALYSE.value and dossier.analyse_id is not None
+        granted = by_analyse.get(dossier.analyse_id, set()) if follows_analyse else by_groups.get(dossier.id, set())
+        result[dossier.id] = granted | added.get(dossier.analyse_id, set())
+    return result
