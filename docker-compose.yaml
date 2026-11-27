@@ -240,55 +240,6 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  # Worker AsyncTaskAPI (RabbitMQ, sans Celery) : exécute des analyses mille-feuille via l'API
-  # éphémère, pour être consommé par https://github.com/IA-Generative/async-api. Hors du
-  # `docker compose up` par défaut : `docker compose --profile async-api up`. Voir
-  # worker/async_api/README.md (jeton d'accès à async-api requis pour construire l'image).
-  rabbitmq:
-    image: rabbitmq:4-management-alpine
-    profiles: ["async-api"]
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-dev}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-dev-only-rabbitmq-not-for-prod}
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
-  worker-async-api:
-    profiles: ["async-api"]
-    build:
-      # Contexte = racine du dépôt : l'image embarque les SDK de sdks/python/.
-      context: .
-      dockerfile: worker/async_api/Dockerfile
-      secrets:
-        - github_token
-    environment:
-      BROKER_URL: amqp://${RABBITMQ_USER:-dev}:${RABBITMQ_PASSWORD:-dev-only-rabbitmq-not-for-prod}@rabbitmq:5672
-      IN_QUEUE_NAME: mille_feuille_queue_in
-      OUT_QUEUE_NAME: mille_feuille_queue_out
-      SERVICE_CLASS: long
-      AWS_ENDPOINT_URL: http://rustfs:9000
-      AWS_ACCESS_KEY_ID: ${RUSTFS_ACCESS_KEY:-dev-only-rustfs-key-not-for-prod}
-      AWS_SECRET_ACCESS_KEY: ${RUSTFS_SECRET_KEY:-dev-only-rustfs-key-not-for-prod}
-      AWS_S3_BUCKET_NAME: mille-feuille
-      AWS_S3_VERIFY: "false"
-      MILLEFEUILLE_BASE_URL: http://backend:8000
-      # Token API créé via POST /api/app-tokens (compte de service du worker).
-      MILLEFEUILLE_API_TOKEN: ${ASYNC_API_WORKER_TOKEN:-}
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      backend:
-        condition: service_started
-      rustfs:
-        condition: service_healthy
-    restart: unless-stopped
-
   # Purge des ressources éphémères expirées (analyses/dossiers créés via
   # /api/ephemeral/*, voir docs/ephemeral-api.md) : réutilise l'image et les
   # modèles/repositories du backend (accès direct DB + S3), avec Celery beat
@@ -463,12 +414,6 @@ services:
       ollama:
         condition: service_healthy
     restart: "no"
-
-# Jeton d'accès (lecture) au dépôt privé IA-Generative/async-api, nécessaire au build de
-# worker-async-api : `export GH_TOKEN=$(gh auth token)` avant `docker compose --profile async-api build`.
-secrets:
-  github_token:
-    environment: GH_TOKEN
 
 volumes:
   postgres-data:

@@ -37,9 +37,8 @@ class ToolsRefusedError(ValueError):
         return "Ces outils ne peuvent pas être utilisés : " + ", ".join(f"{r.id} ({r.reason})" for r in self.refused)
 
 
-# Les identifiants de l'ancienne énumération : le contrat de l'API asynchrone (`worker/async_api/contrat.json`) les
-# liste, un appelant qui les envoie conformément au contrat ne doit pas être rejeté. Le worker ignore ceux qu'il ne sait
-# pas exécuter et le dit dans le journal de l'étape.
+# Les identifiants de l'ancienne énumération : des appelants de l'API éphémère peuvent encore les envoyer, ils ne
+# doivent pas être rejetés. Le worker ignore ceux qu'il ne sait pas exécuter et le dit dans le journal de l'étape.
 LEGACY_IDS = frozenset(tool.value for tool in AgentTool)
 
 

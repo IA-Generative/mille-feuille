@@ -42,7 +42,6 @@ jobs:
       worker_ocr: ${{ steps.filter.outputs.worker_ocr }}
       worker_ocr_table: ${{ steps.filter.outputs.worker_ocr_table }}
       worker_ocr_vision: ${{ steps.filter.outputs.worker_ocr_vision }}
-      worker_async_api: ${{ steps.filter.outputs.worker_async_api }}
       worker_document_render: ${{ steps.filter.outputs.worker_document_render }}
       ci: ${{ steps.filter.outputs.ci }}
       helm: ${{ steps.filter.outputs.helm }}
@@ -78,9 +77,6 @@ jobs:
               - 'worker/vision/**'
             worker_document_render:
               - 'worker/document_render/**'
-            worker_async_api:
-              - 'worker/async_api/**'
-              - 'sdks/python/**'
             ci:
               - '.github/workflows/**'
             helm:
@@ -101,9 +97,6 @@ jobs:
           WORKER_OCR_TABLE: ${{ steps.filter.outputs.worker_ocr_table }}
           WORKER_OCR_VISION: ${{ steps.filter.outputs.worker_ocr_vision }}
           WORKER_DOCUMENT_RENDER: ${{ steps.filter.outputs.worker_document_render }}
-          WORKER_ASYNC_API: ${{ steps.filter.outputs.worker_async_api }}
-          # Sans ce jeton (lecture sur le dépôt privé async-api), l'image du worker async_api ne peut pas être construite.
-          ASYNC_API_TOKEN: ${{ secrets.ASYNC_API_TOKEN }}
           CI: ${{ steps.filter.outputs.ci }}
         run: |
           set -euo pipefail
@@ -144,15 +137,6 @@ jobs:
           if [ "$WORKER_DOCUMENT_RENDER" = "true" ] || [ "$CI" = "true" ]; then
             add '{"name":"worker-document-render","context":"worker/document_render","dockerfile":"worker/document_render/Dockerfile","target":"runtime"}'
           fi
-          if [ "$WORKER_ASYNC_API" = "true" ] || [ "$CI" = "true" ]; then
-            if [ -n "$ASYNC_API_TOKEN" ]; then
-              # Contexte = racine du dépôt : le worker embarque les SDK de sdks/python/.
-              add '{"name":"worker-async-api","context":".","dockerfile":"worker/async_api/Dockerfile","target":"runtime"}'
-            else
-              echo "::warning::Secret ASYNC_API_TOKEN absent : image worker-async-api non construite."
-            fi
-          fi
-
           echo "Images to build: $SERVICES"
           echo "services=$SERVICES" >> "$GITHUB_OUTPUT"
 
@@ -201,7 +185,7 @@ jobs:
     uses: ./.github/workflows/lint.yml
     needs:
       - path-filter
-    if: ${{ needs.path-filter.outputs.frontend == 'true' || needs.path-filter.outputs.ephemeral_frontend == 'true' || needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_classification == 'true' || needs.path-filter.outputs.worker_extraction == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.worker_ocr_layout == 'true' || needs.path-filter.outputs.worker_ocr == 'true' || needs.path-filter.outputs.worker_ocr_table == 'true' || needs.path-filter.outputs.worker_ocr_vision == 'true' || needs.path-filter.outputs.ci == 'true' }}
+    if: ${{ needs.path-filter.outputs.frontend == 'true' || needs.path-filter.outputs.ephemeral_frontend == 'true' || needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_classification == 'true' || needs.path-filter.outputs.worker_extraction == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.worker_ocr_layout == 'true' || needs.path-filter.outputs.worker_ocr == 'true' || needs.path-filter.outputs.worker_ocr_table == 'true' || needs.path-filter.outputs.worker_ocr_vision == 'true' || needs.path-filter.outputs.ci == 'true' }}
     with:
       RUN_ALL: ${{ needs.path-filter.outputs.ci == 'true' }}
       FRONTEND: ${{ needs.path-filter.outputs.frontend == 'true' }}
@@ -215,17 +199,14 @@ jobs:
       WORKER_OCR: ${{ needs.path-filter.outputs.worker_ocr == 'true' }}
       WORKER_OCR_TABLE: ${{ needs.path-filter.outputs.worker_ocr_table == 'true' }}
       WORKER_OCR_VISION: ${{ needs.path-filter.outputs.worker_ocr_vision == 'true' }}
-      WORKER_ASYNC_API: ${{ needs.path-filter.outputs.worker_async_api == 'true' }}
     permissions:
       contents: read
-    secrets:
-      ASYNC_API_TOKEN: ${{ secrets.ASYNC_API_TOKEN }}
 
   unit-tests:
     uses: ./.github/workflows/unit-tests.yml
     needs:
       - path-filter
-    if: ${{ needs.path-filter.outputs.frontend == 'true' || needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_classification == 'true' || needs.path-filter.outputs.worker_extraction == 'true' || needs.path-filter.outputs.worker_async_api == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.worker_ocr_layout == 'true' || needs.path-filter.outputs.worker_ocr == 'true' || needs.path-filter.outputs.worker_ocr_table == 'true' || needs.path-filter.outputs.worker_ocr_vision == 'true' || needs.path-filter.outputs.ci == 'true' }}
+    if: ${{ needs.path-filter.outputs.frontend == 'true' || needs.path-filter.outputs.backend == 'true' || needs.path-filter.outputs.worker_document_process == 'true' || needs.path-filter.outputs.worker_classification == 'true' || needs.path-filter.outputs.worker_extraction == 'true' || needs.path-filter.outputs.worker_document_render == 'true' || needs.path-filter.outputs.worker_ocr_layout == 'true' || needs.path-filter.outputs.worker_ocr == 'true' || needs.path-filter.outputs.worker_ocr_table == 'true' || needs.path-filter.outputs.worker_ocr_vision == 'true' || needs.path-filter.outputs.ci == 'true' }}
     with:
       RUN_ALL: ${{ needs.path-filter.outputs.ci == 'true' }}
       FRONTEND: ${{ needs.path-filter.outputs.frontend == 'true' }}
@@ -238,11 +219,8 @@ jobs:
       WORKER_OCR: ${{ needs.path-filter.outputs.worker_ocr == 'true' }}
       WORKER_OCR_TABLE: ${{ needs.path-filter.outputs.worker_ocr_table == 'true' }}
       WORKER_OCR_VISION: ${{ needs.path-filter.outputs.worker_ocr_vision == 'true' }}
-      WORKER_ASYNC_API: ${{ needs.path-filter.outputs.worker_async_api == 'true' }}
     permissions:
       contents: read
-    secrets:
-      ASYNC_API_TOKEN: ${{ secrets.ASYNC_API_TOKEN }}
 
   scan-gitleaks:
     uses: dnum-mi/fabnum-cicd/.github/workflows/scan-gitleaks.yml@v0
@@ -300,10 +278,6 @@ jobs:
       CACHE_MODE: min
       BUILD_ARGS: |
         APP_VERSION=${{ needs.expose-vars.outputs.IMAGE_TAG }}
-    secrets:
-      # Lu uniquement par le Dockerfile de worker/async_api (--mount=type=secret,id=github_token).
-      BUILD_SECRETS: |
-        github_token=${{ secrets.ASYNC_API_TOKEN }}
 
   scan-trivy-images:
     uses: dnum-mi/fabnum-cicd/.github/workflows/scan-trivy.yml@v0
