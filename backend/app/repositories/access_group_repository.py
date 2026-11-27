@@ -19,6 +19,7 @@ from app.models.access_group import (
     AppRole,
 )
 from app.repositories.user_directory_repository import display_name
+from app.services.memberships import sync_directory_groups
 from app.services.permissions import Permission
 from app.utils.sorting import sort_key
 
@@ -194,6 +195,8 @@ class AccessGroupRepository:
         self.db.add(member)
         self._log(group.id, AppGroupEventType.MEMBER_ADDED, actor, member=member, role_name=role.name)
         try:
+            if user_id:
+                await sync_directory_groups(self.db, user_id)
             await self.db.commit()
         except IntegrityError as error:  # ajout simultané de la même personne
             await self.db.rollback()
@@ -220,6 +223,8 @@ class AccessGroupRepository:
         role = await self.get_role(member.role_id)
         self._log(member.group_id, AppGroupEventType.MEMBER_REMOVED, actor, member=member, role_name=role.name)
         await self.db.delete(member)
+        if member.user_id:
+            await sync_directory_groups(self.db, member.user_id)
         await self.db.commit()
 
     async def events(self, group_id: uuid.UUID) -> Sequence[AppGroupEvent]:
