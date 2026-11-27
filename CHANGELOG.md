@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.77.0](https://github.com/IA-Generative/mille-feuille/compare/v0.76.0...v0.77.0) (2026-11-27)
+
+
+### Features
+
+* ajouter la recherche de conversations dans la barre latérale ([17e5fda](https://github.com/IA-Generative/mille-feuille/commit/17e5fda63a92ea6badcf6ee6703abd4ef4697f5f))
+* chercher dans ses conversations côté serveur ([57625db](https://github.com/IA-Generative/mille-feuille/commit/57625dbc96fc8ca26478ac5e8aeeb7b52a2a97aa))
+* ouvrir la conversation sur le message trouvé par la recherche ([1457a1f](https://github.com/IA-Generative/mille-feuille/commit/1457a1f9eca34b0948d0d1531bc0340cbb4d436a))
+
 ## [0.76.0](https://github.com/IA-Generative/mille-feuille/compare/v0.75.0...v0.76.0) (2026-11-27)
 
 
