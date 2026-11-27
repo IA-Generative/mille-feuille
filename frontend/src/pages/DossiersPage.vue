@@ -108,6 +108,9 @@ function goToDossier(dossier: Dossier) {
 function isUnassigned(dossier: Dossier) {
   return !dossier.analyseId;
 }
+
+/** Lancer ou arrêter, selon mes rôles sur ce dossier (le serveur reste juge). */
+const mayRun = (dossier: { permissions?: string[] }) => dossier.permissions?.includes("dossier.run") ?? true;
 </script>
 
 <template>
@@ -228,7 +231,7 @@ function isUnassigned(dossier: Dossier) {
                         @click="suggestAnalyse(dossier.id)"
                       />
                       <DsfrButton
-                        v-else-if="dossier.status === 'en_cours'"
+                        v-else-if="dossier.status === 'en_cours' && mayRun(dossier)"
                         label="Arrêter"
                         secondary
                         icon="ri-stop-circle-line"
@@ -236,14 +239,14 @@ function isUnassigned(dossier: Dossier) {
                         @click="stop(dossier.id)"
                       />
                       <DsfrButton
-                        v-else-if="(dossier.status === 'en_attente' || dossier.status === 'arrêté') && !isUnassigned(dossier)"
+                        v-else-if="(dossier.status === 'en_attente' || dossier.status === 'arrêté') && !isUnassigned(dossier) && mayRun(dossier)"
                         label="Lancer"
                         icon="ri-play-circle-line"
                         size="sm"
                         @click="launch(dossier.id)"
                       />
                       <DsfrButton
-                        v-if="dossier.status === 'échec' && !isUnassigned(dossier)"
+                        v-if="dossier.status === 'échec' && !isUnassigned(dossier) && mayRun(dossier)"
                         label="Relancer"
                         secondary
                         icon="ri-refresh-line"

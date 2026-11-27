@@ -86,6 +86,7 @@ function mapDossier(api: any): Dossier {
       : undefined,
     visibility: api.visibility,
     canDelete: api.can_delete ?? undefined,
+    permissions: api.permissions ?? undefined,
     closedAt: api.closed_at ?? undefined,
     dueAt: api.due_at ?? undefined,
     due: api.due ? { level: api.due.level, daysLeft: api.due.days_left, color: api.due.color ?? undefined } : undefined,
@@ -143,8 +144,11 @@ async function fetchList(page = currentPage.value, size = pageSize.value, option
 function upsert(dossier: Dossier) {
   const index = dossiers.findIndex((d) => d.id === dossier.id);
   if (index === -1) dossiers.unshift(dossier);
-  // `canDelete` ne vient que de la lecture du dossier : un flux ou une liste ne doivent pas l'effacer.
-  else dossiers[index] = { ...dossier, canDelete: dossier.canDelete ?? dossiers[index].canDelete };
+  // `canDelete` et `permissions` ne viennent pas des flux : ils ne doivent pas les effacer.
+  else {
+    const { canDelete, permissions } = dossiers[index];
+    dossiers[index] = { ...dossier, canDelete: dossier.canDelete ?? canDelete, permissions: dossier.permissions ?? permissions };
+  }
 }
 
 export function useDossiers() {
