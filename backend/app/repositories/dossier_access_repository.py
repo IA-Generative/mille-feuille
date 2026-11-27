@@ -10,6 +10,7 @@ from app.models.dossier_access import DossierGroupAccess, Visibility
 from app.models.dossier_event import DossierEventType
 from app.repositories.dossier_event_repository import DossierEventRepository
 from app.services.dossier_access import can_view
+from app.services.group_names import group_labels
 
 
 class DossierAccessRepository:
@@ -104,7 +105,12 @@ class DossierAccessRepository:
             )
         self.add_groups(dossier.id, added, granted_by)
         await self.db.flush()
-        self.events.add(dossier.id, DossierEventType.ACCESS_CHANGED, actor, dict(change))
+        # Le journal garde les noms du moment : lisibles même si un groupe est renommé ou supprimé.
+        journal = dict(change)
+        for key in ("groups_added", "groups_removed"):
+            if key in journal:
+                journal[key] = await group_labels(self.db, journal[key])
+        self.events.add(dossier.id, DossierEventType.ACCESS_CHANGED, actor, journal)
 
         assignee = dossier.assignee
         if assignee is not None and not await self.person_can_view(assignee, dossier):

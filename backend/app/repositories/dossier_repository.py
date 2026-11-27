@@ -68,6 +68,7 @@ from app.repositories.dossier_event_repository import DossierEventRepository
 from app.services.custom_fields import default_values
 from app.services.dossier_access import visible_clause
 from app.services.due_date import today_in_paris
+from app.services.group_names import group_labels
 from app.services.prediction_validation import record_validation
 
 logger = logging.getLogger(__name__)
@@ -225,7 +226,7 @@ class DossierRepository:
             {
                 "analyse_id": str(analyse.id) if analyse else None,
                 "visibility": visibility.value,
-                **({"groups": sorted(set(group_paths))} if group_paths else {}),
+                **({"groups": sorted(await group_labels(self.db, set(group_paths)))} if group_paths else {}),
                 **({"due_at": dossier.due_at.isoformat()} if dossier.due_at else {}),
             },
         )
