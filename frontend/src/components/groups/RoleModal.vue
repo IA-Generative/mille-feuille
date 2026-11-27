@@ -5,19 +5,22 @@ import { computed, ref, watch } from "vue";
 import VersionHistory from "@/components/analyses/VersionHistory.vue";
 import AppModal from "@/components/AppModal.vue";
 import { useGroups } from "@/composables/useGroups";
-import { PERMISSION_FAMILIES, PERMISSION_LABELS, type Permission, type RoleContent } from "@/types/groups";
+import { useAuth } from "@/composables/useAuth";
+import { describeVersion, PERMISSION_FAMILIES } from "@/types/groups";
+import { userMessage } from "@/utils/api";
 
 const props = defineProps<{ opened: boolean; roleId: string | null }>();
 const emit = defineEmits<{ close: [] }>();
 
-const { persona, roleById, saveRole, restoreRole, isRoleUsed, removeRole } = useGroups();
+const { isAdmin } = useAuth();
+const { roles, saveRole, restoreRole, removeRole } = useGroups();
 
 const name = ref("");
 const description = ref("");
-const permissions = ref<Permission[]>([]);
+const permissions = ref<string[]>([]);
 const error = ref("");
-const current = computed(() => (props.roleId ? roleById(props.roleId) : undefined));
-const editable = computed(() => persona.value.superAdmin && !current.value?.system);
+const current = computed(() => roles.value.find((r) => r.id === props.roleId));
+const editable = computed(() => isAdmin.value && !current.value?.system);
 
 function fill() {
   name.value = current.value?.name ?? "";
@@ -31,28 +34,41 @@ watch(
   (isOpened) => isOpened && fill(),
 );
 
+async function attempt(action: () => Promise<void>, fallback: string) {
+  error.value = "";
+  try {
+    await action();
+  } catch (cause) {
+    error.value = userMessage(cause, fallback);
+  }
+}
+
 function submit() {
   if (!name.value.trim() || !permissions.value.length) {
     error.value = "Donnez un nom et au moins une permission.";
     return;
   }
-  saveRole({ name: name.value.trim(), description: description.value.trim(), permissions: permissions.value }, current.value?.id);
-  emit("close");
+  attempt(async () => {
+    const content = { name: name.value.trim(), description: description.value.trim(), permissions: permissions.value };
+    await saveRole(content, current.value?.id);
+    emit("close");
+  }, "Le rôle n'a pas pu être enregistré.");
 }
 
 function restore(versionId: string) {
-  restoreRole(current.value!.id, versionId);
-  fill();
+  attempt(async () => {
+    await restoreRole(current.value!.id, versionId);
+    fill();
+  }, "La version n'a pas pu être restaurée.");
 }
 
 function remove() {
   if (!confirm(`Supprimer le rôle « ${current.value!.name} » ?`)) return;
-  removeRole(current.value!.id);
-  emit("close");
+  attempt(async () => {
+    await removeRole(current.value!.id);
+    emit("close");
+  }, "Le rôle n'a pas pu être supprimé.");
 }
-
-const describe = (content: RoleContent) =>
-  `${content.name} · ${content.permissions.map((p) => PERMISSION_LABELS[p]).join(", ")}`;
 
 const actions = computed(() =>
   editable.value
@@ -84,11 +100,11 @@ const actions = computed(() =>
     </fieldset>
 
     <template v-if="current && editable">
-      <VersionHistory :versions="current.versions" :format-content="describe" @restore="restore" />
-      <button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-mt-2w" :disabled="isRoleUsed(current.id)" @click="remove">
+      <VersionHistory :versions="current.versions" :format-content="describeVersion" @restore="restore" />
+      <button type="button" class="fr-btn fr-btn--tertiary fr-btn--sm fr-mt-2w" :disabled="current.inUse" @click="remove">
         Supprimer ce rôle
       </button>
-      <p v-if="isRoleUsed(current.id)" class="fr-hint-text">Ce rôle est encore attribué à des personnes.</p>
+      <p v-if="current.inUse" class="fr-hint-text">Ce rôle est encore attribué à des personnes.</p>
     </template>
   </AppModal>
 </template>
