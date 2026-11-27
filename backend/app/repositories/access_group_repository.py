@@ -5,6 +5,7 @@ import uuid
 from collections.abc import Collection, Sequence
 
 from sqlalchemy import func, or_, select
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,6 +19,11 @@ from app.models.access_group import (
     AppGroupMember,
     AppRole,
 )
+from app.models.analyse_share import AnalyseShare
+from app.models.app_user import AppUser
+from app.models.dossier_access import DossierGroupAccess
+from app.models.knowledge_source import KnowledgeSource
+from app.models.tool import ToolServer
 from app.repositories.user_directory_repository import display_name
 from app.services.memberships import sync_directory_groups
 from app.services.permissions import Permission
@@ -91,8 +97,22 @@ class AccessGroupRepository:
         values = {"name": group.name, "description": group.description, version.field: version.content}
         return await self.update_group(group, actor=actor, **values)
 
+    async def is_group_used(self, group_id: uuid.UUID) -> bool:
+        """Des membres, ou un dossier, un serveur d'outils, une source ou un partage qui s'y réfère."""
+        key = str(group_id)
+        for query in (
+            select(AppGroupMember.id).where(AppGroupMember.group_id == group_id),
+            select(DossierGroupAccess.dossier_id).where(DossierGroupAccess.keycloak_group == key),
+            select(ToolServer.id).where(ToolServer.groups.has_any(array([key]))),
+            select(KnowledgeSource.id).where(KnowledgeSource.groups.has_any(array([key]))),
+            select(AnalyseShare.id).where(AnalyseShare.keycloak_group == key),
+        ):
+            if await self.db.scalar(query.limit(1)) is not None:
+                return True
+        return False
+
     async def delete_group(self, group: AppGroup, actor: RequestContext) -> None:
-        if await self.members(group.id):
+        if await self.is_group_used(group.id):
             raise InUseError
         self._log(group.id, AppGroupEventType.GROUP_DELETED, actor)
         await self.db.delete(group)
@@ -141,15 +161,46 @@ class AccessGroupRepository:
         values["permissions"] = [p for p in values["permissions"] if p in set(Permission)]
         return await self.update_role(role, actor=actor, **values)
 
+    async def is_role_used(self, role_id: uuid.UUID) -> bool:
+        query = select(AppGroupMember.id).where(AppGroupMember.role_id == role_id).limit(1)
+        return await self.db.scalar(query) is not None
+
     async def delete_role(self, role: AppRole) -> None:
         if role.system:
             raise SystemRoleError
-        if await self.db.scalar(select(AppGroupMember.id).where(AppGroupMember.role_id == role.id).limit(1)):
+        if await self.is_role_used(role.id):
             raise InUseError
         await self.db.delete(role)
         await self.db.commit()
 
+    # --- Droits ---
+
+    async def permissions_in(self, user: RequestContext, group_id: uuid.UUID) -> set[Permission]:
+        """Ce que la personne peut faire dans ce groupe ; un super admin peut tout."""
+        if user.is_admin:
+            return set(Permission)
+        role = await self.db.scalar(
+            select(AppRole)
+            .join(AppGroupMember, AppGroupMember.role_id == AppRole.id)
+            .where(AppGroupMember.group_id == group_id, AppGroupMember.user_id == user.user_id)
+        )
+        return permissions_of(role) if role else set()
+
     # --- Membres ---
+
+    async def member_counts(self) -> dict[uuid.UUID, int]:
+        query = select(AppGroupMember.group_id, func.count()).group_by(AppGroupMember.group_id)
+        return {group_id: count for group_id, count in await self.db.execute(query)}
+
+    async def get_member(self, group_id: uuid.UUID, member_id: uuid.UUID) -> AppGroupMember | None:
+        member = await self.db.get(AppGroupMember, member_id)
+        return member if member and member.group_id == group_id else None
+
+    async def people(self, user_ids: Collection[str]) -> dict[str, AppUser]:
+        if not user_ids:
+            return {}
+        rows = await self.db.scalars(select(AppUser).where(AppUser.user_id.in_(list(user_ids))))
+        return {person.user_id: person for person in rows}
 
     async def members(self, group_id: uuid.UUID) -> Sequence[AppGroupMember]:
         query = (
