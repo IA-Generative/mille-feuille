@@ -1,8 +1,8 @@
 <script setup lang="ts">
 /** Bandeau de maquette et choix du point de vue. */
-import { useGroups } from "@/composables/useGroups";
+import { useMockAccess } from "@/composables/useMockAccess";
 
-const { personas, personaId } = useGroups();
+const { personas, personaId } = useMockAccess();
 </script>
 
 <template>

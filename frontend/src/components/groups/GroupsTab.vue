@@ -1,15 +1,29 @@
 <script setup lang="ts">
 /** Liste des groupes et détail du groupe choisi. */
-import { computed, ref } from "vue";
+import { computed, onMounted, ref } from "vue";
 
 import GroupDetail from "@/components/groups/GroupDetail.vue";
 import GroupModal from "@/components/groups/GroupModal.vue";
+import { useAuth } from "@/composables/useAuth";
 import { useGroups } from "@/composables/useGroups";
+import { userMessage } from "@/utils/api";
 
-const { persona, visibleGroups } = useGroups();
+const { isAdmin } = useAuth();
+const { groups, fetchGroups } = useGroups();
+
+const isLoaded = ref(false);
+const error = ref("");
+onMounted(async () => {
+  try {
+    await fetchGroups();
+    isLoaded.value = true;
+  } catch (cause) {
+    error.value = userMessage(cause, "Les groupes n'ont pas pu être chargés.");
+  }
+});
 
 const chosenId = ref("");
-const selected = computed(() => visibleGroups.value.find((g) => g.id === chosenId.value) ?? visibleGroups.value[0]);
+const selected = computed(() => groups.value.find((g) => g.id === chosenId.value) ?? groups.value[0]);
 
 const isModalOpened = ref(false);
 const editedId = ref<string | null>(null);
@@ -23,9 +37,11 @@ function openModal(id: string | null) {
 <template>
   <div class="groups-tab">
     <div>
-      <p v-if="!visibleGroups.length" class="fr-text--sm">Vous n'appartenez à aucun groupe.</p>
+      <p v-if="error" class="fr-error-text" role="alert">{{ error }}</p>
+      <p v-else-if="!isLoaded" class="fr-text--sm">Chargement…</p>
+      <p v-else-if="!groups.length" class="fr-text--sm">{{ isAdmin ? "Aucun groupe pour le moment." : "Vous n'appartenez à aucun groupe." }}</p>
       <ul v-else class="group-card">
-        <li v-for="group in visibleGroups" :key="group.id">
+        <li v-for="group in groups" :key="group.id">
           <button
             type="button"
             class="group-card__row"
@@ -35,12 +51,12 @@ function openModal(id: string | null) {
           >
             <span class="group-card__main">
               <span class="group-card__title">{{ group.name }}</span>
-              <span class="group-card__detail">{{ group.members.length }} membre(s)</span>
+              <span class="group-card__detail">{{ group.memberCount }} membre(s)</span>
             </span>
           </button>
         </li>
       </ul>
-      <button v-if="persona.superAdmin" type="button" class="fr-btn fr-btn--secondary fr-btn--sm fr-mt-2w" @click="openModal(null)">
+      <button v-if="isAdmin" type="button" class="fr-btn fr-btn--secondary fr-btn--sm fr-mt-2w" @click="openModal(null)">
         Créer un groupe
       </button>
     </div>

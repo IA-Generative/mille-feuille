@@ -123,13 +123,8 @@ export const router = createRouter({
     { path: "/suivi", name: "tracking", component: TrackingPage },
     // Chargée à la demande : elle seule a besoin de sigma.js.
     { path: "/recherche", name: "cross-search", component: () => import("@/pages/CrossSearchPage.vue") },
-    // Maquette des groupes et rôles (#657) : super admins seulement, le temps de valider les écrans.
-    {
-      path: "/groupes",
-      name: "groups",
-      component: () => import("@/pages/GroupsPage.vue"),
-      meta: { requiresAdmin: true },
-    },
+    // Chacun y voit ses groupes ; les actions permises dépendent du rôle (le serveur reste juge).
+    { path: "/groupes", name: "groups", component: () => import("@/pages/GroupsPage.vue") },
     { path: "/profile", name: "profile", component: ProfilePage },
     { path: "/consommation", name: "usage", component: UsagePage },
     { path: "/outils", name: "tools", component: ToolsPage },

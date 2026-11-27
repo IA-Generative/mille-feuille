@@ -1,11 +1,17 @@
 <script setup lang="ts">
 /** Les rôles. Création et modification réservées aux super admins ; les autres les consultent. */
-import { ref } from "vue";
+import { onMounted, ref } from "vue";
 
 import RoleModal from "@/components/groups/RoleModal.vue";
+import { useAuth } from "@/composables/useAuth";
 import { useGroups } from "@/composables/useGroups";
+import { userMessage } from "@/utils/api";
 
-const { persona, roles } = useGroups();
+const { isAdmin } = useAuth();
+const { roles, fetchRoles } = useGroups();
+
+const error = ref("");
+onMounted(() => fetchRoles().catch((cause) => (error.value = userMessage(cause, "Les rôles n'ont pas pu être chargés."))));
 
 const isModalOpened = ref(false);
 const editedId = ref<string | null>(null);
@@ -18,6 +24,7 @@ function openModal(id: string | null) {
 
 <template>
   <div>
+    <p v-if="error" class="fr-error-text" role="alert">{{ error }}</p>
     <ul class="group-card">
       <li v-for="role in roles" :key="role.id">
         <button type="button" class="group-card__row" @click="openModal(role.id)">
@@ -29,7 +36,7 @@ function openModal(id: string | null) {
         </button>
       </li>
     </ul>
-    <button v-if="persona.superAdmin" type="button" class="fr-btn fr-btn--secondary fr-btn--sm fr-mt-2w" @click="openModal(null)">
+    <button v-if="isAdmin" type="button" class="fr-btn fr-btn--secondary fr-btn--sm fr-mt-2w" @click="openModal(null)">
       Créer un rôle
     </button>
     <RoleModal :opened="isModalOpened" :role-id="editedId" @close="isModalOpened = false" />
