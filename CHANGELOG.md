@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.77.1](https://github.com/IA-Generative/mille-feuille/compare/v0.77.0...v0.77.1) (2026-11-27)
+
+
+### Bug Fixes
+
+* réserver les partages d'une analyse à son créateur et aux administrateurs ([e7cf17e](https://github.com/IA-Generative/mille-feuille/commit/e7cf17e897e58d4580c706b259beb71b069fc27e))
+
 ## [0.77.0](https://github.com/IA-Generative/mille-feuille/compare/v0.76.0...v0.77.0) (2026-11-27)
 
 
