@@ -1,9 +1,9 @@
 <script setup lang="ts">
 /** Maquette : les groupes d'une analyse qu'on crée, parmi ceux où l'on peut en créer. Non envoyé au serveur. */
-import { useGroups } from "@/composables/useGroups";
+import { useMockAccess } from "@/composables/useMockAccess";
 
 const selected = defineModel<string[]>({ required: true });
-const { creationGroups } = useGroups();
+const { creationGroups } = useMockAccess();
 </script>
 
 <template>

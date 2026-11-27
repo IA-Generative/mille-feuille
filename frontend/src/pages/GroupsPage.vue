@@ -1,9 +1,8 @@
 <script setup lang="ts">
-/** Groupes et rôles (maquette, #657). */
+/** Groupes et rôles de l'application. */
 import { ref } from "vue";
 
 import GroupsTab from "@/components/groups/GroupsTab.vue";
-import MockNotice from "@/components/groups/MockNotice.vue";
 import RolesTab from "@/components/groups/RolesTab.vue";
 
 const TABS = { groups: "Groupes", roles: "Rôles" } as const;
@@ -13,7 +12,6 @@ const tab = ref<keyof typeof TABS>("groups");
 <template>
   <div class="groups-page">
     <h1 class="fr-h2 fr-mb-0">Groupes et rôles</h1>
-    <MockNotice />
     <div class="groups-page__segments" role="group" aria-label="Section">
       <button v-for="(label, key) in TABS" :key="key" type="button" class="groups-page__segment" :aria-pressed="tab === key" @click="tab = key">
         {{ label }}

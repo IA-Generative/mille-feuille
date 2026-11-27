@@ -7,17 +7,17 @@ import AppModal from "@/components/AppModal.vue";
 import AddPersonForm from "@/components/groups/AddPersonForm.vue";
 import MockNotice from "@/components/groups/MockNotice.vue";
 import PersonRows from "@/components/groups/PersonRows.vue";
-import { useGroups } from "@/composables/useGroups";
-import type { AccessContent, Assignment } from "@/types/groups";
+import { useMockAccess } from "@/composables/useMockAccess";
+import type { AccessContent, MockAssignment } from "@/types/mockAccess";
 
 const props = defineProps<{ opened: boolean; analyseId: string }>();
 const emit = defineEmits<{ close: [] }>();
 
-const { persona, groups, groupById, can, knownPerson, roleById, accessOf, canManageAccess, saveAccess, restoreAccess } =
-  useGroups();
+const { persona, roles, groups, groupById, managesAccessIn, knownPerson, roleById, accessOf, canManageAccess, saveAccess, restoreAccess } =
+  useMockAccess();
 
 const groupIds = ref<string[]>([]);
-const people = ref<Assignment[]>([]);
+const people = ref<MockAssignment[]>([]);
 const error = ref("");
 
 const access = computed(() => (props.opened ? accessOf(props.analyseId) : null));
@@ -37,10 +37,13 @@ watch(
 );
 
 /** On n'associe ou ne retire que les groupes où l'on gère les accès. */
-const canToggle = (groupId: string) => editable.value && can("analyse.access", groupId);
+const canToggle = (groupId: string) => editable.value && managesAccessIn(groupId);
 
-function add(email: string, roleId: string) {
-  const address = email.toLowerCase();
+const rows = computed(() => people.value.map((p) => ({ ...p, key: p.email, pending: !p.name, editable: editable.value })));
+
+function add(who: { email: string } | { userId: string }, roleId: string) {
+  if (!("email" in who)) return;
+  const address = who.email.toLowerCase();
   if (people.value.some((p) => p.email === address)) {
     error.value = "Cette personne est déjà ajoutée.";
     return;
@@ -99,13 +102,13 @@ const actions = computed(() =>
 
     <h3 class="fr-text--md fr-mt-2w fr-mb-1w">Personnes ajoutées</h3>
     <PersonRows
-      :people="people"
-      :editable="editable"
+      :people="rows"
+      :roles="roles"
       empty-text="Aucune personne ajoutée en plus des groupes."
       @role="setRole"
       @remove="(email) => (people = people.filter((p) => p.email !== email))"
     />
-    <AddPersonForm v-if="editable" class="fr-mt-2w" @add="add" />
+    <AddPersonForm v-if="editable" class="fr-mt-2w" :roles="roles" @add="add" />
     <p v-if="error" class="fr-error-text" role="alert">{{ error }}</p>
 
     <VersionHistory v-if="access" :versions="access.versions" :format-content="describe" :readonly="!editable" @restore="restore" />

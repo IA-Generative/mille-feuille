@@ -1,205 +1,142 @@
-/** Maquette (#657) : l'état et les règles des groupes, en mémoire. Perdu au rechargement ; le serveur restera juge. */
-import { computed, reactive, ref } from "vue";
+/** Groupes, rôles et membres, branchés sur l'API. */
+import { ref } from "vue";
 
-import { GROUP_ADMIN_ROLE, MOCK_PEOPLE, MOCK_PERSONAS, mockGroups, mockRoles } from "@/composables/mockGroups";
-import type { Version } from "@/types/analyse";
-import type {
-  AccessContent,
-  AnalyseAccess,
-  Assignment,
-  Group,
-  GroupContent,
-  Permission,
-  Role,
-  RoleContent,
-} from "@/types/groups";
+import type { FieldVersion, Group, GroupEvent, Member, Role } from "@/types/groups";
+import { apiFetch } from "@/utils/api";
 
-const roles = ref<Role[]>(mockRoles());
-const groups = ref<Group[]>(mockGroups());
-const accesses = reactive<Record<string, AnalyseAccess>>({});
-const personaId = ref(MOCK_PERSONAS[0].id);
-let sequence = 0;
-
-const nextId = () => `mock-${++sequence}`;
-const snapshot = <T>(content: T): Version<T> => ({
-  id: nextId(),
-  content: JSON.parse(JSON.stringify(content)) as T,
-  createdAt: new Date().toISOString(),
+const mapVersion = (api: any): FieldVersion => ({
+  id: api.id,
+  content: { field: api.field, value: api.content },
+  createdAt: api.created_at,
 });
 
-const persona = computed(() => MOCK_PERSONAS.find((p) => p.id === personaId.value)!);
-const roleById = (id: string) => roles.value.find((r) => r.id === id);
-const groupById = (id: string) => groups.value.find((g) => g.id === id);
-const knownPerson = (email: string) => MOCK_PEOPLE.find((p) => p.email === email.trim().toLowerCase());
-
-/** La personne a-t-elle cette permission dans ce groupe ? */
-function can(permission: Permission, groupId: string): boolean {
-  if (persona.value.superAdmin) return true;
-  const mine = groupById(groupId)?.members.find((m) => m.email === persona.value.email);
-  return !!mine && !!roleById(mine.roleId)?.permissions.includes(permission);
-}
-
-/** Les groupes qu'on voit : tous pour un super admin, sinon les siens. */
-const visibleGroups = computed(() =>
-  groups.value.filter((g) => persona.value.superAdmin || g.members.some((m) => m.email === persona.value.email)),
-);
-
-/** Les groupes auxquels on peut associer une analyse que l'on crée. */
-const creationGroups = computed(() => groups.value.filter((g) => can("analyse.create", g.id)));
-
-function log(group: Group, text: string) {
-  group.journal.unshift({ id: nextId(), at: new Date().toISOString(), author: persona.value.label, text });
-}
-
-const describeRole = (id: string) => roleById(id)?.name ?? "rôle supprimé";
-
-// --- Groupes ---
-
-function saveGroup(content: GroupContent, id?: string): string {
-  const existing = id ? groupById(id) : undefined;
-  if (existing) {
-    existing.versions.push(snapshot({ name: existing.name, description: existing.description }));
-    Object.assign(existing, content);
-    log(existing, "Groupe modifié");
-    return existing.id;
-  }
-  const group: Group = { id: nextId(), ...content, members: [], versions: [], journal: [] };
-  groups.value.push(group);
-  log(groupById(group.id)!, "Groupe créé");
-  return group.id;
-}
-
-function restoreGroup(id: string, versionId: string) {
-  const version = groupById(id)?.versions.find((v) => v.id === versionId);
-  if (version) saveGroup({ ...version.content }, id);
-}
-
-const analysesOf = (groupId: string) => Object.values(accesses).filter((a) => a.groupIds.includes(groupId)).length;
-
-/** Proposition à valider (#661) : un groupe encore utilisé ne se supprime pas. */
-const isGroupUsed = (id: string) => !!groupById(id)?.members.length || analysesOf(id) > 0;
-
-function removeGroup(id: string) {
-  if (!isGroupUsed(id)) groups.value = groups.value.filter((g) => g.id !== id);
-}
-
-function addMember(groupId: string, email: string, roleId: string): string | null {
-  const group = groupById(groupId)!;
-  const address = email.trim().toLowerCase();
-  if (group.members.some((m) => m.email === address)) return "Cette personne est déjà membre du groupe.";
-  group.members.push({ email: address, name: knownPerson(address)?.name ?? "", roleId });
-  log(group, `${address} ajouté au groupe : ${describeRole(roleId)}`);
-  return null;
-}
-
-function setMemberRole(groupId: string, email: string, roleId: string) {
-  const group = groupById(groupId)!;
-  const member = group.members.find((m) => m.email === email);
-  if (!member) return;
-  log(group, `${email} : ${describeRole(member.roleId)} → ${describeRole(roleId)}`);
-  member.roleId = roleId;
-}
-
-function removeMember(groupId: string, email: string) {
-  const group = groupById(groupId)!;
-  group.members = group.members.filter((m) => m.email !== email);
-  log(group, `${email} retiré du groupe`);
-}
-
-const hasAdmin = (group: Group) => group.members.some((m) => m.roleId === GROUP_ADMIN_ROLE);
-
-// --- Rôles ---
-
-const contentOfRole = ({ name, description, permissions }: RoleContent): RoleContent => ({
-  name,
-  description,
-  permissions: [...permissions],
+const mapGroup = (api: any): Group => ({
+  id: api.id,
+  name: api.name,
+  description: api.description,
+  memberCount: api.member_count,
+  canManageMembers: api.can_manage_members,
+  deletable: api.deletable,
+  versions: api.versions.map(mapVersion),
 });
 
-function saveRole(content: RoleContent, id?: string): void {
-  const existing = id ? roleById(id) : undefined;
-  if (existing?.system) return;
-  if (existing) {
-    existing.versions.push(snapshot(contentOfRole(existing)));
-    Object.assign(existing, contentOfRole(content));
-  } else {
-    roles.value.push({ id: nextId(), ...contentOfRole(content), system: false, versions: [] });
-  }
-}
+const mapRole = (api: any): Role => ({
+  id: api.id,
+  name: api.name,
+  description: api.description,
+  permissions: api.permissions,
+  system: api.system,
+  inUse: api.in_use,
+  assignable: api.assignable,
+  versions: api.versions.map(mapVersion),
+});
 
-function restoreRole(id: string, versionId: string) {
-  const version = roleById(id)?.versions.find((v) => v.id === versionId);
-  if (version) saveRole(version.content, id);
-}
+const mapMember = (api: any): Member => ({
+  id: api.id,
+  name: api.name,
+  email: api.email,
+  roleId: api.role_id,
+  pending: api.pending,
+  editable: api.editable,
+});
 
-const isRoleUsed = (id: string) =>
-  groups.value.some((g) => g.members.some((m) => m.roleId === id)) ||
-  Object.values(accesses).some((a) => a.people.some((p) => p.roleId === id));
+const mapEvent = (api: any): GroupEvent => ({
+  id: api.id,
+  type: api.type,
+  createdAt: api.created_at,
+  actorName: api.actor_name,
+  subject: api.subject,
+  roleName: api.role_name,
+  previousRoleName: api.previous_role_name,
+});
 
-function removeRole(id: string) {
-  if (!roleById(id)?.system && !isRoleUsed(id)) roles.value = roles.value.filter((r) => r.id !== id);
-}
+const groups = ref<Group[]>([]);
+const roles = ref<Role[]>([]);
 
-// --- Accès à une analyse ---
-
-/** Maquette : toute analyse réelle part rattachée au groupe « Service culture ». */
-function accessOf(analyseId: string): AnalyseAccess {
-  accesses[analyseId] ??= { groupIds: ["culture"], people: [], versions: [] };
-  return accesses[analyseId];
-}
-
-const canManageAccess = (analyseId: string) =>
-  persona.value.superAdmin || accessOf(analyseId).groupIds.some((id) => can("analyse.access", id));
-
-function saveAccess(analyseId: string, content: AccessContent) {
-  const access = accessOf(analyseId);
-  access.versions.push(snapshot({ groupIds: access.groupIds, people: access.people }));
-  access.groupIds = [...content.groupIds];
-  access.people = content.people.map((p: Assignment) => ({ ...p }));
-}
-
-function restoreAccess(analyseId: string, versionId: string) {
-  const version = accessOf(analyseId).versions.find((v) => v.id === versionId);
-  if (version) saveAccess(analyseId, version.content);
-}
-
-/** Pour les tests : repartir des données d'origine. */
-export function resetMockGroups() {
-  roles.value = mockRoles();
-  groups.value = mockGroups();
-  for (const key of Object.keys(accesses)) delete accesses[key];
-  personaId.value = MOCK_PERSONAS[0].id;
-}
+const send = <T>(path: string, method: string, body?: unknown) =>
+  apiFetch<T>(path, { method, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
 
 export function useGroups() {
+  async function fetchGroups() {
+    groups.value = (await apiFetch<any[]>("/api/groups")).map(mapGroup);
+  }
+
+  async function saveGroup(content: { name: string; description: string }, id?: string): Promise<string> {
+    const saved = await send<any>(id ? `/api/groups/${id}` : "/api/groups", id ? "PUT" : "POST", content);
+    await fetchGroups();
+    return saved.id;
+  }
+
+  async function restoreGroup(id: string, versionId: string) {
+    await send(`/api/groups/${id}/restore/${versionId}`, "POST");
+    await fetchGroups();
+  }
+
+  async function removeGroup(id: string) {
+    await send(`/api/groups/${id}`, "DELETE");
+    await fetchGroups();
+  }
+
+  /** `groupId` : marque les rôles que la personne peut attribuer dans ce groupe. */
+  async function fetchRoles(groupId?: string): Promise<Role[]> {
+    const list = (await apiFetch<any[]>(`/api/roles${groupId ? `?group_id=${groupId}` : ""}`)).map(mapRole);
+    if (!groupId) roles.value = list;
+    return list;
+  }
+
+  async function saveRole(content: { name: string; description: string; permissions: string[] }, id?: string) {
+    await send(id ? `/api/roles/${id}` : "/api/roles", id ? "PUT" : "POST", content);
+    await fetchRoles();
+  }
+
+  async function restoreRole(id: string, versionId: string) {
+    await send(`/api/roles/${id}/restore/${versionId}`, "POST");
+    await fetchRoles();
+  }
+
+  async function removeRole(id: string) {
+    await send(`/api/roles/${id}`, "DELETE");
+    await fetchRoles();
+  }
+
+  const fetchMembers = async (groupId: string) =>
+    (await apiFetch<any[]>(`/api/groups/${groupId}/members`)).map(mapMember);
+
+  const fetchEvents = async (groupId: string) =>
+    (await apiFetch<any[]>(`/api/groups/${groupId}/events`)).map(mapEvent);
+
+  const addMember = (groupId: string, who: { email: string } | { userId: string }, roleId: string) =>
+    send(`/api/groups/${groupId}/members`, "POST", {
+      ...("userId" in who ? { user_id: who.userId } : { email: who.email }),
+      role_id: roleId,
+    });
+
+  const setMemberRole = (groupId: string, memberId: string, roleId: string) =>
+    send(`/api/groups/${groupId}/members/${memberId}`, "PATCH", { role_id: roleId });
+
+  const removeMember = (groupId: string, memberId: string) =>
+    send(`/api/groups/${groupId}/members/${memberId}`, "DELETE");
+
+  /** Les personnes connues de l'application, par nom : leur adresse n'est pas diffusée. */
+  const searchPeople = (query: string) =>
+    apiFetch<{ id: string; name: string }[]>(`/api/users?limit=10&q=${encodeURIComponent(query)}`);
+
   return {
-    roles,
     groups,
-    visibleGroups,
-    creationGroups,
-    persona,
-    personaId,
-    personas: MOCK_PERSONAS,
-    people: MOCK_PEOPLE,
-    can,
-    roleById,
-    groupById,
-    knownPerson,
+    roles,
+    fetchGroups,
     saveGroup,
     restoreGroup,
-    isGroupUsed,
     removeGroup,
+    fetchRoles,
+    saveRole,
+    restoreRole,
+    removeRole,
+    fetchMembers,
+    fetchEvents,
     addMember,
     setMemberRole,
     removeMember,
-    hasAdmin,
-    saveRole,
-    restoreRole,
-    isRoleUsed,
-    removeRole,
-    accessOf,
-    canManageAccess,
-    saveAccess,
-    restoreAccess,
+    searchPeople,
   };
 }

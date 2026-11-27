@@ -14,7 +14,7 @@ interface UserProfile {
   lastName: string;
   roles: string[];
   isAdmin: boolean;
-  /** Groupes Keycloak de l'utilisateur (claim `groups`). */
+  /** Identifiants des groupes de l'application dont la personne est membre. */
   groups: string[];
 }
 
