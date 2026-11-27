@@ -3,9 +3,12 @@ import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink, RouterView, useRoute, type RouteLocationNormalizedLoaded } from "vue-router";
 
 import UserMenu from "@/components/UserMenu.vue";
+import ConversationSearchField from "@/components/conversationSearch/ConversationSearchField.vue";
+import ConversationSearchResults from "@/components/conversationSearch/ConversationSearchResults.vue";
 import CguGate from "@/components/CguGate.vue";
 import TutorialPanel from "@/components/TutorialPanel.vue";
 import { useAuth } from "@/composables/useAuth";
+import { useConversationSearch } from "@/composables/useConversationSearch";
 import { useMyConversations } from "@/composables/useMyConversations";
 import { useNotifications } from "@/composables/useNotifications";
 import { useTutorials } from "@/composables/useTutorials";
@@ -22,6 +25,15 @@ function pageKey(current: RouteLocationNormalizedLoaded): string | undefined {
 const { unreadCount, badgeLabel, startPolling, stopPolling } = useNotifications();
 const { fetchProfile, isAuthenticated } = useAuth();
 const { list: conversations, fetchList: fetchConversations, deleteConversation } = useMyConversations();
+const {
+  query: searchQuery,
+  results: searchResults,
+  total: searchTotal,
+  status: searchStatus,
+  active: searching,
+  loadMore: loadMoreResults,
+  retry: retrySearch,
+} = useConversationSearch();
 // Tutoriel : on n'a besoin ici que de l'état d'affichage, pour réserver la place du panneau dans la mise en page.
 const { panelOpen: tutorialOpen, minimized: tutorialMinimized } = useTutorials();
 
@@ -152,8 +164,18 @@ const navItems = [
 
       <!-- Conversations (une par dossier ouvert), façon ChatGPT -->
       <div v-if="!isSidebarCollapsed" class="app-sidebar__conversations">
+        <ConversationSearchField v-if="conversations.length > 0 || searchQuery" v-model="searchQuery" />
         <p class="app-sidebar__section-title">Conversations</p>
-        <p v-if="conversations.length === 0" class="app-sidebar__empty">
+        <!-- Pendant une recherche, les résultats prennent la place de la liste. -->
+        <ConversationSearchResults
+          v-if="searching"
+          :results="searchResults"
+          :total="searchTotal"
+          :status="searchStatus"
+          @more="loadMoreResults"
+          @retry="retrySearch"
+        />
+        <p v-else-if="conversations.length === 0" class="app-sidebar__empty">
           Ouvrez un dossier pour démarrer une conversation.
         </p>
         <nav v-else class="app-sidebar__nav" aria-label="Mes conversations">

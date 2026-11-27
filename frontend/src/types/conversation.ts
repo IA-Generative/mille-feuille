@@ -146,3 +146,19 @@ export interface ChatEvent {
   data: Record<string, unknown>;
   createdAt: string;
 }
+
+/** Un morceau d'extrait ; `highlighted` pour un mot cherché. */
+export interface ExcerptSegment {
+  text: string;
+  highlighted: boolean;
+}
+
+/** Une conversation trouvée. `match` est vide quand seul le nom du dossier correspond. */
+export interface ConversationSearchResult {
+  conversationId: string;
+  dossierId: string;
+  dossierName: string;
+  date: string;
+  match: { messageId: string; role: MessageRole; excerpt: ExcerptSegment[] } | null;
+  matchCount: number;
+}
