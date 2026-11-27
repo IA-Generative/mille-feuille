@@ -39,7 +39,6 @@ Le chemin suit toujours le même schéma : **`<mount>/<env>/millefeuille/<secret
 | `millefeuille-db-appuser`    | `db-appuser`         | kubernetes.io/basic-auth    | CNPG (initdb.secret)                  |
 | `millefeuille-db-infos`      | `db-appuser`         | Opaque (transformé)         | backend, job de migration             |
 | `millefeuille-db-backups`    | `db-backups`         | Opaque                      | CNPG (barmanObjectStore)              |
-| `millefeuille-async-api-worker` | `async-api-worker` | Opaque                   | worker_async_api                      |
 | `registry-pull-secret`    | — (manuel ou ArgoCD)           | kubernetes.io/dockerconfigjson | Tous les pods (imagePullSecrets)    |
 
 ---
@@ -292,45 +291,6 @@ kubectl create secret docker-registry registry-pull-secret \
 
 ---
 
-## 12. `millefeuille-async-api-worker` — Worker AsyncTaskAPI (optionnel)
-
-Utilisé par le composant `worker_async_api` (activé par `worker_async_api.enabled: true`). Le `VaultStaticSecret`
-est déclaré sans condition dans `extraObjects` (`millefeuille/values/common-values.yaml`), comme les autres : **créer le
-chemin Vault avant la synchronisation**, même si le composant n'est pas encore activé.
-
-Ce secret ne contient que des **identifiants**. Tout le reste est un réglage normal, avec une valeur par défaut dans
-`env` de `worker_async_api` (`common-values.yaml`) : files, `SERVICE_CLASS`, `WORKER_CONCURRENCY`, endpoint, bucket et
-région S3, `MILLEFEUILLE_BASE_URL`, limites de taille, délais...
-
-Variables attendues dans Vault :
-
-| Variable              | Description                                                                   | Exemple                                  |
-| --------------------- | ----------------------------------------------------------------------------- | ---------------------------------------- |
-| `BROKER_URL`          | URL RabbitMQ d'AsyncTaskAPI, identifiants compris                              | `amqps://user:password@rabbitmq:5672`    |
-| `AWS_ACCESS_KEY_ID`       | Clé d'accès au stockage objet **d'AsyncTaskAPI** (lecture seule suffit : lecture des objets et `HEAD` du bucket) | `SCW...` |
-| `AWS_SECRET_ACCESS_KEY`       | Clé secrète associée                                                           | `xxxxxxxx`                               |
-| `MILLEFEUILLE_API_TOKEN` | Token API de mille-feuille (en-tête `X-App-Token`), voir ci-dessous              | `ddd_...`                                |
-
-> **Ce n'est pas le stockage de mille-feuille** : `millefeuille-s3` ne sert pas ici. Le worker lit les fichiers dans le
-> stockage d'AsyncTaskAPI (endpoint et bucket dans `env`), puis les envoie à mille-feuille par son API.
-
-**Créer `MILLEFEUILLE_API_TOKEN`** : le token est renvoyé **une seule fois** à sa création, par un utilisateur Keycloak
-(les routes `/api/app-tokens` n'acceptent pas un token API) :
-
-```bash
-curl -s -X POST https://api.example.com/api/app-tokens \
-  -H "Authorization: Bearer $KEYCLOAK_ACCESS_TOKEN" -H "Content-Type: application/json" \
-  -d '{"name": "async-api-worker"}' | jq -r .token
-```
-
-Un token par déploiement, à révoquer avec `DELETE /api/app-tokens/{id}` (rotation : en créer un nouveau, mettre à jour
-Vault, redémarrer le worker, puis révoquer l'ancien). Le token donne accès à `/api/ephemeral/*` et `/api/internal/*`
-pour le créateur seul : les analyses et runs créés par le worker ne sont visibles que par lui.
-
-**Consommateurs** : worker_async_api.
-
----
-
 ## Commandes Vault de référence
 
 ### Lister les chemins Vault existants
@@ -378,13 +338,6 @@ vault kv put <mount>/<env>/millefeuille/worker \
   OPENAI_API_BASE_URL="https://llm-hub.example.com/v1" \
   VLM_MODEL="pixtral-12b-2409" \
   LLM_MODEL="llama-3.3-70b-instruct"
-
-# Exemple : millefeuille-async-api-worker (worker AsyncTaskAPI, optionnel)
-vault kv put <mount>/<env>/millefeuille/async-api-worker \
-  BROKER_URL="amqps://user:password@rabbitmq.example.com:5672" \
-  AWS_ACCESS_KEY_ID="SCW..." \
-  AWS_SECRET_ACCESS_KEY="xxxxxxxx" \
-  MILLEFEUILLE_API_TOKEN="ddd_..."
 
 # Exemple : millefeuille-redis
 vault kv put <mount>/<env>/millefeuille/redis \
@@ -448,20 +401,3 @@ kubectl get vaultstaticsecret -n <namespace>
 
 5. **`REDIS_URL`** est calculée par transformation VSO à partir de `REDIS_PASSWORD` —
    ne pas la stocker manuellement dans Vault.
-
----
-
-## Secrets GitHub Actions
-
-Distincts des secrets Kubernetes : ils servent à la CI, pas au déploiement.
-
-| Secret (Settings → Secrets and variables → Actions) | Obligatoire | Rôle |
-| --------------------------------------------------- | ----------- | ---- |
-| `ASYNC_API_TOKEN` | non (jobs ignorés sans lui) | Accès en lecture au dépôt **privé** `IA-Generative/async-api`, qui héberge `mic-worker` (dépendance du worker `worker/async_api`). Utilisé par les jobs de lint, de tests et de build d'image de ce worker. |
-
-Créer le jeton : *Settings → Developer settings → Personal access tokens → Fine-grained tokens*, **Resource owner**
-`IA-Generative`, **Only select repositories** → `async-api`, permission **Contents : Read-only** (et rien d'autre).
-L'organisation peut exiger l'approbation du jeton par un propriétaire. Choisir une expiration et la noter : à l'expiration, les jobs du worker sont de nouveau ignorés (avertissement dans la CI).
-Un compte de service ou une GitHub App limitée à ce dépôt vaut mieux qu'un jeton personnel. Ne jamais utiliser un jeton classic.
-
-En local, `docker compose --profile async-api build` lit le même jeton dans `GH_TOKEN` (`export GH_TOKEN=$(gh auth token)`).

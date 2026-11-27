@@ -8,7 +8,6 @@
 # Sur ghcr les images s'appellent `ia-generative/mille-feuille/<service>` (voir .github/workflows/cd.yml), pas
 # `mille-feuille-<service>` comme sur Harbor : d'où les `repository` ci-dessous. Si les packages ghcr sont privés,
 # ajouter un `imagePullSecrets` avec un jeton `read:packages`.
-# `worker_async_api` n'est pas construit par la CD : il n'a pas d'image sur ghcr, laissez-le désactivé.
 global:
   imageProject: "ia-generative/mille-feuille"
 

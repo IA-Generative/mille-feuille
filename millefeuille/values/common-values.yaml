@@ -431,62 +431,6 @@ worker_ocr_vision:
     SSL_VERIFY: "true"
     AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
 
-# AsyncTaskAPI worker - RabbitMQ consumer, no Celery (worker/async_api). Lets mille-feuille be consumed
-# by the async-api platform (https://github.com/IA-Generative/async-api): it runs analyses through
-# the backend's ephemeral API (/api/ephemeral/*).
-# Opt-in: flip `enabled` once the `millefeuille-async-api-worker` secret exists (see below). Not scaled
-# by KEDA: it consumes RabbitMQ, not the Celery Redis queues, and its concurrency is
-# WORKER_CONCURRENCY (bounded by memory, since files are loaded in RAM - see worker/async_api/README.md).
-worker_async_api:
-  enabled: false
-  image:
-    registry: "harbor.sdid.cpin.numerique-interieur.com"
-    repository: "mille-feuille-worker-async-api"
-    pullPolicy: "Always"
-  serviceAccount:
-    enabled: true
-    create: true
-  # Chart defaults apply: liveness `/health`, readiness `/ready` (checks the async-api object
-  # storage), on port 8084 - both served by the worker itself, no Celery inspect involved.
-  #
-  # Secret `millefeuille-async-api-worker` (Vault, see docs/secrets.md section 12) holds credentials ONLY:
-  #   BROKER_URL             amqp://<user>:<password>@<rabbitmq host>:5672
-  #   AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY   async-api object storage credentials
-  #   MILLEFEUILLE_API_TOKEN    API token (X-App-Token) created via POST /api/app-tokens
-  envFrom:
-  - secretRef:
-      name: "millefeuille-async-api-worker"
-  # Everything that is not a secret, with its default (see worker/async_api/src/config.py).
-  # Env values must be strings.
-  env:
-    # RabbitMQ queues of the mille-feuille service on the async-api platform.
-    IN_QUEUE_NAME: "mille_feuille_queue_in"
-    OUT_QUEUE_NAME: "mille_feuille_queue_out"
-    # Service class declared in async-api's config/services.yaml: `long` lets the worker emit progress.
-    SERVICE_CLASS: "long"
-    # Concurrent tasks per pod. Files are loaded in RAM: peak ~ WORKER_CONCURRENCY x file sizes.
-    WORKER_CONCURRENCY: "2"
-    HEALTH_CHECK_HOST: "0.0.0.0"
-    HEALTH_CHECK_PORT: "8084"
-    LOG_LEVEL: "INFO"
-    # async-api object storage (where files are uploaded before a task). Adapt to your environment.
-    AWS_ENDPOINT_URL: "https://s3.fr-par.scw.cloud"
-    AWS_S3_BUCKET_NAME: "brio-prod-api-data"
-    AWS_DEFAULT_REGION: "fr-par"
-    AWS_S3_VERIFY: "true"
-    # mille-feuille backend, reached through its ephemeral API.
-    MILLEFEUILLE_BASE_URL: "http://millefeuille-backend:8000"
-    MILLEFEUILLE_REQUEST_TIMEOUT: "30"
-    # Memory guards, checked with a HEAD on S3 BEFORE any download (50 MiB / 100 MiB / 20 files).
-    MAX_FILE_SIZE_BYTES: "52428800"
-    MAX_TOTAL_SIZE_BYTES: "104857600"
-    MAX_FILES: "20"
-    # Wait for a run to finish (seconds), and polling interval.
-    RUN_TIMEOUT_SECONDS: "900"
-    POLL_INTERVAL_SECONDS: "3"
-    # Delete the result kept by mille-feuille once it has been returned in the `success` message.
-    DELETE_RUN_AFTER_RESULT: "true"
-
 jobs:
   migration:
     # `pre-install` would run before the CNPG cluster exists, so the wait-for-postgres init
@@ -711,22 +655,6 @@ extraObjects:
       type: kv-v2
       destination:
         name: millefeuille-worker
-        create: true
-  # Credentials of the AsyncTaskAPI worker (`worker_async_api`). Keys expected in Vault: see
-  # docs/secrets.md, section 12. Not conditioned on `worker_async_api.enabled`, like the other secrets:
-  # create the Vault path `millefeuille-async-api-worker` before syncing.
-  millefeuille-async-api-worker:
-    apiVersion: secrets.hashicorp.com/v1beta1
-    kind: VaultStaticSecret
-    metadata:
-      name: millefeuille-async-api-worker
-    spec:
-      vaultAuthRef: vault-auth
-      mount: "{{ .Values.global.projectName }}"
-      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "async-api-worker") }}'
-      type: kv-v2
-      destination:
-        name: millefeuille-async-api-worker
         create: true
   millefeuille-redis:
     apiVersion: secrets.hashicorp.com/v1beta1

@@ -49,11 +49,6 @@ on:
         required: false
         type: boolean
         default: false
-      WORKER_ASYNC_API:
-        description: Le worker async_api (ou le SDK Python) a changé
-        required: false
-        type: boolean
-        default: false
       PYTHON_VERSION:
         description: Python version used to run tests
         required: false
@@ -69,12 +64,6 @@ on:
         required: false
         type: string
         default: "22"
-    secrets:
-      ASYNC_API_TOKEN:
-        description: >-
-          Jeton en lecture (Contents: read) sur le dépôt privé IA-Generative/async-api, qui héberge
-          `mic-worker`. Absent, les jobs du worker async_api sont ignorés.
-        required: false
   workflow_dispatch:
     inputs:
       RUN_ALL:
@@ -120,11 +109,6 @@ on:
         type: boolean
       WORKER_OCR_VISION:
         description: Le worker ocr-vision a changé
-        required: false
-        type: boolean
-        default: false
-      WORKER_ASYNC_API:
-        description: Le worker async_api (ou le SDK Python) a changé
         required: false
         type: boolean
         default: false
@@ -471,48 +455,4 @@ jobs:
 
       - name: Run tests
         working-directory: worker/vision
-        run: uv run pytest
-
-  unit-tests-worker-async-api:
-    name: worker/async_api
-    if: ${{ inputs.RUN_ALL || inputs.WORKER_ASYNC_API }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    env:
-      ASYNC_API_TOKEN: ${{ secrets.ASYNC_API_TOKEN }}
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Check async-api access
-        id: access
-        run: |
-          if [ -n "$ASYNC_API_TOKEN" ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::Secret ASYNC_API_TOKEN absent : tests de worker/async_api ignorés."
-            echo "available=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Set up uv
-        if: steps.access.outputs.available == 'true'
-        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
-        with:
-          python-version: "3.13"
-          enable-cache: true
-          cache-dependency-glob: worker/async_api/uv.lock
-
-      - name: Install worker dependencies
-        if: steps.access.outputs.available == 'true'
-        working-directory: worker/async_api
-        env:
-          GIT_CONFIG_COUNT: "1"
-          GIT_CONFIG_KEY_0: url.https://x-access-token:${{ secrets.ASYNC_API_TOKEN }}@github.com/.insteadOf
-          GIT_CONFIG_VALUE_0: https://github.com/
-        run: uv sync --group dev
-
-      - name: Run tests
-        if: steps.access.outputs.available == 'true'
-        working-directory: worker/async_api
         run: uv run pytest
