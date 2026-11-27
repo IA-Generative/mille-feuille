@@ -35,6 +35,8 @@ class GroupOut(BaseModel):
     description: str
     member_count: int
     can_manage_members: bool
+    # Un rôle de la personne dans ce groupe permet d'y créer des analyses.
+    can_create_analyses: bool
     # Sans membre et sans rien qui s'y réfère.
     deletable: bool
     versions: list[AccessVersionOut]

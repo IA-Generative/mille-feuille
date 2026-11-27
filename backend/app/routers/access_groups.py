@@ -94,6 +94,7 @@ async def _group_out(
         description=group.description,
         member_count=count,
         can_manage_members=Permission.GROUP_MEMBERS in mine,
+        can_create_analyses=Permission.ANALYSE_CREATE in mine,
         deletable=user.is_admin and not await repository.is_group_used(group.id),
         versions=[AccessVersionOut.model_validate(v) for v in group.versions] if user.is_admin else [],
     )

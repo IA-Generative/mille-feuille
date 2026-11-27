@@ -139,3 +139,76 @@ def test_the_directory_proposes_only_people_who_see_the_analyse(client: TestClie
         ).json()["id"]
         assert client.put(f"/api/dossiers/{dossier}/assignee", json={"assignee_id": outside}).status_code == 422
         assert client.put(f"/api/dossiers/{dossier}/assignee", json={"assignee_id": inside}).status_code == 200
+
+
+def _person(client: TestClient) -> str:
+    user_id = str(uuid.uuid4())
+    with signed_in(user_id):
+        client.get("/api/auth/me")
+    return user_id
+
+
+def _group_admin(client: TestClient, group_id: str) -> str:
+    person = _person(client)
+    client.post(
+        f"/api/groups/{group_id}/members",
+        json={"user_id": person, "role_id": "00000000-0000-4000-8000-000000000001"},
+    )
+    return person
+
+
+ADMIN_ROLE, READER = "00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000003"
+
+
+def test_an_added_person_sees_the_analyse_until_removed_and_history_restores(client: TestClient, world: dict) -> None:
+    url, person = f"/api/analyses/{world['analyse']}/access", _person(client)
+    added = client.put(
+        url, json={"group_ids": [world["group"]], "people": [{"user_id": person, "role_id": READER}]}
+    ).json()
+    assert [(p["pending"], p["role_id"]) for p in added["people"]] == [(False, READER)]
+    with signed_in(person):
+        assert client.get(f"/api/analyses/{world['analyse']}").status_code == 200
+        seen = client.get(url).json()
+        assert (seen["can_edit"], seen["people"][0]["email"], seen["versions"]) == (False, "", [])
+        assert client.put(url, json={"group_ids": []}).status_code == 403
+
+    removed = client.put(url, json={"group_ids": [world["group"]], "people": []}).json()
+    with signed_in(person):
+        assert client.get(f"/api/analyses/{world['analyse']}").status_code == 404
+
+    client.post(f"{url}/restore/{removed['versions'][0]['id']}")
+    with signed_in(person):
+        assert client.get(f"/api/analyses/{world['analyse']}").status_code == 200
+
+
+def test_a_group_admin_changes_only_their_groups_and_keeps_one(client: TestClient, world: dict) -> None:
+    url, boss = f"/api/analyses/{world['analyse']}/access", _group_admin(client, world["group"])
+    with signed_in(boss, world["group"]):
+        assert client.get(url).json()["can_edit"] is True
+        other = client.put(url, json={"group_ids": [world["group"], world["other"]]})
+        assert other.json()["detail"]["code"] == "group_not_yours"
+        assert client.put(url, json={"group_ids": []}).json()["detail"]["code"] == "groups_required"
+        outside = {"email": "Externe@Example.org", "role_id": READER}
+        saved = client.put(url, json={"group_ids": [world["group"]], "people": [outside]}).json()
+        assert [(p["email"], p["pending"]) for p in saved["people"]] == [("externe@example.org", True)]
+        kept = {"id": saved["people"][0]["id"], "role_id": ADMIN_ROLE}
+        assert client.put(url, json={"group_ids": [world["group"]], "people": [kept]}).status_code == 200
+
+
+def test_nobody_grants_a_wider_role_on_an_analyse(client: TestClient, world: dict) -> None:
+    role = client.post(
+        "/api/roles", json={"name": f"R {uuid.uuid4().hex[:8]}", "permissions": ["analyse.access", "dossier.view"]}
+    ).json()["id"]
+    person = _person(client)
+    client.post(f"/api/groups/{world['group']}/members", json={"user_id": person, "role_id": role})
+    url = f"/api/analyses/{world['analyse']}/access"
+
+    with signed_in(person, world["group"]):
+        wide = {"group_ids": [world["group"]], "people": [{"email": "a@example.org", "role_id": ADMIN_ROLE}]}
+        assert client.put(url, json=wide).json()["detail"]["code"] == "role_too_wide"
+        narrow = {"group_ids": [world["group"]], "people": [{"email": "a@example.org", "role_id": READER}]}
+        assert client.put(url, json=narrow).status_code == 200
+
+
+def test_a_group_or_role_used_by_an_analyse_is_not_deleted(client: TestClient, world: dict) -> None:
+    assert client.delete(f"/api/groups/{world['group']}").json()["detail"]["code"] == "group_in_use"
