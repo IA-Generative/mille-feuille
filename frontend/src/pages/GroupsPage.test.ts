@@ -15,7 +15,7 @@ let manages = true;
 
 const group = () => ({
   id: "g1", name: "Service culture", description: "", member_count: 1,
-  can_manage_members: manages, deletable: false, versions: [],
+  can_manage_members: manages, can_create_analyses: manages, deletable: false, versions: [],
 });
 const role = (id: string, name: string, assignable: boolean) => ({
   id, name, description: "", permissions: ["dossier.view"], system: false, in_use: true, assignable, versions: [],

@@ -119,12 +119,11 @@ async function quitGuide() {
         size="sm"
         @click="startGuide"
       />
-      <!-- Maquette des accès par groupe (#657) : super admins seulement. -->
-      <DsfrButton v-if="isAdmin" label="Accès (maquette)" icon="ri-group-line" tertiary size="sm" @click="isAccessOpened = true" />
+      <DsfrButton label="Accès" icon="ri-group-line" tertiary size="sm" @click="isAccessOpened = true" />
       <DsfrButton v-if="canManage" label="Modifier l'analyse" icon="ri-edit-line" tertiary size="sm" @click="isEditing = true" />
     </div>
 
-    <AnalyseAccessModal v-if="isAdmin" :opened="isAccessOpened" :analyse-id="analyse.id" @close="isAccessOpened = false" />
+    <AnalyseAccessModal :opened="isAccessOpened" :analyse-id="analyse.id" @close="isAccessOpened = false" />
 
     <template v-if="canManage">
       <AnalyseIdentityModal v-model:opened="isEditing" :analyse="analyse" @delete="askDelete" />
