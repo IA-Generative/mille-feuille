@@ -16,7 +16,7 @@ RUN pnpm build
 # required to get a non-root container. USER is repeated explicitly below
 # anyway: Trivy's Dockerfile config scan (DS-0002) reads the Dockerfile
 # text, not the base image's own config, and flags a missing USER line.
-FROM nginxinc/nginx-unprivileged:1.30-alpine AS runtime
+FROM nginxinc/nginx-unprivileged:1.31-alpine AS runtime
 # La 1.27 n'est plus maintenue ; l'image de base est reconstruite rarement : récupérer les correctifs Alpine publiés
 # depuis (nginx, openssl...). Il faut root pour apk ; USER nginx le retire plus bas.
 USER root
