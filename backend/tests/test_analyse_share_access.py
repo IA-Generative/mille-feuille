@@ -29,7 +29,8 @@ def _share_by_email(client: TestClient, analyse_id: str):
 
 
 @pytest.mark.parametrize("kind", ["email", "keycloak_group"])
-def test_someone_else_cannot_create_a_share(client: TestClient, kind: str) -> None:
+def test_someone_else_cannot_create_a_share(client: TestClient, kind: str, without_role) -> None:
+    without_role("autre")
     analyse_id = _create_analyse(client)
 
     with as_user("autre"):
@@ -42,7 +43,8 @@ def test_someone_else_cannot_create_a_share(client: TestClient, kind: str) -> No
     assert client.get(f"/api/analyses/{analyse_id}/shares").json()["total"] == 0
 
 
-def test_someone_else_can_neither_list_nor_revoke_shares(client: TestClient) -> None:
+def test_someone_else_can_neither_list_nor_revoke_shares(client: TestClient, without_role) -> None:
+    without_role("autre")
     analyse_id = _create_analyse(client)
     share = _share_by_email(client, analyse_id).json()
 

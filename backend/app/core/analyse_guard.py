@@ -7,8 +7,10 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.dossier_guard import permission_denied
 from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
+from app.services import required_permission, role_permissions
 from app.services.analyse_access import can_see_analyse
 
 
@@ -31,3 +33,9 @@ async def require_analyse_visible(
     except ValueError:
         return  # identifiant mal formé : la route le refuse elle-même (422)
     await require_analyse(db, analyse_id, user)
+    suffix = request.url.path.split(f"/analyses/{raw}", 1)[-1]
+    # Les partages se lisent comme ils s'écrivent : leur liste porte des adresses.
+    if request.method in {"POST", "PUT", "PATCH", "DELETE"} or suffix.startswith("/shares"):
+        need = required_permission.for_analyse(suffix)
+        if need is not None and need not in await role_permissions.analyse_permissions(db, analyse_id, user):
+            raise permission_denied(need)
