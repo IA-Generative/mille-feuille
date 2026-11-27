@@ -89,6 +89,7 @@ from app.schemas.dossier import (
 from app.schemas.ephemeral import DossierExtractedDocument
 from app.schemas.pagination import Page
 from app.services import chat_stream
+from app.services.analyse_access import can_see_analyse
 from app.services.custom_fields import normalize_value, validate_value
 from app.services.ephemeral_results import to_extracted_pages
 from app.services.prediction_validation import AnalysisFrozenError
@@ -193,7 +194,9 @@ async def create_dossier_for(
     analyse: Analyse | None = None
     if body.analyse_id is not None:
         analyse = await AnalyseRepository(db).get(body.analyse_id)
-        if analyse is None:
+        # Une personne ne crée un dossier que sur une analyse qu'elle voit (#662). Les appels sans session passent.
+        hidden = isinstance(actor, RequestContext) and not await can_see_analyse(db, body.analyse_id, actor)
+        if analyse is None or hidden:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Analyse introuvable")
 
     dossier_repository = DossierRepository(db)
@@ -805,7 +808,7 @@ async def assign_dossier(
     repository = DossierRepository(db)
     dossier = await _get_or_404(repository, dossier_id)
     analyse = await AnalyseRepository(db).get(body.analyse_id)
-    if analyse is None:
+    if analyse is None or not await can_see_analyse(db, analyse.id, user):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Analyse introuvable")
     await repository.assign_analyse(dossier, analyse, actor=user)
     return await _get_or_404(repository, dossier_id)

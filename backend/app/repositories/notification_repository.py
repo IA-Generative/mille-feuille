@@ -108,7 +108,7 @@ class NotificationRepository:
                 window,
                 DossierEvent.seq <= max_seq,
                 # On ne notifie que de dossiers que la personne voit (issue #177).
-                visible_clause(user.is_admin, user.groups),
+                visible_clause(user),
                 or_(
                     and_(
                         DossierEvent.type == DossierEventType.ASSIGNEE_CHANGED.value,
@@ -168,7 +168,7 @@ class NotificationRepository:
                 Dossier.assignee_id == user_id,
                 Dossier.closed_at.is_(None),
                 Dossier.due_at.is_not(None),
-                visible_clause(user.is_admin, user.groups),
+                visible_clause(user),
             )
             .order_by(Dossier.due_at, Dossier.ref_number)
         )
@@ -210,7 +210,7 @@ class NotificationRepository:
             .where(
                 WorkSlot.user_id == user.user_id,
                 func.jsonb_array_length(WorkSlot.reminders) > 0,
-                visible_clause(user.is_admin, user.groups),
+                visible_clause(user),
             )
         )
         rows = []
@@ -266,9 +266,7 @@ class NotificationRepository:
         """Parmi ces dossiers, ceux que la personne voit (#177) : les autres sont masqués dans ses notifications."""
         if not dossier_ids:
             return set()
-        result = await self.db.execute(
-            select(Dossier.id).where(Dossier.id.in_(set(dossier_ids)), visible_clause(user.is_admin, user.groups))
-        )
+        result = await self.db.execute(select(Dossier.id).where(Dossier.id.in_(set(dossier_ids)), visible_clause(user)))
         return set(result.scalars().all())
 
     # --- Écriture ---

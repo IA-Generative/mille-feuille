@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.analyse_guard import require_analyse_visible
 from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
 from app.models.analyse import Analyse, VersionedField
@@ -15,7 +16,9 @@ from app.services.search import settings as search_settings
 from app.services.search.index_service import SearchIndexService, SettingsUnresolvedError
 from app.services.search.settings import SearchSettings
 
-router = APIRouter(prefix="/analyses", tags=["Search"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/analyses", tags=["Search"], dependencies=[Depends(get_current_user), Depends(require_analyse_visible)]
+)
 
 
 async def _analyse_or_404(repository: AnalyseRepository, analyse_id: uuid.UUID) -> Analyse:

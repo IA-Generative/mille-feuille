@@ -41,7 +41,7 @@ class DashboardRepository:
         return [
             Dossier.assignee_id == user.user_id,
             Dossier.analyse_id.is_not(None),
-            visible_clause(user.is_admin, user.groups),
+            visible_clause(user),
         ]
 
     async def stats(self, user: RequestContext, today: date) -> DashboardStatsOut:
@@ -118,7 +118,7 @@ class DashboardRepository:
                 WorkSlot.user_id == user.user_id,
                 Dossier.closed_at.is_(None),
                 Dossier.id.not_in([u.dossier_id for u in urgencies]),
-                visible_clause(user.is_admin, user.groups),
+                visible_clause(user),
             )
             .order_by(WorkSlot.start_at, WorkSlot.id)
             .limit(URGENCY_LIMIT)
@@ -160,7 +160,7 @@ class DashboardRepository:
             .where(
                 Dossier.assignee_id.is_(None),
                 Dossier.closed_at.is_(None),
-                visible_clause(user.is_admin, user.groups),
+                visible_clause(user),
             )
             .order_by(Dossier.created_at.asc(), Dossier.ref_number.asc())
             .limit(UNASSIGNED_LIMIT)

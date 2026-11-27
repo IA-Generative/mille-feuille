@@ -5,11 +5,13 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security.factory import RequestContext
 from app.models.analyse import Analyse
 from app.models.analyse_theme import AnalyseTheme, AnalyseThemeVersion
 from app.repositories.analyse_repository import analyse_search_filters
 from app.schemas.analyse import Version
 from app.schemas.analyse_theme import AnalyseThemeOut
+from app.services.analyse_access import visible_analyses
 
 
 class ThemeNameTakenError(Exception):
@@ -27,9 +29,12 @@ class AnalyseThemeRepository:
     async def get(self, theme_id: uuid.UUID) -> AnalyseTheme | None:
         return await self.db.get(AnalyseTheme, theme_id, populate_existing=True)
 
-    async def analyse_counts(self, q: str | None = None) -> dict[uuid.UUID | None, int]:
+    async def analyse_counts(
+        self, q: str | None = None, user: RequestContext | None = None
+    ) -> dict[uuid.UUID | None, int]:
         """Nombre d'analyses par thème (clé None : sans thème), limité à la recherche s'il y en a une."""
-        query = select(Analyse.theme_id, func.count()).where(*analyse_search_filters(q)).group_by(Analyse.theme_id)
+        filters = analyse_search_filters(q) + ([visible_analyses(user)] if user else [])
+        query = select(Analyse.theme_id, func.count()).where(*filters).group_by(Analyse.theme_id)
         return {theme_id: count for theme_id, count in await self.db.execute(query)}
 
     async def create(self, *, name: str, description: str, created_by: str | None) -> AnalyseTheme:

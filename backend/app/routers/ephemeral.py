@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.dispatch import dispatch_dossier_pipeline
 from app.connectors import s3_connector
+from app.core.security.acting_user import context_for_user
 from app.core.security.ephemeral import EphemeralIdentity, get_ephemeral_identity
 from app.db import get_db
 from app.models.analyse import Analyse, EntityDefinition, LabelDefinition
@@ -34,6 +35,7 @@ from app.schemas.ephemeral import (
 )
 from app.schemas.ephemeral_metrics import FeedbackIn, FeedbackOut, GlobalMetricsOut, RunMetricsOut
 from app.services import ephemeral_metrics
+from app.services.analyse_access import can_see_analyse
 from app.services.ephemeral_results import COMBINED_RUN_PREFIX, to_classification_out, to_extraction_out, to_run_summary
 from app.services.ephemeral_run_service import finalize_run, to_run_schema
 from app.services.tools.agent_tools import ToolsRefusedError, require_internal
@@ -58,10 +60,13 @@ async def _get_runnable_analyse_or_404(db: AsyncSession, analyse_id: uuid.UUID, 
     plateforme ; la clé d'API de l'environnement, non : elle n'atteint que les analyses éphémères qu'elle a créées
     (404 sinon, comme partout dans ce routeur)."""
     analyse = await AnalyseRepository(db).get(analyse_id)
-    if analyse is not None and identity.is_env_key:
+    if analyse is not None:
         record = await EphemeralRepository(db).get_analyse_ephemere(analyse_id)
-        if record is None or record.created_by != identity.id:
-            analyse = None
+        own = record is not None and record.created_by == identity.id
+        if identity.is_env_key:
+            analyse = analyse if own else None
+        elif not own and not await can_see_analyse(db, analyse_id, await context_for_user(db, identity.id)):
+            analyse = None  # une analyse classique que la personne (ou le propriétaire du jeton) ne voit pas (#662)
     if analyse is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analyse introuvable")
     return analyse

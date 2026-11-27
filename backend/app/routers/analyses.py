@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import KeycloakSettings, SharingSettings
 from app.connectors import s3_connector
+from app.core.analyse_guard import require_analyse_visible
 from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
 from app.models.analyse import (
@@ -56,9 +57,14 @@ from app.schemas.analyse import (
 from app.schemas.analyse_theme import AnalyseThemeAssignment
 from app.schemas.document_source import DocumentSourceIn, DocumentSourceOut
 from app.schemas.pagination import Page
+from app.services.analyse_creation import creation_groups, grant_groups
 from app.services.tools.agent_tools import ToolsRefusedError, validate_agent_tools
 
-router = APIRouter(prefix="/analyses", tags=["Analyses"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/analyses",
+    tags=["Analyses"],
+    dependencies=[Depends(get_current_user), Depends(require_analyse_visible)],
+)
 
 # Route de partage publique (lien magique par email) : volontairement sur un
 # routeur séparé, sans Depends(get_current_user) - la personne qui ouvre le
@@ -127,6 +133,7 @@ def _status_error(error: Exception) -> HTTPException:
 @router.get("", response_model=Page[AnalyseListItem])
 async def list_analyses(
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
     q: Annotated[str | None, Query(description="Recherche dans le nom ou la description")] = None,
@@ -135,7 +142,7 @@ async def list_analyses(
 ) -> Page[AnalyseListItem]:
     repository = AnalyseRepository(db)
     analyses, total = await repository.list_paginated(
-        page=page, page_size=page_size, q=q, theme_id=theme_id, unthemed=unthemed
+        page=page, page_size=page_size, q=q, theme_id=theme_id, unthemed=unthemed, user=user
     )
     items = [
         AnalyseListItem(
@@ -159,8 +166,10 @@ async def create_analyse(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> AnalyseOut:
+    group_ids = await creation_groups(db, user, body.group_ids)
     repository = AnalyseRepository(db)
     analyse = await repository.create(name=body.name, description=body.description, created_by=user.user_id or None)
+    await grant_groups(db, analyse.id, group_ids, user.user_id)
     analyse = await _get_or_404(repository, analyse.id)
     return repository.to_schema(analyse)
 

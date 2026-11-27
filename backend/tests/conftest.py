@@ -62,3 +62,19 @@ def _drain_agent_jobs(request: pytest.FixtureRequest):
 
 # Fixtures partagées des tests d'accès aux dossiers (issue #177) : `world` (personnes et groupes), `analyse`.
 pytest_plugins = ["tests.access_support", "tests.tool_support"]
+
+
+@pytest.fixture(autouse=True)
+def open_analyses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """La plupart des tests portent sur autre chose que l'accès aux analyses : pour eux, chaque identité voit toutes les
+    analyses et peut en créer. La vraie règle (#662) se teste dans test_analyse_access.py, qui neutralise ce préalable
+    en redéfinissant cette fixture."""
+    from sqlalchemy import true
+
+    for module in ("app.services.analyse_access", "app.services.dossier_access"):
+        monkeypatch.setattr(f"{module}.membership_clause", lambda *args, **kwargs: true())
+
+    async def any_group(db, user, permission) -> list[str]:
+        return list(user.groups) or ["/dev-tests"]
+
+    monkeypatch.setattr("app.services.analyse_creation.groups_allowing", any_group)

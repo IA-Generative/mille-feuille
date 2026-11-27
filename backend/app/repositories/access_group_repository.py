@@ -19,6 +19,7 @@ from app.models.access_group import (
     AppGroupMember,
     AppRole,
 )
+from app.models.analyse_access import AnalyseGroup, AnalysePerson
 from app.models.analyse_share import AnalyseShare
 from app.models.app_user import AppUser
 from app.models.dossier_access import DossierGroupAccess
@@ -106,6 +107,7 @@ class AccessGroupRepository:
             select(ToolServer.id).where(ToolServer.groups.has_any(array([key]))),
             select(KnowledgeSource.id).where(KnowledgeSource.groups.has_any(array([key]))),
             select(AnalyseShare.id).where(AnalyseShare.keycloak_group == key),
+            select(AnalyseGroup.analyse_id).where(AnalyseGroup.group_id == key),
         ):
             if await self.db.scalar(query.limit(1)) is not None:
                 return True
@@ -162,8 +164,10 @@ class AccessGroupRepository:
         return await self.update_role(role, actor=actor, **values)
 
     async def is_role_used(self, role_id: uuid.UUID) -> bool:
-        query = select(AppGroupMember.id).where(AppGroupMember.role_id == role_id).limit(1)
-        return await self.db.scalar(query) is not None
+        for model in (AppGroupMember, AnalysePerson):
+            if await self.db.scalar(select(model.id).where(model.role_id == role_id).limit(1)) is not None:
+                return True
+        return False
 
     async def delete_role(self, role: AppRole) -> None:
         if role.system:

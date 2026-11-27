@@ -144,7 +144,7 @@ class DossierRepository:
         """
         filters = [Dossier.workflow_status_id == workflow_status_id] if workflow_status_id else []
         if user is not None:
-            filters.append(visible_clause(user.is_admin, user.groups))
+            filters.append(visible_clause(user))
         filters += self._due_filters(due)
         if search and search.strip():
             filters.append(Dossier.name.icontains(search.strip(), autoescape=True))
@@ -184,7 +184,7 @@ class DossierRepository:
         pour ne pas révéler l'existence d'un dossier restreint). Sans ``user`` : appel interne, pas de filtre."""
         query = self._base_query().where(Dossier.id == dossier_id)
         if user is not None:
-            query = query.where(visible_clause(user.is_admin, user.groups))
+            query = query.where(visible_clause(user))
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
 
@@ -315,7 +315,7 @@ class DossierRepository:
     async def get_many(self, dossier_ids: Sequence[uuid.UUID], user: "RequestContext | None" = None) -> list[Dossier]:
         query = self._base_query().where(Dossier.id.in_(dossier_ids))
         if user is not None:
-            query = query.where(visible_clause(user.is_admin, user.groups))
+            query = query.where(visible_clause(user))
         result = await self.db.execute(query)
         return list(result.scalars().all())
 
@@ -576,7 +576,7 @@ class DossierRepository:
             .subquery()
         )
         # Une conversation sur un dossier qu'on ne voit plus n'est plus listée (issue #177).
-        visible = [visible_clause(user.is_admin, user.groups)] if user is not None else []
+        visible = [visible_clause(user)] if user is not None else []
         count_query = (
             select(func.count())
             .select_from(Conversation)

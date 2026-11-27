@@ -33,11 +33,12 @@ async def _with_count(repository: AnalyseThemeRepository, theme: AnalyseTheme) -
 @router.get("", response_model=AnalyseThemeList)
 async def list_themes(
     db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[RequestContext, Depends(get_current_user)],
     q: Annotated[str | None, Query(description="Recherche : les compteurs ne portent que sur elle")] = None,
 ) -> AnalyseThemeList:
     repository = AnalyseThemeRepository(db)
     themes = await repository.list_all()
-    counts = await repository.analyse_counts(q)
+    counts = await repository.analyse_counts(q, user)
     return AnalyseThemeList(
         items=[repository.to_schema(theme, counts.get(theme.id, 0)) for theme in themes],
         unthemed_count=counts.get(None, 0),

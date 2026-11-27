@@ -4,6 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.analyse_guard import require_analyse_visible
 from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
 from app.models.analyse import Analyse
@@ -24,7 +25,9 @@ from app.services.knowledge.analyse_collections import (
 from app.services.knowledge.client import KnowledgeClient
 from app.services.tools.identity_tokens import IdentityTokens
 
-router = APIRouter(prefix="/analyses", tags=["Knowledge"], dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/analyses", tags=["Knowledge"], dependencies=[Depends(get_current_user), Depends(require_analyse_visible)]
+)
 
 
 async def _analyse_or_404(repository: AnalyseRepository, analyse_id: uuid.UUID) -> Analyse:

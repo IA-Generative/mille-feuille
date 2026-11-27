@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crypto import email_index
 from app.models.access_group import AppGroupMember
+from app.models.analyse_access import AnalysePerson
 from app.models.app_user import AppUser
 
 if TYPE_CHECKING:
@@ -29,6 +30,7 @@ async def sync_directory_groups(db: AsyncSession, user_id: str) -> None:
 
 async def link_pending(db: AsyncSession, user_id: str, email: str) -> None:
     """Rattache au compte les places réservées à cette adresse. À n'appeler que pour une adresse **vérifiée**."""
+    await _link_analyses(db, user_id, email_index(email))
     pending = (
         await db.scalars(
             select(AppGroupMember).where(
@@ -45,6 +47,23 @@ async def link_pending(db: AsyncSession, user_id: str, email: str) -> None:
         else:
             member.user_id = user_id
     await sync_directory_groups(db, user_id)
+    await db.commit()
+
+
+async def _link_analyses(db: AsyncSession, user_id: str, index: str) -> None:
+    pending = (
+        await db.scalars(
+            select(AnalysePerson).where(AnalysePerson.user_id.is_(None), AnalysePerson.email_index == index)
+        )
+    ).all()
+    if not pending:
+        return
+    already = set(await db.scalars(select(AnalysePerson.analyse_id).where(AnalysePerson.user_id == user_id)))
+    for person in pending:
+        if person.analyse_id in already:
+            await db.delete(person)
+        else:
+            person.user_id = user_id
     await db.commit()
 
 

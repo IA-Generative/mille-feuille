@@ -116,7 +116,7 @@ class TrackingRepository:
         filters: list = [Dossier.analyse_id.is_not(None)]
         # Seuls les dossiers visibles de la personne sont listés, et donc comptés et exportés (issue #177).
         if user is not None:
-            filters.append(visible_clause(user.is_admin, user.groups))
+            filters.append(visible_clause(user))
         if analyse_ids:
             filters.append(Dossier.analyse_id.in_(analyse_ids))
         if access:
