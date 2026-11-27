@@ -141,3 +141,18 @@ def test_a_group_used_by_a_dossier_is_not_deleted(client: TestClient, group: str
         assert client.delete(f"/api/groups/{group}").status_code == 409
     finally:
         app.dependency_overrides.pop(get_current_user, None)
+
+
+def test_the_dossier_journal_names_the_group(client: TestClient, group: str) -> None:
+    name = client.get("/api/groups/names", params={"ids": [group]}).json()[0]["name"]
+    app.dependency_overrides[get_current_user] = lambda: RequestContext(
+        user_id="dev-user", email="", roles=["admin"], is_admin=True, groups=[group]
+    )
+    try:
+        analyse = client.post("/api/analyses", json={"name": "Journal", "description": "Test"}).json()
+        dossier = client.post("/api/dossiers", json={"name": "D", "analyse_id": analyse["id"]}).json()
+        events = client.get(f"/api/dossiers/{dossier['id']}/events").json()["items"]
+    finally:
+        app.dependency_overrides.pop(get_current_user, None)
+
+    assert next(e for e in events if e["type"] == "created")["payload"]["groups"] == [name]
