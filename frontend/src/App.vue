@@ -82,6 +82,7 @@ const navItems = [
   { to: "/analyses", label: "Analyses", icon: "ri-file-list-3-line" },
   { to: "/dossiers", label: "Dossiers", icon: "ri-folder-line" },
   { to: "/suivi", label: "Suivi", icon: "ri-table-line" },
+  { to: "/recherche", label: "Recherche", icon: "ri-search-line" },
 ];
 </script>
 
