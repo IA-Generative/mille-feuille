@@ -12,6 +12,7 @@ from app.logging_config import configure_logging
 from app.mcp.auth import BearerTokenAuthMiddleware
 from app.mcp.helper_server import mcp_server as helper_mcp_server
 from app.mcp.server import mcp_server
+from app.routers.access_groups import groups_router, roles_router
 from app.routers.admin_document_templates import router as admin_document_templates_router
 from app.routers.admin_generation_prompt import router as admin_generation_prompt_router
 from app.routers.admin_llm_models import router as admin_llm_models_router
@@ -131,6 +132,7 @@ app = FastAPI(
     openapi_tags=[
         {"name": "Auth", "description": "Login/logout via Keycloak, session management."},
         {"name": "Health", "description": "Liveness/readiness of the API and its dependencies."},
+        {"name": "Groupes et rôles", "description": "Groupes de l'application, leurs membres et les rôles."},
         {"name": "Analyses", "description": "Classification, extraction et agents d'une analyse."},
         {"name": "Dossiers", "description": "Dossiers usagers liés à une analyse, et suivi de leur exécution."},
         {"name": "Conversations", "description": "Conversations de l'utilisateur courant, tous dossiers confondus."},
@@ -167,6 +169,8 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api/auth")
 app.include_router(health_router, prefix="/api")
+app.include_router(groups_router, prefix="/api")
+app.include_router(roles_router, prefix="/api")
 app.include_router(analyses_public_router, prefix="/api")
 app.include_router(analyses_router, prefix="/api")
 app.include_router(analyse_themes_router, prefix="/api")
