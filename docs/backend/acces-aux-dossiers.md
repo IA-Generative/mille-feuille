@@ -12,7 +12,7 @@ Une seule règle, partagée (`app/services/dossier_access.py`) : aucune route ne
 | --- | --- |
 | **Administrateur** | tous. |
 | Membre d'un groupe associé | **restreint** : s'il est membre d'un des groupes du dossier (pas d'héritage entre groupes). |
-| Toute personne qui a accès à l'analyse | **« selon l'analyse »** (aujourd'hui, toute personne connectée). |
+| Toute personne qui a [accès à l'analyse](acces-aux-analyses.md) | **« selon l'analyse »**. |
 | N'importe qui | un dossier **« à ranger »** (sans analyse) suit ses groupes associés : il n'a pas d'analyse dont hériter. |
 
 - Le **créateur n'a aucun droit propre** : son accès vient de ses groupes. S'il quitte le groupe, il perd l'accès.
