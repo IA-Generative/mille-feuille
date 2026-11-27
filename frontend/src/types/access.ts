@@ -17,7 +17,7 @@ export const VISIBILITY_HINTS: Record<Visibility, string> = {
 /** Ce qu'on envoie pour changer l'accès : la visibilité et les groupes (qui **remplacent** les groupes actuels). */
 export interface DossierAccess {
   visibility: Visibility;
-  /** Chemins de groupes Keycloak, comparés tels quels (pas d'héritage entre groupes). */
+  /** Identifiants de groupes de l'application. */
   groups: string[];
 }
 
@@ -50,8 +50,9 @@ export interface BulkAccessResult {
   unassigned: number;
 }
 
-/** « /service-culture » → « Service culture » (le chemin exact est affiché à côté). */
+/** Un ancien chemin Keycloak (« /service-culture » → « Service culture ») ; un nom de groupe est rendu tel quel. */
 export function groupLabel(path: string): string {
-  const name = path.replace(/^\//, "").replace(/[-_]/g, " ");
+  if (!path.startsWith("/")) return path;
+  const name = path.slice(1).replace(/[-_]/g, " ");
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
