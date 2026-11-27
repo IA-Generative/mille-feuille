@@ -188,7 +188,7 @@ const pagedNotes = computed(() => {
           </span>
           <DsfrBadge v-if="note.archived" label="Archivée" type="warning" small />
           <span class="note__spacer" />
-          <DsfrButton label="Historique" icon="ri-history-line" small tertiary @click="openHistory(note)" />
+          <DsfrButton data-read label="Historique" icon="ri-history-line" small tertiary @click="openHistory(note)" />
           <template v-if="!note.archived">
             <DsfrButton label="Modifier" icon="ri-edit-line" small secondary :disabled="busy" @click="startEdit(note)" />
             <DsfrButton

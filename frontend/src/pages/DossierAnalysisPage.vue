@@ -9,6 +9,7 @@
 import { computed, onMounted, ref, watch } from "vue";
 import { RouterLink, useRoute } from "vue-router";
 
+import { vReadOnly } from "@/directives/readOnly";
 import ElementHistoryModal from "@/components/analysis/ElementHistoryModal.vue";
 import NotesPanel from "@/components/analysis/NotesPanel.vue";
 import ProposalCard from "@/components/analysis/ProposalCard.vue";
@@ -455,9 +456,9 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
       </details>
     </template>
 
-    <fieldset class="read-only-zone" :disabled="!can('dossier.edit')">
+    <div v-read-only="!can('dossier.edit')">
       <NotesPanel :dossier-id="dossierId" :can-propose="!!analysis && canEdit" @analysis-finished="refresh" />
-    </fieldset>
+    </div>
 
     <ElementHistoryModal
       :element="historyElement"
@@ -605,15 +606,5 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
 .analysis-page__add summary {
   cursor: pointer;
   font-weight: 500;
-}
-</style>
-
-<style scoped>
-/* Un fieldset sert à désactiver une zone entière : il ne doit rien changer à la mise en page. */
-.read-only-zone {
-  margin: 0;
-  padding: 0;
-  border: 0;
-  min-width: 0;
 }
 </style>
