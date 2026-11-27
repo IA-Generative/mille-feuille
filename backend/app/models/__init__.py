@@ -1,3 +1,11 @@
+from .access_group import (
+    AccessVersion,
+    AppGroup,
+    AppGroupEvent,
+    AppGroupEventType,
+    AppGroupMember,
+    AppRole,
+)
 from .agent_chat_event import AgentChatEvent, AgentChatEventKind
 from .agent_conversation import AgentConversation, AgentMessage, AgentMessageRole, AgentMessageSource
 from .analyse import (
@@ -124,6 +132,12 @@ __all__ = [
     "FieldStatus",
     "DocumentTemplateVersion",
     "AppUser",
+    "AccessVersion",
+    "AppGroup",
+    "AppGroupEvent",
+    "AppGroupEventType",
+    "AppGroupMember",
+    "AppRole",
     "DossierGroupAccess",
     "DossierEvent",
     "DossierEventType",
