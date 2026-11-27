@@ -10,7 +10,26 @@ Les groupes et les rôles sont **gérés dans l'application** (épique #656). Ke
 | Membre avec « Gérer les membres » | Ajouter, changer, retirer des membres de son groupe, **sans donner ni toucher un rôle plus large que le sien** |
 | Membre | Voir ses groupes et leurs membres |
 
-Trois rôles sont fournis : « Admin de groupe » (figé), « Instructeur » et « Lecteur ». **Les permissions des rôles ne sont pas encore appliquées** (#664) : tout membre d'un groupe agit sur les dossiers de ce groupe.
+Trois rôles sont fournis : « Admin de groupe » (figé), « Instructeur » et « Lecteur ».
+
+## Permissions appliquées
+
+La permission vient du rôle porté dans un groupe associé au dossier ou à l'analyse, ou du rôle donné à la personne sur l'analyse ; plusieurs rôles s'additionnent ; un super admin peut tout. Sans elle : **403** `permission_denied`.
+
+| Écriture | Permission |
+| --- | --- |
+| Supprimer un dossier | Supprimer un dossier |
+| Lancer, arrêter, résumer, réindexer | Lancer une analyse sur un dossier |
+| Valider, rejeter, décider d'une proposition | Valider |
+| Brouillons et documents générés | Générer un document |
+| Conversations avec l'assistant, créneau personnel | voir le dossier suffit |
+| **Toute autre écriture sur un dossier**, création comprise | Modifier un dossier |
+| Partages d'une analyse (lecture comprise) | Gérer les accès à une analyse |
+| **Toute autre écriture sur une analyse** | Configurer une analyse |
+
+Les correspondances sont dans `app/services/required_permission.py` : une route non listée demande « modifier » ou « configurer ». `GET /api/dossiers/{id}/permissions` et `GET /api/analyses/{id}/permissions` disent à l'interface ce qu'elle peut montrer.
+
+**Créer un dossier ou une analyse ne donne aucun droit** : seuls les rôles comptent.
 
 ## Lecture des droits
 
