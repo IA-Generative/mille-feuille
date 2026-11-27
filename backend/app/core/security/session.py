@@ -8,6 +8,8 @@ from dataclasses import asdict, dataclass
 from keycloak import KeycloakOpenID
 from redis import Redis
 
+from app.core.crypto import EncryptionError, decrypt, encrypt
+
 PENDING_PREFIX = "millefeuille:auth:pending:"
 SESSION_PREFIX = "millefeuille:auth:session:"
 # Dernière session ouverte par une personne : permet au backend d'agir pour elle sans cookie (ex. appeler un serveur MCP
@@ -41,6 +43,19 @@ class Session:
     id_token: str | None = None
 
 
+def _seal(session: Session) -> str:
+    """La session porte nom, e-mail et jetons : chiffrée comme en base (issue #658)."""
+    return encrypt(json.dumps(asdict(session)))
+
+
+def _open(raw: str) -> Session | None:
+    """None si la session est illisible (clé retirée après une rotation) : la personne se reconnecte."""
+    try:
+        return Session(**json.loads(decrypt(raw)))
+    except EncryptionError:
+        return None
+
+
 class SessionStore:
     def __init__(self, redis_client: Redis, keycloak_openid: KeycloakOpenID, ttl_seconds: int) -> None:
         self._redis = redis_client
@@ -66,7 +81,7 @@ class SessionStore:
             expires_at=time.time() + token_response["expires_in"],
             id_token=token_response.get("id_token"),
         )
-        self._redis.set(f"{SESSION_PREFIX}{session_id}", json.dumps(asdict(session)), ex=self._ttl_seconds)
+        self._redis.set(f"{SESSION_PREFIX}{session_id}", _seal(session), ex=self._ttl_seconds)
         user_id = identity.get("user_id")
         if user_id:
             self._redis.set(f"{USER_SESSION_PREFIX}{user_id}", session_id, ex=self._ttl_seconds)
@@ -85,7 +100,9 @@ class SessionStore:
         if not raw:
             return None
 
-        session = Session(**json.loads(raw))
+        session = _open(raw)
+        if session is None:
+            return None
         if session.expires_at - REFRESH_MARGIN_SECONDS > time.time():
             return session
 
@@ -99,7 +116,9 @@ class SessionStore:
             raw = self._redis.get(f"{SESSION_PREFIX}{session_id}")
             if not raw:
                 return None
-            current = Session(**json.loads(raw))
+            current = _open(raw)
+            if current is None:
+                return None
             if current.expires_at - REFRESH_MARGIN_SECONDS > time.time():
                 return current
             return self._renew(session_id, current)
@@ -128,7 +147,7 @@ class SessionStore:
         session.refresh_token = token_response["refresh_token"]
         session.expires_at = time.time() + token_response["expires_in"]
         session.id_token = token_response.get("id_token", session.id_token)
-        self._redis.set(f"{SESSION_PREFIX}{session_id}", json.dumps(asdict(session)), ex=self._ttl_seconds)
+        self._redis.set(f"{SESSION_PREFIX}{session_id}", _seal(session), ex=self._ttl_seconds)
         return session
 
     def delete_session(self, session_id: str) -> None:

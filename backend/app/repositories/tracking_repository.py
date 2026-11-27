@@ -15,6 +15,7 @@ from app.repositories.dossier_repository import DossierRepository
 from app.services.custom_fields import FieldFilter
 from app.services.dossier_access import visible_clause
 from app.services.due_date import due_info, today_in_paris
+from app.utils.sorting import sort_key
 
 if TYPE_CHECKING:
     from app.core.security.factory import RequestContext
@@ -152,7 +153,9 @@ class TrackingRepository:
         filters += [self._field_condition(f) for f in field_filters]
         return filters
 
-    def _sort_columns(self, key: SortKey, descending: bool, last_activity, sort_field: dict | None = None) -> list:
+    def _sort_columns(
+        self, key: SortKey, descending: bool, last_activity, sort_field: dict | None = None, assignee_rank=None
+    ) -> list:
         if key == "field" and sort_field is not None:
             field_id = sort_field["id"]
             expression = (
@@ -167,7 +170,7 @@ class TrackingRepository:
             "name": [func.lower(Dossier.name)],
             "analyse": [func.lower(Analyse.name)],
             "status": [StatusDefinition.position],
-            "assignee": [func.lower(AppUser.name)],
+            "assignee": [assignee_rank],
             "due": [Dossier.due_at],
             "created_at": [Dossier.created_at],
             "last_activity_at": [last_activity],
@@ -177,6 +180,14 @@ class TrackingRepository:
         if key in ("status", "assignee", "due"):
             ordered = [column.nulls_last() for column in ordered]
         return [*ordered, Dossier.ref_number.desc()]
+
+    async def _assignee_rank(self):
+        """Rang de chaque personne par nom, à trier en SQL : le nom, chiffré en base, ne s'y trie pas."""
+        people = (await self.db.execute(select(AppUser.user_id, AppUser.name))).all()
+        if not people:
+            return AppUser.user_id
+        ordered = sorted(people, key=lambda p: (sort_key(p.name), p.user_id))
+        return case({user_id: rank for rank, (user_id, _) in enumerate(ordered)}, value=AppUser.user_id)
 
     async def list_rows(
         self,
@@ -218,9 +229,10 @@ class TrackingRepository:
             )
 
         total = await self.db.scalar(joined(select(func.count()).select_from(Dossier)))
+        assignee_rank = await self._assignee_rank() if sort == "assignee" else None
         query = joined(
             select(Dossier, Analyse.name, Analyse.due_thresholds, Analyse.custom_fields, last_activity)
-        ).order_by(*self._sort_columns(sort, descending, self._last_activity(), sort_field))
+        ).order_by(*self._sort_columns(sort, descending, self._last_activity(), sort_field, assignee_rank))
         result = await self.db.execute(query.limit(page_size).offset((page - 1) * page_size))
         today = today_in_paris()
         rows = [

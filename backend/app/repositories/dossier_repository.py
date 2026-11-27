@@ -47,6 +47,7 @@ from app.models.dossier import (
 from app.models.dossier_access import DossierGroupAccess, Visibility
 from app.models.dossier_analysis import AnalysisElement, AnalysisElementVersion
 from app.models.dossier_event import DossierEventType
+from app.models.encrypted import person_ref
 from app.models.execution_log import ExecutionLog, ExecutionLogLevel
 from app.models.feedback import (
     Feedback,
@@ -310,7 +311,7 @@ class DossierRepository:
 
     @staticmethod
     def _person_ref(person: AppUser | None) -> dict | None:
-        return {"id": person.user_id, "name": person.name} if person else None
+        return person_ref(person.user_id, person.name) if person else None
 
     async def get_many(self, dossier_ids: Sequence[uuid.UUID], user: "RequestContext | None" = None) -> list[Dossier]:
         query = self._base_query().where(Dossier.id.in_(dossier_ids))

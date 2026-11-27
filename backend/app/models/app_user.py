@@ -5,6 +5,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
+from app.models.encrypted import EncryptedString
 
 
 class AppUser(Base):
@@ -20,8 +21,10 @@ class AppUser(Base):
     __tablename__ = "app_users"
 
     user_id: Mapped[str] = mapped_column(String, primary_key=True)
-    name: Mapped[str] = mapped_column(String, nullable=False)
-    email: Mapped[str] = mapped_column(String, nullable=False, default="")
+    name: Mapped[str] = mapped_column(EncryptedString, nullable=False)
+    email: Mapped[str] = mapped_column(EncryptedString, nullable=False, default="")
+    # Empreinte de l'adresse (`app.core.crypto.email_index`) : la retrouver sans la déchiffrer.
+    email_index: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     # Groupes Keycloak et rôle d'administrateur vus à la dernière connexion (issue #177) : sert à savoir si une
     # personne a accès à un dossier (on ne propose à l'affectation que des personnes qui y ont accès) sans
     # interroger Keycloak. Une copie d'un instant : elle se met à jour à la prochaine connexion.

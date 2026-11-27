@@ -70,6 +70,9 @@ backend:
       name: "millefeuille-s3"
   - secretRef:
       name: "millefeuille-keycloak"
+  # Chiffrement des noms et e-mails en base : le backend refuse de démarrer sans lui.
+  - secretRef:
+      name: "millefeuille-encryption"
   - secretRef:
       name: "millefeuille-openai"
   - secretRef:
@@ -456,6 +459,8 @@ jobs:
     envFrom:
     - secretRef:
         name: "millefeuille-db-infos"
+    - secretRef:
+        name: "millefeuille-encryption"
     serviceAccount:
       enabled: true
       create: true
@@ -642,6 +647,19 @@ extraObjects:
       type: kv-v2
       destination:
         name: millefeuille-keycloak
+        create: true
+  millefeuille-encryption:
+    apiVersion: secrets.hashicorp.com/v1beta1
+    kind: VaultStaticSecret
+    metadata:
+      name: millefeuille-encryption
+    spec:
+      vaultAuthRef: vault-auth
+      mount: "{{ .Values.global.projectName }}"
+      path: '{{ include "helper.vaultSecretPath" (dict "root" $ "secret" "encryption") }}'
+      type: kv-v2
+      destination:
+        name: millefeuille-encryption
         create: true
   millefeuille-worker:
     apiVersion: secrets.hashicorp.com/v1beta1

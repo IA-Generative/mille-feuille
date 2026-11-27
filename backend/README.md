@@ -52,6 +52,8 @@ s'applique à httpx, boto3 (S3), openai et python-keycloak.
 | `KEYCLOAK_REALM`          | `mille-feuille`                        |                                                                      |
 | `KEYCLOAK_CLIENT_ID`      | `mille-feuille-backend`                |                                                                      |
 | `KEYCLOAK_CLIENT_SECRET`  | _(vide)_                             | À définir en prod.                                                   |
+| `ENCRYPTION_KEYS`         | _(aucune, obligatoire)_              | Chiffrement des noms et e-mails (`docs/secrets.md`).                 |
+| `EMAIL_INDEX_KEY`         | _(aucune, obligatoire)_              | Empreinte des e-mails.                                               |
 | `KEYCLOAK_PROXY_URL`      | _(vide)_                             | Proxy réservé aux appels backend → Keycloak (prioritaire sur `HTTPS_PROXY`/`NO_PROXY`). |
 | `BACKEND_PUBLIC_URL`      | `http://localhost:8000`              | Sert à construire le `redirect_uri` OAuth2 enregistré côté Keycloak. |
 | `FRONTEND_URL`            | `http://localhost:5173`              | Où rediriger après login/logout ; aussi utilisé pour CORS.           |

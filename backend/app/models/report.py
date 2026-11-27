@@ -4,6 +4,7 @@ from sqlalchemy import Enum, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base, TimestampMixin, UUIDMixin
+from app.models.encrypted import EncryptedString
 
 
 class ReportType(enum.StrEnum):
@@ -31,7 +32,7 @@ class Report(UUIDMixin, TimestampMixin, Base):
     user_id: Mapped[str] = mapped_column(String, index=True, nullable=False)
     # Résolu une fois à la création, jamais un sub Keycloak brut dans la vue
     # admin, et stable même si l'auteur change son profil ensuite.
-    user_display: Mapped[str] = mapped_column(String, nullable=False)
+    user_display: Mapped[str] = mapped_column(EncryptedString, nullable=False)
 
     type: Mapped[ReportType] = mapped_column(Enum(ReportType, name="report_type"), nullable=False)
     title: Mapped[str] = mapped_column(String, nullable=False)

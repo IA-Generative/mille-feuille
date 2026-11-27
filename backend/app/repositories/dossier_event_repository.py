@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import DossierEventSettings
 from app.models.dossier_event import DossierEvent, DossierEventType
+from app.utils.sorting import sort_key
 
 if TYPE_CHECKING:
     from app.core.security.factory import RequestContext
@@ -124,7 +125,7 @@ class DossierEventRepository:
             )
             .group_by(DossierEvent.actor_id)
         )
-        return sorted(((actor_id, name) for actor_id, name in rows.all()), key=lambda a: (a[1] or a[0]).casefold())
+        return sorted(((actor_id, name) for actor_id, name in rows.all()), key=lambda a: sort_key(a[1] or a[0]))
 
     async def list_paginated(
         self,
