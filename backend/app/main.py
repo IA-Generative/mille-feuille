@@ -20,6 +20,7 @@ from app.routers.admin_reports import router as admin_reports_router
 from app.routers.admin_stats import router as admin_stats_router
 from app.routers.admin_tasks import router as admin_tasks_router
 from app.routers.agent_conversations import router as agent_conversations_router
+from app.routers.analyse_access import router as analyse_access_router
 from app.routers.analyse_themes import router as analyse_themes_router
 from app.routers.analyses import public_router as analyses_public_router
 from app.routers.analyses import router as analyses_router
@@ -173,6 +174,7 @@ app.include_router(groups_router, prefix="/api")
 app.include_router(roles_router, prefix="/api")
 app.include_router(analyses_public_router, prefix="/api")
 app.include_router(analyses_router, prefix="/api")
+app.include_router(analyse_access_router, prefix="/api")
 app.include_router(analyse_themes_router, prefix="/api")
 app.include_router(agent_conversations_router, prefix="/api")
 app.include_router(dossiers_router, prefix="/api")
