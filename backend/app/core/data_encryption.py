@@ -22,7 +22,12 @@ COLUMNS = [
     ("tool_servers", ("id",), "owner_name"),
     ("reports", ("id",), "user_display"),
     ("notifications", ("id",), "message"),
+    ("app_group_members", ("id",), "email"),
+    ("app_group_events", ("id",), "actor_name"),
+    ("app_group_events", ("id",), "subject_email"),
 ]
+# Tables dont une adresse a son empreinte (colonnes `email` et `email_index`).
+INDEXED_EMAILS = [("app_users", "user_id"), ("app_group_members", "id")]
 # Contenus du journal qui nomment une personne.
 PEOPLE_EVENT_TYPE = "assignee_changed"
 PEOPLE_KEYS = ("from", "to")
@@ -34,7 +39,11 @@ def _where(keys: tuple[str, ...]) -> str:
 
 def _rewrite_columns(connection: sa.Connection, transform) -> int:
     changed = 0
+    # La migration du chiffrement passe avant la création des tables venues après elle.
+    existing = set(sa.inspect(connection).get_table_names())
     for table, keys, column in COLUMNS:
+        if table not in existing:
+            continue
         selected = ", ".join((*keys, column))
         rows = connection.execute(sa.text(f"SELECT {selected} FROM {table} WHERE {column} <> ''")).mappings().all()
         for row in rows:
@@ -77,12 +86,16 @@ def _rewrite_events(connection: sa.Connection, transform, *, mark: bool) -> int:
 
 
 def _index_emails(connection: sa.Connection) -> None:
-    rows = connection.execute(sa.text("SELECT user_id, email FROM app_users WHERE email <> ''")).mappings().all()
-    for row in rows:
-        connection.execute(
-            sa.text("UPDATE app_users SET email_index = :index WHERE user_id = :user_id"),
-            {"index": email_index(decrypt(row["email"])), "user_id": row["user_id"]},
-        )
+    existing = set(sa.inspect(connection).get_table_names())
+    for table, key in INDEXED_EMAILS:
+        if table not in existing:
+            continue
+        rows = connection.execute(sa.text(f"SELECT {key}, email FROM {table} WHERE email <> ''")).mappings().all()
+        for row in rows:
+            connection.execute(
+                sa.text(f"UPDATE {table} SET email_index = :index WHERE {key} = :{key}"),
+                {"index": email_index(decrypt(row["email"])), key: row[key]},
+            )
 
 
 def _to_current(value: str) -> str | None:
