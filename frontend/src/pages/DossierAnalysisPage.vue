@@ -15,6 +15,7 @@ import ProposalCard from "@/components/analysis/ProposalCard.vue";
 import MarkdownText from "@/components/MarkdownText.vue";
 import PaginationBar from "@/components/PaginationBar.vue";
 import BackLink from "@/components/BackLink.vue";
+import { usePermissions } from "@/composables/usePermissions";
 import { useAnalysisLive, type PresenceEntry } from "@/composables/useAnalysisLive";
 import { useDossierAnalysis } from "@/composables/useDossierAnalysis";
 import { useDossiers } from "@/composables/useDossiers";
@@ -32,6 +33,7 @@ import { userMessage } from "@/utils/api";
 
 const route = useRoute();
 const dossierId = String(route.params.id);
+const { can } = usePermissions("dossiers", () => dossierId);
 
 const { list: dossiers, fetchDossier } = useDossiers();
 const dossier = computed(() => dossiers.value.find((d) => d.id === dossierId));
@@ -321,7 +323,7 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
             :proposal="proposal"
             :current-text="currentTextFor(proposal.elementId)"
             :element-name="elementNameFor(proposal.elementId)"
-            :disabled="busy || !canEdit"
+            :disabled="busy || !canEdit || !can('dossier.validate')"
             @accept="run(() => acceptProposal(proposal.id))"
             @modify="(value, reason) => run(() => modifyProposal(proposal.id, value, reason))"
             @reject="(reason) => run(() => rejectProposal(proposal.id, reason))"
@@ -375,7 +377,7 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
               <span class="element__spacer" />
               <DsfrButton label="Historique" icon="ri-history-line" small tertiary @click="openHistory(element)" />
               <DsfrButton
-                v-if="canEdit && isEditable(element)"
+                v-if="canEdit && can('dossier.edit') && isEditable(element)"
                 label="Modifier"
                 icon="ri-edit-line"
                 small
@@ -433,7 +435,7 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
         />
       </section>
 
-      <details v-if="canEdit" class="analysis-page__add">
+      <details v-if="canEdit && can('dossier.edit')" class="analysis-page__add">
         <summary>Ajouter un élément à la main</summary>
         <form class="element__form" @submit.prevent="submitNew">
           <label class="element__label" for="new-kind">Type</label>
@@ -453,7 +455,9 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
       </details>
     </template>
 
-    <NotesPanel :dossier-id="dossierId" :can-propose="!!analysis && canEdit" @analysis-finished="refresh" />
+    <fieldset class="read-only-zone" :disabled="!can('dossier.edit')">
+      <NotesPanel :dossier-id="dossierId" :can-propose="!!analysis && canEdit" @analysis-finished="refresh" />
+    </fieldset>
 
     <ElementHistoryModal
       :element="historyElement"
@@ -601,5 +605,15 @@ const statusLabel: Record<string, string> = { brouillon: "Brouillon", validée: 
 .analysis-page__add summary {
   cursor: pointer;
   font-weight: 500;
+}
+</style>
+
+<style scoped>
+/* Un fieldset sert à désactiver une zone entière : il ne doit rien changer à la mise en page. */
+.read-only-zone {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 }
 </style>
