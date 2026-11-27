@@ -121,6 +121,8 @@ export interface Dossier {
   visibility?: "restricted" | "analyse";
   /** La personne peut supprimer le dossier (administrateur, ou celle qui l'a créé) ; connu à l'ouverture du dossier. */
   canDelete?: boolean;
+  /** Ce que mes rôles permettent sur ce dossier ; absent : on n'en sait rien, rien n'est masqué. */
+  permissions?: string[];
   workflowStatus?: WorkflowStatus;
   /** Date de clôture : posée quand le dossier entre dans un statut final. */
   closedAt?: string;
