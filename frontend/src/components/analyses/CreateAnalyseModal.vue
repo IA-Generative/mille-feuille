@@ -3,13 +3,18 @@ import { ref, watch } from "vue";
 
 import LlmAssistButton from "@/components/analyses/LlmAssistButton.vue";
 import AppModal from "@/components/AppModal.vue";
+import CreationGroupsField from "@/components/groups/CreationGroupsField.vue";
 import { useAnalyses } from "@/composables/useAnalyses";
+import { useAuth } from "@/composables/useAuth";
 import { ASSIST_MIN_WORDS_HINT, hasEnoughWords, suggestAnalyseDescription } from "@/composables/useLlmAssist";
 
 const opened = defineModel<boolean>("opened", { default: false });
 const emit = defineEmits<{ created: [id: string] }>();
 
 const { create } = useAnalyses();
+// Maquette (#657), montrée aux super admins : le choix des groupes n'est ni exigé ni envoyé.
+const { isAdmin } = useAuth();
+const mockGroupIds = ref<string[]>([]);
 
 const name = ref("");
 const description = ref("");
@@ -19,6 +24,7 @@ watch(opened, (isOpened) => {
   if (isOpened) {
     name.value = "";
     description.value = "";
+    mockGroupIds.value = [];
   }
 });
 
@@ -61,6 +67,7 @@ async function submit() {
       hint="Décris le but métier de l'analyse : contexte, objectif, documents concernés et résultat attendu."
       class="fr-mt-2w"
     />
+    <CreationGroupsField v-if="isAdmin" v-model="mockGroupIds" />
     <LlmAssistButton
       label="Structurer la description avec le LLM"
       class="fr-mt-2w"
