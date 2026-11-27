@@ -15,20 +15,42 @@ from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
 from app.repositories.dossier_access_repository import DossierAccessRepository
 from app.repositories.dossier_event_repository import DossierEventRepository
+from app.services import required_permission, role_permissions
+from app.services.permissions import Permission
 
 WRITE_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
 # Battements de cœur et verrous : des écritures techniques, pas des actions sur le contenu du dossier.
 TECHNICAL_PATHS = ("/presence", "/lock")
 
 
+def permission_denied(permission: Permission) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail={
+            "code": "permission_denied",
+            "message": "Votre rôle ne permet pas cette action.",
+            "permission": permission.value,
+        },
+    )
+
+
 async def check_dossier_access(
-    db: AsyncSession, dossier_id: uuid.UUID, user: RequestContext, *, method: str = "GET", write: bool = False
+    db: AsyncSession,
+    dossier_id: uuid.UUID,
+    user: RequestContext,
+    *,
+    method: str = "GET",
+    write: bool = False,
+    need: Permission | None = None,
 ) -> str:
-    """404 si la personne ne voit pas le dossier ; trace l'entrée d'un administrateur hors de ses groupes (#182).
-    Partagé par la garde des routes et par les chemins qui agissent au nom d'une personne (agent assistant)."""
+    """404 si la personne ne voit pas le dossier, 403 si son rôle ne donne pas la permission `need` (#664) ; trace
+    l'entrée d'un administrateur hors de ses groupes (#182). Partagé par la garde des routes et par les chemins qui
+    agissent au nom d'une personne (agent assistant)."""
     standing = await DossierAccessRepository(db).standing(dossier_id, user)
     if standing is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dossier introuvable")
+    if need is not None and need not in await role_permissions.dossier_permissions(db, dossier_id, user):
+        raise permission_denied(need)
     if standing == "admin_only":
         await DossierEventRepository(db).record_admin_access(dossier_id, user, method, write=write)
     return standing
@@ -49,5 +71,8 @@ async def require_dossier_visible(
 
     path = request.url.path
     write = request.method in WRITE_METHODS and not any(token in path for token in TECHNICAL_PATHS)
-    standing = await check_dossier_access(db, dossier_id, user, method=request.method, write=write)
+    need = None
+    if request.method in WRITE_METHODS:
+        need = required_permission.for_dossier(request.method, path.split(f"/dossiers/{raw}", 1)[-1])
+    standing = await check_dossier_access(db, dossier_id, user, method=request.method, write=write, need=need)
     request.state.admin_only = standing == "admin_only"

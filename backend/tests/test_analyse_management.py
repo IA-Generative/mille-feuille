@@ -1,12 +1,11 @@
-"""Modifier le nom et la description d'une analyse, les restaurer, la supprimer : le créateur et les administrateurs."""
+"""Modifier le nom et la description d'une analyse, les restaurer, la supprimer : qui a « configurer une analyse »."""
 
 import uuid
 
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, update
+from sqlalchemy import delete
 
 from app.db import async_session_factory
-from app.models.analyse import Analyse
 from app.models.dossier import Dossier
 from tests.access_support import As
 
@@ -17,15 +16,6 @@ def make_analyse(client: TestClient, person=None) -> dict:  # noqa: ANN001
         return client.post("/api/analyses", json=body).json()
     with As(person):
         return client.post("/api/analyses", json=body).json()
-
-
-def forget_creator(client: TestClient, analyse_id: str) -> None:
-    async def clear() -> None:
-        async with async_session_factory() as db:
-            await db.execute(update(Analyse).where(Analyse.id == uuid.UUID(analyse_id)).values(created_by=None))
-            await db.commit()
-
-    client.portal.call(clear)
 
 
 def test_an_analyse_remembers_who_created_it(client: TestClient, world: dict) -> None:
@@ -126,7 +116,10 @@ def test_restoring_an_unknown_version_is_a_404(client: TestClient, world: dict) 
     assert response.status_code == 404
 
 
-def test_someone_else_can_neither_change_restore_nor_delete(client: TestClient, world: dict) -> None:
+def test_someone_without_the_permission_can_neither_change_restore_nor_delete(
+    client: TestClient, world: dict, without_role
+) -> None:
+    without_role(world["bob"].user_id)
     analyse = make_analyse(client, world["alice"])
     url = f"/api/analyses/{analyse['id']}"
     with As(world["alice"]):
@@ -136,7 +129,7 @@ def test_someone_else_can_neither_change_restore_nor_delete(client: TestClient, 
         assert client.put(url, json={"name": "Piraté", "description": "x"}).status_code == 403
         assert client.post(f"{url}/name/restore/{changed['name_versions'][0]['id']}").status_code == 403
         assert client.delete(url).status_code == 403
-        # Elle reste lisible et modifiable dans ses autres parties, comme avant.
+        # Elle reste lisible.
         assert client.get(url).json()["name"] == "Autre nom"
 
 
@@ -151,16 +144,14 @@ def test_an_administrator_manages_any_analyse(client: TestClient, world: dict) -
     assert client.get(url).status_code == 404
 
 
-def test_an_analyse_without_a_known_creator_is_for_administrators_only(client: TestClient, world: dict) -> None:
+def test_having_created_an_analyse_gives_no_right(client: TestClient, world: dict, without_role) -> None:
     analyse = make_analyse(client, world["alice"])
-    forget_creator(client, analyse["id"])
     url = f"/api/analyses/{analyse['id']}"
+    without_role(world["alice"].user_id)
 
     with As(world["alice"]):
         assert client.put(url, json={"name": "x", "description": "x"}).status_code == 403
         assert client.delete(url).status_code == 403
-    with As(world["root"]):
-        assert client.put(url, json={"name": "x", "description": "x"}).status_code == 200
 
 
 def test_the_creator_deletes_the_analyse_with_its_content(client: TestClient, world: dict) -> None:

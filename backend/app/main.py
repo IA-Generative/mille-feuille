@@ -56,6 +56,7 @@ from app.routers.internal_ocr import router as internal_ocr_router
 from app.routers.knowledge_sources import router as knowledge_sources_router
 from app.routers.models import router as models_router
 from app.routers.notifications import router as notifications_router
+from app.routers.permissions import router as permissions_router
 from app.routers.profile import router as profile_router
 from app.routers.reports import router as reports_router
 from app.routers.sources import router as sources_router
@@ -172,6 +173,7 @@ app.include_router(auth_router, prefix="/api/auth")
 app.include_router(health_router, prefix="/api")
 app.include_router(groups_router, prefix="/api")
 app.include_router(roles_router, prefix="/api")
+app.include_router(permissions_router, prefix="/api")
 app.include_router(analyses_public_router, prefix="/api")
 app.include_router(analyses_router, prefix="/api")
 app.include_router(analyse_access_router, prefix="/api")

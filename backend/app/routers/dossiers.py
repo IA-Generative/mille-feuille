@@ -35,7 +35,7 @@ from app.celery_client import (
     dispatch_text_extraction,
 )
 from app.connectors import s3_connector
-from app.core.dossier_guard import require_dossier_visible
+from app.core.dossier_guard import permission_denied, require_dossier_visible
 from app.core.security.factory import RequestContext, get_current_user
 from app.db import get_db
 from app.models.analyse import Analyse
@@ -88,10 +88,11 @@ from app.schemas.dossier import (
 )
 from app.schemas.ephemeral import DossierExtractedDocument
 from app.schemas.pagination import Page
-from app.services import chat_stream
+from app.services import chat_stream, role_permissions
 from app.services.analyse_access import can_see_analyse
 from app.services.custom_fields import normalize_value, validate_value
 from app.services.ephemeral_results import to_extracted_pages
+from app.services.permissions import Permission
 from app.services.prediction_validation import AnalysisFrozenError
 
 router = APIRouter(
@@ -152,6 +153,15 @@ async def list_dossiers(
     return Page.of(list(dossiers), total=total, page=page, page_size=page_size)
 
 
+async def _require_may_create(db: AsyncSession, user: RequestContext, analyse: Analyse | None, groups) -> None:
+    """Créer un dossier, c'est le modifier : la permission vient des groupes choisis ou, « selon l'analyse », d'elle."""
+    granted = await role_permissions.group_permissions(db, user, groups)
+    if analyse is not None:
+        granted |= await role_permissions.analyse_permissions(db, analyse.id, user)
+    if Permission.DOSSIER_EDIT not in granted:
+        raise permission_denied(Permission.DOSSIER_EDIT)
+
+
 def _creation_access(body: DossierCreate, user: RequestContext) -> tuple[Visibility, list[str]]:
     """Accès d'un dossier créé par une personne (issue #177) : **restreint par défaut**, aux groupes qu'elle choisit
     parmi **les siens** (à défaut, tous les siens). Un dossier restreint a au moins un groupe : le créateur n'a
@@ -199,6 +209,8 @@ async def create_dossier_for(
         if analyse is None or hidden:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Analyse introuvable")
 
+    if isinstance(actor, RequestContext):
+        await _require_may_create(db, actor, analyse, group_paths or ())
     dossier_repository = DossierRepository(db)
     dossier = await dossier_repository.create(
         name=body.name, analyse=analyse, actor=actor, visibility=visibility, group_paths=group_paths or ()
@@ -292,6 +304,9 @@ async def assign_dossiers(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "dossiers_not_found", "message": "Dossiers introuvables.", "dossier_ids": missing},
         )
+    for dossier in dossiers:  # tout ou rien : une affectation modifie chaque dossier
+        if Permission.DOSSIER_EDIT not in await role_permissions.dossier_permissions(db, dossier.id, user):
+            raise permission_denied(Permission.DOSSIER_EDIT)
     await _require_access_for(db, person, dossiers)
     updated = await repository.assign_many(dossiers, person, actor=user)
     return BulkAssigneeResult(updated=updated, unchanged=len(dossiers) - updated)
@@ -495,13 +510,8 @@ async def get_dossier(
     # consultation ne s'affiche pas en plus parmi celles des membres.
     if not getattr(request.state, "admin_only", False):
         await repository.events.record_consultation(dossier_id, user)
-    dossier.can_delete = await _can_delete(repository, dossier, user)
+    dossier.can_delete = Permission.DOSSIER_DELETE in await role_permissions.dossier_permissions(db, dossier.id, user)
     return dossier
-
-
-async def _can_delete(repository: DossierRepository, dossier: Dossier, user: RequestContext) -> bool:
-    """Un administrateur, ou la personne qui a créé (déposé) le dossier."""
-    return user.is_admin or await repository.events.creator_id(dossier.id) == user.user_id
 
 
 @router.delete("/{dossier_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -510,16 +520,11 @@ async def delete_dossier(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[RequestContext, Depends(get_current_user)],
 ) -> None:
-    """Supprime le dossier, ses documents (fichiers compris), ses conversations et son index de recherche. Réservé à un
-    administrateur et à la personne qui a créé le dossier. Un dossier dont l'analyse tourne doit d'abord être arrêté
+    """Supprime le dossier, ses documents (fichiers compris), ses conversations et son index de recherche. Demande la
+    permission « supprimer un dossier » (garde des routes). Un dossier dont l'analyse tourne doit d'abord être arrêté
     (409)."""
     repository = DossierRepository(db)
     dossier = await _get_or_404(repository, dossier_id, user)
-    if not await _can_delete(repository, dossier, user):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Seul un administrateur ou la personne qui a créé le dossier peut le supprimer.",
-        )
     if dossier.status == DossierStatus.EN_COURS:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="L'analyse du dossier est en cours : arrêtez-la d'abord."

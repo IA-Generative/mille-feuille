@@ -14,6 +14,7 @@ from app.core.dossier_guard import check_dossier_access
 from app.core.security.factory import RequestContext
 from app.repositories.dossier_repository import DossierRepository
 from app.routers.dossiers import _get_or_404 as get_dossier_or_404
+from app.services.permissions import Permission
 
 
 class AgentDossierFileIn(BaseModel):
@@ -30,7 +31,7 @@ async def add_agent_dossier_files(
     dossier_id: uuid.UUID, body: AgentDossierFilesIn, db: AsyncSession, person: RequestContext
 ):  # noqa: ANN201
     """Équivalent de POST /dossiers/{id}/documents, au nom de la personne : elle doit pouvoir écrire dans le dossier."""
-    await check_dossier_access(db, dossier_id, person, method="POST", write=True)
+    await check_dossier_access(db, dossier_id, person, method="POST", write=True, need=Permission.DOSSIER_EDIT)
     repository = DossierRepository(db)
     dossier = await get_dossier_or_404(repository, dossier_id, person)
     documents = []

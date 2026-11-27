@@ -10,6 +10,7 @@ from app.db import get_db
 from app.models.document_source import DocumentSource
 from app.repositories.document_source_repository import DocumentSourceRepository, SourceNameTakenError
 from app.schemas.document_source import DocumentSourceIn, DocumentSourceOut
+from app.services.permissions import Permission
 
 router = APIRouter(prefix="/sources", tags=["Sources"])
 
@@ -23,7 +24,7 @@ async def _get_writable_or_404(
     if source is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Source introuvable")
     if source.dossier_id is not None:
-        await check_dossier_access(db, source.dossier_id, user, method="PUT", write=True)
+        await check_dossier_access(db, source.dossier_id, user, method="PUT", write=True, need=Permission.DOSSIER_EDIT)
     return source
 
 

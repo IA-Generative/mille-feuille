@@ -26,6 +26,7 @@ from app.schemas.dossier import DossierCreate, DossierOut
 from app.schemas.pagination import Page
 from app.services.agent_dossier_files import AgentDossierFileIn, AgentDossierFilesIn
 from app.services.agent_dossier_files import add_agent_dossier_files as _add_dossier_files
+from app.services.permissions import Permission
 
 # Ce serveur MCP tourne dans le process du backend (mêmes repositories/DB
 # que /api/analyses, /api/dossiers et /api/agent-conversations, pas
@@ -264,7 +265,9 @@ async def run_dossier(dossier_id: str, conversation_id: str | None = None) -> di
 
         async def run():
             person = await _acting(db, identity)
-            await check_dossier_access(db, uuid.UUID(dossier_id), person, method="POST", write=True)
+            await check_dossier_access(
+                db, uuid.UUID(dossier_id), person, method="POST", write=True, need=Permission.DOSSIER_RUN
+            )
             dossier = await _launch_dossier(uuid.UUID(dossier_id), db, person)
             return _dossier_out(dossier)
 

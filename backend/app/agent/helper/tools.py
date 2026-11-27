@@ -28,6 +28,7 @@ from app.routers.dossiers import _creation_access, create_dossier_for, launch_do
 from app.routers.dossiers import _get_or_404 as get_dossier_or_404
 from app.schemas.analyse import AnalyseCreate
 from app.schemas.dossier import DossierCreate, DossierOut
+from app.services.permissions import Permission
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,9 @@ class HelperTools:
         try:
             async with async_session_factory() as db:
                 person = await context_for_user(db, self._acting_user)
-                await check_dossier_access(db, uuid.UUID(dossier_id), person, method="POST", write=True)
+                await check_dossier_access(
+                    db, uuid.UUID(dossier_id), person, method="POST", write=True, need=Permission.DOSSIER_RUN
+                )
                 dossier = DossierOut.model_validate(await launch_dossier_for(uuid.UUID(dossier_id), db, person))
         except ValueError:
             return "Erreur : identifiant de dossier invalide."
