@@ -16,7 +16,7 @@ const props = withDefaults(
     entities: EntityDefinition[];
     versions: Version<EntityDefinition[]>[];
     labels?: LabelDefinition[];
-    /** Lecture seule : seuls le créateur de l'analyse et les administrateurs modifient les entités. */
+    /** Lecture seule : le rôle de la personne ne permet pas de modifier les entités. */
     readonly?: boolean;
   }>(),
   { labels: () => [] },
@@ -217,7 +217,7 @@ function formatVersionContent(entities: EntityDefinition[]) {
     </div>
 
         <p v-if="readonly" class="fr-hint-text fr-mb-0">
-      Seuls le créateur de l'analyse et les administrateurs peuvent modifier les entités.
+      Votre rôle ne permet pas de modifier les entités.
     </p>
     <p v-else-if="!isDirty" class="fr-hint-text fr-mb-0">Aucune modification à enregistrer.</p>
 
