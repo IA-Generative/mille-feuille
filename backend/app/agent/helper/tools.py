@@ -18,6 +18,7 @@ from typing import Any
 
 from fastapi import HTTPException
 
+from app.core.analyse_guard import require_analyse
 from app.core.dossier_guard import check_dossier_access
 from app.core.security.acting_user import context_for_user
 from app.db import async_session_factory
@@ -82,7 +83,8 @@ class HelperTools:
 
     async def _analyses(self, *, page: int = 1, page_size: int = 20, q: str | None = None) -> str:
         async with async_session_factory() as db:
-            result = await list_analyses(db, page=page, page_size=page_size, q=q)
+            person = await context_for_user(db, self._acting_user)
+            result = await list_analyses(db, person, page=page, page_size=page_size, q=q)
         if not result.items:
             return "Aucune analyse trouvée."
         lines = [f"{result.total} analyse(s) :"]
@@ -103,6 +105,8 @@ class HelperTools:
         """Détail complet d'une analyse (labels, entités, prompts)."""
         try:
             async with async_session_factory() as db:
+                person = await context_for_user(db, self._acting_user)
+                await require_analyse(db, uuid.UUID(analyse_id), person)
                 analyse = await get_analyse(uuid.UUID(analyse_id), db)
         except ValueError:
             return "Erreur : identifiant d'analyse invalide."

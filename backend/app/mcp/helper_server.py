@@ -4,6 +4,7 @@ from typing import Any
 from fastapi import HTTPException
 from mcp.server.mcpserver import MCPServer
 
+from app.core.analyse_guard import require_analyse
 from app.core.dossier_guard import check_dossier_access
 from app.core.security.acting_user import context_for_user
 from app.core.security.factory import RequestContext
@@ -123,7 +124,8 @@ async def list_analyses(page: int = 1, page_size: int = 20, conversation_id: str
     async with async_session_factory() as db:
 
         async def run():
-            result = await _list_analyses(db, page=page, page_size=page_size, q=None)
+            person = await _acting(db, identity)
+            result = await _list_analyses(db, person, page=page, page_size=page_size, q=None)
             return result.model_dump(mode="json")
 
         return await _call_traced(db, identity, conversation_id, "list_analyses", arguments, run)
@@ -139,7 +141,8 @@ async def search_analyses(
     async with async_session_factory() as db:
 
         async def run():
-            result = await _list_analyses(db, page=page, page_size=page_size, q=q)
+            person = await _acting(db, identity)
+            result = await _list_analyses(db, person, page=page, page_size=page_size, q=q)
             return result.model_dump(mode="json")
 
         return await _call_traced(db, identity, conversation_id, "search_analyses", arguments, run)
@@ -153,6 +156,7 @@ async def get_analysis(analyse_id: str, conversation_id: str | None = None) -> d
     async with async_session_factory() as db:
 
         async def run():
+            await require_analyse(db, uuid.UUID(analyse_id), await _acting(db, identity))
             result = await _get_analyse(uuid.UUID(analyse_id), db)
             return result.model_dump(mode="json")
 

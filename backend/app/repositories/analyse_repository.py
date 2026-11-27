@@ -27,10 +27,12 @@ from app.models.document_template import DocumentTemplate, DocumentTemplateVersi
 from app.models.dossier import Dossier
 from app.models.dossier_event import DossierEventType
 from app.repositories.dossier_event_repository import DossierEventRepository
+from app.services.analyse_access import visible_analyses
 from app.services.due_date import normalize_thresholds
 from app.services.tools.ids import unique
 
 if TYPE_CHECKING:
+    from app.core.security.factory import RequestContext
     from app.schemas.analyse import AgentOut, AnalyseOut, CustomFieldsUpdate, DueSettingsIn, StatusDefinitionIn
 
 
@@ -135,9 +137,12 @@ class AnalyseRepository:
         q: str | None = None,
         theme_id: uuid.UUID | None = None,
         unthemed: bool = False,
+        user: "RequestContext | None" = None,
     ) -> tuple[Sequence[Analyse], int]:
         # Recherche utilisée par le tool search_analyses de l'agent helper (issue #50) en plus de la liste côté UI.
         filters = analyse_search_filters(q)
+        if user is not None:
+            filters.append(visible_analyses(user))
         if theme_id is not None:
             filters.append(Analyse.theme_id == theme_id)
         elif unthemed:

@@ -20,6 +20,7 @@ from .analyse import (
     StatusDefinition,
     VersionedField,
 )
+from .analyse_access import AnalyseAccessVersion, AnalyseGroup, AnalysePerson
 from .analyse_ephemere import AnalyseEphemere
 from .analyse_share import AnalyseShare, AnalyseShareKind
 from .analyse_theme import AnalyseTheme, AnalyseThemeVersion
@@ -132,6 +133,9 @@ __all__ = [
     "FieldStatus",
     "DocumentTemplateVersion",
     "AppUser",
+    "AnalyseAccessVersion",
+    "AnalyseGroup",
+    "AnalysePerson",
     "AccessVersion",
     "AppGroup",
     "AppGroupEvent",

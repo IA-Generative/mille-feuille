@@ -24,7 +24,7 @@ class WorkSlotRepository:
         result = await self.db.execute(
             select(WorkSlot)
             .join(Dossier, Dossier.id == WorkSlot.dossier_id)
-            .where(WorkSlot.user_id == user.user_id, visible_clause(user.is_admin, user.groups))
+            .where(WorkSlot.user_id == user.user_id, visible_clause(user))
             .order_by(WorkSlot.start_at, WorkSlot.id)
         )
         return result.scalars().all()

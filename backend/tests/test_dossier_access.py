@@ -34,9 +34,16 @@ def test_can_view_rule(is_admin, groups, visibility, has_analyse, dossier_groups
             visibility=visibility,
             has_analyse=has_analyse,
             dossier_groups=dossier_groups,
+            has_analyse_access=True,
         )
         is expected
     )
+
+
+def test_a_dossier_following_its_analyse_needs_access_to_it() -> None:
+    seen = dict(is_admin=False, groups=["/a"], visibility="analyse", has_analyse=True, dossier_groups=["/a"])
+    assert can_view(**seen, has_analyse_access=False) is False
+    assert can_view(**seen, has_analyse_access=True) is True
 
 
 def _create(client: TestClient, analyse: dict | None, **body) -> dict:

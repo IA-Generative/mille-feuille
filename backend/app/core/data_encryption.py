@@ -25,9 +25,11 @@ COLUMNS = [
     ("app_group_members", ("id",), "email"),
     ("app_group_events", ("id",), "actor_name"),
     ("app_group_events", ("id",), "subject_email"),
+    ("analyse_people", ("id",), "email"),
+    ("analyse_access_versions", ("id",), "content"),
 ]
 # Tables dont une adresse a son empreinte (colonnes `email` et `email_index`).
-INDEXED_EMAILS = [("app_users", "user_id"), ("app_group_members", "id")]
+INDEXED_EMAILS = [("app_users", "user_id"), ("app_group_members", "id"), ("analyse_people", "id")]
 # Contenus du journal qui nomment une personne.
 PEOPLE_EVENT_TYPE = "assignee_changed"
 PEOPLE_KEYS = ("from", "to")
