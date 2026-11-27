@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.78.0-rc](https://github.com/IA-Generative/mille-feuille/compare/v0.77.1...v0.78.0-rc) (2026-11-27)
+
+
+### Features
+
+* ajouter la maquette des groupes, rôles et accès aux analyses ([e14a520](https://github.com/IA-Generative/mille-feuille/commit/e14a52045647b015da3fe65e82041c05d7be2993))
+* chiffrer en base les noms et les e-mails des personnes ([ee28f5d](https://github.com/IA-Generative/mille-feuille/commit/ee28f5df237af8de63c0ed69ecf1309aab35b2c7))
+
 ## [0.77.1](https://github.com/IA-Generative/mille-feuille/compare/v0.77.0...v0.77.1) (2026-11-27)
 
 
