@@ -24,12 +24,12 @@ class DossierAccessRepository:
         result = await self.db.execute(
             select(DossierGroupAccess)
             .where(DossierGroupAccess.dossier_id == dossier_id)
-            .order_by(DossierGroupAccess.keycloak_group)
+            .order_by(DossierGroupAccess.group_id)
         )
         return result.scalars().all()
 
     async def group_paths(self, dossier_id: uuid.UUID) -> list[str]:
-        return [row.keycloak_group for row in await self.groups_of(dossier_id)]
+        return [row.group_id for row in await self.groups_of(dossier_id)]
 
     async def standing(self, dossier_id: uuid.UUID, user) -> str | None:
         """Position de la personne face au dossier : ``member`` (elle y a accès par la règle ordinaire),
@@ -65,7 +65,7 @@ class DossierAccessRepository:
     def add_groups(self, dossier_id: uuid.UUID, paths: Collection[str], granted_by: str | None) -> None:
         """Associe des groupes **sans valider** (dans la transaction de l'appelant)."""
         for path in sorted(set(paths)):
-            self.db.add(DossierGroupAccess(dossier_id=dossier_id, keycloak_group=path, granted_by=granted_by))
+            self.db.add(DossierGroupAccess(dossier_id=dossier_id, group_id=path, granted_by=granted_by))
 
     async def update(
         self,
@@ -100,7 +100,7 @@ class DossierAccessRepository:
         if removed:
             await self.db.execute(
                 delete(DossierGroupAccess).where(
-                    DossierGroupAccess.dossier_id == dossier.id, DossierGroupAccess.keycloak_group.in_(removed)
+                    DossierGroupAccess.dossier_id == dossier.id, DossierGroupAccess.group_id.in_(removed)
                 )
             )
         self.add_groups(dossier.id, added, granted_by)

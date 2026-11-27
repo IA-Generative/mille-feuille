@@ -545,7 +545,7 @@ class DossierCreate(BaseModel):
 class DossierGroupOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
-    path: str = Field(validation_alias="keycloak_group")
+    path: str = Field(validation_alias="group_id")
     granted_by: str | None
     created_at: datetime
 
