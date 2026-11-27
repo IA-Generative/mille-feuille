@@ -37,6 +37,7 @@ import BackLink from "@/components/BackLink.vue";
 import { useConversations } from "@/composables/useConversations";
 import { useDossiers } from "@/composables/useDossiers";
 import { useHelperAgent } from "@/composables/useHelperAgent";
+import { usePermissions } from "@/composables/usePermissions";
 import { useMyConversations } from "@/composables/useMyConversations";
 import type { FeedbackReasonCode, MessageExecution, QuestionAnswer } from "@/types/conversation";
 import {
@@ -49,6 +50,8 @@ import {
 const route = useRoute();
 const router = useRouter();
 const dossierId = String(route.params.id);
+// Ce que mes rôles permettent ici : les actions refusées sont masquées.
+const { can } = usePermissions("dossiers", () => dossierId);
 const { openHelper } = useHelperAgent();
 const {
   list: dossiers,
@@ -515,6 +518,7 @@ async function onDeleteConversation() {
           @update:model-value="onModelChange"
         />
         <button
+          v-if="can('dossier.edit')"
           type="button"
           class="dossier-detail__icon-button"
           aria-label="Ajouter des documents au dossier"
@@ -588,12 +592,16 @@ async function onDeleteConversation() {
       </div>
     </div>
     <DsfrAlert v-if="deleteError" alert type="error" small :description="deleteError" class="fr-my-2w" />
+    <p v-if="!can('dossier.edit')" class="fr-text--sm fr-my-1w" role="note">
+      Lecture seule : votre rôle ne permet pas de modifier ce dossier.
+    </p>
 
     <!-- Suggestions d'analyse pour les dossiers « à ranger » (issue #54) -->
     <div v-if="isUnassigned" class="dossier-detail__suggestions">
       <div class="dossier-detail__suggestions-header">
         <h2 class="fr-h3">Suggestions d'analyse</h2>
         <DsfrButton
+          v-if="can('dossier.run')"
           label="Générer les suggestions"
           icon="ri-lightbulb-flash-line"
           secondary
@@ -646,6 +654,7 @@ async function onDeleteConversation() {
           </div>
           <p class="fr-text--sm dossier-detail__suggestion-rationale">{{ suggestion.rationale }}</p>
           <DsfrButton
+            v-if="can('dossier.edit')"
             label="Rattacher cette analyse"
             icon="ri-link"
             size="sm"
@@ -678,7 +687,7 @@ async function onDeleteConversation() {
       :is-running="isChatRunning"
       :prefill="chatPrefill"
       page-composer
-      show-file-attach
+      :show-file-attach="can('dossier.edit')"
       intro-title="Alimenter l'analyse"
       intro-text="Posez une question ou ajoutez une note pour compléter ce dossier. Les résultats de l'analyse s'affichent ci-dessus."
       placeholder="Alimentez l'analyse avec un message..."
@@ -855,7 +864,7 @@ async function onDeleteConversation() {
 
       <div v-if="dossier.documents.length === 0">
         <p class="fr-text--sm dossier-details-modal__no-files">Aucun fichier pour l'instant.</p>
-        <DsfrButton label="Ajouter des documents" icon="ri-add-line" size="sm" secondary @click="openAddDocuments()" />
+        <DsfrButton v-if="can('dossier.edit')" label="Ajouter des documents" icon="ri-add-line" size="sm" secondary @click="openAddDocuments()" />
       </div>
       <DossierDocuments
         v-else

@@ -16,7 +16,7 @@ const props = defineProps<{
   analyseId: string;
   labels: LabelDefinition[];
   versions: Version<LabelDefinition[]>[];
-  /** Lecture seule : seuls le créateur de l'analyse et les administrateurs modifient les labels. */
+  /** Lecture seule : le rôle de la personne ne permet pas de modifier les labels. */
   readonly?: boolean;
 }>();
 const emit = defineEmits<{ save: [LabelDefinition[]]; restore: [string] }>();
@@ -182,7 +182,7 @@ function formatVersionContent(labels: LabelDefinition[]) {
     </div>
 
         <p v-if="readonly" class="fr-hint-text fr-mb-0">
-      Seuls le créateur de l'analyse et les administrateurs peuvent modifier les labels.
+      Votre rôle ne permet pas de modifier les labels.
     </p>
     <p v-else-if="!isDirty" class="fr-hint-text fr-mb-0">Aucune modification à enregistrer.</p>
 

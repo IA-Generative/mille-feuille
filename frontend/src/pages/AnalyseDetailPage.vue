@@ -11,7 +11,7 @@ import DeleteAnalyseModal from "@/components/analyses/DeleteAnalyseModal.vue";
 import BackLink from "@/components/BackLink.vue";
 import AnalyseAccessModal from "@/components/groups/AnalyseAccessModal.vue";
 import { useAuth } from "@/composables/useAuth";
-import { useCanManageAnalyse } from "@/composables/useCanManageAnalyse";
+import { usePermissions } from "@/composables/usePermissions";
 import { GUIDE_QUERY, guideStartRoute, guideSteps as allGuideSteps, visibleGroups } from "@/pages/analyse/analyseGroups";
 
 const route = useRoute();
@@ -21,9 +21,9 @@ const { isAdmin } = useAuth();
 
 const analyse = computed(() => getById(String(route.params.id)));
 
-// Modifier / supprimer : le créateur et les administrateurs (le backend reste juge).
-const canManageAnalyse = useCanManageAnalyse();
-const canManage = computed(() => (analyse.value ? canManageAnalyse(analyse.value.createdBy) : false));
+// Configurer, modifier, supprimer : selon mes rôles (le serveur reste juge).
+const { can, loaded } = usePermissions("analyses", () => String(route.params.id));
+const canManage = computed(() => loaded.value && can("analyse.configure"));
 const isEditing = ref(false);
 const isDeleting = ref(false);
 const isAccessOpened = ref(false);
@@ -108,6 +108,7 @@ async function quitGuide() {
         </div>
       </div>
     </div>
+    <p v-if="loaded && !canManage" class="fr-text--sm" role="note">Lecture seule : votre rôle ne permet pas de configurer cette analyse.</p>
     <div class="analyse-detail__actions">
       <AnalyseThemeSelect :analyse="analyse" :editable="canManage" class="analyse-detail__theme" />
       <DsfrButton
