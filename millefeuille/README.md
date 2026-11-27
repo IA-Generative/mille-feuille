@@ -1,6 +1,6 @@
 # millefeuille
 
-![Version: 0.74.1](https://img.shields.io/badge/Version-0.74.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.77.1](https://img.shields.io/badge/AppVersion-0.77.1-informational?style=flat-square)
+![Version: 0.75.0-rc](https://img.shields.io/badge/Version-0.75.0--rc-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: 0.78.0-rc](https://img.shields.io/badge/AppVersion-0.78.0--rc-informational?style=flat-square)
 
 A Helm chart to deploy millefeuille.
 
