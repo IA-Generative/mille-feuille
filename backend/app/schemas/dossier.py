@@ -873,6 +873,8 @@ class DossierOut(BaseModel):
     # La personne peut-elle supprimer ce dossier (administrateur, ou celle qui l'a créé) ? Calculé par la route de
     # lecture d'un dossier ; absent ailleurs (listes, flux).
     can_delete: bool | None = None
+    # Ce que les rôles de la personne permettent sur ce dossier (#664) : liste et lecture ; absent des flux.
+    permissions: list[str] | None = None
     summary_status: SummaryStatus
     summary_error: str | None
     # Dernier résumé global du dossier (le plus récent), ou None.
