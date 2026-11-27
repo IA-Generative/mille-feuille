@@ -9,6 +9,7 @@ import AnalyseIdentityModal from "@/components/analyses/AnalyseIdentityModal.vue
 import AnalyseThemeSelect from "@/components/analyses/AnalyseThemeSelect.vue";
 import DeleteAnalyseModal from "@/components/analyses/DeleteAnalyseModal.vue";
 import BackLink from "@/components/BackLink.vue";
+import AnalyseAccessModal from "@/components/groups/AnalyseAccessModal.vue";
 import { useAuth } from "@/composables/useAuth";
 import { useCanManageAnalyse } from "@/composables/useCanManageAnalyse";
 import { GUIDE_QUERY, guideStartRoute, guideSteps as allGuideSteps, visibleGroups } from "@/pages/analyse/analyseGroups";
@@ -25,6 +26,7 @@ const canManageAnalyse = useCanManageAnalyse();
 const canManage = computed(() => (analyse.value ? canManageAnalyse(analyse.value.createdBy) : false));
 const isEditing = ref(false);
 const isDeleting = ref(false);
+const isAccessOpened = ref(false);
 const guideButton = ref<{ $el: HTMLElement } | null>(null);
 
 async function onDeleted() {
@@ -117,8 +119,12 @@ async function quitGuide() {
         size="sm"
         @click="startGuide"
       />
+      <!-- Maquette des accès par groupe (#657) : super admins seulement. -->
+      <DsfrButton v-if="isAdmin" label="Accès (maquette)" icon="ri-group-line" tertiary size="sm" @click="isAccessOpened = true" />
       <DsfrButton v-if="canManage" label="Modifier l'analyse" icon="ri-edit-line" tertiary size="sm" @click="isEditing = true" />
     </div>
+
+    <AnalyseAccessModal v-if="isAdmin" :opened="isAccessOpened" :analyse-id="analyse.id" @close="isAccessOpened = false" />
 
     <template v-if="canManage">
       <AnalyseIdentityModal v-model:opened="isEditing" :analyse="analyse" @delete="askDelete" />
