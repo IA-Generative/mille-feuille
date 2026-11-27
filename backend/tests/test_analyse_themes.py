@@ -104,7 +104,8 @@ def test_deleting_a_theme_keeps_its_analyses(client: TestClient) -> None:
     assert client.get(f"/api/analyses/{analyse['id']}").json()["theme_id"] is None
 
 
-def test_only_the_creator_or_an_administrator_moves_an_analyse(client: TestClient, world: dict) -> None:
+def test_moving_an_analyse_needs_the_permission(client: TestClient, world: dict, without_role) -> None:
+    without_role(world["bob"].user_id)
     theme = make_theme(client)
     with As(world["alice"]):
         analyse = make_analyse(client)

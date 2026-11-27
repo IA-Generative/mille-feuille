@@ -5,7 +5,9 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
+from app.core.security.factory import RequestContext
 from app.main import app
+from app.services.permissions import Permission
 
 # Clés de chiffrement des tests, construites ici : aucune clé écrite dans le dépôt. Lues à la première utilisation.
 os.environ.setdefault("ENCRYPTION_KEYS", f"test:{base64.b64encode(bytes(32)).decode()}")
@@ -66,9 +68,10 @@ pytest_plugins = ["tests.access_support", "tests.tool_support"]
 
 @pytest.fixture(autouse=True)
 def open_analyses(monkeypatch: pytest.MonkeyPatch) -> None:
-    """La plupart des tests portent sur autre chose que l'accès aux analyses : pour eux, chaque identité voit toutes les
-    analyses et peut en créer. La vraie règle (#662) se teste dans test_analyse_access.py, qui neutralise ce préalable
-    en redéfinissant cette fixture."""
+    """La plupart des tests portent sur autre chose que les droits : pour eux, chaque identité voit toutes les
+    analyses, peut en créer et a toutes les permissions. Les vraies règles (#662, #664) se testent dans
+    test_analyse_access.py et test_role_permissions.py, qui neutralisent ce préalable en redéfinissant cette
+    fixture."""
     from sqlalchemy import true
 
     for module in ("app.services.analyse_access", "app.services.dossier_access"):
@@ -78,3 +81,25 @@ def open_analyses(monkeypatch: pytest.MonkeyPatch) -> None:
         return list(user.groups) or ["/dev-tests"]
 
     monkeypatch.setattr("app.services.analyse_creation.groups_allowing", any_group)
+
+    # Les rôles (#664) : de même, chaque identité peut tout sur ce qu'elle voit.
+    async def everything(*args, **kwargs):
+        return set(Permission)
+
+    for name in ("group_permissions", "analyse_permissions", "dossier_permissions"):
+        monkeypatch.setattr(f"app.services.role_permissions.{name}", everything)
+
+
+@pytest.fixture
+def without_role(monkeypatch: pytest.MonkeyPatch):
+    """Retire tout rôle aux personnes désignées, les autres gardant tout : pour vérifier qu'une route refuse."""
+
+    def apply(*user_ids: str) -> None:
+        async def granted(*args, **kwargs):
+            user = next(argument for argument in args if isinstance(argument, RequestContext))
+            return set() if user.user_id in user_ids else set(Permission)
+
+        for name in ("group_permissions", "analyse_permissions", "dossier_permissions"):
+            monkeypatch.setattr(f"app.services.role_permissions.{name}", granted)
+
+    return apply

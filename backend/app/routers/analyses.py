@@ -89,18 +89,6 @@ async def _definitions_or_422(operation) -> None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(error)) from error
 
 
-def _require_can_manage(
-    analyse: Analyse,
-    user: RequestContext,
-    detail: str = "Seuls le créateur de l'analyse et les administrateurs peuvent la modifier ou la supprimer.",
-) -> None:
-    """Modifier le nom et la description, restaurer une version, supprimer, gérer les partages : le créateur de
-    l'analyse et les administrateurs. Une analyse sans créateur connu n'est gérée que par les administrateurs."""
-    if user.is_admin or (analyse.created_by is not None and analyse.created_by == user.user_id):
-        return
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
-
-
 async def _validated_tools(
     db: AsyncSession, user: RequestContext, tool_ids: list[str], *, already: list[str] | None = None
 ) -> list[str]:
@@ -193,7 +181,6 @@ async def update_analyse(
     de l'analyse, pas le nom."""
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(analyse, user)
     await repository.update_identity(analyse, name=body.name, description=body.description)
     return repository.to_schema(analyse)
 
@@ -203,7 +190,6 @@ async def _restore_identity(
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(analyse, user)
     version = repository.identity_version(analyse, field, version_id)
     if version is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version introuvable")
@@ -255,7 +241,6 @@ async def update_analyse_theme(
     """Range l'analyse dans un thème, ou aucun (le créateur et les administrateurs)."""
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(analyse, user)
     theme = await _theme_or_404(db, body.theme_id) if body.theme_id else None
     await repository.update_theme(analyse, theme)
     return repository.to_schema(await _get_or_404(repository, analyse_id))
@@ -271,7 +256,6 @@ async def restore_theme_assignment(
     """Remet l'analyse dans un thème précédent ; 404 si ce thème a été supprimé depuis."""
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(analyse, user)
     version = repository.identity_version(analyse, VersionedField.THEME, version_id)
     if version is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Version introuvable")
@@ -291,7 +275,6 @@ async def delete_analyse(
     Refusée (409) tant qu'elle a des dossiers : on ne perd jamais un dossier par ce chemin."""
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(analyse, user)
     dossier_count = await db.scalar(select(func.count()).select_from(Dossier).where(Dossier.analyse_id == analyse_id))
     if dossier_count:
         raise HTTPException(
@@ -365,7 +348,6 @@ async def update_classification_labels(
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(analyse, user)
     labels = [LabelDefinition(id=lbl.id, name=lbl.name, definition=lbl.definition) for lbl in body.labels]
     await _definitions_or_422(repository.update_classification_labels(analyse, labels))
     return repository.to_schema(analyse)
@@ -383,7 +365,6 @@ async def restore_classification_labels(
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(analyse, user)
     await _definitions_or_422(
         repository.restore_field_version(analyse, VersionedField.CLASSIFICATION_LABELS, version_id)
     )
@@ -434,7 +415,6 @@ async def add_label_examples(
     """Ajoute des documents d'exemple au label (PDF, PNG, JPEG ou WebP, 10 Mo au plus, 10 par label). Tout ou rien :
     un fichier refusé n'en laisse entrer aucun."""
     analyse = await _get_or_404(AnalyseRepository(db), analyse_id)
-    _require_can_manage(analyse, user)
     label = _label_or_404(analyse, label_id)
     if len(label.examples) + len(files) > MAX_EXAMPLES_PER_LABEL:
         raise HTTPException(
@@ -504,7 +484,6 @@ async def delete_label_example(
     """Retire un exemple. Les zones tracées dessus gardent leur rectangle mais ne désignent plus d'exemple."""
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(analyse, user)
     example = _example_or_404(_label_or_404(analyse, label_id), example_id)
     repository.forget_examples_in_zones(analyse, {example.id})
     key = example.s3_key
@@ -547,7 +526,6 @@ async def update_extraction_entities(
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(analyse, user)
     entities = [
         EntityInput(
             id=ent.id,
@@ -573,7 +551,6 @@ async def restore_extraction_entities(
 ) -> AnalyseOut:
     repository = AnalyseRepository(db)
     analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(analyse, user)
     await _definitions_or_422(repository.restore_field_version(analyse, VersionedField.EXTRACTION_ENTITIES, version_id))
     return repository.to_schema(analyse)
 
@@ -861,18 +838,6 @@ async def restore_agent_model(
 # --- Partage ---
 
 
-async def _get_shareable_or_error(
-    repository: AnalyseRepository, analyse_id: uuid.UUID, user: RequestContext
-) -> Analyse:
-    """Un partage ouvre l'analyse à d'autres et sa liste contient des e-mails : le créateur et les administrateurs
-    seulement."""
-    analyse = await _get_or_404(repository, analyse_id)
-    _require_can_manage(
-        analyse, user, "Seuls le créateur de l'analyse et les administrateurs peuvent gérer ses partages."
-    )
-    return analyse
-
-
 @router.get("/{analyse_id}/shares", response_model=Page[AnalyseShareOut])
 async def list_shares(
     analyse_id: uuid.UUID,
@@ -882,7 +847,7 @@ async def list_shares(
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> Page[AnalyseShareOut]:
     repository = AnalyseRepository(db)
-    await _get_shareable_or_error(repository, analyse_id, user)
+    await _get_or_404(repository, analyse_id)
     shares, total = await repository.list_shares_paginated(analyse_id=analyse_id, page=page, page_size=page_size)
     return Page.of(list(shares), total=total, page=page, page_size=page_size)
 
@@ -899,7 +864,7 @@ async def create_share(
     user: Annotated[RequestContext, Depends(get_current_user)],
 ):
     repository = AnalyseRepository(db)
-    analyse = await _get_shareable_or_error(repository, analyse_id, user)
+    analyse = await _get_or_404(repository, analyse_id)
 
     if body.kind == AnalyseShareKind.EMAIL:
         if not body.email:
@@ -927,7 +892,7 @@ async def revoke_share(
     user: Annotated[RequestContext, Depends(get_current_user)],
 ):
     repository = AnalyseRepository(db)
-    await _get_shareable_or_error(repository, analyse_id, user)
+    await _get_or_404(repository, analyse_id)
     share = await repository.get_share_by_id(analyse_id, share_id)
     if share is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Partage introuvable")

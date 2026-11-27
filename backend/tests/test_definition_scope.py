@@ -322,7 +322,8 @@ def _restore_identity() -> None:
     app.dependency_overrides.pop(get_current_user, None)
 
 
-def test_only_the_creator_and_admins_can_change_labels_entities_and_examples(client: TestClient) -> None:
+def test_changing_labels_entities_and_examples_needs_the_permission(client: TestClient, without_role) -> None:
+    without_role(_person("autre").user_id)
     creator, stranger, admin = _person("createur"), _person("autre"), _person("admin", admin=True)
     try:
         _as(creator)
