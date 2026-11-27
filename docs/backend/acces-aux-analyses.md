@@ -29,5 +29,5 @@ Les anciens partages d'analyse **par groupe** deviennent les premiers accès. **
 
 ## Limites
 
-- Le rôle d'une personne ajoutée est enregistré mais **pas encore appliqué** (#664).
+- Le rôle d'une personne ajoutée s'applique à l'analyse et à ses dossiers ([permissions](groupes-et-roles.md)).
 - Retirer un accès à une analyse ne désaffecte pas la personne d'un dossier : elle ne le voit simplement plus.
