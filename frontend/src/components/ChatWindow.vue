@@ -30,6 +30,9 @@
  * - `composer-extra` : contenu supplémentaire avant le composer (ex: chips
  *   de fichiers en attente).
  *
+ * Exposé :
+ * - `showMessage(id)` : place la discussion sur un message déjà chargé et le met en évidence.
+ *
  * Events :
  * - `submit` : émis avec le texte saisi quand l'utilisateur envoie.
  * - `attach-files` : émis avec les fichiers sélectionnés (si showFileAttach).
@@ -378,6 +381,7 @@ function submit() {
   const content = draft.value.trim();
   if (!content || props.isRunning) return;
   following = true;
+  foundId.value = null;
   emit("submit", content);
   draft.value = "";
   nextTick(resizeTextarea);
@@ -392,7 +396,27 @@ onMounted(() => {
   }
 });
 
-defineExpose({ resizeTextarea });
+// Le message où la recherche a mené : mis en évidence jusqu'au prochain envoi.
+const foundId = ref<string | null>(null);
+
+async function showMessage(messageId: string): Promise<boolean> {
+  // Après une image affichée : le défilement automatique vers le bas, déclenché par le chargement, est passé.
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  const element = Array.from(contentRef.value?.querySelectorAll<HTMLElement>("[data-message-id]") ?? []).find(
+    (el) => el.dataset.messageId === messageId,
+  );
+  if (!element) return false;
+  following = false;
+  foundId.value = messageId;
+  await nextTick();
+  // Un message plus haut que l'écran se lit depuis son début.
+  element.scrollIntoView({ block: element.offsetHeight > window.innerHeight / 2 ? "start" : "center" });
+  element.focus({ preventScroll: true });
+  updateAtBottom();
+  return true;
+}
+
+defineExpose({ resizeTextarea, showMessage });
 </script>
 
 <template>
@@ -432,8 +456,14 @@ defineExpose({ resizeTextarea });
           v-for="message in messages"
           :key="message.id"
           class="chat-message"
-          :class="{ 'chat-message--assistant': message.role === 'assistant' }"
+          :class="{
+            'chat-message--assistant': message.role === 'assistant',
+            'chat-message--found': message.id === foundId,
+          }"
+          :data-message-id="message.id"
+          :tabindex="message.id === foundId ? -1 : undefined"
         >
+          <span v-if="message.id === foundId" class="fr-sr-only">Message trouvé par la recherche</span>
           <div class="chat-message__bubble">
             <p v-if="agentOf(message)" class="chat-message__agent">
               <VIcon name="ri-robot-2-line" aria-hidden="true" />
@@ -587,6 +617,15 @@ defineExpose({ resizeTextarea });
 </template>
 
 <style scoped>
+/* Un trait en plus du fond : la couleur n'est pas le seul signal. */
+.chat-message--found {
+  border-radius: 0.75rem;
+  background: var(--background-alt-blue-france);
+  box-shadow: inset 3px 0 0 var(--border-action-high-blue-france);
+  padding: 0.5rem 0.75rem;
+  scroll-margin: 5rem 0;
+}
+
 /* Style repris de Muffin (frontend/src/components/ChatWindow.vue et
    ChatMessage.vue) : colonne centrée, bulle grise arrondie à droite,
    composer en pilule arrondie avec textarea auto-agrandissante. */

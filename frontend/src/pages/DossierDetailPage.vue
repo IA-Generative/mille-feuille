@@ -69,6 +69,7 @@ const {
   hasMoreMessages,
   isLoadingMore,
   loadOlderMessages,
+  loadUntil,
   ensureConversation,
   sendMessage,
   decideToolCalls,
@@ -307,6 +308,23 @@ onMounted(async () => {
   await loadDocumentSources();
   closeStream = streamDossier(dossierId, () => {});
 });
+
+// Arrivée depuis la recherche dans les conversations (`?message=<id>`) : on remonte jusqu'au message et on le montre.
+// Le paramètre est ensuite retiré, pour qu'un nouveau clic sur le même résultat y ramène.
+const chatRef = ref<InstanceType<typeof ChatWindow> | null>(null);
+watch(
+  [() => route.query.message, chatRef],
+  async ([messageId, chat]) => {
+    if (typeof messageId !== "string" || !chat) return;
+    const stillWanted = () => String(route.params.id) === dossierId && route.query.message === messageId;
+    const found = await loadUntil(messageId);
+    if (found && stillWanted()) await chat.showMessage(messageId);
+    if (!stillWanted()) return;
+    const { message: _shown, ...query } = route.query;
+    await router.replace({ query });
+  },
+  { immediate: true, flush: "post" },
+);
 
 onUnmounted(() => {
   closeStream?.();
@@ -650,6 +668,7 @@ async function onDeleteConversation() {
     <DsfrAlert v-if="relaunchError" alert type="error" :description="relaunchError" small class="fr-mb-2w" />
 
     <ChatWindow
+      ref="chatRef"
       :messages="messages"
       :has-more="hasMoreMessages"
       :loading-more="isLoadingMore"

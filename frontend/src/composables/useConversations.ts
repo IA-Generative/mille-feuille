@@ -95,6 +95,8 @@ function mapMessage(api: any): Message {
 }
 
 const MESSAGES_PAGE_SIZE = 20;
+// Pour remonter jusqu'à un message ancien : les plus grandes pages que l'API accepte.
+const CATCH_UP_PAGE_SIZE = 100;
 
 function mapConversation(api: any): Conversation {
   return {
@@ -120,8 +122,8 @@ export function useConversations(dossierId: string) {
   const messagesUrl = (conversationId: string) =>
     `/api/dossiers/${dossierId}/conversations/${conversationId}/messages`;
 
-  const fetchMessagesPage = async (conversationId: string, before?: string) => {
-    const query = new URLSearchParams({ limit: String(MESSAGES_PAGE_SIZE) });
+  const fetchMessagesPage = async (conversationId: string, before?: string, limit = MESSAGES_PAGE_SIZE) => {
+    const query = new URLSearchParams({ limit: String(limit) });
     if (before) query.set("before", before);
     const data = await apiFetch<{ items: any[]; has_more: boolean }>(
       `${messagesUrl(conversationId)}?${query.toString()}`,
@@ -142,8 +144,9 @@ export function useConversations(dossierId: string) {
   let pending: Promise<Conversation> | undefined;
 
   const ensureConversation = async (): Promise<Conversation> => {
-    if (conversation.value) return conversation.value;
+    // `pending` d'abord : la conversation est connue avant que ses messages soient chargés.
     if (pending) return pending;
+    if (conversation.value) return conversation.value;
 
     pending = (async () => {
       const existing = await listConversations();
@@ -201,19 +204,36 @@ export function useConversations(dossierId: string) {
     }
   };
 
-  // Charge la page de messages plus anciens (défilement vers le haut).
-  const loadOlderMessages = async () => {
+  // Un seul chargement de messages anciens à la fois : le suivant attend celui en cours.
+  let loadingOlder: Promise<void> | undefined;
+
+  const prependOlder = (limit: number): Promise<void> => {
     const current = conversation.value;
     const oldest = messages.value[0];
-    if (!current || !oldest || !hasMoreMessages.value || isLoadingMore.value) return;
+    if (!current || !oldest || !hasMoreMessages.value) return Promise.resolve();
     isLoadingMore.value = true;
-    try {
-      const page = await fetchMessagesPage(current.id, oldest.id);
+    loadingOlder = (async () => {
+      const page = await fetchMessagesPage(current.id, oldest.id, limit);
       messages.value = [...page.items, ...messages.value];
       hasMoreMessages.value = page.hasMore;
-    } finally {
+    })().finally(() => {
       isLoadingMore.value = false;
+      loadingOlder = undefined;
+    });
+    return loadingOlder;
+  };
+
+  // Charge la page de messages plus anciens (défilement vers le haut).
+  const loadOlderMessages = () => loadingOlder ?? prependOlder(MESSAGES_PAGE_SIZE);
+
+  // Remonte dans la discussion jusqu'à ce que ce message soit chargé. Faux s'il n'y est pas (supprimé).
+  const loadUntil = async (messageId: string): Promise<boolean> => {
+    await ensureConversation();
+    const loaded = () => messages.value.some((m) => m.id === messageId);
+    while (!loaded() && hasMoreMessages.value) {
+      await (loadingOlder ?? prependOlder(CATCH_UP_PAGE_SIZE));
     }
+    return loaded();
   };
 
   // SSE : s'abonne au flux d'événements de chat (tool_call, tool_result,
@@ -308,6 +328,7 @@ export function useConversations(dossierId: string) {
     hasMoreMessages,
     isLoadingMore,
     loadOlderMessages,
+    loadUntil,
     ensureConversation,
     sendMessage,
     decideToolCalls,
