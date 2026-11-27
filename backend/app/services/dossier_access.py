@@ -40,7 +40,7 @@ def visible_clause(is_admin: bool, groups: Collection[str]) -> ColumnElement[boo
         exists(
             select(1).where(
                 DossierGroupAccess.dossier_id == Dossier.id,
-                DossierGroupAccess.keycloak_group.in_(list(groups)),
+                DossierGroupAccess.group_id.in_(list(groups)),
             )
         )
         if groups

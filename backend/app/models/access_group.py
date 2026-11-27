@@ -27,6 +27,8 @@ class AppGroup(UUIDMixin, TimestampMixin, Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="", server_default="")
     created_by: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Chemin du groupe Keycloak dont ce groupe est la reprise (issue #663).
+    keycloak_path: Mapped[str | None] = mapped_column(String, nullable=True)
 
     versions: Mapped[list["AccessVersion"]] = relationship(
         cascade="all, delete-orphan", order_by="AccessVersion.created_at.desc()", lazy="selectin"

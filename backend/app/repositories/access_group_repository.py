@@ -102,7 +102,7 @@ class AccessGroupRepository:
         key = str(group_id)
         for query in (
             select(AppGroupMember.id).where(AppGroupMember.group_id == group_id),
-            select(DossierGroupAccess.dossier_id).where(DossierGroupAccess.keycloak_group == key),
+            select(DossierGroupAccess.dossier_id).where(DossierGroupAccess.group_id == key),
             select(ToolServer.id).where(ToolServer.groups.has_any(array([key]))),
             select(KnowledgeSource.id).where(KnowledgeSource.groups.has_any(array([key]))),
             select(AnalyseShare.id).where(AnalyseShare.keycloak_group == key),

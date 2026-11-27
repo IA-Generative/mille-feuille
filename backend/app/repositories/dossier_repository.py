@@ -215,9 +215,7 @@ class DossierRepository:
         await self.db.flush()  # donne son identifiant au dossier, que l'événement référence
         for path in sorted(set(group_paths)):
             self.db.add(
-                DossierGroupAccess(
-                    dossier_id=dossier.id, keycloak_group=path, granted_by=getattr(actor, "user_id", None)
-                )
+                DossierGroupAccess(dossier_id=dossier.id, group_id=path, granted_by=getattr(actor, "user_id", None))
             )
         self.events.add(
             dossier.id,
