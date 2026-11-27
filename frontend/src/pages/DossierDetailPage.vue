@@ -503,7 +503,7 @@ async function onDeleteConversation() {
         />
         <!-- Échéance (#172) : niveau et couleur calculés par le serveur selon les seuils de l'analyse. -->
         <DueDatePicker
-          v-if="!isUnassigned"
+          v-if="!isUnassigned && can('dossier.edit')"
           :due-at="dossier.dueAt"
           :due="dossier.due"
           :busy="dueBusy"
@@ -874,7 +874,9 @@ async function onDeleteConversation() {
         @add="openAddDocuments()"
         @change-source="onChangeDocumentSource"
       />
-      <DossierSearchIndexCard :dossier-id="dossier.id" />
+      <fieldset class="read-only-zone" :disabled="!can('dossier.run')">
+        <DossierSearchIndexCard :dossier-id="dossier.id" />
+      </fieldset>
     </AppModal>
 
     <FeedbackReasonsModal v-model:opened="feedbackReasonsModalOpened" @submit="submitDownFeedback" />
@@ -1047,5 +1049,15 @@ async function onDeleteConversation() {
 .dossier-detail__suggestion-rationale {
   margin: 0;
   color: var(--text-default-grey);
+}
+</style>
+
+<style scoped>
+/* Un fieldset sert à désactiver une zone entière : il ne doit rien changer à la mise en page. */
+.read-only-zone {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
 }
 </style>

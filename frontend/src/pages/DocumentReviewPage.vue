@@ -12,11 +12,13 @@ import DraftFieldCard from "@/components/documents/DraftFieldCard.vue";
 import FieldHistoryModal from "@/components/documents/FieldHistoryModal.vue";
 import PdfPreview from "@/components/documents/PdfPreview.vue";
 import BackLink from "@/components/BackLink.vue";
+import { usePermissions } from "@/composables/usePermissions";
 import { draftErrorMessage, incompleteFieldsFrom, useDocumentDrafts } from "@/composables/useDocumentDrafts";
 import type { DocumentDraft, DraftField, FieldValue, FieldVersion, GeneratedDocument } from "@/types/documentDraft";
 
 const route = useRoute();
 const dossierId = String(route.params.id);
+const { can } = usePermissions("dossiers", () => dossierId);
 const draftId = String(route.params.draftId);
 const api = useDocumentDrafts(dossierId);
 
@@ -75,7 +77,7 @@ async function run(work: () => Promise<unknown>, success = "") {
   }
 }
 
-const editable = computed(() => draft.value?.status === "brouillon" && !busy.value);
+const editable = computed(() => draft.value?.status === "brouillon" && !busy.value && can("dossier.generate"));
 const generating = computed(() => draft.value?.generationStatus === "en_cours");
 const labelOf = (name: string) => draft.value?.fields.find((f) => f.name === name)?.label ?? name;
 
@@ -225,7 +227,7 @@ async function generateDocument(confirm = false) {
           :disabled="!editable || generating"
           @click="proposeValues"
         />
-        <DsfrButton label="Valider les propositions" tertiary :disabled="!editable || proposedCount === 0" @click="validateAll" />
+        <DsfrButton label="Valider les propositions" tertiary :disabled="!editable || proposedCount === 0 || !can('dossier.validate')" @click="validateAll" />
         <DsfrButton label="Générer le document" icon="ri-file-word-2-line" :disabled="!editable" @click="generateDocument(false)" />
       </div>
 
