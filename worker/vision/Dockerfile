@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM python:3.12-slim AS builder
+FROM python:3.15-slim AS builder
 WORKDIR /app
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 COPY pyproject.toml uv.lock* ./
@@ -8,7 +8,7 @@ RUN uv sync --no-dev --no-install-project
 COPY app ./app
 RUN uv sync --no-dev
 
-FROM python:3.12-slim AS runtime
+FROM python:3.15-slim AS runtime
 # pip est un outil de build : l'image d'exécution n'installe rien, et le pip livré avec l'image de base porte des CVE
 # connues. Retiré plutôt que mis à jour, il n'y a rien à maintenir.
 RUN python -m pip uninstall -y pip
