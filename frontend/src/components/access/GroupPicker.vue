@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { computed, useId } from "vue";
+import { computed, useId, watch } from "vue";
 
-import { groupLabel } from "@/types/access";
+import { isGroupId, useGroupNames } from "@/composables/useGroupNames";
 
 // Choix de groupes parmi ceux de l'utilisateur (on ne peut associer qu'un
 // groupe dont on est membre). Les groupes déjà associés mais hors des
@@ -9,6 +9,12 @@ import { groupLabel } from "@/types/access";
 const selected = defineModel<string[]>({ required: true });
 const props = defineProps<{ options: string[]; legend: string; hint?: string; disabled?: boolean; error?: string | null; required?: boolean }>();
 const baseId = useId();
+const { resolve, nameOf } = useGroupNames();
+watch(
+  () => [...props.options, ...selected.value],
+  (keys) => resolve(keys),
+  { immediate: true },
+);
 
 const isMember = (g: string) => props.options.includes(g);
 
@@ -16,8 +22,9 @@ const groups = computed(() =>
   [...new Set([...props.options, ...selected.value])].map((group, index) => ({
     group,
     id: `${baseId}-${index}`,
-    label: groupLabel(group),
-    hint: isMember(group) ? group : `${group} · vous n'en êtes pas membre`,
+    label: nameOf(group),
+    // Un identifiant ne dit rien à personne : seul un ancien chemin est affiché à côté du nom.
+    hint: [isGroupId(group) ? "" : group, isMember(group) ? "" : "vous n'en êtes pas membre"].filter(Boolean).join(" · "),
   })),
 );
 </script>

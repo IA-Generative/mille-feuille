@@ -4,11 +4,11 @@ import { computed, onMounted, ref, watch } from "vue";
 import GroupPicker from "@/components/access/GroupPicker.vue";
 import AppModal from "@/components/AppModal.vue";
 import ErrorList from "@/components/ErrorList.vue";
+import { isGroupId, useGroupNames } from "@/composables/useGroupNames";
 import { useDossierAccess } from "@/composables/useDossierAccess";
 import {
   VISIBILITY_HINTS,
   VISIBILITY_LABELS,
-  groupLabel,
   type AccessImpact,
   type DossierAccess,
   type DossierAccessState,
@@ -23,6 +23,7 @@ const props = defineProps<{ dossierId: string; dossierName: string }>();
 const emit = defineEmits<{ close: []; saved: [message: string] }>();
 
 const { fetchAccess, previewAccess, saveAccess } = useDossierAccess();
+const { resolve, nameOf } = useGroupNames();
 
 const state = ref<DossierAccessState | null>(null);
 const loadError = ref("");
@@ -32,6 +33,8 @@ const impact = ref<AccessImpact | null>(null);
 const confirmed = ref(false);
 const saving = ref(false);
 const saveError = ref("");
+
+watch(state, (loaded) => loaded && resolve(loaded.groups));
 
 const canEdit = computed(() => state.value?.canEdit ?? false);
 const draft = computed<DossierAccess>(() => ({ visibility: visibility.value, groups: groups.value }));
@@ -155,7 +158,7 @@ const visibilityOptions: Visibility[] = ["restricted", "analyse"];
       <h3 id="am-groups" class="am__legend">Groupes associés</h3>
       <ul>
         <li v-for="g in state.details" :key="g.path">
-          <span>{{ groupLabel(g.path) }}</span> <span class="am__hint">({{ g.path }})</span>{{ " " }}
+          <span>{{ nameOf(g.path) }}</span>{{ " " }}<span v-if="!isGroupId(g.path)" class="am__hint">({{ g.path }})</span>{{ " " }}
           <span class="am__hint">— ajouté le {{ dateLabel(g.grantedAt) }}</span>
         </li>
       </ul>
