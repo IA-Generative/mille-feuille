@@ -5,12 +5,9 @@ import { reactive, ref } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
 
 import CriteriaEditor from "@/components/crossSearch/CriteriaEditor.vue";
-import { MOCK_DOSSIERS, MOCK_ITEMS } from "@/composables/mockCrossSearch";
-import { allOfKind } from "@/composables/mockEntityCatalog";
-import { mockResemblances, useResemblances } from "@/composables/useResemblances";
 import CrossSearchPage from "@/pages/CrossSearchPage.vue";
 import { mockApi } from "@/test/mockApi";
-import { SHARED_KINDS, type CrossSearchResult, type RuleCriterion } from "@/types/crossSearch";
+import { SHARED_KINDS, type CrossSearchResult, type Resemblance, type RuleCriterion } from "@/types/crossSearch";
 import { ApiError } from "@/utils/api";
 import { layoutClusters } from "@/utils/clusterLayout";
 import { buildLinkGraph, highlightOf, restrictToKinds } from "@/utils/linkGraph";
@@ -69,12 +66,22 @@ const sharedAddress = {
 const FOUND = { dossiers: [dossier("a", "Camille"), dossier("b", "Sacha")], total: 2, items: [sharedAddress] };
 const LINKS = { anchor_ids: ["a"], dossiers: [dossier("a", "Camille"), dossier("b", "Sacha")], items: [sharedAddress] };
 
-/** Un résultat construit sur les données fictives, pour les fonctions du graphe. */
+/** Un petit graphe : trois dossiers, une adresse et un identifiant partagés. */
 const graphResult = (anchorIds: string[] = []): CrossSearchResult => ({
   query: "",
   anchorIds,
-  dossiers: MOCK_DOSSIERS,
-  items: MOCK_ITEMS,
+  dossiers: ["d1", "d2", "d3"].map((id) => ({
+    id,
+    reference: id,
+    name: id,
+    analyseName: null,
+    themeName: null,
+    excerpts: [],
+  })),
+  items: [
+    { id: "a-lilas", kind: "value", label: "12 rue des Lilas", dossierIds: ["d1", "d2"], occurrences: [] },
+    { id: "i-permis", kind: "identifier", label: "PERMIS-000123", dossierIds: ["d2", "d3"], occurrences: [] },
+  ],
   hidden: [],
 });
 
@@ -103,108 +110,151 @@ describe("highlightOf", () => {
   });
 });
 
-const { rules, saveRule, restoreRule, removeRule } = useResemblances();
-const ruleById = (id: string) => rules.value.find((r) => r.id === id)!;
-const dossiersOf = (id: string) => mockResemblances(ruleById(id)).map((g) => [...g.dossierIds].sort());
+const ENTITIES = [
+  { id: "e-titulaire", name: "Titulaire du permis", definition: "", type: "texte", analyse_name: "Permis" },
+  { id: "e-demandeur", name: "Nom du demandeur", definition: "", type: "texte", analyse_name: "Titre de séjour" },
+  { id: "e-gerant", name: "Gérant", definition: "", type: "texte", analyse_name: "Licence" },
+];
 
-describe("thèmes de ressemblance", () => {
-  it("applique la portée : au sein d'un thème d'analyse, ou entre thèmes", () => {
-    expect(dossiersOf("person-within")).toEqual([["d3", "d4", "d7"]]);
-    expect(dossiersOf("person-across")).toEqual([
-      ["d1", "d3", "d4", "d7"],
-      ["d5", "d6"],
-    ]);
+const THEME = {
+  id: "t1",
+  name: "Personne revenant",
+  description: "",
+  scope: "all",
+  certainty: "probable",
+  active: true,
+  criteria: [{ id: "c1", origin: "analysis", name: "Personne", entity_ids: ["e-titulaire"], refused_ids: [] }],
+  computed_at: "2026-11-28T08:00:00Z",
+  group_count: 1,
+  versions: [],
+  missing_entity_ids: [],
+};
+
+const GROUP = {
+  key: "g1",
+  label: "Camille Exemple",
+  reason: "En commun : personne.",
+  certainty: "probable",
+  dossiers: [dossier("a", "Camille"), dossier("b", "Sacha")],
+  occurrences: [proof("a"), proof("b")],
+  dismissed: false,
+};
+
+const groupsRoute = /\/api\/resemblances\/themes\/t1\/groups\?/;
+
+function mockResemblanceApi(enabled = true) {
+  mockApi
+    .get("/api/resemblances/themes", { enabled, items: [THEME] })
+    .get(groupsRoute, { items: enabled ? [GROUP] : [], total: enabled ? 1 : 0, page: 1, page_size: 20 });
+}
+
+async function openResemblances() {
+  const view = await renderPage();
+  await fireEvent.click(screen.getByLabelText("Rapprochements"));
+  return view;
+}
+
+describe("rapprochements", () => {
+  it("montre un groupe, ses dossiers, et permet de les explorer", async () => {
+    mockResemblanceApi();
+    mockApi.post("/api/search/links", LINKS);
+    const { router } = await openResemblances();
+
+    await fireEvent.click(await screen.findByRole("button", { name: /Camille Exemple\s*2 dossiers/ }));
+    expect(screen.getByText("En commun : personne.")).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: "Explorer ces dossiers" }));
+
+    await waitFor(() => expect(router.currentRoute.value.query.dossiers).toBe("a,b"));
   });
 
-  it("exige tous les critères à la fois", () => {
-    expect(dossiersOf("driver-company")).toEqual([["d1", "d4"]]);
+  it("écarte un rapprochement faux", async () => {
+    mockResemblanceApi();
+    mockApi.post("/api/resemblances/themes/t1/groups/g1/dismiss", undefined);
+    await openResemblances();
+    await fireEvent.click(await screen.findByRole("button", { name: /Camille Exemple\s*2 dossiers/ }));
+    await fireEvent.click(screen.getByRole("button", { name: "Écarter : ce rapprochement est faux" }));
+
+    await waitFor(() => expect(mockApi.calls.some((c) => c.path.endsWith("/g1/dismiss"))).toBe(true));
   });
 
-  it("garde l'historique et sait restaurer", () => {
-    const draft = { name: "Essai", description: "", criteria: [allOfKind("company", "Entreprise")], scope: "all" as const, certainty: "probable" as const, active: true };
-    const id = saveRule(draft);
-    saveRule({ ...draft, scope: "across" }, id);
-    expect(ruleById(id).versions).toHaveLength(1);
+  it("dit quand le calcul n'est pas activé", async () => {
+    mockResemblanceApi(false);
+    await openResemblances();
 
-    restoreRule(id, ruleById(id).versions[0]!.id);
-    expect(ruleById(id).scope).toBe("all");
-    expect(ruleById(id).versions).toHaveLength(2);
-    removeRule(id);
+    expect(await screen.findByText(/Le calcul des rapprochements n'est pas activé/)).toBeTruthy();
+  });
+
+  it("réserve la définition des thèmes aux administrateurs", async () => {
+    mockResemblanceApi();
+    await openResemblances();
+    await screen.findByText(/Dernier calcul/);
+
+    expect(screen.queryByRole("button", { name: "Nouveau thème" })).toBeNull();
   });
 });
 
-describe("critères d'un thème de ressemblance", () => {
-  it("ne compare que les dossiers des analyses dont il cite des entités", () => {
-    const id = saveRule({
-      name: "Numéro de permis",
-      description: "",
-      criteria: [{ id: "c", origin: "analysis", name: "Numéro", entityIds: ["Permis de conduire › Numéro de permis"] }],
-      scope: "all",
-      certainty: "identical",
-      active: true,
-    });
-    expect(dossiersOf(id)).toEqual([["d3", "d7"]]);
-    removeRule(id);
-  });
-
-  it("ajoute une entité des analyses", async () => {
-    const view = render(CriteriaEditor, {
-      props: { modelValue: [], "onUpdate:modelValue": (value: unknown) => view.rerender({ modelValue: value as RuleCriterion[] }) },
-    });
-
-    await fireEvent.update(screen.getByLabelText("Ajouter depuis les entités des analyses"), "Licence de transport › Gérant");
-    expect(screen.getByRole("button", { name: "Retirer le critère Gérant" })).toBeTruthy();
-    expect(screen.getByText("Analyse Licence de transport")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Entité personnalisée" })).toBeNull();
-  });
-});
-
-describe("équivalences proposées", () => {
+describe("critères d'un thème", () => {
+  const entities = ENTITIES.map((e) => ({ ...e, type: "texte" as const, analyseName: e.analyse_name }));
+  const suggestions = "/api/resemblances/entities/suggestions";
   // Réactif, comme le brouillon du thème dans la fenêtre : le composant modifie le critère en place.
   const renderEditor = (modelValue: RuleCriterion[]) => {
     const view = render(CriteriaEditor, {
       props: {
+        entities,
         modelValue: reactive(modelValue),
         "onUpdate:modelValue": (value: unknown) => view.rerender({ modelValue: value as RuleCriterion[] }),
       },
     });
   };
+  const criterion = (): RuleCriterion => ({ id: "c", origin: "analysis", name: "Personne", entityIds: ["e-titulaire"] });
+  const accepted = "Titre de séjour › Nom du demandeur";
+  const refused = "Licence › Gérant";
 
-  it("n'ajoute une entité proche qu'après accord, et permet de revenir sur un refus", async () => {
-    const criterion: RuleCriterion = { id: "c", origin: "analysis", name: "Personne", entityIds: ["Permis de conduire › Titulaire du permis"] };
-    renderEditor([criterion]);
-    const accepted = "Titre de séjour › Nom du demandeur";
-    const refused = "Licence de transport › Gérant";
+  it("n'ajoute une entité proposée qu'après accord, et permet de revenir sur un refus", async () => {
+    mockApi.post(suggestions, { available: true, items: [ENTITIES[1], ENTITIES[2]] });
+    renderEditor([criterion()]);
+    expect(await screen.findByRole("button", { name: `Accepter ${accepted}` })).toBeTruthy();
     expect(screen.queryByRole("button", { name: `Retirer ${accepted}` })).toBeNull();
 
     await fireEvent.click(screen.getByRole("button", { name: `Accepter ${accepted}` }));
     expect(screen.getByRole("button", { name: `Retirer ${accepted}` })).toBeTruthy();
 
-    await fireEvent.click(screen.getByRole("button", { name: `Refuser ${refused}` }));
+    await fireEvent.click(await screen.findByRole("button", { name: `Refuser ${refused}` }));
     expect(screen.queryByRole("button", { name: `Accepter ${refused}` })).toBeNull();
     await fireEvent.click(screen.getByRole("button", { name: `Reproposer ${refused}` }));
     expect(screen.getByRole("button", { name: `Accepter ${refused}` })).toBeTruthy();
   });
 
+  it("dit quand les propositions sont indisponibles", async () => {
+    mockApi.post(suggestions, { available: false, items: [] });
+    renderEditor([criterion()]);
+
+    expect(await screen.findByText(/Propositions indisponibles ici/)).toBeTruthy();
+  });
+
   it("retrouve une entité par sa description, sans jamais en créer", async () => {
+    mockApi.post(suggestions, ({ body }: { body: any }) => ({
+      available: true,
+      items: body.text === "Nom du gérant" ? [ENTITIES[2]] : [],
+    }));
     renderEditor([]);
     const search = screen.getByLabelText("Ou décrire l'information recherchée");
-    await fireEvent.update(search, "Numéro de châssis du véhicule");
     await fireEvent.update(search, "Groupe sanguin");
-    expect(screen.getByText(/Aucune analyse n'extrait cette information/)).toBeTruthy();
+    expect(await screen.findByText(/Aucune analyse n'extrait cette information/)).toBeTruthy();
 
-    await fireEvent.update(search, "Numéro du permis");
-    await fireEvent.click(screen.getByRole("button", { name: "Utiliser Permis de conduire › Numéro de permis" }));
-    expect(screen.getByRole("button", { name: "Retirer le critère Numéro de permis" })).toBeTruthy();
+    await fireEvent.update(search, "Nom du gérant");
+    await fireEvent.click(await screen.findByRole("button", { name: `Utiliser ${refused}` }));
+    expect(screen.getByRole("button", { name: "Retirer le critère Gérant" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Entité personnalisée" })).toBeNull();
   });
 });
 
 describe("layoutClusters", () => {
   it("fait un amas par groupe, sans que les amas se touchent", () => {
-    const groups = mockResemblances(ruleById("person-across"));
+    const groups = ["g1", "g2", "g3"].map((id) => ({ id, dossierIds: ["a", "b"] }) as Resemblance);
     const { nodes, clusters } = layoutClusters(groups);
 
-    expect(clusters.map((c) => c.groupId)).toEqual(groups.map((g) => g.id));
+    expect(clusters.map((c) => c.groupId)).toEqual(["g1", "g2", "g3"]);
     for (const node of nodes) {
       const cluster = clusters.find((c) => c.groupId === node.groupId)!;
       expect(Math.hypot(node.x - cluster.x, node.y - cluster.y)).toBeLessThan(cluster.radius);
@@ -216,20 +266,6 @@ describe("layoutClusters", () => {
 });
 
 describe("CrossSearchPage", () => {
-  it("réserve la définition des thèmes aux administrateurs", async () => {
-    const first = await renderPage();
-    await fireEvent.click(screen.getByLabelText("Rapprochements"));
-    expect(screen.queryByRole("button", { name: "Nouveau thème" })).toBeNull();
-    first.unmount();
-
-    auth.isAdmin = true;
-    await renderPage();
-    await fireEvent.click(screen.getByLabelText("Rapprochements"));
-    expect(screen.getByRole("button", { name: "Nouveau thème" })).toBeTruthy();
-    auth.isAdmin = false;
-  });
-
-
   it("cherche par un POST, montre les résultats et ouvre un dossier", async () => {
     mockApi.post("/api/search", FOUND);
     await renderPage();
@@ -320,16 +356,5 @@ describe("CrossSearchPage", () => {
 
     expect(await screen.findByText(/1 dossier\(s\) retiré\(s\)/)).toBeTruthy();
     expect(await screen.findByRole("button", { name: "Retirer Camille" })).toBeTruthy();
-  });
-
-  it("n'annonce des données fictives que pour les rapprochements", async () => {
-    await renderPage();
-    expect(screen.queryByText("données fictives")).toBeNull();
-
-    await fireEvent.click(screen.getByLabelText("Rapprochements"));
-    expect(screen.getByText("données fictives")).toBeTruthy();
-    await fireEvent.click(screen.getByRole("button", { name: /Adresse partagée/ }));
-    await fireEvent.click(screen.getByRole("button", { name: /12 rue des Lilas/ }));
-    expect(screen.queryByRole("button", { name: "Explorer ces dossiers" })).toBeNull();
   });
 });

@@ -67,6 +67,17 @@ const ITEMS = [
 ];
 const HIDDEN = [{ theme_name: "Sécurité routière", count: 3, dossier_ids: ["d1", "d6"] }];
 
+const THEME = {
+  id: "t1", name: "Personne dans plusieurs thèmes", description: "Une même personne suivie par des services différents.",
+  scope: "across", certainty: "probable", active: true, computed_at: "2026-11-28T08:00:00Z", group_count: 1, versions: [], missing_entity_ids: [],
+  criteria: [{ id: "c1", origin: "analysis", name: "Personne", entity_ids: ["e1", "e2"], refused_ids: [] }],
+};
+const GROUP = {
+  key: "g1", label: "Dominique Modèle", reason: "En commun : personne.", certainty: "probable", dismissed: false,
+  dossiers: [DOSSIERS[2], DOSSIERS[3]].map((d) => ({ ...d, excerpts: [] })),
+  occurrences: ITEMS[1].occurrences,
+};
+
 const handler = async (route) => {
   const request = route.request();
   const path = new URL(request.url()).pathname;
@@ -74,6 +85,8 @@ const handler = async (route) => {
   if (path === "/api/auth/me") return json(profile);
   if (path === "/api/cgu/acceptance") return json({ accepted: true, cgu: null });
   if (path === "/api/cgu") return json({}, 404);
+  if (path === "/api/resemblances/themes") return json({ enabled: true, items: [THEME] });
+  if (path === "/api/resemblances/themes/t1/groups") return json({ items: [GROUP], total: 1, page: 1, page_size: 20 });
   if (path === "/api/search") return json({ dossiers: DOSSIERS, total: DOSSIERS.length, items: ITEMS, hidden: HIDDEN });
   if (path === "/api/search/links") {
     const anchors = request.postDataJSON().dossier_ids;
@@ -115,7 +128,8 @@ await page.getByText("Dossiers liés à votre sélection").waitFor();
 await shot("04-a-partir-de-dossiers.png");
 
 await page.getByText("Rapprochements", { exact: true }).click();
-await shot("05-rapprochements-maquette.png");
+await page.getByRole("button", { name: /Dominique Modèle\s*2 dossiers/ }).click();
+await shot("05-rapprochements.png");
 
 await browser.close();
 if (errors.length) console.error("Erreurs de page :", errors);

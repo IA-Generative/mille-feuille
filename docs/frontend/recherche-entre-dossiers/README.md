@@ -9,13 +9,13 @@ Aujourd'hui, deux dossiers se ressemblent seulement s'ils ont **exactement la m�
 - la même **valeur extraite** ;
 - ou le même **fichier**.
 
-Il n'y a **aucune ressemblance par le sens** : ni modèle, ni base vectorielle, ni comparaison de résumés. Elle n'est pas prévue.
+Il n'y a **aucune ressemblance par le sens entre dossiers** : ni comparaison de résumés ni de contenu. Elle n'est pas prévue. Une base vectorielle sert seulement à proposer des entités équivalentes, à partir de leurs définitions.
 
 | Écran | D'où viennent les liens | État |
 |---|---|---|
 | Par mots-clés | Entre les dossiers trouvés | Réel |
 | À partir de dossiers | Autour des dossiers choisis | Réel |
-| Rapprochements | Données fictives | Maquette |
+| Rapprochements | Thèmes définis par les administrateurs | Réel, calcul désactivé par défaut |
 
 ## La règle commune
 
@@ -97,21 +97,22 @@ L'encadré « Il existe aussi des liens… » des captures n'apparaît que si l'
 
 Elle compte, par thème d'analyse, les dossiers non visibles qui partagent une valeur ou un fichier avec les dossiers trouvés ou choisis. Ni nom, ni référence, ni motif du lien. Rien n'est annoncé à un administrateur, qui voit tout.
 
-## Rapprochements (maquette)
+## Rapprochements
 
-![Rapprochements](05-rapprochements-maquette.png)
+![Rapprochements](05-rapprochements.png)
 
-**Rien n'est calculé sur les vrais dossiers.** Les thèmes, les groupes et les dossiers sont écrits à l'avance dans l'interface, et les thèmes modifiés sont perdus au rechargement.
+Des groupes de dossiers calculés à l'avance, selon des **thèmes** que les administrateurs définissent.
 
-La maquette illustre ce qui est envisagé : un thème impose des critères tous obligatoires, une portée et une certitude. Elle montre aussi les entités proposées comme équivalentes, qu'un administrateur accepte ou refuse, et la recherche d'une entité par sa description. Un thème ne s'appuie que sur des entités définies dans les analyses : rien n'est extrait en plus. Les thèmes « Personne » ou « Adresse » n'ont pas encore d'équivalent côté serveur.
+- **Critères, tous obligatoires :** des entités d'analyses, ou le même fichier. « Personne **et** entreprise » ne regroupe que les dossiers qui partagent les deux.
+- **Entités équivalentes :** l'administrateur dit que « Nom du demandeur » et « Titulaire du permis » comptent pour la même chose. La page propose les entités dont la définition ressemble, à accepter ou refuser. Sans équivalence, seule l'entité choisie est comparée.
+- **Rien n'est extrait en plus :** seules les valeurs des analyses sont comparées, comme pour les liens. Aucun résumé, aucune ressemblance par le sens entre dossiers.
+- **Portée :** tous les dossiers, un même thème d'analyse, ou entre thèmes.
+- **Certitude :** celle que l'administrateur a choisie ; ce n'est pas un score calculé.
+- Un instructeur peut écarter un rapprochement faux, puis le rétablir.
 
-## Ce qui est prévu
-
-| Issue | Apport |
-|---|---|
-| #649 | Thèmes de ressemblance, entités équivalentes, calcul à l'avance |
+Seuls vos dossiers sont montrés, et un groupe n'apparaît que si vous en voyez au moins deux. Le calcul est **désactivé par défaut** (`RESEMBLANCE_ENABLED`) et se refait toutes les heures.
 
 ## Voir aussi
 
-- [Détail technique de l'API](../../backend/recherche-entre-dossiers.md)
+- [Détail technique de la recherche](../../backend/recherche-entre-dossiers.md) et des [thèmes de ressemblance](../../backend/themes-de-ressemblance.md)
 - Refaire les captures : `node scripts/search-screenshots.mjs` depuis `frontend/`, avec le serveur de développement lancé.

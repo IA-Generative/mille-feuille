@@ -1,6 +1,5 @@
 /** L'apparence d'un thème de ressemblance et le résumé de ses groupes. */
 import { KIND_ICONS } from "@/components/crossSearch/graphTheme";
-import { mockKindOf } from "@/composables/useResemblances";
 import { CERTAINTIES, SCOPES, SHARED_KINDS, type Resemblance, type ResemblanceRule } from "@/types/crossSearch";
 
 export interface ResemblanceTheme {
@@ -11,17 +10,16 @@ export interface ResemblanceTheme {
   explanation: string;
 }
 
-/** Couleur et pictogramme viennent du premier critère ; l'explication dit exactement comment le rapprochement est fait. */
+/** Couleur et pictogramme disent la nature du premier critère ; l'explication, comment le rapprochement est fait. */
 export function themeFor(rule: ResemblanceRule): ResemblanceTheme {
-  const kind = rule.criteria[0] ? mockKindOf(rule.criteria[0]) : null;
+  const kind = rule.criteria[0]?.origin === "file" ? "document" : "value";
   const criteria = rule.criteria.map((c) => c.name.toLowerCase()).join(" et ");
   return {
     value: rule.id,
     label: rule.name,
-    // Sans nature connue : bleu France et pictogramme neutre.
-    color: SHARED_KINDS.find((k) => k.value === kind)?.color ?? "#000091",
-    icon: KIND_ICONS[kind ?? "topic"],
-    explanation: `${rule.description} Réunit les dossiers ayant en commun : ${criteria}. Portée : ${SCOPES[rule.scope].label.toLowerCase()}.`,
+    color: SHARED_KINDS.find((k) => k.value === kind)!.color,
+    icon: KIND_ICONS[kind],
+    explanation: `${rule.description} Réunit les dossiers ayant en commun : ${criteria}. Portée : ${SCOPES[rule.scope].label.toLowerCase()}.`.trim(),
   };
 }
 
