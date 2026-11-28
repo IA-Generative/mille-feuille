@@ -134,7 +134,7 @@ def test_a_rejected_value_does_not_count(client, analyse) -> None:
     word = _word()
     _value(client, _dossier(client, analyse), word, rejected=True)
 
-    assert _search(client, word) == {"dossiers": [], "total": 0, "items": []}
+    assert _search(client, word) == {"dossiers": [], "total": 0, "items": [], "hidden": []}
 
 
 def test_an_added_or_deleted_document_is_taken_into_account(client, analyse) -> None:
@@ -162,7 +162,7 @@ def test_a_restricted_dossier_never_shows_outside_its_groups(client, world, anal
         _value(client, dossier_id, word)
         assert _ids(_search(client, word)) == [dossier_id]
     with As(world["bob"]):
-        assert _search(client, word) == {"dossiers": [], "total": 0, "items": []}
+        assert _search(client, word) == {"dossiers": [], "total": 0, "items": [], "hidden": []}
         assert _search(client, _reference_of(client, dossier_id))["total"] == 0
 
 
@@ -333,3 +333,27 @@ def test_picking_by_name_skips_the_details(client, analyse) -> None:
     result = _search(client, word, details=False)
 
     assert (result["total"], result["dossiers"][0]["excerpts"], result["items"]) == (1, [], [])
+
+
+def test_hidden_linked_dossiers_are_only_counted_when_enabled(client, world, analyse, monkeypatch) -> None:
+    word, value = _word(), _word()
+    with As(world["bob"]):
+        secret = _dossier(client, analyse, "Nom secret", visibility="restricted", group_ids=[world["b"]])
+        _value(client, secret, value)
+    with As(world["alice"]):
+        mine = _dossier(client, analyse, word, visibility="restricted", group_ids=[world["a"]])
+        _value(client, mine, value)
+        assert _search(client, word)["hidden"] == []
+
+        monkeypatch.setenv("SEARCH_HIDDEN_LINKS_ENABLED", "true")
+        for response in (client.post("/api/search", json={"query": word}), _links(client, [mine])):
+            assert response.json()["hidden"] == [{"theme_name": None, "count": 1, "dossier_ids": [mine]}]
+            assert secret not in response.text and "Nom secret" not in response.text
+        # Sans résultat accessible, rien.
+        assert _search(client, "secret " + value)["hidden"] == []
+
+        monkeypatch.setenv("SEARCH_HIDDEN_LINKS_MIN", "2")
+        assert _search(client, word)["hidden"] == []
+        monkeypatch.delenv("SEARCH_HIDDEN_LINKS_MIN")
+    with As(world["root"]):
+        assert _search(client, word)["hidden"] == []

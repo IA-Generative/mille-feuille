@@ -39,7 +39,20 @@ Les définitions d'entités n'ont pas de type « personne », « entreprise » o
 
 ## Droits
 
-Seuls les dossiers visibles de la personne sont cherchés (`visible_clause`, dans la requête). Un point commun ne mentionne jamais un dossier absent de la réponse. Un administrateur qui reçoit un extrait ou une preuve d'un dossier hors de ses groupes est tracé (`admin_access`). Rien n'est dit des dossiers non accessibles (voir #641).
+Seuls les dossiers visibles de la personne sont cherchés (`visible_clause`, dans la requête). Un point commun ne mentionne jamais un dossier absent de la réponse. Un administrateur qui reçoit un extrait ou une preuve d'un dossier hors de ses groupes est tracé (`admin_access`). Des dossiers non accessibles, rien n'est dit sauf si l'annonce est activée (ci-dessous).
+
+## Dossiers non accessibles
+
+Décision #641 : on peut annoncer qu'il en existe (#647). La réponse porte alors `hidden` : par thème, le **nombre** de dossiers non visibles qui partagent une valeur ou un fichier avec les résultats (ou les dossiers de départ), et les dossiers accessibles concernés. Jamais d'identifiant, de nom, d'extrait ni de motif.
+
+| Variable | Défaut | Effet |
+|---|---|---|
+| `SEARCH_HIDDEN_LINKS_ENABLED` | `false` | Active l'annonce |
+| `SEARCH_HIDDEN_LINKS_MIN` | `1` | Nombre de dossiers en dessous duquel un thème n'est pas annoncé |
+
+Rien n'est annoncé sans résultat accessible, ni à un administrateur (il voit tout).
+
+**Ce que l'annonce révèle.** Un nombre suffit à apprendre qu'une valeur existe ailleurs : une personne qui met un nom dans un de ses dossiers peut savoir si d'autres dossiers le citent. Les recherches ne sont pas journalisées. À activer en connaissance de cause.
 
 ## Index et performances
 

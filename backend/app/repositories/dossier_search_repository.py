@@ -114,10 +114,16 @@ class DossierSearchRepository:
         if not details:
             return DossierSearchOut(dossiers=await self.describe(ids, {}), total=total)
         excerpts = await self._excerpts(ids, terms)
-        items = await DossierLinkRepository(self.db).between(user, ids)
+        links = DossierLinkRepository(self.db)
+        items = await links.between(user, ids)
         linked = {dossier_id for item in items for dossier_id in item.dossier_ids}
         await self.trace_admin_access(user, [i for i in ids if excerpts.get(i) or i in linked])
-        return DossierSearchOut(dossiers=await self.describe(ids, excerpts), total=total, items=items)
+        return DossierSearchOut(
+            dossiers=await self.describe(ids, excerpts),
+            total=total,
+            items=items,
+            hidden=await links.hidden(user, ids),
+        )
 
     async def links(
         self, *, user: RequestContext, anchor_ids: list[uuid.UUID], include_related: bool
@@ -138,7 +144,12 @@ class DossierSearchRepository:
         linked = {dossier_id for item in items for dossier_id in item.dossier_ids}
         shown = [*anchors, *(i for i in related if i in linked)]
         await self.trace_admin_access(user, [i for i in shown if i in linked])
-        return DossierLinksOut(anchor_ids=anchors, dossiers=await self.describe(shown, {}), items=items)
+        return DossierLinksOut(
+            anchor_ids=anchors,
+            dossiers=await self.describe(shown, {}),
+            items=items,
+            hidden=await links.hidden(user, anchors),
+        )
 
     async def _ranked(
         self, user: RequestContext, terms: list[str], reference: tuple[int, int] | None, limit: int
