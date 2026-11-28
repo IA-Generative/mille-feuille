@@ -13,20 +13,28 @@ from typing import Any
 
 from sqlalchemy import ColumnElement, Select, and_, extract, func, literal, literal_column, select, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
 
 from app.core.security.factory import RequestContext
 from app.models.analyse import Analyse
 from app.models.analyse_theme import AnalyseTheme
-from app.models.document_page import DocumentPage, PredictionValidationStatus
+from app.models.document_page import DocumentPage
 from app.models.dossier import Dossier, DossierDocument
-from app.models.dossier_analysis import AnalysisElement, AnalysisElementKind, AnalysisElementVersion, DossierAnalysis
+from app.models.dossier_analysis import AnalysisElement, AnalysisElementKind
 from app.repositories.dossier_event_repository import DossierEventRepository
-from app.schemas.dossier_search import DossierSearchOut, FoundDossierOut, SearchExcerptOut, SearchSegmentOut
+from app.repositories.dossier_link_repository import DossierLinkRepository
+from app.schemas.dossier_search import (
+    DossierLinksOut,
+    DossierSearchOut,
+    FoundDossierOut,
+    SearchExcerptOut,
+    SearchSegmentOut,
+)
 from app.services.dossier_access import visible_clause
 from app.services.full_text import any_term, headline, search_terms, split_headline, term_query, vector
+from app.services.retained_values import retained_values, value_text
 
 MAX_EXCERPTS = 3
+MAX_RELATED = 20
 # Poids d'un mot selon l'endroit le plus parlant où il est trouvé.
 _NAME, _VALUE, _DOCUMENT, _PAGE = 8, 4, 2, 1
 _REFERENCE = re.compile(r"\bDOS-(\d{4})-(\d{1,15})\b", re.IGNORECASE)
@@ -40,11 +48,6 @@ def _name_text(column: ColumnElement[str]) -> ColumnElement[str]:
     return func.translate(column, _SEPARATORS, _SPACES)
 
 
-def _value_text() -> ColumnElement[str]:
-    value = AnalysisElementVersion.value
-    return func.coalesce(value.op("->>")(literal_column("'value'")), value.op("->>")(literal_column("'label'")))
-
-
 def _page_vector() -> ColumnElement[Any]:
     return DocumentPage.search_vector
 
@@ -54,22 +57,8 @@ def _once(tsquery: ColumnElement[Any]) -> ColumnElement[Any]:
     return select(tsquery).scalar_subquery()
 
 
-def _retained_values(*columns: Any) -> Select:
-    """Les valeurs retenues de l'analyse courante de chaque dossier (une valeur rejetée ne compte pas)."""
-    latest = aliased(DossierAnalysis)
-    return (
-        select(*columns)
-        .select_from(AnalysisElementVersion)
-        .join(AnalysisElement, AnalysisElement.retained_version_id == AnalysisElementVersion.id)
-        .join(DossierAnalysis, DossierAnalysis.id == AnalysisElement.analysis_id)
-        .join(Dossier, Dossier.id == DossierAnalysis.dossier_id)
-        .where(
-            AnalysisElement.kind.in_(_SEARCHED_KINDS),
-            AnalysisElementVersion.validation_status.is_distinct_from(PredictionValidationStatus.REJECTED.value),
-            DossierAnalysis.sequence
-            == select(func.max(latest.sequence)).where(latest.dossier_id == Dossier.id).scalar_subquery(),
-        )
-    )
+def _values(*columns: Any) -> Select:
+    return retained_values(_SEARCHED_KINDS, *columns)
 
 
 def _pages(*columns: Any) -> Select:
@@ -103,11 +92,17 @@ def _segments(value: str) -> list[SearchSegmentOut]:
     return [SearchSegmentOut(text=text, highlighted=highlighted) for text, highlighted in split_headline(value)]
 
 
+class DossiersNotVisible(Exception):
+    def __init__(self, dossier_ids: list[uuid.UUID]):
+        super().__init__(dossier_ids)
+        self.dossier_ids = dossier_ids
+
+
 class DossierSearchRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def search(self, *, user: RequestContext, query: str, limit: int) -> DossierSearchOut:
+    async def search(self, *, user: RequestContext, query: str, limit: int, details: bool = True) -> DossierSearchOut:
         reference, words = split_reference(query)
         terms = search_terms(words)
         if reference is None and not terms:
@@ -116,9 +111,34 @@ class DossierSearchRepository:
         ids, total = await self._ranked(user, terms, reference, limit)
         if not ids:
             return DossierSearchOut(dossiers=[], total=total)
+        if not details:
+            return DossierSearchOut(dossiers=await self.describe(ids, {}), total=total)
         excerpts = await self._excerpts(ids, terms)
-        await self._trace_admin_access(user, [dossier_id for dossier_id in ids if excerpts.get(dossier_id)])
-        return DossierSearchOut(dossiers=await self._describe(ids, excerpts), total=total)
+        items = await DossierLinkRepository(self.db).between(user, ids)
+        linked = {dossier_id for item in items for dossier_id in item.dossier_ids}
+        await self.trace_admin_access(user, [i for i in ids if excerpts.get(i) or i in linked])
+        return DossierSearchOut(dossiers=await self.describe(ids, excerpts), total=total, items=items)
+
+    async def links(
+        self, *, user: RequestContext, anchor_ids: list[uuid.UUID], include_related: bool
+    ) -> DossierLinksOut:
+        """Ce qui relie des dossiers choisis (#645). `DossiersNotVisible` si l'un d'eux n'est pas visible."""
+        anchors = list(dict.fromkeys(anchor_ids))
+        visible = set(await self.db.scalars(select(Dossier.id).where(Dossier.id.in_(anchors), visible_clause(user))))
+        if len(visible) < len(anchors):
+            raise DossiersNotVisible([i for i in anchors if i not in visible])
+
+        links = DossierLinkRepository(self.db)
+        related: list[uuid.UUID] = []
+        if include_related:
+            holders = await links.holders(user, anchors)
+            # Ceux qui relient le plus de dossiers de départ d'abord.
+            related = sorted(holders, key=lambda i: (-len(holders[i]), str(i)))[:MAX_RELATED]
+        items = await links.between(user, [*anchors, *related], touching=anchors)
+        linked = {dossier_id for item in items for dossier_id in item.dossier_ids}
+        shown = [*anchors, *(i for i in related if i in linked)]
+        await self.trace_admin_access(user, [i for i in shown if i in linked])
+        return DossierLinksOut(anchor_ids=anchors, dossiers=await self.describe(shown, {}), items=items)
 
     async def _ranked(
         self, user: RequestContext, terms: list[str], reference: tuple[int, int] | None, limit: int
@@ -134,7 +154,7 @@ class DossierSearchRepository:
             queries = [_once(term_query(term)) for term in terms]
             sources = (
                 (lambda *c: select(*c).select_from(Dossier), vector(_name_text(Dossier.name)), _NAME),
-                (_retained_values, vector(_value_text()), _VALUE),
+                (_values, vector(value_text()), _VALUE),
                 (_documents, vector(_name_text(DossierDocument.name)), _DOCUMENT),
                 (_pages, _page_vector(), _PAGE),
             )
@@ -223,14 +243,14 @@ class DossierSearchRepository:
             )
 
         values = best(
-            _retained_values(
+            _values(
                 Dossier.id.label("dossier_id"),
                 AnalysisElement.document_id,
                 AnalysisElement.first_page_number,
                 AnalysisElement.definition_name,
-                _value_text().label("value"),
+                value_text().label("value"),
             ),
-            vector(_value_text()),
+            vector(value_text()),
             AnalysisElement.id,
         )
         rows = await self.db.execute(
@@ -279,8 +299,9 @@ class DossierSearchRepository:
             )
         return excerpts
 
-    async def _trace_admin_access(self, user: RequestContext, shown: Sequence[uuid.UUID]) -> None:
-        """Un administrateur qui lit un extrait d'un dossier hors de ses groupes est tracé (#182)."""
+    async def trace_admin_access(self, user: RequestContext, shown: Sequence[uuid.UUID]) -> None:
+        """Un administrateur qui lit le contenu d'un dossier hors de ses groupes (extrait, preuve d'un lien) est
+        tracé (#182)."""
         if not user.is_admin or not shown:
             return
         as_member = visible_clause(replace(user, is_admin=False))
@@ -290,7 +311,7 @@ class DossierSearchRepository:
             if dossier_id not in own:
                 await events.record_admin_access(dossier_id, user, "POST", write=False)
 
-    async def _describe(
+    async def describe(
         self, ids: list[uuid.UUID], excerpts: dict[uuid.UUID, list[SearchExcerptOut]]
     ) -> list[FoundDossierOut]:
         rows = await self.db.execute(
