@@ -1,89 +1,152 @@
-import { ref } from "vue";
+import { ref, shallowRef, watch, type Ref } from "vue";
 
-import { MOCK_DOSSIERS, MOCK_HIDDEN, MOCK_ITEMS } from "@/composables/mockCrossSearch";
-import type { CrossSearchResult, FoundDossier } from "@/types/crossSearch";
+import type { CrossSearchResult, Excerpt, FoundDossier, SharedItem } from "@/types/crossSearch";
+import { ApiError, apiFetch, userMessage } from "@/utils/api";
 
-const normalize = (text: string) => text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+export const MIN_QUERY_LENGTH = 2;
+/** Au-delà, le graphe ne se lit plus. */
+export const MAX_RESULTS = 20;
+export const MAX_ANCHORS = 10;
 
-/** Maquette : recherche dans les données fictives. L'API remplacera `search` sans changer la page. */
-export function mockSearch(query: string): CrossSearchResult {
-  const terms = normalize(query).split(/\s+/).filter(Boolean);
+export type SearchStatus = "idle" | "loading" | "ready" | "error";
 
-  const dossiers = MOCK_DOSSIERS.map((dossier) => {
-    const text = normalize(
-      [dossier.name, dossier.reference, ...dossier.excerpts.flatMap((e) => [e.documentName, e.text])].join(" "),
-    );
-    return { dossier, score: terms.filter((term) => text.includes(term)).length };
-  })
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .map(({ dossier }) => dossier);
+function mapExcerpt(api: any): Excerpt {
+  return {
+    documentName: api.document_name ?? null,
+    page: api.page ?? null,
+    field: api.field ?? null,
+    text: api.segments.map((s: { text: string }) => s.text).join(""),
+    segments: api.segments,
+  };
+}
 
-  const found = new Set(dossiers.map((d) => d.id));
-  const among = (ids: string[]) => ids.filter((id) => found.has(id));
+function mapDossier(api: any): FoundDossier {
+  return {
+    id: api.id,
+    reference: api.reference,
+    name: api.name,
+    analyseName: api.analyse_name,
+    themeName: api.theme_name,
+    excerpts: api.excerpts.map(mapExcerpt),
+  };
+}
 
+function mapItem(api: any): SharedItem {
+  return {
+    id: api.id,
+    kind: api.kind,
+    label: api.label,
+    dossierIds: api.dossier_ids,
+    occurrences: api.occurrences.map((o: any) => ({
+      dossierId: o.dossier_id,
+      documentName: o.document_name ?? null,
+      page: o.page ?? null,
+      text: o.text,
+      origin: o.origin ?? undefined,
+    })),
+  };
+}
+
+function mapResult(api: any, query: string): CrossSearchResult {
   return {
     query,
-    anchorIds: [],
-    dossiers,
-    // Un point commun ne relie que s'il est partagé par au moins deux résultats.
-    items: MOCK_ITEMS.map((item) => ({
-      ...item,
-      dossierIds: among(item.dossierIds),
-      occurrences: item.occurrences.filter((o) => found.has(o.dossierId)),
-    })).filter(
-      (item) => item.dossierIds.length > 1,
-    ),
-    // Rien n'est signalé sans un résultat accessible auquel le rattacher.
-    hidden: MOCK_HIDDEN.map((link) => ({ ...link, dossierIds: among(link.dossierIds) })).filter(
-      (link) => link.dossierIds.length > 0,
-    ),
+    anchorIds: api.anchor_ids ?? [],
+    dossiers: api.dossiers.map(mapDossier),
+    items: (api.items ?? []).map(mapItem),
+    // Rien n'est signalé des dossiers non accessibles tant que la règle n'est pas décidée (#641).
+    hidden: [],
   };
 }
 
-/** Dossiers proposés à l'ajout : par nom ou référence, sans ceux déjà choisis. */
-export function mockFindDossiers(query: string, exclude: string[]): FoundDossier[] {
-  const needle = normalize(query.trim());
-  return MOCK_DOSSIERS.filter((d) => !exclude.includes(d.id) && normalize(`${d.name} ${d.reference}`).includes(needle));
-}
+// POST : les mots cherchés ne vont ni dans l'URL ni dans les journaux d'accès.
+const post = <T>(path: string, body: unknown) => apiFetch<T>(path, { method: "POST", body: JSON.stringify(body) });
 
-export const mockDossiersByIds = (ids: string[]) =>
-  ids.flatMap((id) => MOCK_DOSSIERS.filter((dossier) => dossier.id === id));
-
-/**
- * Maquette : ce qui relie des dossiers choisis et, si demandé, les autres dossiers liés à au moins l'un d'eux. Un point
- * commun n'est montré que s'il touche la sélection.
- */
-export function mockLinksFrom(anchorIds: string[], includeRelated: boolean): CrossSearchResult {
-  const chosen = (id: string) => anchorIds.includes(id);
-  const touching = MOCK_ITEMS.filter((item) => item.dossierIds.some(chosen));
-  const shownIds = new Set([...anchorIds, ...(includeRelated ? touching.flatMap((item) => item.dossierIds) : [])]);
-
-  return {
-    query: "",
-    anchorIds,
-    // La sélection d'abord, dans l'ordre choisi.
-    dossiers: mockDossiersByIds([...anchorIds, ...[...shownIds].filter((id) => !chosen(id)).sort()]),
-    items: touching
-      .map((item) => ({
-        ...item,
-        dossierIds: item.dossierIds.filter((id) => shownIds.has(id)),
-        occurrences: item.occurrences.filter((o) => shownIds.has(o.dossierId)),
-      }))
-      .filter((item) => item.dossierIds.length > 1),
-    hidden: MOCK_HIDDEN.map((link) => ({ ...link, dossierIds: link.dossierIds.filter(chosen) })).filter(
-      (link) => link.dossierIds.length > 0,
-    ),
-  };
-}
-
+/** Recherche par mots-clés, lancée à la validation. */
 export function useCrossSearch() {
-  const result = ref<CrossSearchResult | null>(null);
+  const result = shallowRef<CrossSearchResult | null>(null);
+  const total = ref(0);
+  const status = ref<SearchStatus>("idle");
+  const error = ref("");
+  // Numéro de la dernière demande : une réponse plus ancienne, arrivée en retard, est ignorée.
+  let latest = 0;
+  let query = "";
 
-  function search(query: string) {
-    const trimmed = query.trim();
-    result.value = trimmed ? mockSearch(trimmed) : null;
+  async function search(input: string) {
+    const request = ++latest;
+    query = input.trim();
+    if (query.length < MIN_QUERY_LENGTH) {
+      result.value = null;
+      status.value = "idle";
+      return;
+    }
+    status.value = "loading";
+    try {
+      const data = await post<any>("/api/search", { query, limit: MAX_RESULTS });
+      if (request !== latest) return;
+      result.value = mapResult(data, query);
+      total.value = data.total;
+      status.value = "ready";
+    } catch (failure) {
+      if (request !== latest) return;
+      result.value = null;
+      error.value = userMessage(failure, "La recherche a échoué.");
+      status.value = "error";
+    }
   }
 
-  return { result, search };
+  return { result, total, status, error, search, retry: () => search(query) };
+}
+
+/** Les dossiers proposés à l'ajout, sans extraits ni liens. */
+export async function findDossiers(query: string): Promise<FoundDossier[]> {
+  const data = await post<any>("/api/search", { query: query.trim(), limit: MAX_ANCHORS, details: false });
+  return data.dossiers.map(mapDossier);
+}
+
+/** Ce qui relie les dossiers choisis, recalculé à chaque changement de la sélection. */
+export function useDossierLinks(
+  chosenIds: Ref<string[]>,
+  includeRelated: Ref<boolean>,
+  remove: (ids: string[]) => void,
+) {
+  const result = shallowRef<CrossSearchResult | null>(null);
+  const status = ref<SearchStatus>("idle");
+  const error = ref("");
+  const notice = ref("");
+  let latest = 0;
+
+  async function load() {
+    const request = ++latest;
+    if (!chosenIds.value.length) {
+      result.value = null;
+      status.value = "idle";
+      return;
+    }
+    status.value = "loading";
+    try {
+      const data = await post<any>("/api/search/links", {
+        dossier_ids: chosenIds.value,
+        include_related: includeRelated.value,
+      });
+      if (request !== latest) return;
+      result.value = mapResult(data, "");
+      status.value = "ready";
+    } catch (failure) {
+      if (request !== latest) return;
+      const detail = failure instanceof ApiError ? (failure.detail as any) : null;
+      if (detail?.code === "dossiers_not_found") {
+        // Les autres dossiers restent : la sélection réduite relance le calcul.
+        notice.value = `${detail.dossier_ids.length} dossier(s) retiré(s) de la sélection : vous n'y avez plus accès, ou ils ont été supprimés.`;
+        remove(detail.dossier_ids);
+        return;
+      }
+      result.value = null;
+      error.value = userMessage(failure, "Les liens n'ont pas pu être calculés.");
+      status.value = "error";
+    }
+  }
+
+  watch([() => chosenIds.value.join(), includeRelated], load, { immediate: true });
+
+  return { result, status, error, notice, retry: load };
 }

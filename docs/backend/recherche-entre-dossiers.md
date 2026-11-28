@@ -49,3 +49,9 @@ Mesures sur un poste de développement (PostgreSQL 16, données fictives) :
 
 - texte : 4 000 dossiers, 200 000 pages de 2 Ko (1,1 Go), de 0,2 à 0,6 s, y compris pour un mot présent sur toutes les pages ;
 - liens : 100 000 valeurs extraites, environ 0,3 s à partir de 10 dossiers ; une recherche dont les mots désignent 4 000 dossiers prend alors 1,2 s.
+
+## Page « Recherche »
+
+- **Par mots-clés** : 20 résultats au plus, le total est annoncé. Les mots cherchés ne sont jamais mis dans l'adresse.
+- **À partir de dossiers** : on y arrive en cochant des résultats, depuis la liste des dossiers ou depuis un dossier. La sélection (des identifiants, 10 au plus) est dans l'adresse (`/recherche?dossiers=…`) : on la retrouve en revenant en arrière.
+- **Rapprochements** : encore une maquette sur données fictives (#649, bloquée par #641).

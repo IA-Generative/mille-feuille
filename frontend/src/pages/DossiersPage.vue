@@ -254,6 +254,14 @@ const mayRun = (dossier: { permissions?: string[] }) => dossier.permissions?.inc
                         @click="launch(dossier.id)"
                       />
                       <RouterLink
+                        :to="{ path: '/recherche', query: { dossiers: dossier.id } }"
+                        class="fr-btn fr-btn--tertiary fr-btn--sm"
+                        title="Voir les liens avec d'autres dossiers"
+                        :aria-label="`Voir les liens de ${dossier.name} avec d'autres dossiers`"
+                      >
+                        <VIcon name="ri-share-line" />
+                      </RouterLink>
+                      <RouterLink
                         v-if="dossier.status === 'terminé' || dossier.status === 'échec'"
                         :to="`/dossiers/${dossier.id}`"
                         class="fr-btn fr-btn--tertiary fr-btn--sm"

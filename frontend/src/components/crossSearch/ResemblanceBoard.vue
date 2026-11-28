@@ -8,11 +8,9 @@ import { themeFor } from "@/components/crossSearch/resemblanceThemes";
 import RuleModal from "@/components/crossSearch/RuleModal.vue";
 import RulePicker from "@/components/crossSearch/RulePicker.vue";
 import { useAuth } from "@/composables/useAuth";
-import { mockDossiersByIds } from "@/composables/useCrossSearch";
+import { mockDossiersByIds } from "@/composables/mockCrossSearch";
 import { mockResemblances, useResemblances } from "@/composables/useResemblances";
 import type { ResemblanceRule } from "@/types/crossSearch";
-
-const emit = defineEmits<{ explore: [ids: string[]] }>();
 
 // Les thèmes sont définis par les administrateurs (le backend restera juge).
 const { isAdmin } = useAuth();
@@ -61,7 +59,7 @@ function openModal(rule: ResemblanceRule | null) {
       <ClusterGraph :key="selected.rule.id" :theme="selected.theme" :groups="selected.groups" :dossier-names="dossierNames" :group-id="groupId" @group="groupId = $event" />
     </div>
     <div class="board__side">
-      <ClusterSummary :theme="selected.theme" :groups="selected.groups" :dossier-themes="dossierThemes" :group-id="groupId" @group="groupId = $event" @explore="emit('explore', $event)" />
+      <ClusterSummary :theme="selected.theme" :groups="selected.groups" :dossier-themes="dossierThemes" :group-id="groupId" @group="groupId = $event" />
     </div>
   </div>
 

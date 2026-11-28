@@ -1,4 +1,4 @@
-/** Données FICTIVES de la maquette de recherche : à remplacer par l'API (aucune personne ni entreprise réelle). */
+/** Données FICTIVES des rapprochements, encore en maquette : à remplacer par l'API (aucune personne ni entreprise réelle). */
 import { originOf } from "@/composables/mockEntityCatalog";
 import type { FoundDossier, HiddenLinks, SharedItem, SharedKind } from "@/types/crossSearch";
 
@@ -58,7 +58,7 @@ function item(id: string, kind: SharedKind, label: string, found: [string, strin
       documentName,
       page,
       text,
-      origin: originOf(MOCK_DOSSIERS.find((d) => d.id === dossierId)!.analyseName, kind),
+      origin: originOf(MOCK_DOSSIERS.find((d) => d.id === dossierId)!.analyseName!, kind),
     })),
   };
 }
@@ -98,6 +98,9 @@ export const MOCK_ITEMS: SharedItem[] = [
     ["d6", "licence.pdf", 3, "Demande d'autorisation de transport routier de marchandises."],
   ]),
 ];
+
+export const mockDossiersByIds = (ids: string[]) =>
+  ids.flatMap((id) => MOCK_DOSSIERS.filter((dossier) => dossier.id === id));
 
 export const MOCK_HIDDEN: HiddenLinks[] = [
   { themeName: "Séjour des étrangers", count: 2, dossierIds: ["d1", "d2"] },

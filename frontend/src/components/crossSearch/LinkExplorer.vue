@@ -14,6 +14,8 @@ const props = defineProps<{ result: CrossSearchResult }>();
 const kinds = ref<SharedKind[]>(SHARED_KINDS.map((k) => k.value));
 const selection = ref<Selection | null>(null);
 
+/** Seuls les types de liens trouvés se filtrent. */
+const present = computed(() => [...new Set(props.result.items.map((item) => item.kind))]);
 /** Le graphe, la liste et le détail montrent la même chose. */
 const shown = computed(() => restrictToKinds(props.result, kinds.value));
 const graph = computed(() => buildLinkGraph(shown.value, kinds.value));
@@ -22,7 +24,7 @@ watch([kinds, () => props.result], () => (selection.value = null));
 </script>
 
 <template>
-  <LinkFilters v-model="kinds" class="fr-mb-1w" />
+  <LinkFilters v-model="kinds" :present="present" class="fr-mb-1w" />
   <p class="fr-text--xs fr-mb-2w">Cliquez sur un nœud pour voir ce qui lui est lié, sur un trait pour savoir pourquoi.</p>
 
   <div class="link-explorer__columns">
