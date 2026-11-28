@@ -66,7 +66,7 @@ def _linkable(*columns: Any) -> Select:
     )
 
 
-def _is_meaningful(key: str | None) -> bool:
+def is_meaningful(key: str | None) -> bool:
     return key is not None and MIN_LENGTH <= len(key) <= MAX_LENGTH and key not in _EMPTY_VALUES
 
 
@@ -75,7 +75,7 @@ def _variant_rows(rows: Sequence, exact: dict[str, set[uuid.UUID]]) -> list:
     qu'aucune valeur identique ne réunit déjà tous."""
     groups: dict[str, list] = defaultdict(list)
     for row in rows:
-        if _is_meaningful(row.key) and _is_meaningful(row.loose):
+        if is_meaningful(row.key) and is_meaningful(row.loose):
             groups[row.loose].append(row)
     kept = []
     for found in groups.values():
@@ -84,6 +84,11 @@ def _variant_rows(rows: Sequence, exact: dict[str, set[uuid.UUID]]) -> list:
         if len(keys) > 1 and len(dossiers) > 1 and not any(dossiers <= exact.get(key, set()) for key in keys):
             kept += found
     return kept
+
+
+def common_limit(total: int) -> int:
+    """Au-delà de ce nombre de dossiers, un point commun est trop fréquent pour rapprocher."""
+    return max(COMMON_FLOOR, int(total * COMMON_SHARE))
 
 
 def _origin(analyse_name: str | None, entity_name: str | None) -> str | None:
@@ -184,7 +189,7 @@ class DossierLinkRepository:
         for mine_statement, others_of in sources:
             mine: dict[str, set[uuid.UUID]] = defaultdict(set)
             for row in await self.db.execute(mine_statement):
-                if _is_meaningful(row.key):
+                if is_meaningful(row.key):
                     mine[row.key].add(row.id)
             if not mine:
                 continue
@@ -199,7 +204,7 @@ class DossierLinkRepository:
 
     async def _common_limit(self, user: RequestContext) -> int:
         total = await self.db.scalar(select(func.count()).select_from(Dossier).where(visible_clause(user)))
-        return max(COMMON_FLOOR, int((total or 0) * COMMON_SHARE))
+        return common_limit(total or 0)
 
     async def _holders_of_values(self, among: ColumnElement[bool], keys: list[str]) -> dict[str, set[uuid.UUID]]:
         return await self._holders_by(normalized_value(), among, keys)
@@ -258,7 +263,7 @@ class DossierLinkRepository:
         ).all()
         sharers: dict[str, set[uuid.UUID]] = defaultdict(set)
         for row in found_rows:
-            if _is_meaningful(row.key):
+            if is_meaningful(row.key):
                 sharers[row.key].add(row.dossier_id)
         exact = {key: dossiers for key, dossiers in sharers.items() if len(dossiers) > 1}
         items = await self._value_items(
