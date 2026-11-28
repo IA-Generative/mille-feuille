@@ -93,7 +93,7 @@ export const SCOPES: Record<Scope, { label: string; short: string }> = {
  * - `file`, `topic` : le même fichier, ou un sujet proche (ce ne sont pas des entités).
  */
 export type RuleCriterion =
-  | { id: string; origin: "analysis"; name: string; entityIds: string[] }
+  | { id: string; origin: "analysis"; name: string; entityIds: string[]; refusedIds?: string[] }
   | { id: string; origin: "custom"; name: string; definition: string; type: EntityType; nature: EntityNature }
   | { id: string; origin: "file" | "topic"; name: string };
 

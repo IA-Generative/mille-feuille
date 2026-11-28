@@ -1,8 +1,9 @@
 <script setup lang="ts">
 /** Ce que les dossiers doivent avoir en commun : des entités des analyses, ou des entités propres au thème. */
-import { reactive, ref } from "vue";
+import { computed, reactive, ref } from "vue";
 
-import { analysesOf, ENTITY_CATALOG } from "@/composables/mockEntityCatalog";
+import EquivalenceSuggestions from "@/components/crossSearch/EquivalenceSuggestions.vue";
+import { analysesOf, ENTITY_CATALOG, similarToName } from "@/composables/mockEntityCatalog";
 import { CRITERION_ORIGINS, type RuleCriterion } from "@/types/crossSearch";
 import type { EntityNature, EntityType } from "@/types/analyse";
 
@@ -37,6 +38,16 @@ function addEquivalent(criterion: RuleCriterion, event: Event) {
   select.value = "";
 }
 
+function accept(criterion: RuleCriterion, id: string) {
+  if (criterion.origin === "analysis") criterion.entityIds = [...criterion.entityIds, id];
+}
+
+function setRefused(criterion: RuleCriterion, id: string, refused: boolean) {
+  if (criterion.origin !== "analysis") return;
+  const others = (criterion.refusedIds ?? []).filter((other) => other !== id);
+  criterion.refusedIds = refused ? [...others, id] : others;
+}
+
 function removeEntity(criterion: RuleCriterion, id: string) {
   if (criterion.origin !== "analysis") return;
   criterion.entityIds = criterion.entityIds.filter((other) => other !== id);
@@ -49,6 +60,15 @@ const custom = reactive({ name: "", definition: "", type: "texte" as EntityType,
 function addCustom() {
   if (!custom.name.trim()) return;
   add({ id: newId(), origin: "custom", ...custom, name: custom.name.trim() });
+  Object.assign(custom, { name: "", definition: "", type: "texte", nature: "entité" });
+  isAddingCustom.value = false;
+}
+
+/** Avant de créer une entité : celles qui existent déjà, dont les valeurs sont extraites sans nouvel appel au modèle. */
+const existing = computed(() => similarToName(custom.name));
+
+function reuse(id: string, name: string) {
+  add({ id: newId(), origin: "analysis", name, entityIds: [id] });
   Object.assign(custom, { name: "", definition: "", type: "texte", nature: "entité" });
   isAddingCustom.value = false;
 }
@@ -89,6 +109,13 @@ const has = (origin: RuleCriterion["origin"]) => criteria.value.some((c) => c.or
             <option v-for="entity in analyse.entities" :key="entity.id" :value="entity.id" :disabled="criterion.entityIds.includes(entity.id)">{{ entity.name }} ({{ entity.type }})</option>
           </optgroup>
         </select>
+        <EquivalenceSuggestions
+          :entity-ids="criterion.entityIds"
+          :refused-ids="criterion.refusedIds ?? []"
+          @accept="accept(criterion, $event)"
+          @refuse="setRefused(criterion, $event, true)"
+          @reconsider="setRefused(criterion, $event, false)"
+        />
       </template>
 
       <template v-else-if="criterion.origin === 'custom'">
@@ -108,12 +135,19 @@ const has = (origin: RuleCriterion["origin"]) => criteria.value.some((c) => c.or
     <div class="criteria__others">
       <button type="button" class="fr-btn fr-btn--sm fr-btn--secondary" :aria-expanded="isAddingCustom" @click="isAddingCustom = !isAddingCustom">Entité personnalisée</button>
       <button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary" :disabled="has('file')" @click="add({ id: newId(), origin: 'file', name: 'Même fichier' })">Même fichier</button>
-      <button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary" :disabled="has('topic')" @click="add({ id: newId(), origin: 'topic', name: 'Sujet proche' })">Sujet proche</button>
     </div>
 
     <div v-if="isAddingCustom" class="criteria__card">
       <label class="fr-label" for="custom-name">Nom de l'entité</label>
       <input id="custom-name" v-model="custom.name" class="fr-input" type="text" />
+      <div v-if="existing.length" role="status">
+        <p class="criteria__hint">Des analyses ont déjà une entité proche. La reprendre évite une nouvelle extraction :</p>
+        <ul class="fr-tags-group">
+          <li v-for="entity in existing" :key="entity.id">
+            <button type="button" class="fr-tag fr-tag--sm" :aria-label="`Utiliser ${entity.id}`" @click="reuse(entity.id, entity.name)">{{ entity.id }}</button>
+          </li>
+        </ul>
+      </div>
       <label class="fr-label" for="custom-definition">Définition</label>
       <textarea id="custom-definition" v-model="custom.definition" class="fr-input" rows="2" />
       <label class="fr-label" for="custom-type">Type</label>

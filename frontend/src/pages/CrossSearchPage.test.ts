@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/vue";
 import VueDsfr from "@gouvminint/vue-dsfr";
 import { describe, expect, it, vi } from "vitest";
-import { ref } from "vue";
+import { reactive, ref } from "vue";
 import { createMemoryHistory, createRouter } from "vue-router";
 
 import CriteriaEditor from "@/components/crossSearch/CriteriaEditor.vue";
@@ -10,7 +10,7 @@ import { allOfKind } from "@/composables/mockEntityCatalog";
 import { mockResemblances, useResemblances } from "@/composables/useResemblances";
 import CrossSearchPage from "@/pages/CrossSearchPage.vue";
 import { mockApi } from "@/test/mockApi";
-import { SHARED_KINDS, type CrossSearchResult } from "@/types/crossSearch";
+import { SHARED_KINDS, type CrossSearchResult, type RuleCriterion } from "@/types/crossSearch";
 import { ApiError } from "@/utils/api";
 import { layoutClusters } from "@/utils/clusterLayout";
 import { buildLinkGraph, highlightOf, restrictToKinds } from "@/utils/linkGraph";
@@ -161,6 +161,44 @@ describe("critères d'un thème de ressemblance", () => {
     await fireEvent.click(screen.getByRole("button", { name: "Ajouter ce critère" }));
     expect(screen.getByRole("button", { name: "Retirer le critère Numéro de châssis" })).toBeTruthy();
     expect(screen.getByText("Manuel")).toBeTruthy();
+  });
+});
+
+describe("équivalences proposées", () => {
+  // Réactif, comme le brouillon du thème dans la fenêtre : le composant modifie le critère en place.
+  const renderEditor = (modelValue: RuleCriterion[]) => {
+    const view = render(CriteriaEditor, {
+      props: {
+        modelValue: reactive(modelValue),
+        "onUpdate:modelValue": (value: unknown) => view.rerender({ modelValue: value as RuleCriterion[] }),
+      },
+    });
+  };
+
+  it("n'ajoute une entité proche qu'après accord, et permet de revenir sur un refus", async () => {
+    const criterion: RuleCriterion = { id: "c", origin: "analysis", name: "Personne", entityIds: ["Permis de conduire › Titulaire du permis"] };
+    renderEditor([criterion]);
+    const accepted = "Titre de séjour › Nom du demandeur";
+    const refused = "Licence de transport › Gérant";
+    expect(screen.queryByRole("button", { name: `Retirer ${accepted}` })).toBeNull();
+
+    await fireEvent.click(screen.getByRole("button", { name: `Accepter ${accepted}` }));
+    expect(screen.getByRole("button", { name: `Retirer ${accepted}` })).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: `Refuser ${refused}` }));
+    expect(screen.queryByRole("button", { name: `Accepter ${refused}` })).toBeNull();
+    await fireEvent.click(screen.getByRole("button", { name: `Reproposer ${refused}` }));
+    expect(screen.getByRole("button", { name: `Accepter ${refused}` })).toBeTruthy();
+  });
+
+  it("propose une entité existante avant d'en créer une", async () => {
+    renderEditor([]);
+    await fireEvent.click(screen.getByRole("button", { name: "Entité personnalisée" }));
+    await fireEvent.update(screen.getByLabelText("Nom de l'entité"), "Numéro du permis");
+    await fireEvent.click(screen.getByRole("button", { name: "Utiliser Permis de conduire › Numéro de permis" }));
+
+    expect(screen.getByRole("button", { name: "Retirer le critère Numéro de permis" })).toBeTruthy();
+    expect(screen.queryByText("Manuel")).toBeNull();
   });
 });
 

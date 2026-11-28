@@ -103,7 +103,7 @@ Elle compte, par thème d'analyse, les dossiers non visibles qui partagent une v
 
 **Rien n'est calculé sur les vrais dossiers.** Les thèmes, les groupes et les dossiers sont écrits à l'avance dans l'interface, et les thèmes modifiés sont perdus au rechargement.
 
-La maquette illustre ce qui est envisagé : un thème impose des critères tous obligatoires, une portée et une certitude. Les thèmes « Sujet proche », « Personne » ou « Adresse » n'ont pas encore d'équivalent côté serveur.
+La maquette illustre ce qui est envisagé : un thème impose des critères tous obligatoires, une portée et une certitude. Elle montre aussi les entités proposées comme équivalentes, qu'un administrateur accepte ou refuse, et les entités existantes suggérées avant d'en créer une. Les thèmes « Personne » ou « Adresse » n'ont pas encore d'équivalent côté serveur.
 
 ## Ce qui est prévu
 
