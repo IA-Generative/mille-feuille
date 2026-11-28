@@ -28,7 +28,6 @@ const PRESETS: Preset[] = [
   ["address", "Adresse partagée", "La même adresse, sans que les personnes soient forcément liées.", [allOfKind("address", "Adresse")], "all", "to_check"],
   ["identifier", "Même numéro", "Permis, immatriculation ou pièce identique.", [identifier], "all", "identical"],
   ["file", "Fichier réutilisé", "Le même fichier déposé dans plusieurs dossiers.", [{ id: "file", origin: "file", name: "Même fichier" }], "all", "identical"],
-  ["topic", "Sujet proche", "Des documents qui traitent d'un sujet voisin.", [{ id: "topic", origin: "topic", name: "Sujet proche" }], "all", "to_check"],
 ];
 
 /** Maquette : la nature des données fictives qui correspondent à un critère (aucune pour une entité personnalisée). */

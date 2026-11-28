@@ -44,6 +44,21 @@ export function originOf(analyseName: string, kind: SharedKind): string | undefi
   return found && `Analyse ${found.analyseName} · ${found.name}`;
 }
 
+/** Maquette de la proposition d'équivalences : même nature et même type. L'API comparera les définitions. */
+export function similarTo(entityIds: string[]): MockEntity[] {
+  const chosen = ENTITY_CATALOG.filter((e) => entityIds.includes(e.id));
+  return ENTITY_CATALOG.filter(
+    (e) => !entityIds.includes(e.id) && chosen.some((c) => c.kind === e.kind && c.type === e.type),
+  );
+}
+
+/** Maquette : les entités existantes qui ressemblent au nom saisi (un mot d'au moins quatre lettres en commun). */
+export function similarToName(name: string): MockEntity[] {
+  const words = (text: string) => text.toLowerCase().split(/[^\p{L}]+/u).filter((word) => word.length >= 4);
+  const wanted = words(name);
+  return ENTITY_CATALOG.filter((e) => words(e.name).some((word) => wanted.includes(word)));
+}
+
 /** Les analyses d'où viennent les entités d'un critère. */
 export const analysesOf = (entityIds: string[]) => [
   ...new Set(ENTITY_CATALOG.filter((e) => entityIds.includes(e.id)).map((e) => e.analyseName)),

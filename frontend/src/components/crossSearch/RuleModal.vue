@@ -10,6 +10,7 @@ import {
   CERTAINTIES,
   SCOPES,
   type ResemblanceRule,
+  type RuleCriterion,
   type RuleDraft,
 } from "@/types/crossSearch";
 
@@ -54,8 +55,14 @@ function remove() {
   emit("close");
 }
 
+// L'historique dit aussi combien d'entités sont tenues pour équivalentes.
+const describeCriterion = (criterion: RuleCriterion) =>
+  criterion.origin === "analysis" && criterion.entityIds.length > 1
+    ? `${criterion.name} (${criterion.entityIds.length} entités)`
+    : criterion.name;
+
 const describe = (content: RuleDraft) =>
-  `${content.name} · ${content.criteria.map((c) => c.name).join(" et ")} · ` +
+  `${content.name} · ${content.criteria.map(describeCriterion).join(" et ")} · ` +
   `${SCOPES[content.scope].label} · ${CERTAINTIES[content.certainty].label} · ${content.active ? "actif" : "désactivé"}`;
 </script>
 
