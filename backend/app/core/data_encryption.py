@@ -27,6 +27,7 @@ COLUMNS = [
     ("app_group_events", ("id",), "subject_email"),
     ("analyse_people", ("id",), "email"),
     ("analyse_access_versions", ("id",), "content"),
+    ("resemblance_dismissals", ("id",), "dismissed_by_name"),
 ]
 # Tables dont une adresse a son empreinte (colonnes `email` et `email_index`).
 INDEXED_EMAILS = [("app_users", "user_id"), ("app_group_members", "id"), ("analyse_people", "id")]
