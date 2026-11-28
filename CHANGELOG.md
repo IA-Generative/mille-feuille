@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.78.0](https://github.com/IA-Generative/mille-feuille/compare/v0.77.1...v0.78.0) (2026-11-28)
+
+
+### Features
+
+* afficher le nom des groupes dans l'accès aux dossiers ([bdf41d9](https://github.com/IA-Generative/mille-feuille/commit/bdf41d9328f94d5e5ee235d40391f2831b1623a3))
+* ajouter l'api des accès à une analyse, avec historique ([17bb2d0](https://github.com/IA-Generative/mille-feuille/commit/17bb2d0d720fc733d8108d1bd92c1bbdff36460d))
+* ajouter l'api des groupes, rôles et membres ([df94648](https://github.com/IA-Generative/mille-feuille/commit/df946488ca0af9439cc7c3fb6faa82661e182b17))
+* ajouter la maquette des groupes, rôles et accès aux analyses ([c54176c](https://github.com/IA-Generative/mille-feuille/commit/c54176c9786706e58c56a29382530c8f9fde6a0b))
+* ajouter le modèle des groupes, rôles et membres de l'application ([39aef45](https://github.com/IA-Generative/mille-feuille/commit/39aef454470ab2fb281b68742bd323fc2a6a8e0f))
+* appliquer les permissions des rôles dans le backend ([87ad619](https://github.com/IA-Generative/mille-feuille/commit/87ad619a587208f6f6848b22aaff7ba3cefb0d87))
+* brancher la page des groupes et des rôles sur l'api ([c883c61](https://github.com/IA-Generative/mille-feuille/commit/c883c6133f0ae9366158887b32510be884ba427d))
+* chiffrer en base les noms et les e-mails des personnes ([cb70007](https://github.com/IA-Generative/mille-feuille/commit/cb70007734f989fcaf42d80a0d7a86f78ed32f41))
+* étendre la lecture seule aux autres écrans selon les droits ([1ed65cc](https://github.com/IA-Generative/mille-feuille/commit/1ed65cc4b6be28ffc872a9efdc84c14ea45a0a04))
+* gérer les accès d'une analyse dans l'interface ([726d4c8](https://github.com/IA-Generative/mille-feuille/commit/726d4c8137eeba7eaaaa1bd68ee8dc51bd8943b6))
+* limiter les analyses à leurs groupes et aux personnes ajoutées ([9b4fc26](https://github.com/IA-Generative/mille-feuille/commit/9b4fc264658ad1e7720a6d53533c1291a974a679))
+* lire les groupes en base, keycloak ne désignant que les super admins ([08e3d54](https://github.com/IA-Generative/mille-feuille/commit/08e3d54a85b7863e4d514f6549aa81d25314b14f))
+* masquer les actions que le rôle ne permet pas ([512a153](https://github.com/IA-Generative/mille-feuille/commit/512a153525f638ee09ff526c1bb89ccb22b434c4))
+* nommer les groupes dans le journal des dossiers ([bf3e08f](https://github.com/IA-Generative/mille-feuille/commit/bf3e08f93676cafbaa8237bb5a1df7f26bd55a3c))
+* renvoyer les permissions avec chaque dossier de la liste ([e355a43](https://github.com/IA-Generative/mille-feuille/commit/e355a43a3110ec7a3257062cad9b60ca757a467c))
+* reprendre les groupes keycloak dans les groupes de l'application ([8d0b793](https://github.com/IA-Generative/mille-feuille/commit/8d0b7931d06003d41ba8eb82504c498173f32f48))
+
+
+### Bug Fixes
+
+* laisser consulter historiques et aperçus en lecture seule ([d3c50d1](https://github.com/IA-Generative/mille-feuille/commit/d3c50d1093f3a9dc2aee36d6e870c17665998776))
+* masquer lancer et arrêter sans le droit sur le dossier ([0a0ac9e](https://github.com/IA-Generative/mille-feuille/commit/0a0ac9e936a93c8e3cb3c368553642b07aaa9c62))
+
 ## [0.78.0-rc.1](https://github.com/IA-Generative/mille-feuille/compare/v0.78.0-rc...v0.78.0-rc.1) (2026-11-27)
 
 
