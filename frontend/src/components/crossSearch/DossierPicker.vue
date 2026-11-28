@@ -1,23 +1,58 @@
 <script setup lang="ts">
-/** Choisir les dossiers de départ, par nom ou référence. */
-import { computed, ref } from "vue";
+/** Choisir les dossiers de départ, par nom, référence ou mot-clé. */
+import { computed, onScopeDispose, ref, watch } from "vue";
 
-import { mockDossiersByIds, mockFindDossiers } from "@/composables/useCrossSearch";
+import { findDossiers, MAX_ANCHORS, MIN_QUERY_LENGTH } from "@/composables/useCrossSearch";
+import type { FoundDossier } from "@/types/crossSearch";
 
-const props = defineProps<{ modelValue: string[] }>();
+const props = defineProps<{ modelValue: string[]; known: FoundDossier[] }>();
 const emit = defineEmits<{ "update:modelValue": [ids: string[]] }>();
 
 const query = ref("");
 const isOpened = ref(false);
-const chosen = computed(() => mockDossiersByIds(props.modelValue));
-const suggestions = computed(() => mockFindDossiers(query.value, props.modelValue));
+const found = ref<FoundDossier[]>([]);
+const status = ref<"loading" | "ready" | "error">("loading");
+/** Les noms des dossiers déjà vus, pour nommer la sélection pendant que les liens se calculent. */
+const names = ref<Record<string, string>>({});
+const suggestions = computed(() => found.value.filter((d) => !props.modelValue.includes(d.id)));
+const searchable = computed(() => query.value.trim().length >= MIN_QUERY_LENGTH);
+const full = computed(() => props.modelValue.length >= MAX_ANCHORS);
 
-function add(id: string) {
-  emit("update:modelValue", [...props.modelValue, id]);
+const remember = (dossiers: FoundDossier[]) => dossiers.forEach((d) => (names.value[d.id] = d.name));
+watch(() => props.known, remember, { immediate: true });
+
+let timer: ReturnType<typeof setTimeout> | undefined;
+let latest = 0;
+watch(
+  () => query.value.trim(),
+  (text) => {
+    clearTimeout(timer);
+    const request = ++latest;
+    found.value = [];
+    status.value = "loading";
+    if (!searchable.value) return;
+    timer = setTimeout(async () => {
+      try {
+        const dossiers = await findDossiers(text);
+        if (request !== latest) return;
+        found.value = dossiers;
+        status.value = "ready";
+      } catch {
+        if (request === latest) status.value = "error";
+      }
+    }, 300);
+  },
+);
+onScopeDispose(() => clearTimeout(timer));
+
+function add(dossier: FoundDossier) {
+  remember([dossier]);
+  emit("update:modelValue", [...props.modelValue, dossier.id]);
   query.value = "";
   isOpened.value = false;
 }
 
+const nameOf = (id: string) => names.value[id] ?? "Dossier";
 const remove = (id: string) => emit("update:modelValue", props.modelValue.filter((other) => other !== id));
 
 /** La liste se ferme quand le focus quitte le champ et ses propositions. */
@@ -37,25 +72,29 @@ function onFocusOut(event: FocusEvent) {
         class="fr-input"
         type="search"
         autocomplete="off"
-        placeholder="Nom ou référence"
+        placeholder="Nom, référence ou mot-clé"
+        :disabled="full"
         @focus="isOpened = true"
         @input="isOpened = true"
       />
-      <ul v-if="isOpened" class="dossier-picker__suggestions">
+      <p v-if="full" class="fr-text--xs fr-mt-1v fr-mb-0">{{ MAX_ANCHORS }} dossiers au plus.</p>
+      <ul v-if="isOpened && searchable" class="dossier-picker__suggestions">
         <li v-for="dossier in suggestions" :key="dossier.id">
-          <button type="button" class="dossier-picker__option" @click="add(dossier.id)">
+          <button type="button" class="dossier-picker__option" @click="add(dossier)">
             <span>{{ dossier.name }}</span>
             <span class="dossier-picker__reference">{{ dossier.reference }}</span>
           </button>
         </li>
-        <li v-if="!suggestions.length" class="dossier-picker__option">Aucun dossier à ajouter.</li>
+        <li v-if="status === 'loading'" class="dossier-picker__option" role="status">Recherche…</li>
+        <li v-else-if="status === 'error'" class="dossier-picker__option" role="alert">La recherche a échoué.</li>
+        <li v-else-if="!suggestions.length" class="dossier-picker__option" role="status">Aucun dossier à ajouter.</li>
       </ul>
     </div>
 
-    <ul v-if="chosen.length" class="fr-tags-group dossier-picker__chosen" aria-label="Dossiers choisis">
-      <li v-for="dossier in chosen" :key="dossier.id">
-        <button type="button" class="fr-tag fr-tag--dismiss" :aria-label="`Retirer ${dossier.name}`" @click="remove(dossier.id)">
-          {{ dossier.name }}
+    <ul v-if="modelValue.length" class="fr-tags-group dossier-picker__chosen" aria-label="Dossiers choisis">
+      <li v-for="id in modelValue" :key="id">
+        <button type="button" class="fr-tag fr-tag--dismiss" :aria-label="`Retirer ${nameOf(id)}`" @click="remove(id)">
+          {{ nameOf(id) }}
         </button>
       </li>
     </ul>

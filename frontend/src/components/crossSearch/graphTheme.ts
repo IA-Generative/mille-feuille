@@ -16,6 +16,7 @@ export const KIND_ICONS: Record<SharedKind, string> = {
   company: buildingIcon,
   address: pinIcon,
   identifier: passportIcon,
+  value: articleIcon,
   document: fileIcon,
   topic: articleIcon,
 };

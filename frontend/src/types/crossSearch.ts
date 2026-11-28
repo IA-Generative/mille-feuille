@@ -3,19 +3,24 @@ import type { EntityNature, EntityType, Version } from "@/types/analyse";
 /** Recherche à travers les dossiers : résultats, liens entre eux et signalement des dossiers non accessibles. */
 
 /** Ce que des dossiers ont en commun. */
-export type SharedKind = "person" | "company" | "address" | "identifier" | "document" | "topic";
+/** Le serveur fournit `identifier`, `value` et `document` ; les autres ne servent qu'aux rapprochements en maquette. */
+export type SharedKind = "person" | "company" | "address" | "identifier" | "value" | "document" | "topic";
 
 export interface Excerpt {
-  documentName: string;
-  page: number;
+  documentName: string | null;
+  page: number | null;
   text: string;
+  /** Les morceaux surlignés de `text`, quand le serveur les donne. */
+  segments?: { text: string; highlighted: boolean }[];
+  /** Nom de l'entité ou du champ, pour une valeur extraite. */
+  field?: string | null;
 }
 
 export interface FoundDossier {
   id: string;
   reference: string;
   name: string;
-  analyseName: string;
+  analyseName: string | null;
   themeName: string | null;
   excerpts: Excerpt[];
 }
@@ -64,6 +69,7 @@ export const SHARED_KINDS: { value: SharedKind; label: string; color: string }[]
   { value: "company", label: "Entreprises", color: "#a558a0" },
   { value: "address", label: "Adresses", color: "#00a95f" },
   { value: "identifier", label: "Identifiants", color: "#c3992a" },
+  { value: "value", label: "Valeurs communes", color: "#e4794a" },
   { value: "document", label: "Documents identiques", color: "#009099" },
   { value: "topic", label: "Sujets communs", color: "#8585a0" },
 ];
@@ -145,6 +151,10 @@ export const LINK_REASONS: Record<SharedKind, { reason: string; caution?: string
   company: { reason: "La même entreprise est citée." },
   address: { reason: "La même adresse apparaît.", caution: "Une même adresse peut loger des personnes sans rapport." },
   identifier: { reason: "Le même identifiant apparaît." },
+  value: {
+    reason: "La même valeur apparaît.",
+    caution: "À vérifier : une même valeur peut désigner des personnes ou des choses différentes.",
+  },
   document: { reason: "Le même fichier a été déposé." },
   topic: { reason: "Les documents traitent d'un sujet commun.", caution: "Rapprochement par le sens, moins sûr." },
 };

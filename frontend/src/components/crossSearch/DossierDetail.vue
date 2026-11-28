@@ -1,6 +1,7 @@
 <script setup lang="ts">
 /** Un dossier choisi : ses points communs, les dossiers qui lui sont liés et ses extraits. */
 import { computed } from "vue";
+import { RouterLink } from "vue-router";
 
 import KindDot from "@/components/crossSearch/KindDot.vue";
 import OccurrenceQuote from "@/components/crossSearch/OccurrenceQuote.vue";
@@ -17,9 +18,9 @@ const hidden = computed(() => props.result.hidden.filter((h) => h.dossierIds.inc
 
 <template>
   <h2 class="fr-h6 fr-mb-0">{{ dossier.name }}</h2>
-  <p class="fr-text--sm fr-mb-0">{{ dossier.reference }} · {{ dossier.analyseName }}</p>
+  <p class="fr-text--sm fr-mb-0">{{ dossier.reference }} · {{ dossier.analyseName ?? "Sans analyse" }}</p>
 
-  <p v-if="!shared.length" class="fr-text--sm fr-mb-0">Aucun point commun avec les autres résultats.</p>
+  <p v-if="!shared.length" class="fr-text--sm fr-mb-0">Aucun point commun avec les autres dossiers affichés.</p>
   <template v-else>
     <h3 class="detail__title">Points communs ({{ shared.length }})</h3>
     <button v-for="item in shared" :key="item.id" type="button" class="detail__row" @click="emit('select', { type: 'link', dossierId: dossier.id, targetId: item.id })">
@@ -39,11 +40,12 @@ const hidden = computed(() => props.result.hidden.filter((h) => h.dossierIds.inc
     <VIcon name="ri-lock-line" scale="0.8" /> Lié aussi à des dossiers non accessibles ({{ link.themeName ?? "Sans thème" }}).
   </p>
 
-  <h3 class="detail__title">Extraits</h3>
+  <h3 v-if="dossier.excerpts.length" class="detail__title">Extraits</h3>
   <OccurrenceQuote v-for="(excerpt, index) in dossier.excerpts" :key="index" :excerpt="excerpt" />
 
-  <!-- Dossier fictif : rien à ouvrir tant que la recherche n'est pas branchée. -->
-  <button type="button" class="fr-btn fr-btn--sm fr-btn--secondary" disabled>Ouvrir le dossier (bientôt)</button>
+  <RouterLink :to="{ name: 'dossier-detail', params: { id: dossier.id } }" class="fr-btn fr-btn--sm fr-btn--secondary">
+    Ouvrir le dossier
+  </RouterLink>
 </template>
 
 <style scoped src="./detail.css"></style>

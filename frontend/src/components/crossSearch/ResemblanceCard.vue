@@ -3,11 +3,10 @@
 import { computed } from "vue";
 
 import OccurrenceQuote from "@/components/crossSearch/OccurrenceQuote.vue";
-import { mockDossiersByIds } from "@/composables/useCrossSearch";
+import { mockDossiersByIds } from "@/composables/mockCrossSearch";
 import { CERTAINTIES, type Resemblance } from "@/types/crossSearch";
 
 const props = defineProps<{ group: Resemblance }>();
-const emit = defineEmits<{ explore: [ids: string[]] }>();
 
 const dossiers = computed(() => mockDossiersByIds(props.group.dossierIds));
 const proofsOf = (dossierId: string) => props.group.occurrences.filter((o) => o.dossierId === dossierId);
@@ -39,10 +38,6 @@ const themes = computed(() => new Set(dossiers.value.map((d) => d.themeName)));
         <OccurrenceQuote v-for="(proof, index) in proofsOf(dossier.id)" :key="index" :excerpt="proof" />
       </template>
     </details>
-
-    <button type="button" class="fr-btn fr-btn--sm fr-btn--secondary resemblance__action" @click="emit('explore', group.dossierIds)">
-      Explorer ces dossiers
-    </button>
   </article>
 </template>
 
@@ -79,9 +74,5 @@ const themes = computed(() => new Set(dossiers.value.map((d) => d.themeName)));
 .resemblance__meta {
   color: var(--text-mention-grey);
   font-size: 0.75rem;
-}
-
-.resemblance__action {
-  margin-top: auto;
 }
 </style>

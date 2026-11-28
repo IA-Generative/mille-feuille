@@ -2,6 +2,7 @@
 /** Les dossiers trouvés : le plus pertinent d'abord, avec un extrait. On peut en cocher pour voir leurs liens. */
 import { ref, watch } from "vue";
 
+import { MAX_ANCHORS } from "@/composables/useCrossSearch";
 import type { FoundDossier } from "@/types/crossSearch";
 
 const props = defineProps<{ dossiers: FoundDossier[] }>();
@@ -17,8 +18,8 @@ watch(
 <template>
   <div>
     <div class="result-list__bar">
-      <span class="fr-text--xs fr-mb-0">Cochez des dossiers pour voir leurs liens.</span>
-      <DsfrButton :label="`Voir les liens (${checked.length})`" size="sm" :disabled="!checked.length" @click="emit('explore', checked)" />
+      <span class="fr-text--xs fr-mb-0">Cochez jusqu'à {{ MAX_ANCHORS }} dossiers pour voir leurs liens.</span>
+      <DsfrButton :label="`Voir les liens (${checked.length})`" size="sm" :disabled="!checked.length || checked.length > MAX_ANCHORS" @click="emit('explore', checked)" />
     </div>
     <ul class="result-list">
       <li v-for="dossier in dossiers" :key="dossier.id" class="result-list__row">

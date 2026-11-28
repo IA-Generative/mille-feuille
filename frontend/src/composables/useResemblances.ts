@@ -68,7 +68,7 @@ function valuesOf(criterion: RuleCriterion): Match[] {
     criterion.origin === "analysis"
       ? ENTITY_CATALOG.filter((e) => criterion.entityIds.includes(e.id)).map((e) => e.analyseName)
       : null;
-  const concerns = (id: string) => !analyses || analyses.includes(MOCK_DOSSIERS.find((d) => d.id === id)!.analyseName);
+  const concerns = (id: string) => !analyses || analyses.includes(MOCK_DOSSIERS.find((d) => d.id === id)!.analyseName!);
 
   return MOCK_ITEMS.filter((item) => item.kind === kind).map((item) => ({
     key: item.id,

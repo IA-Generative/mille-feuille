@@ -3,7 +3,7 @@
 import KindDot from "@/components/crossSearch/KindDot.vue";
 import { SHARED_KINDS, type SharedKind } from "@/types/crossSearch";
 
-const props = defineProps<{ modelValue: SharedKind[] }>();
+const props = defineProps<{ modelValue: SharedKind[]; present: SharedKind[] }>();
 const emit = defineEmits<{ "update:modelValue": [kinds: SharedKind[]] }>();
 
 function toggle(kind: SharedKind) {
@@ -16,7 +16,7 @@ function toggle(kind: SharedKind) {
 
 <template>
   <ul class="fr-tags-group link-filters" aria-label="Types de liens affichés">
-    <li v-for="kind in SHARED_KINDS" :key="kind.value">
+    <li v-for="kind in SHARED_KINDS.filter((k) => present.includes(k.value))" :key="kind.value">
       <button type="button" class="fr-tag" :aria-pressed="modelValue.includes(kind.value)" @click="toggle(kind.value)">
         <KindDot :kind="kind.value" class="fr-mr-1v" />
         {{ kind.label }}

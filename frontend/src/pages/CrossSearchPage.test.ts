@@ -1,14 +1,17 @@
-import { fireEvent, render, screen } from "@testing-library/vue";
+import { fireEvent, render, screen, waitFor } from "@testing-library/vue";
 import VueDsfr from "@gouvminint/vue-dsfr";
 import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
+import { createMemoryHistory, createRouter } from "vue-router";
 
-import { mockLinksFrom, mockSearch } from "@/composables/useCrossSearch";
-import CrossSearchPage from "@/pages/CrossSearchPage.vue";
-import { SHARED_KINDS } from "@/types/crossSearch";
 import CriteriaEditor from "@/components/crossSearch/CriteriaEditor.vue";
+import { MOCK_DOSSIERS, MOCK_ITEMS } from "@/composables/mockCrossSearch";
 import { allOfKind } from "@/composables/mockEntityCatalog";
 import { mockResemblances, useResemblances } from "@/composables/useResemblances";
+import CrossSearchPage from "@/pages/CrossSearchPage.vue";
+import { mockApi } from "@/test/mockApi";
+import { SHARED_KINDS, type CrossSearchResult } from "@/types/crossSearch";
+import { ApiError } from "@/utils/api";
 import { layoutClusters } from "@/utils/clusterLayout";
 import { buildLinkGraph, highlightOf, restrictToKinds } from "@/utils/linkGraph";
 
@@ -18,31 +21,66 @@ vi.mock("@/composables/useAuth", () => ({ useAuth: () => ({ isAdmin: ref(auth.is
 vi.mock("@/components/crossSearch/ClusterGraph.vue", () => ({ default: { template: "<div />" } }));
 vi.mock("@/components/crossSearch/LinkGraph.vue", () => ({ default: { template: "<div />" } }));
 
-const renderPage = () =>
-  render(CrossSearchPage, { global: { plugins: [VueDsfr], stubs: { RouterLink: true, VIcon: true } } });
+async function renderPage(url = "/recherche") {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: "/recherche", component: CrossSearchPage },
+      { path: "/dossiers/:id", name: "dossier-detail", component: { template: "<div />" } },
+    ],
+  });
+  await router.push(url);
+  const view = render(CrossSearchPage, { global: { plugins: [VueDsfr, router], stubs: { VIcon: true } } });
+  return { ...view, router };
+}
 
 async function searchFor(query: string) {
   await fireEvent.update(screen.getByRole("searchbox"), query);
   await fireEvent.click(screen.getByRole("button", { name: /rechercher/i }));
 }
 
-describe("mockSearch", () => {
-  it("ne relie que les points communs à au moins deux résultats", () => {
-    const result = mockSearch("lilas");
+const dossier = (id: string, name: string) => ({
+  id,
+  reference: `DOS-2026-${id}`,
+  name,
+  analyse_name: "Titre de séjour",
+  theme_name: null,
+  excerpts: [
+    { document_name: "bail.pdf", page: 2, field: null, segments: [{ text: "lilas", highlighted: true }] },
+  ],
+});
 
-    expect(result.dossiers.map((d) => d.id).sort()).toEqual(["d1", "d2", "d5"]);
-    expect(result.items.every((item) => item.dossierIds.length > 1)).toBe(true);
-  });
+const proof = (dossierId: string) => ({
+  dossier_id: dossierId,
+  document_name: "demande.pdf",
+  page: 1,
+  text: "12 rue des Lilas",
+  origin: "Analyse Titre de séjour · Adresse",
+});
 
-  it("ne signale aucun dossier non accessible sans résultat accessible", () => {
-    expect(mockSearch("introuvable").hidden).toEqual([]);
-    expect(mockSearch("permis-000123").hidden.map((h) => h.themeName)).toEqual(["Sécurité routière"]);
-  });
+const sharedAddress = {
+  id: "value:1",
+  kind: "value",
+  label: "12 rue des Lilas",
+  dossier_ids: ["a", "b"],
+  occurrences: [proof("a"), proof("b")],
+};
+
+const FOUND = { dossiers: [dossier("a", "Camille"), dossier("b", "Sacha")], total: 2, items: [sharedAddress] };
+const LINKS = { anchor_ids: ["a"], dossiers: [dossier("a", "Camille"), dossier("b", "Sacha")], items: [sharedAddress] };
+
+/** Un résultat construit sur les données fictives, pour les fonctions du graphe. */
+const graphResult = (anchorIds: string[] = []): CrossSearchResult => ({
+  query: "",
+  anchorIds,
+  dossiers: MOCK_DOSSIERS,
+  items: MOCK_ITEMS,
+  hidden: [],
 });
 
 describe("buildLinkGraph", () => {
   it("retire les types décochés sans retirer les dossiers", () => {
-    const result = mockSearch("exemple");
+    const result = graphResult();
     const graph = buildLinkGraph(result, []);
 
     expect(graph.nodes.filter((n) => n.type === "item")).toEqual([]);
@@ -50,35 +88,18 @@ describe("buildLinkGraph", () => {
     const ids = new Set(graph.nodes.map((n) => n.id));
     expect(graph.edges.every((e) => ids.has(e.source) && ids.has(e.target))).toBe(true);
   });
+
+  it("garde les dossiers choisis quand un filtre retire les autres", () => {
+    expect(restrictToKinds(graphResult(["d2"]), []).dossiers.map((d) => d.id)).toEqual(["d2"]);
+  });
 });
 
 describe("highlightOf", () => {
-  const graph = buildLinkGraph(mockSearch("exemple"), SHARED_KINDS.map((k) => k.value));
+  const graph = buildLinkGraph(graphResult(), SHARED_KINDS.map((k) => k.value));
 
-  it("met en avant le trait choisi seul, ou les chemins entre deux dossiers", () => {
+  it("met en avant le trait choisi seul", () => {
     const link = highlightOf(graph, { type: "link", dossierId: "d1", targetId: "a-lilas" })!;
     expect([...link.nodes].sort()).toEqual(["a-lilas", "d1"]);
-
-    const pair = highlightOf(graph, { type: "pair", dossierIds: ["d3", "d4"] })!;
-    expect([...pair.nodes].sort()).toEqual(["d3", "d4", "i-permis", "p-camille"]);
-    expect(pair.edges.size).toBe(4);
-  });
-});
-
-describe("mockLinksFrom", () => {
-  it("ne montre que ce qui touche la sélection", () => {
-    const result = mockLinksFrom(["d2"], true);
-
-    expect(result.dossiers.map((d) => d.id)).toEqual(["d2", "d1", "d5"]);
-    expect(result.items.every((item) => item.dossierIds.includes("d2"))).toBe(true);
-    expect(mockLinksFrom(["d2"], false).items).toEqual([]);
-  });
-
-  it("garde les dossiers choisis quand un filtre retire les autres", () => {
-    const result = restrictToKinds(mockLinksFrom(["d2"], true), ["document"]);
-
-    expect(result.dossiers.map((d) => d.id)).toEqual(["d2", "d5"]);
-    expect(restrictToKinds(mockLinksFrom(["d2"], true), []).dossiers.map((d) => d.id)).toEqual(["d2"]);
   });
 });
 
@@ -161,110 +182,99 @@ describe("layoutClusters", () => {
 
 describe("CrossSearchPage", () => {
   it("réserve la définition des thèmes aux administrateurs", async () => {
-    const first = renderPage();
+    const first = await renderPage();
     await fireEvent.click(screen.getByLabelText("Rapprochements"));
     expect(screen.queryByRole("button", { name: "Nouveau thème" })).toBeNull();
     first.unmount();
 
     auth.isAdmin = true;
-    renderPage();
+    await renderPage();
     await fireEvent.click(screen.getByLabelText("Rapprochements"));
     expect(screen.getByRole("button", { name: "Nouveau thème" })).toBeTruthy();
     auth.isAdmin = false;
   });
 
 
-  it("montre un thème à la fois, détaille un groupe et ouvre ses dossiers", async () => {
-    renderPage();
-    await fireEvent.click(screen.getByLabelText("Rapprochements"));
-
-    expect(screen.getByRole("heading", { name: "Dossiers possiblement en double" })).toBeTruthy();
-
-    await fireEvent.click(screen.getByRole("button", { name: /Adresse partagée/ }));
-    expect(screen.queryByRole("heading", { name: "Dossiers possiblement en double" })).toBeNull();
-    expect(screen.getByText(/1 groupe réunissant 3 dossiers/)).toBeTruthy();
-    await fireEvent.click(screen.getByRole("button", { name: /12 rue des Lilas/ }));
-    expect(screen.getByText("À vérifier")).toBeTruthy();
-
-    await fireEvent.click(screen.getByRole("button", { name: "Explorer ces dossiers" }));
-    expect(screen.getByRole("button", { name: "Retirer Titre de séjour — Camille Exemple" })).toBeTruthy();
-  });
-
-  it("part des dossiers cochés et montre ceux qui leur sont liés", async () => {
-    renderPage();
-    await searchFor("lilas");
-    await fireEvent.click(screen.getByLabelText("Sélectionner Titre de séjour — Camille Exemple"));
-    await fireEvent.click(screen.getByLabelText("Sélectionner Regroupement familial — Sacha Exemple"));
-    await fireEvent.click(screen.getByRole("button", { name: "Voir les liens (2)" }));
-
-    expect(screen.getByText("Entre vos dossiers")).toBeTruthy();
-    expect(screen.getByText("par 12 rue des Lilas")).toBeTruthy();
-    expect(screen.getByText(/Dossiers liés à votre sélection/)).toBeTruthy();
-  });
-
-  it("ajoute un dossier à la sélection depuis le champ, puis le retire", async () => {
-    renderPage();
-    await fireEvent.click(screen.getByLabelText("À partir de dossiers"));
-    await fireEvent.update(screen.getByLabelText("Ajouter un dossier"), "DOS-2026-0048");
-    await fireEvent.click(screen.getByRole("button", { name: /Échange de permis/ }));
-
-    expect(screen.getByRole("button", { name: "Retirer Échange de permis — Camille Exemple" })).toBeTruthy();
-    await fireEvent.click(screen.getByRole("button", { name: "Retirer Échange de permis — Camille Exemple" }));
-    expect(screen.getByText(/Choisissez un ou plusieurs dossiers/)).toBeTruthy();
-  });
-
-
-  it("annonce que la fonctionnalité arrive et que les données sont fictives", () => {
-    renderPage();
-
-    expect(screen.getByText("Fonctionnalité bientôt disponible")).toBeTruthy();
-    expect(screen.getByText("données fictives")).toBeTruthy();
-  });
-
-  it("liste les dossiers trouvés et annonce les liens non accessibles", async () => {
-    renderPage();
+  it("cherche par un POST, montre les résultats et ouvre un dossier", async () => {
+    mockApi.post("/api/search", FOUND);
+    await renderPage();
     await searchFor("lilas");
 
-    expect(screen.getByText("Titre de séjour — Camille Exemple")).toBeTruthy();
-    expect(screen.getByText("2 dossiers non accessibles · Séjour des étrangers")).toBeTruthy();
-  });
-
-  it("détaille le dossier choisi", async () => {
-    renderPage();
-    await searchFor("lilas");
-    await fireEvent.click(screen.getByText("Titre de séjour — Camille Exemple"));
-
-    expect(screen.getByText("Points communs (1)")).toBeTruthy();
-    expect(screen.getByText("Dossiers liés (2)")).toBeTruthy();
-  });
-
-  it("explique pourquoi un dossier est lié, preuve à l'appui", async () => {
-    renderPage();
-    await searchFor("lilas");
-    await fireEvent.click(screen.getByText("Titre de séjour — Camille Exemple"));
+    expect(await screen.findByText(/2 dossier\(s\) trouvé\(s\)/)).toBeTruthy();
+    expect(mockApi.calls[0]!.body).toEqual({ query: "lilas", limit: 20 });
+    await fireEvent.click(screen.getByText("Camille"));
+    expect(screen.getByRole("link", { name: "Ouvrir le dossier" }).getAttribute("href")).toBe("/dossiers/a");
     await fireEvent.click(screen.getByText("Pourquoi ?"));
-
-    expect(screen.getByText("Pourquoi ce lien ?")).toBeTruthy();
-    expect(screen.getByText("La même adresse apparaît.")).toBeTruthy();
-    expect(screen.getByText("justificatif_domicile.pdf, page 1")).toBeTruthy();
+    expect(screen.getByText("La même valeur apparaît.")).toBeTruthy();
     expect(screen.getByText("Entité : Analyse Titre de séjour · Adresse")).toBeTruthy();
   });
 
-  it("compare deux dossiers avec la preuve de chaque côté", async () => {
-    renderPage();
-    await searchFor("lilas");
-    await fireEvent.click(screen.getByText("Titre de séjour — Camille Exemple"));
-    await fireEvent.click(screen.getByText("Regroupement familial — Sacha Exemple"));
+  it("ne laisse pas une réponse en retard écraser la recherche suivante", async () => {
+    let release: (value: unknown) => void = () => {};
+    mockApi.post("/api/search", ({ body }: { body: any }) =>
+      body.query === "lente" ? new Promise((resolve) => (release = resolve)) : FOUND,
+    );
+    await renderPage();
+    await searchFor("lente");
+    await searchFor("rapide");
+    await screen.findByText(/2 dossier\(s\) trouvé\(s\)/);
 
-    expect(screen.getByText("Ce qui les relie (1)")).toBeTruthy();
-    expect(screen.getByText("demande.pdf, page 1")).toBeTruthy();
+    release({ dossiers: [], total: 0, items: [] });
+    await new Promise((resolve) => setTimeout(resolve));
+
+    expect(screen.getByText(/2 dossier\(s\) trouvé\(s\)/)).toBeTruthy();
   });
 
-  it("dit quand rien d'accessible ne correspond", async () => {
-    renderPage();
-    await searchFor("introuvable");
+  it("dit quand la recherche échoue", async () => {
+    mockApi.fail("POST", "/api/search", 503, "La recherche a échoué, réessayez.");
+    await renderPage();
+    await searchFor("lilas");
 
-    expect(screen.getByText(/Aucun dossier accessible/)).toBeTruthy();
-    expect(screen.queryByText(/ne vous sont pas ouverts/)).toBeNull();
+    expect(await screen.findByText("La recherche a échoué, réessayez.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Réessayer" })).toBeTruthy();
+  });
+
+  it("reprend la sélection de l'adresse et montre les dossiers liés", async () => {
+    mockApi.post("/api/search/links", LINKS);
+    await renderPage("/recherche?dossiers=a");
+
+    expect(await screen.findByText("Dossiers liés à votre sélection (1)")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Retirer Camille" })).toBeTruthy();
+    expect(mockApi.calls[0]!.body).toEqual({ dossier_ids: ["a"], include_related: true });
+  });
+
+  it("part des dossiers cochés et les met dans l'adresse", async () => {
+    mockApi.post("/api/search", FOUND).post("/api/search/links", LINKS);
+    const { router } = await renderPage();
+    await searchFor("lilas");
+    await fireEvent.click(await screen.findByLabelText("Sélectionner Camille"));
+    await fireEvent.click(screen.getByRole("button", { name: "Voir les liens (1)" }));
+
+    await waitFor(() => expect(router.currentRoute.value.query.dossiers).toBe("a"));
+    expect(await screen.findByRole("button", { name: "Retirer Camille" })).toBeTruthy();
+  });
+
+  it("retire un dossier devenu inaccessible sans bloquer les autres", async () => {
+    mockApi.post("/api/search/links", ({ body }: { body: any }) => {
+      if (body.dossier_ids.includes("gone")) {
+        throw new ApiError(404, "Dossier introuvable", { code: "dossiers_not_found", dossier_ids: ["gone"] });
+      }
+      return LINKS;
+    });
+    await renderPage("/recherche?dossiers=a,gone");
+
+    expect(await screen.findByText(/1 dossier\(s\) retiré\(s\)/)).toBeTruthy();
+    expect(await screen.findByRole("button", { name: "Retirer Camille" })).toBeTruthy();
+  });
+
+  it("n'annonce des données fictives que pour les rapprochements", async () => {
+    await renderPage();
+    expect(screen.queryByText("données fictives")).toBeNull();
+
+    await fireEvent.click(screen.getByLabelText("Rapprochements"));
+    expect(screen.getByText("données fictives")).toBeTruthy();
+    await fireEvent.click(screen.getByRole("button", { name: /Adresse partagée/ }));
+    await fireEvent.click(screen.getByRole("button", { name: /12 rue des Lilas/ }));
+    expect(screen.queryByRole("button", { name: "Explorer ces dossiers" })).toBeNull();
   });
 });

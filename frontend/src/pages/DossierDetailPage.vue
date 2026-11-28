@@ -538,6 +538,14 @@ async function onDeleteConversation() {
           <VIcon name="ri-lock-line" />
         </button>
         <RouterLink
+          :to="{ path: '/recherche', query: { dossiers: dossierId } }"
+          class="dossier-detail__icon-button"
+          aria-label="Voir les liens avec d'autres dossiers"
+          title="Liens : les autres dossiers qui ont une valeur ou un document en commun"
+        >
+          <VIcon name="ri-share-line" />
+        </RouterLink>
+        <RouterLink
           :to="`/dossiers/${dossierId}/historique`"
           class="dossier-detail__icon-button"
           aria-label="Voir l'historique du dossier"
