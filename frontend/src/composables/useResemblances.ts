@@ -1,141 +1,77 @@
-import { ref } from "vue";
+import { ref, shallowRef } from "vue";
 
-import { MOCK_DOSSIERS, MOCK_ITEMS } from "@/composables/mockCrossSearch";
-import { allOfKind, ENTITY_CATALOG } from "@/composables/mockEntityCatalog";
-import {
-  LINK_REASONS,
-  type Occurrence,
-  type Resemblance,
-  type ResemblanceRule,
-  type RuleCriterion,
-  type RuleDraft,
-  type SharedKind,
-} from "@/types/crossSearch";
+import type { CatalogEntity, FoundDossier, Resemblance, ResemblanceRule, RuleCriterion, RuleDraft } from "@/types/crossSearch";
+import { apiFetch, userMessage } from "@/utils/api";
 
-type Preset = [string, string, string, RuleCriterion[], RuleDraft["scope"], RuleDraft["certainty"]];
+const BASE = "/api/resemblances";
+const PAGE_SIZE = 20;
 
-const person = allOfKind("person", "Personne");
-const company = allOfKind("company", "Entreprise");
-const identifier = allOfKind("identifier", "Numéro");
+const send = <T>(path: string, method: string, body?: unknown) =>
+  apiFetch<T>(`${BASE}${path}`, { method, body: body === undefined ? undefined : JSON.stringify(body) });
 
-/** Maquette : des thèmes de ressemblance tels qu'un administrateur pourrait les définir. */
-const PRESETS: Preset[] = [
-  ["duplicate", "Dossiers possiblement en double", "La même demande a pu être déposée deux fois.", [person, identifier], "within", "probable"],
-  ["person-across", "Personne dans plusieurs thèmes", "Une même personne suivie par des services différents.", [person], "across", "probable"],
-  ["person-within", "Personne revenant dans un thème", "Plusieurs dossiers d'une même personne dans un même thème.", [person], "within", "probable"],
-  ["driver-company", "Conducteur et employeur", "La même personne et la même entreprise.", [person, company], "all", "probable"],
-  ["company", "Entreprise commune", "Des dossiers qui citent la même entreprise.", [company], "all", "probable"],
-  ["address", "Adresse partagée", "La même adresse, sans que les personnes soient forcément liées.", [allOfKind("address", "Adresse")], "all", "to_check"],
-  ["identifier", "Même numéro", "Permis, immatriculation ou pièce identique.", [identifier], "all", "identical"],
-  ["file", "Fichier réutilisé", "Le même fichier déposé dans plusieurs dossiers.", [{ id: "file", origin: "file", name: "Même fichier" }], "all", "identical"],
-];
-
-/** Maquette : la nature des données fictives qui correspondent à un critère (aucune si elle est inconnue). */
-export function mockKindOf(criterion: RuleCriterion): SharedKind | null {
-  if (criterion.origin === "file") return "document";
-  if (criterion.origin === "topic") return "topic";
-  if (criterion.origin !== "analysis") return null;
-  return ENTITY_CATALOG.find((e) => criterion.entityIds.includes(e.id))?.kind ?? null;
+function mapCriterion(api: any): RuleCriterion {
+  return api.origin === "file"
+    ? { id: api.id, origin: "file", name: api.name }
+    : { id: api.id, origin: "analysis", name: api.name, entityIds: api.entity_ids, refusedIds: api.refused_ids ?? [] };
 }
 
-const rules = ref<ResemblanceRule[]>(
-  PRESETS.map(([id, name, description, criteria, scope, certainty]) => ({
-    id,
-    name,
-    description,
-    criteria,
-    scope,
-    certainty,
-    active: true,
-    versions: [],
+const criterionBody = (criterion: RuleCriterion) =>
+  criterion.origin === "file"
+    ? { id: criterion.id, origin: "file", name: criterion.name }
+    : {
+        id: criterion.id,
+        origin: "analysis",
+        name: criterion.name,
+        entity_ids: criterion.entityIds,
+        refused_ids: criterion.refusedIds ?? [],
+      };
+
+const mapDraft = (api: any): RuleDraft => ({
+  name: api.name,
+  description: api.description,
+  criteria: api.criteria.map(mapCriterion),
+  scope: api.scope,
+  certainty: api.certainty,
+  active: api.active,
+});
+
+const mapRule = (api: any): ResemblanceRule => ({
+  ...mapDraft(api),
+  id: api.id,
+  computedAt: api.computed_at,
+  groupCount: api.group_count,
+  missingEntityIds: api.missing_entity_ids,
+  versions: api.versions.map((v: any) => ({ id: v.id, createdAt: v.created_at, content: mapDraft(v.content) })),
+});
+
+const mapDossier = (api: any): FoundDossier => ({
+  id: api.id,
+  reference: api.reference,
+  name: api.name,
+  analyseName: api.analyse_name,
+  themeName: api.theme_name,
+  excerpts: [],
+});
+
+const mapGroup = (ruleId: string) => (api: any): Resemblance => ({
+  id: api.key,
+  ruleId,
+  label: api.label,
+  certainty: api.certainty,
+  reason: api.reason,
+  dismissed: api.dismissed,
+  dossiers: api.dossiers.map(mapDossier),
+  dossierIds: api.dossiers.map((d: any) => d.id),
+  occurrences: api.occurrences.map((o: any) => ({
+    dossierId: o.dossier_id,
+    documentName: o.document_name ?? null,
+    page: o.page ?? null,
+    text: o.text,
+    origin: o.origin ?? undefined,
   })),
-);
+});
 
-const themeOf = (dossierId: string) => MOCK_DOSSIERS.find((d) => d.id === dossierId)?.themeName ?? null;
-
-interface Match {
-  key: string;
-  label: string;
-  dossierIds: string[];
-  occurrences: Occurrence[];
-}
-
-/** Les valeurs trouvées pour un critère, dans les seuls dossiers des analyses dont il cite des entités. */
-function valuesOf(criterion: RuleCriterion): Match[] {
-  const kind = mockKindOf(criterion);
-  const analyses =
-    criterion.origin === "analysis"
-      ? ENTITY_CATALOG.filter((e) => criterion.entityIds.includes(e.id)).map((e) => e.analyseName)
-      : null;
-  const concerns = (id: string) => !analyses || analyses.includes(MOCK_DOSSIERS.find((d) => d.id === id)!.analyseName!);
-
-  return MOCK_ITEMS.filter((item) => item.kind === kind).map((item) => ({
-    key: item.id,
-    label: item.label,
-    dossierIds: item.dossierIds.filter(concerns),
-    occurrences: item.occurrences.filter((o) => concerns(o.dossierId)),
-  }));
-}
-
-/** Les dossiers qui réunissent tous les critères d'un thème. */
-function matches(rule: ResemblanceRule): Match[] {
-  const [first, ...others] = rule.criteria.map(valuesOf);
-  return others.reduce<Match[]>(
-    (found, items) =>
-      found.flatMap((match) =>
-        items.map((item) => {
-          const dossierIds = match.dossierIds.filter((id) => item.dossierIds.includes(id));
-          return {
-            key: `${match.key}+${item.key}`,
-            label: `${match.label} + ${item.label}`,
-            dossierIds,
-            occurrences: [...match.occurrences, ...item.occurrences].filter((o) => dossierIds.includes(o.dossierId)),
-          };
-        }),
-      ),
-    first ?? [],
-  );
-}
-
-/** La portée : découper par thème d'analyse, ou n'accepter que ce qui en traverse plusieurs. */
-function scoped(rule: ResemblanceRule, match: Match): Match[] {
-  const themes = [...new Set(match.dossierIds.map(themeOf))];
-  if (rule.scope === "across") return themes.length > 1 ? [match] : [];
-  if (rule.scope === "all") return [match];
-  return themes.map((theme) => {
-    const dossierIds = match.dossierIds.filter((id) => themeOf(id) === theme);
-    return {
-      key: `${match.key}@${theme}`,
-      label: `${match.label} · ${theme ?? "Sans thème"}`,
-      dossierIds,
-      occurrences: match.occurrences.filter((o) => dossierIds.includes(o.dossierId)),
-    };
-  });
-}
-
-/** Maquette : ce que l'analyse préalable aurait trouvé. L'API ne renverra que les dossiers visibles de la personne. */
-export function mockResemblances(rule: ResemblanceRule): Resemblance[] {
-  const kinds = rule.criteria.map(mockKindOf);
-  const caution = [...new Set(kinds.flatMap((kind) => (kind && LINK_REASONS[kind].caution) || []))].join(" ");
-  const reason = `En commun : ${rule.criteria.map((c) => c.name.toLowerCase()).join(" et ")}.`;
-
-  return matches(rule)
-    .flatMap((match) => scoped(rule, match))
-    .filter((match) => match.dossierIds.length > 1)
-    .map((match) => ({
-      id: `${rule.id}:${match.key}`,
-      ruleId: rule.id,
-      label: match.label,
-      certainty: rule.certainty,
-      reason,
-      caution: caution || undefined,
-      dossierIds: match.dossierIds,
-      occurrences: match.occurrences,
-    }))
-    .sort((a, b) => b.dossierIds.length - a.dossierIds.length);
-}
-
-/** Copie indépendante : les critères sont des objets, l'historique ne doit pas suivre les modifications. */
+/** Copie indépendante : les critères sont des objets, modifiés en place dans le formulaire. */
 export const draftOf = ({ name, description, criteria, scope, certainty, active }: RuleDraft): RuleDraft => ({
   name,
   description,
@@ -145,26 +81,110 @@ export const draftOf = ({ name, description, criteria, scope, certainty, active 
   active,
 });
 
+const bodyOf = (draft: RuleDraft) => ({ ...draftOf(draft), criteria: draft.criteria.map(criterionBody) });
+
+/** Les thèmes de ressemblance et les groupes du thème affiché. */
 export function useResemblances() {
-  /** Crée ou modifie un thème ; l'état précédent est gardé dans l'historique. */
-  function saveRule(draft: RuleDraft, id?: string) {
-    const rule = rules.value.find((r) => r.id === id);
-    if (!rule) {
-      const created = { ...draftOf(draft), id: `rule-${Date.now()}`, versions: [] };
-      rules.value = [...rules.value, created];
-      return created.id;
+  const rules = shallowRef<ResemblanceRule[]>([]);
+  /** Faux quand le calcul est désactivé sur cet environnement. */
+  const enabled = ref(true);
+  const status = ref<"loading" | "ready" | "error">("loading");
+  const error = ref("");
+  const groups = shallowRef<Resemblance[]>([]);
+  const total = ref(0);
+  const groupsError = ref("");
+  // Une réponse dépassée (autre thème choisi entre-temps) est ignorée.
+  let latest = 0;
+  let page = 1;
+
+  async function load() {
+    try {
+      const data = await apiFetch<any>(`${BASE}/themes`);
+      rules.value = data.items.map(mapRule);
+      enabled.value = data.enabled;
+      status.value = "ready";
+    } catch (failure) {
+      error.value = userMessage(failure, "Les thèmes n'ont pas pu être chargés.");
+      status.value = "error";
     }
-    const previous = { id: `v-${Date.now()}-${rule.versions.length}`, content: draftOf(rule), createdAt: new Date().toISOString() };
-    Object.assign(rule, draftOf(draft), { versions: [previous, ...rule.versions] });
-    return rule.id;
   }
 
-  function restoreRule(id: string, versionId: string) {
-    const version = rules.value.find((r) => r.id === id)?.versions.find((v) => v.id === versionId);
-    if (version) saveRule(version.content, id);
+  async function loadGroups(ruleId: string, dismissed: boolean, next = false) {
+    const request = ++latest;
+    page = next ? page + 1 : 1;
+    if (!next) groups.value = [];
+    groupsError.value = "";
+    if (!ruleId) return;
+    try {
+      const data = await apiFetch<any>(
+        `${BASE}/themes/${ruleId}/groups?page=${page}&page_size=${PAGE_SIZE}&dismissed=${dismissed}`,
+      );
+      if (request !== latest) return;
+      const found = data.items.map(mapGroup(ruleId));
+      groups.value = next ? [...groups.value, ...found] : found;
+      total.value = data.total;
+    } catch (failure) {
+      if (request === latest) groupsError.value = userMessage(failure, "Les rapprochements n'ont pas pu être chargés.");
+    }
   }
 
-  const removeRule = (id: string) => (rules.value = rules.value.filter((r) => r.id !== id));
+  /** Crée ou modifie un thème ; le serveur garde l'état précédent. Renvoie son identifiant. */
+  async function saveRule(draft: RuleDraft, id?: string): Promise<string> {
+    const saved = id
+      ? await send<any>(`/themes/${id}`, "PUT", bodyOf(draft))
+      : await send<any>("/themes", "POST", bodyOf(draft));
+    await load();
+    return saved.id;
+  }
 
-  return { rules, saveRule, restoreRule, removeRule };
+  async function restoreRule(id: string, versionId: string) {
+    await send(`/themes/${id}/versions/${versionId}/restore`, "POST");
+    await load();
+  }
+
+  async function removeRule(id: string) {
+    await send(`/themes/${id}`, "DELETE");
+    await load();
+  }
+
+  const setDismissed = (group: Resemblance, dismissed: boolean) =>
+    send(`/themes/${group.ruleId}/groups/${group.id}/${dismissed ? "dismiss" : "restore"}`, "POST");
+
+  return {
+    rules,
+    enabled,
+    status,
+    error,
+    groups,
+    total,
+    groupsError,
+    load,
+    loadGroups,
+    saveRule,
+    restoreRule,
+    removeRule,
+    setDismissed,
+  };
+}
+
+const mapEntity = (api: any): CatalogEntity => ({
+  id: api.id,
+  name: api.name,
+  definition: api.definition,
+  type: api.type,
+  analyseName: api.analyse_name,
+});
+
+/** Les entités des analyses (réservées aux administrateurs). */
+export async function fetchEntities(): Promise<CatalogEntity[]> {
+  return (await apiFetch<any[]>(`${BASE}/entities`)).map(mapEntity);
+}
+
+/** Les entités proches de celles données, ou d'une description. `available` faux : à choisir à la main. */
+export async function suggestEntities(query: { entityIds?: string[]; text?: string }) {
+  const data = await send<any>("/entities/suggestions", "POST", {
+    entity_ids: query.entityIds ?? [],
+    text: query.text ?? "",
+  });
+  return { available: data.available as boolean, items: (data.items as any[]).map(mapEntity) };
 }

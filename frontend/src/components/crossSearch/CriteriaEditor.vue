@@ -1,38 +1,49 @@
 <script setup lang="ts">
 /** Ce que les dossiers doivent avoir en commun : des entités définies dans les analyses, ou le même fichier. */
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 
 import EquivalenceSuggestions from "@/components/crossSearch/EquivalenceSuggestions.vue";
-import { analysesOf, ENTITY_CATALOG, similarToName } from "@/composables/mockEntityCatalog";
-import { CRITERION_ORIGINS, type RuleCriterion } from "@/types/crossSearch";
+import { suggestEntities } from "@/composables/useResemblances";
+import type { CatalogEntity, RuleCriterion } from "@/types/crossSearch";
 
 const criteria = defineModel<RuleCriterion[]>({ required: true });
+const props = defineProps<{ entities: CatalogEntity[] }>();
 
-const analyses = [...new Set(ENTITY_CATALOG.map((e) => e.analyseName))].map((name) => ({
-  name,
-  entities: ENTITY_CATALOG.filter((e) => e.analyseName === name),
-}));
-const labelOf = (id: string) => ENTITY_CATALOG.find((e) => e.id === id)?.id ?? id;
+const analyses = computed(() =>
+  [...new Set(props.entities.map((e) => e.analyseName))].map((name) => ({
+    name,
+    entities: props.entities.filter((e) => e.analyseName === name),
+  })),
+);
+const entityOf = (id: string) => props.entities.find((e) => e.id === id);
+const labelOf = (id: string) => {
+  const entity = entityOf(id);
+  return entity ? `${entity.analyseName} › ${entity.name}` : "Entité retirée de son analyse";
+};
 
 const newId = () => `criterion-${Date.now()}-${criteria.value.length}`;
 const add = (criterion: RuleCriterion) => (criteria.value = [...criteria.value, criterion]);
 const remove = (id: string) => (criteria.value = criteria.value.filter((c) => c.id !== id));
+const use = (entity: CatalogEntity) =>
+  add({ id: newId(), origin: "analysis", name: entity.name, entityIds: [entity.id] });
 
 function addFromAnalyses(event: Event) {
   const select = event.target as HTMLSelectElement;
-  const entity = ENTITY_CATALOG.find((e) => e.id === select.value);
-  if (entity) add({ id: newId(), origin: "analysis", name: entity.name, entityIds: [entity.id] });
-  select.value = "";
-}
-
-function addEquivalent(criterion: RuleCriterion, event: Event) {
-  const select = event.target as HTMLSelectElement;
-  if (criterion.origin === "analysis" && select.value) criterion.entityIds = [...criterion.entityIds, select.value];
+  const entity = entityOf(select.value);
+  if (entity) use(entity);
   select.value = "";
 }
 
 function accept(criterion: RuleCriterion, id: string) {
-  if (criterion.origin === "analysis") criterion.entityIds = [...criterion.entityIds, id];
+  if (criterion.origin === "analysis" && !criterion.entityIds.includes(id)) {
+    criterion.entityIds = [...criterion.entityIds, id];
+  }
+}
+
+function addEquivalent(criterion: RuleCriterion, event: Event) {
+  const select = event.target as HTMLSelectElement;
+  if (select.value) accept(criterion, select.value);
+  select.value = "";
 }
 
 function setRefused(criterion: RuleCriterion, id: string, refused: boolean) {
@@ -49,21 +60,43 @@ function removeEntity(criterion: RuleCriterion, id: string) {
 
 /** Retrouver une entité en décrivant l'information : seules les entités des analyses servent, rien n'est extrait. */
 const wanted = ref("");
-const matching = computed(() => similarToName(wanted.value));
+const matching = ref<CatalogEntity[]>([]);
+const search = ref<"idle" | "loading" | "ready" | "unavailable">("idle");
+let timer: ReturnType<typeof setTimeout> | undefined;
+let latest = 0;
+watch(
+  () => wanted.value.trim(),
+  (text) => {
+    clearTimeout(timer);
+    const request = ++latest;
+    search.value = text.length > 3 ? "loading" : "idle";
+    if (search.value === "idle") return;
+    timer = setTimeout(async () => {
+      try {
+        const data = await suggestEntities({ text });
+        if (request !== latest) return;
+        matching.value = data.items;
+        search.value = data.available ? "ready" : "unavailable";
+      } catch {
+        if (request === latest) search.value = "unavailable";
+      }
+    }, 300);
+  },
+);
 
-function use(id: string, name: string) {
-  add({ id: newId(), origin: "analysis", name, entityIds: [id] });
+function pick(entity: CatalogEntity) {
+  use(entity);
   wanted.value = "";
 }
 
 /** La ou les analyses qui définissent les entités du critère. */
 function originLabel(criterion: RuleCriterion) {
-  if (criterion.origin !== "analysis") return CRITERION_ORIGINS[criterion.origin];
-  const names = analysesOf(criterion.entityIds);
+  if (criterion.origin === "file") return "Fichier";
+  const names = [...new Set(criterion.entityIds.flatMap((id) => entityOf(id)?.analyseName ?? []))];
   return names.length > 2 ? `${names.length} analyses` : `Analyse ${names.join(", ")}`;
 }
 
-const has = (origin: RuleCriterion["origin"]) => criteria.value.some((c) => c.origin === origin);
+const hasFile = computed(() => criteria.value.some((c) => c.origin === "file"));
 </script>
 
 <template>
@@ -95,12 +128,12 @@ const has = (origin: RuleCriterion["origin"]) => criteria.value.some((c) => c.or
         <EquivalenceSuggestions
           :entity-ids="criterion.entityIds"
           :refused-ids="criterion.refusedIds ?? []"
+          :label-of="labelOf"
           @accept="accept(criterion, $event)"
           @refuse="setRefused(criterion, $event, true)"
           @reconsider="setRefused(criterion, $event, false)"
         />
       </template>
-
     </div>
 
     <label class="fr-label" for="criterion-from-analyses">Ajouter depuis les entités des analyses</label>
@@ -113,12 +146,14 @@ const has = (origin: RuleCriterion["origin"]) => criteria.value.some((c) => c.or
 
     <label class="fr-label" for="criterion-search">Ou décrire l'information recherchée</label>
     <input id="criterion-search" v-model="wanted" class="fr-input fr-mb-1w" type="search" placeholder="Numéro de permis, adresse…" />
-    <div v-if="wanted.trim().length > 3" role="status">
-      <template v-if="matching.length">
+    <div v-if="search !== 'idle'" role="status">
+      <p v-if="search === 'loading'" class="criteria__hint fr-mb-1w">Recherche…</p>
+      <p v-else-if="search === 'unavailable'" class="criteria__hint fr-mb-1w">Recherche indisponible ici : choisissez dans la liste.</p>
+      <template v-else-if="matching.length">
         <p class="criteria__hint">Entités des analyses qui y ressemblent :</p>
         <ul class="fr-tags-group">
           <li v-for="entity in matching" :key="entity.id">
-            <button type="button" class="fr-tag fr-tag--sm" :aria-label="`Utiliser ${entity.id}`" @click="use(entity.id, entity.name)">{{ entity.id }}</button>
+            <button type="button" class="fr-tag fr-tag--sm" :aria-label="`Utiliser ${labelOf(entity.id)}`" @click="pick(entity)">{{ labelOf(entity.id) }}</button>
           </li>
         </ul>
       </template>
@@ -128,7 +163,7 @@ const has = (origin: RuleCriterion["origin"]) => criteria.value.some((c) => c.or
     </div>
 
     <div class="criteria__others">
-      <button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary" :disabled="has('file')" @click="add({ id: newId(), origin: 'file', name: 'Même fichier' })">Même fichier</button>
+      <button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary" :disabled="hasFile" @click="add({ id: newId(), origin: 'file', name: 'Même fichier' })">Même fichier</button>
     </div>
   </fieldset>
 </template>

@@ -3,8 +3,7 @@ import type { EntityType, Version } from "@/types/analyse";
 /** Recherche à travers les dossiers : résultats, liens entre eux et signalement des dossiers non accessibles. */
 
 /** Ce que des dossiers ont en commun. */
-/** Le serveur fournit `identifier`, `value` et `document` ; les autres ne servent qu'aux rapprochements en maquette. */
-export type SharedKind = "person" | "company" | "address" | "identifier" | "value" | "document" | "topic";
+export type SharedKind = "identifier" | "value" | "document";
 
 export interface Excerpt {
   documentName: string | null;
@@ -28,7 +27,7 @@ export interface FoundDossier {
 /** La preuve d'un lien : où le point commun apparaît dans un dossier. */
 export interface Occurrence extends Excerpt {
   dossierId: string;
-  /** D'où vient l'entité trouvée : « Analyse X · nom de l'entité ». Absent pour un fichier ou un sujet. */
+  /** D'où vient l'entité trouvée : « Analyse X · nom de l'entité ». Absent pour un fichier. */
   origin?: string;
 }
 
@@ -67,13 +66,9 @@ export interface CrossSearchResult {
 }
 
 export const SHARED_KINDS: { value: SharedKind; label: string; color: string }[] = [
-  { value: "person", label: "Personnes", color: "#e4794a" },
-  { value: "company", label: "Entreprises", color: "#a558a0" },
-  { value: "address", label: "Adresses", color: "#00a95f" },
   { value: "identifier", label: "Identifiants", color: "#c3992a" },
   { value: "value", label: "Valeurs communes", color: "#e4794a" },
   { value: "document", label: "Documents identiques", color: "#009099" },
-  { value: "topic", label: "Sujets communs", color: "#8585a0" },
 ];
 
 /** Portée d'un thème de ressemblance par rapport aux thèmes d'analyse. */
@@ -89,22 +84,18 @@ export const SCOPES: Record<Scope, { label: string; short: string }> = {
  * Une chose que les dossiers doivent avoir en commun :
  * - `analysis` : des entités définies dans les analyses, tenues pour équivalentes (« Nom du demandeur » ici,
  *   « Titulaire du permis » là) ;
- * - `file`, `topic` : le même fichier, ou un sujet proche (ce ne sont pas des entités).
+ * - `file` : le même fichier.
  */
 export type RuleCriterion =
   | { id: string; origin: "analysis"; name: string; entityIds: string[]; refusedIds?: string[] }
-  | { id: string; origin: "file" | "topic"; name: string };
-
-export const CRITERION_ORIGINS: Record<Exclude<RuleCriterion["origin"], "analysis">, string> = {
-  file: "Fichier",
-  topic: "Sujet",
-};
+  | { id: string; origin: "file"; name: string };
 
 /** Une entité telle qu'une analyse la définit. */
 export interface CatalogEntity {
   id: string;
   analyseName: string;
   name: string;
+  definition: string;
   type: EntityType;
 }
 
@@ -122,18 +113,23 @@ export interface RuleDraft {
 export interface ResemblanceRule extends RuleDraft {
   id: string;
   versions: Version<RuleDraft>[];
+  computedAt: string | null;
+  groupCount: number;
+  /** Entités citées qu'aucune analyse ne définit plus. */
+  missingEntityIds: string[];
 }
 
 export type Certainty = "identical" | "probable" | "to_check";
 
-/** Un groupe trouvé par l'analyse préalable. */
+/** Un groupe trouvé par le calcul. */
 export interface Resemblance {
   id: string;
   ruleId: string;
   label: string;
   certainty: Certainty;
   reason: string;
-  caution?: string;
+  dismissed: boolean;
+  dossiers: FoundDossier[];
   dossierIds: string[];
   occurrences: Occurrence[];
 }
@@ -146,16 +142,12 @@ export const CERTAINTIES: Record<Certainty, { label: string; badge: string }> = 
 
 /** Pourquoi un point commun relie des dossiers, et ce qu'il faut vérifier. */
 export const LINK_REASONS: Record<SharedKind, { reason: string; caution?: string }> = {
-  person: { reason: "La même personne est citée.", caution: "Même nom : à vérifier, il peut s'agir d'homonymes." },
-  company: { reason: "La même entreprise est citée." },
-  address: { reason: "La même adresse apparaît.", caution: "Une même adresse peut loger des personnes sans rapport." },
   identifier: { reason: "Le même identifiant apparaît." },
   value: {
     reason: "La même valeur apparaît.",
     caution: "À vérifier : une même valeur peut désigner des personnes ou des choses différentes.",
   },
   document: { reason: "Le même fichier a été déposé." },
-  topic: { reason: "Les documents traitent d'un sujet commun.", caution: "Rapprochement par le sens, moins sûr." },
 };
 
 /** Bleu France ; les autres couleurs sont les teintes illustratives du DSFR. */

@@ -12,7 +12,7 @@ const props = defineProps<{
   dossierThemes: Record<string, string | null>;
   groupId: string | null;
 }>();
-const emit = defineEmits<{ group: [id: string | null] }>();
+const emit = defineEmits<{ group: [id: string | null]; explore: [ids: string[]]; dismiss: [group: Resemblance] }>();
 
 const group = computed(() => props.groups.find((g) => g.id === props.groupId));
 const summary = computed(() => summarize(props.groups, (id) => props.dossierThemes[id] ?? null));
@@ -22,7 +22,7 @@ const summary = computed(() => summarize(props.groups, (id) => props.dossierThem
   <section class="cluster-summary" aria-live="polite">
     <template v-if="group">
       <button type="button" class="fr-link fr-text--sm" @click="emit('group', null)">← {{ theme.label }}</button>
-      <ResemblanceCard :group="group" />
+      <ResemblanceCard :group="group" @explore="emit('explore', $event)" @dismiss="emit('dismiss', $event)" />
     </template>
 
     <template v-else>

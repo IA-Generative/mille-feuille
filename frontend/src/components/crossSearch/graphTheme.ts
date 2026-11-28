@@ -2,23 +2,16 @@
 import articleIcon from "@gouvfr/dsfr/dist/icons/document/article-fill.svg?url";
 import fileIcon from "@gouvfr/dsfr/dist/icons/document/file-text-fill.svg?url";
 import folderIcon from "@gouvfr/dsfr/dist/icons/document/folder-2-fill.svg?url";
-import buildingIcon from "@gouvfr/dsfr/dist/icons/buildings/building-fill.svg?url";
 import passportIcon from "@gouvfr/dsfr/dist/icons/map/passport-fill.svg?url";
-import pinIcon from "@gouvfr/dsfr/dist/icons/map/map-pin-2-fill.svg?url";
 import lockIcon from "@gouvfr/dsfr/dist/icons/system/lock-fill.svg?url";
-import userIcon from "@gouvfr/dsfr/dist/icons/user/user-fill.svg?url";
 
 import type { SharedKind } from "@/types/crossSearch";
 import type { GraphNode } from "@/utils/linkGraph";
 
 export const KIND_ICONS: Record<SharedKind, string> = {
-  person: userIcon,
-  company: buildingIcon,
-  address: pinIcon,
   identifier: passportIcon,
   value: articleIcon,
   document: fileIcon,
-  topic: articleIcon,
 };
 
 export const iconOf = (node: GraphNode) =>

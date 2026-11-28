@@ -82,4 +82,4 @@ Mesures sur un poste de développement (PostgreSQL 16, données fictives) :
 
 - **Par mots-clés** : 20 résultats au plus, le total est annoncé. Les mots cherchés ne sont jamais mis dans l'adresse.
 - **À partir de dossiers** : on y arrive en cochant des résultats, depuis la liste des dossiers ou depuis un dossier. La sélection (des identifiants, 10 au plus) est dans l'adresse (`/recherche?dossiers=…`) : on la retrouve en revenant en arrière.
-- **Rapprochements** : encore une maquette sur données fictives (#649, bloquée par #641).
+- **Rapprochements** : les [thèmes de ressemblance](themes-de-ressemblance.md).

@@ -1,17 +1,18 @@
 <script setup lang="ts">
 /** Un groupe de dossiers qui se ressemblent : pourquoi, avec quelle certitude, et les preuves à la demande. */
 import { computed } from "vue";
+import { RouterLink } from "vue-router";
 
 import OccurrenceQuote from "@/components/crossSearch/OccurrenceQuote.vue";
-import { mockDossiersByIds } from "@/composables/mockCrossSearch";
+import { MAX_ANCHORS } from "@/composables/useCrossSearch";
 import { CERTAINTIES, type Resemblance } from "@/types/crossSearch";
 
 const props = defineProps<{ group: Resemblance }>();
+const emit = defineEmits<{ explore: [ids: string[]]; dismiss: [group: Resemblance] }>();
 
-const dossiers = computed(() => mockDossiersByIds(props.group.dossierIds));
 const proofsOf = (dossierId: string) => props.group.occurrences.filter((o) => o.dossierId === dossierId);
 /** Des dossiers de thèmes différents reliés : souvent le rapprochement le plus instructif. */
-const themes = computed(() => new Set(dossiers.value.map((d) => d.themeName)));
+const themes = computed(() => new Set(props.group.dossiers.map((d) => d.themeName)));
 </script>
 
 <template>
@@ -21,11 +22,10 @@ const themes = computed(() => new Set(dossiers.value.map((d) => d.themeName)));
       <span class="fr-badge fr-badge--sm" :class="CERTAINTIES[group.certainty].badge">{{ CERTAINTIES[group.certainty].label }}</span>
     </header>
     <p class="fr-text--sm fr-mb-0">{{ group.reason }}</p>
-    <p v-if="group.caution" class="resemblance__caution">{{ group.caution }}</p>
 
     <ul class="resemblance__dossiers">
-      <li v-for="dossier in dossiers" :key="dossier.id">
-        {{ dossier.name }}
+      <li v-for="dossier in group.dossiers" :key="dossier.id">
+        <RouterLink :to="{ name: 'dossier-detail', params: { id: dossier.id } }">{{ dossier.name }}</RouterLink>
         <span class="resemblance__meta">{{ dossier.reference }} · {{ dossier.themeName ?? "Sans thème" }}</span>
       </li>
     </ul>
@@ -33,11 +33,18 @@ const themes = computed(() => new Set(dossiers.value.map((d) => d.themeName)));
 
     <details v-if="group.occurrences.length">
       <summary class="fr-text--sm">Voir les preuves</summary>
-      <template v-for="dossier in dossiers" :key="dossier.id">
+      <template v-for="dossier in group.dossiers" :key="dossier.id">
         <p class="resemblance__meta fr-mt-1w fr-mb-1v">{{ dossier.reference }}</p>
         <OccurrenceQuote v-for="(proof, index) in proofsOf(dossier.id)" :key="index" :excerpt="proof" />
       </template>
     </details>
+
+    <button type="button" class="fr-btn fr-btn--sm fr-btn--secondary" @click="emit('explore', group.dossierIds.slice(0, MAX_ANCHORS))">
+      Explorer ces dossiers
+    </button>
+    <button type="button" class="fr-link fr-text--sm" @click="emit('dismiss', group)">
+      {{ group.dismissed ? "Rétablir ce rapprochement" : "Écarter : ce rapprochement est faux" }}
+    </button>
   </article>
 </template>
 
@@ -60,15 +67,13 @@ const themes = computed(() => new Set(dossiers.value.map((d) => d.themeName)));
   width: 100%;
 }
 
-.resemblance__caution {
-  margin: 0;
-  color: var(--text-mention-grey);
-  font-size: 0.8125rem;
-}
-
 .resemblance__dossiers {
   margin: 0;
   font-size: 0.875rem;
+}
+
+.resemblance__dossiers .resemblance__meta {
+  display: block;
 }
 
 .resemblance__meta {

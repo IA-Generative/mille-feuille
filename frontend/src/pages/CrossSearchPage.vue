@@ -89,16 +89,7 @@ function explore(ids: string[]) {
 
     <!-- v-if : le graphe a besoin d'un cadre visible pour connaître sa taille. -->
     <DossierLinks v-if="mode === 'dossiers'" v-model="chosenIds" />
-    <template v-if="mode === 'resemblances'">
-      <div class="fr-alert fr-alert--info fr-mb-3w" role="note">
-        <p class="fr-alert__title">Fonctionnalité bientôt disponible</p>
-        <p>
-          Ceci est un aperçu : les dossiers, les personnes et les liens affichés ici sont des
-          <strong>données fictives</strong>.
-        </p>
-      </div>
-      <ResemblanceBoard />
-    </template>
+    <ResemblanceBoard v-if="mode === 'resemblances'" @explore="explore" />
   </div>
 </template>
 
