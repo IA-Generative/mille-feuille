@@ -9,7 +9,7 @@ Aujourd'hui, deux dossiers se ressemblent seulement s'ils ont **exactement la m�
 - la même **valeur extraite** ;
 - ou le même **fichier**.
 
-Il n'y a **aucune ressemblance par le sens** : ni modèle, ni base vectorielle, ni comparaison de résumés. Elle est prévue dans #686.
+Il n'y a **aucune ressemblance par le sens** : ni modèle, ni base vectorielle, ni comparaison de résumés. Elle n'est pas prévue.
 
 | Écran | D'où viennent les liens | État |
 |---|---|---|
@@ -108,7 +108,6 @@ La maquette illustre ce qui est envisagé : un thème impose des critères tous 
 | Issue | Apport |
 |---|---|
 | #649 | Thèmes de ressemblance, entités équivalentes, calcul à l'avance |
-| #686 | Ressemblance par le sens à partir du résumé des dossiers |
 | #648 | Variantes d'une même valeur (ordre des noms, fautes de lecture, formats) |
 
 ## Voir aussi
