@@ -33,6 +33,21 @@ La réponse porte aussi `items`, ce qui relie au moins deux des dossiers renvoy�
 
 Les définitions d'entités n'ont pas de type « personne », « entreprise » ou « adresse » : ces liens sont des `value`.
 
+### Écritures différentes (#648)
+
+Avec `SEARCH_VARIANT_LINKS_ENABLED=true` (**désactivé par défaut**), des écritures différentes sont aussi rapprochées, avec `"uncertain": true` :
+
+| Rapproché | Exemple |
+|---|---|
+| Ordre des mots et ponctuation (valeur sans chiffre) | « Émile Durand » et « DURAND, Emile » |
+| Séparateurs (valeur avec chiffre) | « AB-123-CD » et « AB123CD » |
+| O et 0, I, L et 1 (valeur avec chiffre) | « PERMIS-000123 » et « PERMIS OOO123 » |
+| Abréviations d'adresses (av, bd, bld, boul, pl, ch, « r » après un numéro) | « 12 av. des Lilas » et « 12 avenue des Lilas » |
+
+Les fautes sur une lettre d'un nom (« Durand », « Durant ») ne sont **pas** rapprochées : ce peut être deux personnes. Ces rapprochements ne sont pas comptés dans les dossiers non accessibles.
+
+Le jeu de cas est dans `backend/tests/test_dossier_variants.py`. Il vérifie que les règles font ce qui est écrit ; il **ne mesure pas leur qualité sur de vrais dossiers**. À faire avant d'activer : y ajouter des cas réels et relire un échantillon de rapprochements.
+
 ## À partir de dossiers choisis
 
 `POST /api/search/links` (#645) : `{"dossier_ids": [...], "include_related": true}`, 10 dossiers de départ au plus. La réponse donne `anchor_ids`, `dossiers` (les départs puis, avec `include_related`, 20 autres dossiers visibles au plus, ceux qui relient le plus de départs d'abord) et `items`, chacun touchant un départ. Un dossier de départ non visible répond 404 avec la liste des identifiants refusés, qu'il existe ou non.

@@ -2,7 +2,7 @@
 /** Un point commun choisi (ou les dossiers non accessibles d'un thème) : les dossiers qu'il relie. */
 import { computed } from "vue";
 
-import { LINK_REASONS, type CrossSearchResult, type HiddenLinks, type Selection, type SharedItem } from "@/types/crossSearch";
+import { reasonOf, type CrossSearchResult, type HiddenLinks, type Selection, type SharedItem } from "@/types/crossSearch";
 import { hiddenNodeId } from "@/utils/linkGraph";
 
 const props = defineProps<{ result: CrossSearchResult; item?: SharedItem; hidden?: HiddenLinks }>();
@@ -16,8 +16,8 @@ const linked = computed(() => {
 </script>
 
 <template>
-  <h2 class="fr-h6 fr-mb-0">{{ item ? item.label : "Dossiers non accessibles" }}</h2>
-  <p v-if="item" class="fr-text--sm fr-mb-0">{{ LINK_REASONS[item.kind].reason }}</p>
+  <h2 class="fr-h6 fr-mb-0">{{ item ? (item.uncertain ? "≈ " : "") + item.label : "Dossiers non accessibles" }}</h2>
+  <p v-if="item" class="fr-text--sm fr-mb-0">{{ reasonOf(item).reason }}</p>
   <p v-else-if="hidden" class="fr-text--sm fr-mb-0">
     {{ hidden.count }} dans le thème « {{ hidden.themeName ?? "Sans thème" }} ». Leur contenu et la nature du lien ne sont
     pas communiqués.

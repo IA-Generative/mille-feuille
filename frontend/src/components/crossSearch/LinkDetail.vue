@@ -4,7 +4,7 @@ import { computed } from "vue";
 
 import KindDot from "@/components/crossSearch/KindDot.vue";
 import OccurrenceQuote from "@/components/crossSearch/OccurrenceQuote.vue";
-import { LINK_REASONS, type CrossSearchResult, type Selection } from "@/types/crossSearch";
+import { reasonOf, type CrossSearchResult, type Selection } from "@/types/crossSearch";
 import { hiddenNodeId } from "@/utils/linkGraph";
 
 const props = defineProps<{ result: CrossSearchResult; dossierId: string; targetId: string }>();
@@ -27,10 +27,10 @@ const others = computed(() =>
     </p>
 
     <template v-if="item">
-      <p class="detail__subject"><KindDot :kind="item.kind" /> {{ item.label }}</p>
-      <p class="fr-text--sm fr-mb-0">{{ LINK_REASONS[item.kind].reason }}</p>
+      <p class="detail__subject"><KindDot :kind="item.kind" /> {{ item.uncertain ? "≈ " : "" }}{{ item.label }}</p>
+      <p class="fr-text--sm fr-mb-0">{{ reasonOf(item).reason }}</p>
       <OccurrenceQuote v-for="(proof, index) in proofs" :key="index" :excerpt="proof" />
-      <p v-if="LINK_REASONS[item.kind].caution" class="detail__caution">{{ LINK_REASONS[item.kind].caution }}</p>
+      <p v-if="reasonOf(item).caution" class="detail__caution">{{ reasonOf(item).caution }}</p>
 
       <h3 class="detail__title">Également présent dans</h3>
       <button v-for="other in others" :key="other.id" type="button" class="detail__row" @click="emit('select', { type: 'pair', dossierIds: [dossier.id, other.id] })">

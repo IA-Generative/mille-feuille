@@ -36,6 +36,7 @@ function mapItem(api: any): SharedItem {
     id: api.id,
     kind: api.kind,
     label: api.label,
+    uncertain: api.uncertain,
     dossierIds: api.dossier_ids,
     occurrences: api.occurrences.map((o: any) => ({
       dossierId: o.dossier_id,

@@ -32,6 +32,8 @@ Avant comparaison, seuls les majuscules, les accents et les espaces en trop sont
 | « AB-123-CD » et « AB123CD » | non |
 | « Durand » et « Durant » | non |
 
+Si les rapprochements d'écritures différentes sont activés (`SEARCH_VARIANT_LINKS_ENABLED`, désactivé par défaut), l'ordre des mots, les séparateurs, les abréviations d'adresses et les confusions O/0 ou I/1 relient aussi les dossiers. Le lien est alors marqué « ≈ » et présenté comme incertain.
+
 **Le nom de l'entité n'est pas pris en compte** : la même valeur relie deux dossiers, que l'entité s'appelle « Hébergeant » dans l'un et « Gérant » dans l'autre. La preuve affiche l'origine de chaque côté, et c'est à l'instructeur de juger.
 
 ### Fichiers identiques
@@ -108,7 +110,6 @@ La maquette illustre ce qui est envisagé : un thème impose des critères tous 
 | Issue | Apport |
 |---|---|
 | #649 | Thèmes de ressemblance, entités équivalentes, calcul à l'avance |
-| #648 | Variantes d'une même valeur (ordre des noms, fautes de lecture, formats) |
 
 ## Voir aussi
 
