@@ -1,19 +1,12 @@
 <script setup lang="ts">
-/** Ce que les dossiers doivent avoir en commun : des entités des analyses, ou des entités propres au thème. */
-import { computed, reactive, ref } from "vue";
+/** Ce que les dossiers doivent avoir en commun : des entités définies dans les analyses, ou le même fichier. */
+import { computed, ref } from "vue";
 
 import EquivalenceSuggestions from "@/components/crossSearch/EquivalenceSuggestions.vue";
 import { analysesOf, ENTITY_CATALOG, similarToName } from "@/composables/mockEntityCatalog";
 import { CRITERION_ORIGINS, type RuleCriterion } from "@/types/crossSearch";
-import type { EntityNature, EntityType } from "@/types/analyse";
 
 const criteria = defineModel<RuleCriterion[]>({ required: true });
-
-const TYPES: EntityType[] = ["texte", "date", "nombre", "booléen", "identifiant"];
-const NATURES: { value: EntityNature; label: string }[] = [
-  { value: "entité", label: "Entité (présente telle quelle dans le texte)" },
-  { value: "sémantique", label: "Sémantique (à comprendre ou déduire)" },
-];
 
 const analyses = [...new Set(ENTITY_CATALOG.map((e) => e.analyseName))].map((name) => ({
   name,
@@ -54,26 +47,16 @@ function removeEntity(criterion: RuleCriterion, id: string) {
   if (!criterion.entityIds.length) remove(criterion.id);
 }
 
-const isAddingCustom = ref(false);
-const custom = reactive({ name: "", definition: "", type: "texte" as EntityType, nature: "entité" as EntityNature });
+/** Retrouver une entité en décrivant l'information : seules les entités des analyses servent, rien n'est extrait. */
+const wanted = ref("");
+const matching = computed(() => similarToName(wanted.value));
 
-function addCustom() {
-  if (!custom.name.trim()) return;
-  add({ id: newId(), origin: "custom", ...custom, name: custom.name.trim() });
-  Object.assign(custom, { name: "", definition: "", type: "texte", nature: "entité" });
-  isAddingCustom.value = false;
-}
-
-/** Avant de créer une entité : celles qui existent déjà, dont les valeurs sont extraites sans nouvel appel au modèle. */
-const existing = computed(() => similarToName(custom.name));
-
-function reuse(id: string, name: string) {
+function use(id: string, name: string) {
   add({ id: newId(), origin: "analysis", name, entityIds: [id] });
-  Object.assign(custom, { name: "", definition: "", type: "texte", nature: "entité" });
-  isAddingCustom.value = false;
+  wanted.value = "";
 }
 
-/** D'où vient le critère : « Manuel », ou la ou les analyses qui définissent ses entités. */
+/** La ou les analyses qui définissent les entités du critère. */
 function originLabel(criterion: RuleCriterion) {
   if (criterion.origin !== "analysis") return CRITERION_ORIGINS[criterion.origin];
   const names = analysesOf(criterion.entityIds);
@@ -118,10 +101,6 @@ const has = (origin: RuleCriterion["origin"]) => criteria.value.some((c) => c.or
         />
       </template>
 
-      <template v-else-if="criterion.origin === 'custom'">
-        <p class="criteria__hint">{{ criterion.definition || "Sans définition" }} · {{ criterion.type }} · {{ criterion.nature }}</p>
-        <p class="criteria__hint">Extraite par l'analyse préalable ; aucun aperçu tant qu'elle n'est pas passée.</p>
-      </template>
     </div>
 
     <label class="fr-label" for="criterion-from-analyses">Ajouter depuis les entités des analyses</label>
@@ -132,33 +111,24 @@ const has = (origin: RuleCriterion["origin"]) => criteria.value.some((c) => c.or
       </optgroup>
     </select>
 
-    <div class="criteria__others">
-      <button type="button" class="fr-btn fr-btn--sm fr-btn--secondary" :aria-expanded="isAddingCustom" @click="isAddingCustom = !isAddingCustom">Entité personnalisée</button>
-      <button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary" :disabled="has('file')" @click="add({ id: newId(), origin: 'file', name: 'Même fichier' })">Même fichier</button>
-    </div>
-
-    <div v-if="isAddingCustom" class="criteria__card">
-      <label class="fr-label" for="custom-name">Nom de l'entité</label>
-      <input id="custom-name" v-model="custom.name" class="fr-input" type="text" />
-      <div v-if="existing.length" role="status">
-        <p class="criteria__hint">Des analyses ont déjà une entité proche. La reprendre évite une nouvelle extraction :</p>
+    <label class="fr-label" for="criterion-search">Ou décrire l'information recherchée</label>
+    <input id="criterion-search" v-model="wanted" class="fr-input fr-mb-1w" type="search" placeholder="Numéro de permis, adresse…" />
+    <div v-if="wanted.trim().length > 3" role="status">
+      <template v-if="matching.length">
+        <p class="criteria__hint">Entités des analyses qui y ressemblent :</p>
         <ul class="fr-tags-group">
-          <li v-for="entity in existing" :key="entity.id">
-            <button type="button" class="fr-tag fr-tag--sm" :aria-label="`Utiliser ${entity.id}`" @click="reuse(entity.id, entity.name)">{{ entity.id }}</button>
+          <li v-for="entity in matching" :key="entity.id">
+            <button type="button" class="fr-tag fr-tag--sm" :aria-label="`Utiliser ${entity.id}`" @click="use(entity.id, entity.name)">{{ entity.id }}</button>
           </li>
         </ul>
-      </div>
-      <label class="fr-label" for="custom-definition">Définition</label>
-      <textarea id="custom-definition" v-model="custom.definition" class="fr-input" rows="2" />
-      <label class="fr-label" for="custom-type">Type</label>
-      <select id="custom-type" v-model="custom.type" class="fr-select">
-        <option v-for="type in TYPES" :key="type" :value="type">{{ type }}</option>
-      </select>
-      <label class="fr-label" for="custom-nature">Nature</label>
-      <select id="custom-nature" v-model="custom.nature" class="fr-select">
-        <option v-for="nature in NATURES" :key="nature.value" :value="nature.value">{{ nature.label }}</option>
-      </select>
-      <button type="button" class="fr-btn fr-btn--sm" :disabled="!custom.name.trim()" @click="addCustom">Ajouter ce critère</button>
+      </template>
+      <p v-else class="criteria__hint fr-mb-1w">
+        Aucune analyse n'extrait cette information. Pour la rapprocher, ajoutez-la à une analyse puis relancez ses dossiers.
+      </p>
+    </div>
+
+    <div class="criteria__others">
+      <button type="button" class="fr-btn fr-btn--sm fr-btn--tertiary" :disabled="has('file')" @click="add({ id: newId(), origin: 'file', name: 'Même fichier' })">Même fichier</button>
     </div>
   </fieldset>
 </template>

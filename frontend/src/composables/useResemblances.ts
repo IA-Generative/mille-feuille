@@ -30,7 +30,7 @@ const PRESETS: Preset[] = [
   ["file", "Fichier réutilisé", "Le même fichier déposé dans plusieurs dossiers.", [{ id: "file", origin: "file", name: "Même fichier" }], "all", "identical"],
 ];
 
-/** Maquette : la nature des données fictives qui correspondent à un critère (aucune pour une entité personnalisée). */
+/** Maquette : la nature des données fictives qui correspondent à un critère (aucune si elle est inconnue). */
 export function mockKindOf(criterion: RuleCriterion): SharedKind | null {
   if (criterion.origin === "file") return "document";
   if (criterion.origin === "topic") return "topic";

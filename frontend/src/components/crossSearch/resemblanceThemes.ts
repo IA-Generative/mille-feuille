@@ -18,7 +18,7 @@ export function themeFor(rule: ResemblanceRule): ResemblanceTheme {
   return {
     value: rule.id,
     label: rule.name,
-    // Une entité personnalisée n'a pas de nature connue : bleu France et pictogramme neutre.
+    // Sans nature connue : bleu France et pictogramme neutre.
     color: SHARED_KINDS.find((k) => k.value === kind)?.color ?? "#000091",
     icon: KIND_ICONS[kind ?? "topic"],
     explanation: `${rule.description} Réunit les dossiers ayant en commun : ${criteria}. Portée : ${SCOPES[rule.scope].label.toLowerCase()}.`,
