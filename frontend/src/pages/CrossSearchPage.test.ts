@@ -147,20 +147,15 @@ describe("critères d'un thème de ressemblance", () => {
     removeRule(id);
   });
 
-  it("ajoute une entité des analyses, puis une entité personnalisée", async () => {
+  it("ajoute une entité des analyses", async () => {
     const view = render(CriteriaEditor, {
-      props: { modelValue: [], "onUpdate:modelValue": (value: unknown) => view.rerender({ modelValue: value }) },
+      props: { modelValue: [], "onUpdate:modelValue": (value: unknown) => view.rerender({ modelValue: value as RuleCriterion[] }) },
     });
 
     await fireEvent.update(screen.getByLabelText("Ajouter depuis les entités des analyses"), "Licence de transport › Gérant");
     expect(screen.getByRole("button", { name: "Retirer le critère Gérant" })).toBeTruthy();
     expect(screen.getByText("Analyse Licence de transport")).toBeTruthy();
-
-    await fireEvent.click(screen.getByRole("button", { name: "Entité personnalisée" }));
-    await fireEvent.update(screen.getByLabelText("Nom de l'entité"), "Numéro de châssis");
-    await fireEvent.click(screen.getByRole("button", { name: "Ajouter ce critère" }));
-    expect(screen.getByRole("button", { name: "Retirer le critère Numéro de châssis" })).toBeTruthy();
-    expect(screen.getByText("Manuel")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Entité personnalisée" })).toBeNull();
   });
 });
 
@@ -191,14 +186,16 @@ describe("équivalences proposées", () => {
     expect(screen.getByRole("button", { name: `Accepter ${refused}` })).toBeTruthy();
   });
 
-  it("propose une entité existante avant d'en créer une", async () => {
+  it("retrouve une entité par sa description, sans jamais en créer", async () => {
     renderEditor([]);
-    await fireEvent.click(screen.getByRole("button", { name: "Entité personnalisée" }));
-    await fireEvent.update(screen.getByLabelText("Nom de l'entité"), "Numéro du permis");
-    await fireEvent.click(screen.getByRole("button", { name: "Utiliser Permis de conduire › Numéro de permis" }));
+    const search = screen.getByLabelText("Ou décrire l'information recherchée");
+    await fireEvent.update(search, "Numéro de châssis du véhicule");
+    await fireEvent.update(search, "Groupe sanguin");
+    expect(screen.getByText(/Aucune analyse n'extrait cette information/)).toBeTruthy();
 
+    await fireEvent.update(search, "Numéro du permis");
+    await fireEvent.click(screen.getByRole("button", { name: "Utiliser Permis de conduire › Numéro de permis" }));
     expect(screen.getByRole("button", { name: "Retirer le critère Numéro de permis" })).toBeTruthy();
-    expect(screen.queryByText("Manuel")).toBeNull();
   });
 });
 

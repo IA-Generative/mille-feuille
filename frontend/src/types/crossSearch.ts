@@ -1,4 +1,4 @@
-import type { EntityNature, EntityType, Version } from "@/types/analyse";
+import type { EntityType, Version } from "@/types/analyse";
 
 /** Recherche à travers les dossiers : résultats, liens entre eux et signalement des dossiers non accessibles. */
 
@@ -28,7 +28,7 @@ export interface FoundDossier {
 /** La preuve d'un lien : où le point commun apparaît dans un dossier. */
 export interface Occurrence extends Excerpt {
   dossierId: string;
-  /** D'où vient l'entité trouvée : « Analyse X · nom de l'entité » ou « Manuel ». Absent pour un fichier ou un sujet. */
+  /** D'où vient l'entité trouvée : « Analyse X · nom de l'entité ». Absent pour un fichier ou un sujet. */
   origin?: string;
 }
 
@@ -89,16 +89,13 @@ export const SCOPES: Record<Scope, { label: string; short: string }> = {
  * Une chose que les dossiers doivent avoir en commun :
  * - `analysis` : des entités définies dans les analyses, tenues pour équivalentes (« Nom du demandeur » ici,
  *   « Titulaire du permis » là) ;
- * - `custom` : une entité propre au thème de ressemblance, décrite comme celles d'une analyse ;
  * - `file`, `topic` : le même fichier, ou un sujet proche (ce ne sont pas des entités).
  */
 export type RuleCriterion =
   | { id: string; origin: "analysis"; name: string; entityIds: string[]; refusedIds?: string[] }
-  | { id: string; origin: "custom"; name: string; definition: string; type: EntityType; nature: EntityNature }
   | { id: string; origin: "file" | "topic"; name: string };
 
 export const CRITERION_ORIGINS: Record<Exclude<RuleCriterion["origin"], "analysis">, string> = {
-  custom: "Manuel",
   file: "Fichier",
   topic: "Sujet",
 };
