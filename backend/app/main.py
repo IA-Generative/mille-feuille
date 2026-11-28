@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from importlib.metadata import PackageNotFoundError, version
 
@@ -6,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from mcp.server.transport_security import TransportSecuritySettings
 
 from app.agent.runner import agent_runner
-from app.config import KeycloakSettings
+from app.config import KeycloakSettings, ResemblanceSettings
 from app.core.crypto import check_configuration as check_encryption_configuration
 from app.logging_config import configure_logging
 from app.mcp.auth import BearerTokenAuthMiddleware
@@ -59,6 +60,7 @@ from app.routers.notifications import router as notifications_router
 from app.routers.permissions import router as permissions_router
 from app.routers.profile import router as profile_router
 from app.routers.reports import router as reports_router
+from app.routers.resemblances import router as resemblances_router
 from app.routers.search import router as search_router
 from app.routers.sources import router as sources_router
 from app.routers.tool_servers import router as tool_servers_router
@@ -69,6 +71,7 @@ from app.routers.usage import router as usage_router
 from app.routers.user_tasks import router as user_tasks_router
 from app.routers.users import router as users_router
 from app.routers.work_slots import router as work_slots_router
+from app.services.resemblance import compute as resemblance_compute
 
 # Uvicorn configure son logging avant d'importer l'app : on le remplace ici par du JSON (access log inclus).
 configure_logging()
@@ -119,9 +122,15 @@ async def lifespan(app: FastAPI):
     check_encryption_configuration()
     async with mcp_app.router.lifespan_context(mcp_app), helper_mcp_app.router.lifespan_context(helper_mcp_app):
         await agent_runner.start_up()
+        # Le calcul des ressemblances n'existe que s'il est activé (voir ResemblanceSettings).
+        resemblances = (
+            asyncio.create_task(resemblance_compute.periodic()) if ResemblanceSettings().RESEMBLANCE_ENABLED else None
+        )
         try:
             yield
         finally:
+            if resemblances is not None:
+                resemblances.cancel()
             await agent_runner.shut_down()
 
 
@@ -191,6 +200,7 @@ app.include_router(generated_documents_router, prefix="/api")
 app.include_router(analysis_proposals_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api")
 app.include_router(search_router, prefix="/api")
+app.include_router(resemblances_router, prefix="/api")
 app.include_router(conversation_tools_router, prefix="/api")
 app.include_router(dossier_agents_router, prefix="/api")
 app.include_router(dossier_question_answers_router, prefix="/api")

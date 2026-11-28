@@ -99,6 +99,7 @@ from .message_external_source import MessageExternalSource
 from .notification import Notification, NotificationCursor
 from .question_answer import DossierQuestionAnswer, QuestionAnswerStatus
 from .report import Report, ReportStatus, ReportType
+from .resemblance import ResemblanceDismissal, ResemblanceMember, ResemblanceTheme, ResemblanceThemeVersion
 from .search_index import (
     ACTIVE_REBUILD_STATUSES,
     DossierSearchIndex,
@@ -202,6 +203,10 @@ __all__ = [
     "EphemeralVerdict",
     "DossierStatus",
     "DossierSummary",
+    "ResemblanceDismissal",
+    "ResemblanceMember",
+    "ResemblanceTheme",
+    "ResemblanceThemeVersion",
     "EntityDefinition",
     "EntityNature",
     "EntityType",

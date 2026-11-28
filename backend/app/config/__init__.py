@@ -8,6 +8,7 @@ from .events import DossierEventSettings
 from .keycloak import KeycloakSettings
 from .llm import LlmSettings
 from .redis import RedisSettings
+from .resemblance import ResemblanceSettings
 from .search import SearchSettings
 from .sharing import SharingSettings
 from .storage import StorageSettings
@@ -25,6 +26,7 @@ __all__ = [
     "KeycloakSettings",
     "LlmSettings",
     "RedisSettings",
+    "ResemblanceSettings",
     "SearchSettings",
     "SharingSettings",
     "StorageSettings",
