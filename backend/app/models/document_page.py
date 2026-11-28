@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Column, Enum, Float, ForeignKey, Integer, String, Table, Text
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, Computed, Enum, Float, ForeignKey, Integer, String, Table, Text
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -84,6 +84,17 @@ class DocumentPage(UUIDMixin, TimestampMixin, Base):
     height: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # Contenu textuel de la page (OCR / extraction de texte).
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Calculé par la base pour la recherche à travers les dossiers (#642) ; jamais chargé avec la page.
+    search_vector: Mapped[str | None] = mapped_column(
+        TSVECTOR,
+        Computed(
+            "tsvector_concat(to_tsvector('french_unaccent'::regconfig, left(content, 100000)), "
+            "to_tsvector('simple_unaccent'::regconfig, left(content, 100000)))",
+            persisted=True,
+        ),
+        nullable=True,
+        deferred=True,
+    )
     # Clé S3 d'une capture de la page (rendue par le worker) - jamais une
     # URL S3 signée exposée telle quelle : le frontend passe toujours par
     # GET /api/dossiers/.../pages/{id}/screenshot, qui la relaie.
