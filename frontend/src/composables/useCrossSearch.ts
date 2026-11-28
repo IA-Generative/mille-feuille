@@ -53,8 +53,8 @@ function mapResult(api: any, query: string): CrossSearchResult {
     anchorIds: api.anchor_ids ?? [],
     dossiers: api.dossiers.map(mapDossier),
     items: (api.items ?? []).map(mapItem),
-    // Rien n'est signalé des dossiers non accessibles tant que la règle n'est pas décidée (#641).
-    hidden: [],
+    // Des dossiers non accessibles : un nombre par thème, seulement si le serveur est configuré pour le dire.
+    hidden: (api.hidden ?? []).map((h: any) => ({ themeName: h.theme_name, count: h.count, dossierIds: h.dossier_ids })),
   };
 }
 

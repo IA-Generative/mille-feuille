@@ -65,12 +65,22 @@ class SharedItemOut(BaseModel):
     occurrences: list[LinkOccurrenceOut]
 
 
+class HiddenLinksOut(BaseModel):
+    """Des dossiers non accessibles liés aux résultats : un nombre par thème, rien qui les désigne (#647)."""
+
+    theme_name: str | None
+    count: int
+    # Les dossiers **accessibles** auxquels ils sont liés.
+    dossier_ids: list[uuid.UUID]
+
+
 class DossierSearchOut(BaseModel):
     """Les dossiers les plus pertinents ; `total` compte tous ceux trouvés. Les mots cherchés ne sont pas répétés."""
 
     dossiers: list[FoundDossierOut]
     total: int
     items: list[SharedItemOut] = []
+    hidden: list[HiddenLinksOut] = []
 
 
 class DossierLinksOut(BaseModel):
@@ -79,3 +89,4 @@ class DossierLinksOut(BaseModel):
     anchor_ids: list[uuid.UUID]
     dossiers: list[FoundDossierOut]
     items: list[SharedItemOut]
+    hidden: list[HiddenLinksOut] = []

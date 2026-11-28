@@ -1,7 +1,8 @@
 """Les points communs entre des dossiers (issue #643) : mêmes valeurs extraites, mêmes fichiers.
 
 Tout est calculé à la lecture, sur les seuls dossiers visibles de la personne (`visible_clause`) : un point commun ne
-mentionne jamais un dossier absent de la liste demandée.
+mentionne jamais un dossier absent de la liste demandée. Des dossiers non visibles, seul un nombre par thème peut être
+annoncé (`hidden`, #647).
 
 - Valeurs : la valeur retenue d'une entité ou d'un champ, comparée sans tenir compte de la casse, des accents ni des
   espaces. Les dates, les nombres et les booléens ne relient pas.
@@ -15,14 +16,16 @@ from collections import Counter, defaultdict
 from collections.abc import Collection, Sequence
 from typing import Any
 
-from sqlalchemy import ColumnElement, Select, distinct, func, literal_column, or_, select
+from sqlalchemy import ColumnElement, Select, distinct, func, literal_column, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import CrossSearchSettings
 from app.core.security.factory import RequestContext
 from app.models.analyse import Analyse, EntityDefinition, EntityType
+from app.models.analyse_theme import AnalyseTheme
 from app.models.dossier import Dossier, DossierDocument
 from app.models.dossier_analysis import AnalysisElement, AnalysisElementKind, AnalysisElementVersion
-from app.schemas.dossier_search import LinkOccurrenceOut, SharedItemOut
+from app.schemas.dossier_search import HiddenLinksOut, LinkOccurrenceOut, SharedItemOut
 from app.services.dossier_access import visible_clause
 from app.services.retained_values import retained_values, value_text
 
@@ -88,6 +91,44 @@ class DossierLinkRepository:
 
     async def holders(self, user: RequestContext, ids: Collection[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
         """Les autres dossiers visibles qui partagent un point commun avec ceux de `ids` : pour chacun, lesquels."""
+        return await self._linked_to(user, ids, among=visible_clause(user))
+
+    async def hidden(self, user: RequestContext, ids: Collection[uuid.UUID]) -> list[HiddenLinksOut]:
+        """Les dossiers **non visibles** liés à ceux de `ids`, comptés par thème (#647). Rien d'autre n'en sort : ni
+        identifiant, ni nom, ni motif du lien. Un administrateur, qui voit tout, n'a rien à signaler."""
+        settings = CrossSearchSettings()
+        if not settings.SEARCH_HIDDEN_LINKS_ENABLED or user.is_admin or not ids:
+            return []
+        linked = await self._linked_to(user, ids, among=true())
+        if not linked:
+            return []
+        visible = set(
+            await self.db.scalars(select(Dossier.id).where(Dossier.id.in_(list(linked)), visible_clause(user)))
+        )
+        unseen = [dossier_id for dossier_id in linked if dossier_id not in visible]
+        if not unseen:
+            return []
+        rows = await self.db.execute(
+            select(Dossier.id, AnalyseTheme.name)
+            .outerjoin(Analyse, Analyse.id == Dossier.analyse_id)
+            .outerjoin(AnalyseTheme, AnalyseTheme.id == Analyse.theme_id)
+            .where(Dossier.id.in_(unseen))
+        )
+        themes: dict[str | None, tuple[set[uuid.UUID], set[uuid.UUID]]] = defaultdict(lambda: (set(), set()))
+        for dossier_id, theme_name in rows:
+            counted, reached = themes[theme_name]
+            counted.add(dossier_id)
+            reached |= linked[dossier_id]
+        return [
+            HiddenLinksOut(theme_name=theme_name, count=len(counted), dossier_ids=sorted(reached))
+            for theme_name, (counted, reached) in sorted(themes.items(), key=lambda entry: entry[0] or "")
+            if len(counted) >= settings.SEARCH_HIDDEN_LINKS_MIN
+        ]
+
+    async def _linked_to(
+        self, user: RequestContext, ids: Collection[uuid.UUID], *, among: ColumnElement[bool]
+    ) -> dict[uuid.UUID, set[uuid.UUID]]:
+        """Les dossiers de `among`, hors `ids`, qui partagent un point commun avec des dossiers visibles de `ids`."""
         found: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
         value_keys = _linkable(Dossier.id.label("id"), normalized_value().label("key")).where(
             visible_clause(user), Dossier.id.in_(ids)
@@ -97,18 +138,16 @@ class DossierLinkRepository:
             .join(Dossier, Dossier.id == DossierDocument.dossier_id)
             .where(visible_clause(user), Dossier.id.in_(ids), DossierDocument.file_hash.is_not(None))
         )
-        for mine_statement, others_of in (
-            (value_keys, lambda keys: self._holders_of_values(user, keys)),
-            (file_keys, lambda keys: self._holders_of_files(user, keys)),
-        ):
+        limit = None
+        for mine_statement, others_of in ((value_keys, self._holders_of_values), (file_keys, self._holders_of_files)):
             mine: dict[str, set[uuid.UUID]] = defaultdict(set)
             for row in await self.db.execute(mine_statement):
                 if _is_meaningful(row.key):
                     mine[row.key].add(row.id)
             if not mine:
                 continue
-            others = await others_of(list(mine))
-            limit = await self._common_limit(user)
+            others = await others_of(among, list(mine))
+            limit = limit or await self._common_limit(user)
             for key, holders in others.items():
                 if len(holders) > limit:
                     continue
@@ -120,13 +159,13 @@ class DossierLinkRepository:
         total = await self.db.scalar(select(func.count()).select_from(Dossier).where(visible_clause(user)))
         return max(COMMON_FLOOR, int((total or 0) * COMMON_SHARE))
 
-    async def _holders_of_values(self, user: RequestContext, keys: list[str]) -> dict[str, set[uuid.UUID]]:
+    async def _holders_of_values(self, among: ColumnElement[bool], keys: list[str]) -> dict[str, set[uuid.UUID]]:
         key = normalized_value()
         matching = select(AnalysisElementVersion.id).where(key.in_(keys)).cte().prefix_with("MATERIALIZED")
         rows = await self.db.execute(
             _linkable(key.label("key"), Dossier.id.label("id"))
             # Les versions d'abord, par leur index : le planificateur parcourrait sinon toutes les valeurs.
-            .where(visible_clause(user), AnalysisElementVersion.id.in_(select(matching.c.id)))
+            .where(among, AnalysisElementVersion.id.in_(select(matching.c.id)))
             .distinct()
         )
         found: dict[str, set[uuid.UUID]] = defaultdict(set)
@@ -134,11 +173,11 @@ class DossierLinkRepository:
             found[row.key].add(row.id)
         return found
 
-    async def _holders_of_files(self, user: RequestContext, keys: list[str]) -> dict[str, set[uuid.UUID]]:
+    async def _holders_of_files(self, among: ColumnElement[bool], keys: list[str]) -> dict[str, set[uuid.UUID]]:
         rows = await self.db.execute(
             select(DossierDocument.file_hash.label("key"), Dossier.id.label("id"))
             .join(Dossier, Dossier.id == DossierDocument.dossier_id)
-            .where(visible_clause(user), DossierDocument.file_hash.in_(keys))
+            .where(among, DossierDocument.file_hash.in_(keys))
             .distinct()
         )
         found: dict[str, set[uuid.UUID]] = defaultdict(set)
@@ -175,7 +214,7 @@ class DossierLinkRepository:
         if not rows:
             return []
 
-        everywhere = await self._holders_of_values(user, list({row.key for row in rows}))
+        everywhere = await self._holders_of_values(visible_clause(user), list({row.key for row in rows}))
         limit = await self._common_limit(user)
         grouped: dict[str, list] = defaultdict(list)
         for row in rows:
@@ -235,7 +274,7 @@ class DossierLinkRepository:
         if not rows:
             return []
 
-        everywhere = await self._holders_of_files(user, list({row.file_hash for row in rows}))
+        everywhere = await self._holders_of_files(visible_clause(user), list({row.file_hash for row in rows}))
         limit = await self._common_limit(user)
         grouped: dict[str, list] = defaultdict(list)
         for row in rows:

@@ -225,6 +225,15 @@ describe("CrossSearchPage", () => {
     expect(screen.getByText(/2 dossier\(s\) trouvé\(s\)/)).toBeTruthy();
   });
 
+  it("annonce le nombre de dossiers non accessibles que donne le serveur", async () => {
+    const hidden = [{ theme_name: "Sécurité routière", count: 3, dossier_ids: ["a"] }];
+    mockApi.post("/api/search", { ...FOUND, hidden });
+    await renderPage();
+    await searchFor("lilas");
+
+    expect(await screen.findByText("3 dossiers non accessibles · Sécurité routière")).toBeTruthy();
+  });
+
   it("dit quand la recherche échoue", async () => {
     mockApi.fail("POST", "/api/search", 503, "La recherche a échoué, réessayez.");
     await renderPage();

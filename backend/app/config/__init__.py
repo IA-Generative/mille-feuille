@@ -1,5 +1,6 @@
 from .agent import AgentSettings
 from .collaboration import CollaborationSettings
+from .cross_search import CrossSearchSettings
 from .database import DatabaseSettings
 from .encryption import EncryptionSettings
 from .ephemeral import EphemeralSettings
@@ -16,6 +17,7 @@ from .tools import ToolSettings
 __all__ = [
     "AgentSettings",
     "CollaborationSettings",
+    "CrossSearchSettings",
     "DatabaseSettings",
     "DossierEventSettings",
     "EncryptionSettings",
