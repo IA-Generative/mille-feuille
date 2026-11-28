@@ -59,6 +59,7 @@ from app.routers.notifications import router as notifications_router
 from app.routers.permissions import router as permissions_router
 from app.routers.profile import router as profile_router
 from app.routers.reports import router as reports_router
+from app.routers.search import router as search_router
 from app.routers.sources import router as sources_router
 from app.routers.tool_servers import router as tool_servers_router
 from app.routers.tools import router as tools_router
@@ -189,6 +190,7 @@ app.include_router(document_drafts_router, prefix="/api")
 app.include_router(generated_documents_router, prefix="/api")
 app.include_router(analysis_proposals_router, prefix="/api")
 app.include_router(conversations_router, prefix="/api")
+app.include_router(search_router, prefix="/api")
 app.include_router(conversation_tools_router, prefix="/api")
 app.include_router(dossier_agents_router, prefix="/api")
 app.include_router(dossier_question_answers_router, prefix="/api")
