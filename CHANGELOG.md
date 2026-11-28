@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.79.0](https://github.com/IA-Generative/mille-feuille/compare/v0.78.0...v0.79.0) (2026-11-28)
+
+
+### Features
+
+* ajouter la recherche plein texte sur les dossiers accessibles ([5df1153](https://github.com/IA-Generative/mille-feuille/commit/5df1153eb775265800c644b178c66ac6c65718c0))
+* annoncer le nombre de dossiers non accessibles liés ([2795da1](https://github.com/IA-Generative/mille-feuille/commit/2795da1e84472a5b491a5c1b07d402b3d7569fa1))
+* brancher la page recherche et l'exploration de dossiers sur l'api ([b59317c](https://github.com/IA-Generative/mille-feuille/commit/b59317ce1048b296abcd1981a1356c1abbfc2d66))
+* lier les dossiers par valeurs et fichiers communs ([3245825](https://github.com/IA-Generative/mille-feuille/commit/3245825f30407a0c08ee4d413d021798070ecbc2))
+
+
+### Code Refactoring
+
+* partager les briques de recherche plein texte ([ba25d33](https://github.com/IA-Generative/mille-feuille/commit/ba25d3377453bb1fca3a1ba72190ae8480a730b8))
+
 ## [0.78.0](https://github.com/IA-Generative/mille-feuille/compare/v0.77.1...v0.78.0) (2026-11-28)
 
 
