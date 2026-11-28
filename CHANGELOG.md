@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.80.0](https://github.com/IA-Generative/mille-feuille/compare/v0.79.0...v0.80.0) (2026-11-28)
+
+
+### Features
+
+* brancher les rapprochements sur l'api ([fb91ef6](https://github.com/IA-Generative/mille-feuille/commit/fb91ef63f4eea9929df294e7d2c235c6d559fcee))
+* calculer les thèmes de ressemblance et proposer des entités équivalentes ([f40877e](https://github.com/IA-Generative/mille-feuille/commit/f40877ec766f6677c0e762df7fdd9e00ab07a24b))
+* maquetter les entités équivalentes d'un thème de ressemblance ([329bf78](https://github.com/IA-Generative/mille-feuille/commit/329bf7853f2388659159bd36e2e3606443fbf773))
+* rapprocher les écritures différentes d'une même valeur ([faa7327](https://github.com/IA-Generative/mille-feuille/commit/faa7327c17edefdf34c1296a4e92e8fb1e4bd312))
+* retirer les entités personnalisées de la maquette des ressemblances ([1ad13d0](https://github.com/IA-Generative/mille-feuille/commit/1ad13d0ceadb7279172533b0f7081306a89381c3))
+
+
+### Bug Fixes
+
+* inclure les rapprochements écartés dans la rotation des clés ([26b6d9a](https://github.com/IA-Generative/mille-feuille/commit/26b6d9af7f4ff0fa7eee5485b992a606e97bedc8))
+
 ## [0.79.0](https://github.com/IA-Generative/mille-feuille/compare/v0.78.0...v0.79.0) (2026-11-28)
 
 
