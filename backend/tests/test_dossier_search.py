@@ -134,7 +134,7 @@ def test_a_rejected_value_does_not_count(client, analyse) -> None:
     word = _word()
     _value(client, _dossier(client, analyse), word, rejected=True)
 
-    assert _search(client, word) == {"dossiers": [], "total": 0}
+    assert _search(client, word) == {"dossiers": [], "total": 0, "items": []}
 
 
 def test_an_added_or_deleted_document_is_taken_into_account(client, analyse) -> None:
@@ -162,7 +162,7 @@ def test_a_restricted_dossier_never_shows_outside_its_groups(client, world, anal
         _value(client, dossier_id, word)
         assert _ids(_search(client, word)) == [dossier_id]
     with As(world["bob"]):
-        assert _search(client, word) == {"dossiers": [], "total": 0}
+        assert _search(client, word) == {"dossiers": [], "total": 0, "items": []}
         assert _search(client, _reference_of(client, dossier_id))["total"] == 0
 
 
@@ -225,3 +225,111 @@ def test_a_failure_does_not_log_the_searched_words(client, monkeypatch, caplog) 
 def test_the_reference_is_separated_from_the_words() -> None:
     assert split_reference("dos-2026-0012") == ((2026, 12), " ")
     assert split_reference("Camille") == (None, "Camille")
+
+
+def _hash(client: TestClient, document_id: str, file_hash: str) -> None:
+    async def write() -> None:
+        async with async_session_factory() as db:
+            (await db.get(DossierDocument, uuid.UUID(document_id))).file_hash = file_hash
+            await db.commit()
+
+    client.portal.call(write)
+
+
+def test_results_are_linked_by_equal_values_and_identical_files(client, analyse) -> None:
+    word, shared = _word(), _word()
+    first, second = _dossier(client, analyse, word), _dossier(client, analyse, word)
+    _value(client, first, f"Émile   {shared}")
+    _value(client, second, f"emile {shared.upper()}")
+    file_hash = uuid.uuid4().hex * 2
+    for dossier_id in (first, second):
+        _hash(client, _document(client, dossier_id, "attestation.pdf"), file_hash)
+
+    items = {item["kind"]: item for item in _search(client, word)["items"]}
+
+    assert sorted(items) == ["document", "value"]
+    assert sorted(items["value"]["dossier_ids"]) == sorted([first, second])
+    assert items["value"]["occurrences"][0]["origin"] == f"Analyse {analyse['name']} · Nom du demandeur"
+    assert items["document"]["label"] == "attestation.pdf"
+
+
+def test_a_link_never_mentions_a_dossier_outside_the_results(client, world, analyse) -> None:
+    word, shared = _word(), _word()
+    with As(world["bob"]):
+        secret = _dossier(client, analyse, word, visibility="restricted", group_ids=[world["b"]])
+        _value(client, secret, shared)
+    with As(world["alice"]):
+        visible = _dossier(client, analyse, word, visibility="restricted", group_ids=[world["a"]])
+        _value(client, visible, shared)
+        result = _search(client, word)
+
+        assert _ids(result) == [visible]
+        assert result["items"] == []
+
+
+def test_a_rejected_or_empty_value_links_nothing(client, analyse) -> None:
+    word, shared = _word(), _word()
+    first, second = _dossier(client, analyse, word), _dossier(client, analyse, word)
+    for dossier_id in (first, second):
+        _value(client, dossier_id, "oui")
+    _value(client, first, shared)
+    _value(client, second, shared, rejected=True)
+
+    assert _search(client, word)["items"] == []
+
+
+def test_a_value_shared_by_too_many_dossiers_links_nothing(client, analyse, monkeypatch) -> None:
+    monkeypatch.setattr("app.repositories.dossier_link_repository.COMMON_FLOOR", 2)
+    monkeypatch.setattr("app.repositories.dossier_link_repository.COMMON_SHARE", 0)
+    word, shared = _word(), _word()
+    for _ in range(3):
+        _value(client, _dossier(client, analyse, word), shared)
+
+    assert _search(client, word)["items"] == []
+
+
+def _links(client: TestClient, ids: list[str], **body):
+    return client.post("/api/search/links", json={"dossier_ids": ids, **body})
+
+
+def test_chosen_dossiers_show_what_links_them_and_who_else(client, analyse) -> None:
+    first_value, second_value = _word(), _word()
+    first, second, bridge, apart = (_dossier(client, analyse) for _ in range(4))
+    _value(client, first, first_value)
+    _value(client, bridge, first_value)
+    _value(client, bridge, second_value)
+    _value(client, second, second_value)
+
+    result = _links(client, [second, first]).json()
+
+    assert result["anchor_ids"] == [second, first]
+    assert _ids(result) == [second, first, bridge]
+    assert sorted(item["label"] for item in result["items"]) == sorted([first_value, second_value])
+    alone = _links(client, [first, second], include_related=False).json()
+    assert (_ids(alone), alone["items"]) == ([first, second], [])
+    assert _links(client, [apart]).json()["items"] == []
+
+
+def test_a_hidden_dossier_is_neither_a_start_nor_a_link(client, world, analyse) -> None:
+    value = _word()
+    with As(world["bob"]):
+        secret = _dossier(client, analyse, visibility="restricted", group_ids=[world["b"]])
+        _value(client, secret, value)
+    with As(world["alice"]):
+        mine = _dossier(client, analyse, visibility="restricted", group_ids=[world["a"]])
+        _value(client, mine, value)
+
+        refused = _links(client, [mine, secret])
+        assert refused.status_code == 404
+        assert refused.json()["detail"]["dossier_ids"] == [secret]
+        result = _links(client, [mine]).json()
+        assert (_ids(result), result["items"]) == ([mine], [])
+
+
+def test_picking_by_name_skips_the_details(client, analyse) -> None:
+    word = _word()
+    _document(client, _dossier(client, analyse, word), "piece.pdf", word)
+
+    result = _search(client, word, details=False)
+
+    assert (result["total"], result["dossiers"][0]["excerpts"], result["items"]) == (1, [], [])

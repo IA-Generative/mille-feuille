@@ -36,6 +36,17 @@ INDEXES = (
 
 
 def upgrade() -> None:
+    # La clé qui rapproche deux valeurs (casse, accents, espaces). Une fonction pour pouvoir l'indexer : `unaccent`
+    # seule n'est pas immuable. Le corps « RETURN » fixe le dictionnaire à la création (PostgreSQL 14 ou plus).
+    op.execute(
+        "CREATE FUNCTION dossier_link_key(value text) RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE "
+        "RETURN lower(unaccent('unaccent'::regdictionary, btrim(regexp_replace(value, '\\s+', ' ', 'g'))))"
+    )
+    # `left` : une très longue valeur dépasserait la taille admise par un index.
+    op.execute(
+        "CREATE INDEX ix_analysis_element_versions_link ON analysis_element_versions "
+        "(dossier_link_key(left(coalesce(value ->> 'value', value ->> 'label'), 300)))"
+    )
     # Le vecteur d'une page est enregistré : le recalculer à chaque recherche coûterait trop sur de longs textes.
     # Cette colonne réécrit la table : la migration est plus longue sur une base déjà remplie.
     vector = _vector("content")
@@ -49,3 +60,5 @@ def downgrade() -> None:
     for name, _, _ in INDEXES:
         op.execute(f"DROP INDEX IF EXISTS {name}")
     op.execute("ALTER TABLE document_pages DROP COLUMN search_vector")
+    op.execute("DROP INDEX IF EXISTS ix_analysis_element_versions_link")
+    op.execute("DROP FUNCTION IF EXISTS dossier_link_key(text)")
