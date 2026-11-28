@@ -60,6 +60,8 @@ class SharedItemOut(BaseModel):
 
     id: str
     kind: Literal["identifier", "value", "document"]
+    # Écritures différentes rapprochées (#648) : un rapprochement à vérifier, jamais une identité.
+    uncertain: bool = False
     label: str
     dossier_ids: list[uuid.UUID]
     occurrences: list[LinkOccurrenceOut]

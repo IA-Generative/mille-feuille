@@ -42,6 +42,8 @@ export interface SharedItem {
   id: string;
   kind: SharedKind;
   label: string;
+  /** Écritures différentes rapprochées : à vérifier, jamais une identité. */
+  uncertain?: boolean;
   /** Dossiers accessibles, parmi les résultats, qui le partagent (au moins deux). */
   dossierIds: string[];
   occurrences: Occurrence[];
@@ -164,3 +166,13 @@ export const DOSSIER_COLOR = "#6a6af4";
 /** Un dossier trouvé parce qu'il est lié à la sélection, sans en faire partie. */
 export const RELATED_COLOR = "#9c9cc4";
 export const HIDDEN_COLOR = "#929292";
+
+/** L'explication d'un point commun, qui dit quand il n'est pas certain. */
+export const reasonOf = (item: Pick<SharedItem, "kind" | "uncertain">): { reason: string; caution?: string } =>
+  item.uncertain
+    ? {
+        reason: "Des écritures proches apparaissent.",
+        caution:
+          "Rapprochement incertain : ordre des mots, séparateurs, abréviations ou caractères confondus (O et 0, I, L et 1). Comparez les écritures.",
+      }
+    : LINK_REASONS[item.kind];

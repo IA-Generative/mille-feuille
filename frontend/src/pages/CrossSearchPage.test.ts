@@ -234,6 +234,17 @@ describe("CrossSearchPage", () => {
     expect(await screen.findByText("3 dossiers non accessibles · Sécurité routière")).toBeTruthy();
   });
 
+  it("présente un rapprochement d'écritures différentes comme incertain", async () => {
+    mockApi.post("/api/search", { ...FOUND, items: [{ ...sharedAddress, uncertain: true }] });
+    await renderPage();
+    await searchFor("lilas");
+    await fireEvent.click(await screen.findByText("Camille"));
+    await fireEvent.click(screen.getByText("Pourquoi ?"));
+
+    expect(screen.getByText("Des écritures proches apparaissent.")).toBeTruthy();
+    expect(screen.getByText(/Rapprochement incertain/)).toBeTruthy();
+  });
+
   it("dit quand la recherche échoue", async () => {
     mockApi.fail("POST", "/api/search", 503, "La recherche a échoué, réessayez.");
     await renderPage();

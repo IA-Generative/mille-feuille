@@ -6,6 +6,8 @@ annoncé (`hidden`, #647).
 
 - Valeurs : la valeur retenue d'une entité ou d'un champ, comparée sans tenir compte de la casse, des accents ni des
   espaces. Les dates, les nombres et les booléens ne relient pas.
+- Variantes (#648, désactivées par défaut) : ordre des mots, séparateurs, abréviations d'adresses et caractères
+  confondus à la lecture. Toujours signalées comme incertaines.
 - Fichiers : même empreinte de contenu.
 - Ce que partagent trop de dossiers visibles (mention type, formulaire vierge) est écarté : cela relierait tout.
 """
@@ -13,7 +15,7 @@ annoncé (`hidden`, #647).
 import hashlib
 import uuid
 from collections import Counter, defaultdict
-from collections.abc import Collection, Sequence
+from collections.abc import Awaitable, Callable, Collection, Sequence
 from typing import Any
 
 from sqlalchemy import ColumnElement, Select, distinct, func, literal_column, or_, select, true
@@ -44,6 +46,15 @@ def normalized_value() -> ColumnElement[str]:
     return func.dossier_link_key(func.left(value_text(), literal_column("300")))
 
 
+def loose_value() -> ColumnElement[str]:
+    """La clé des variantes (#648). Identique à l'expression de l'index `ix_analysis_element_versions_loose`."""
+    return func.dossier_link_loose_key(normalized_value())
+
+
+def _variants_enabled() -> bool:
+    return CrossSearchSettings().SEARCH_VARIANT_LINKS_ENABLED
+
+
 def _linkable(*columns: Any) -> Select:
     """Les valeurs retenues des types qui peuvent relier deux dossiers."""
     # Aucun filtre sur la clé ici : il la ferait calculer pour toutes les valeurs de la base (`_is_meaningful`).
@@ -57,6 +68,22 @@ def _linkable(*columns: Any) -> Select:
 
 def _is_meaningful(key: str | None) -> bool:
     return key is not None and MIN_LENGTH <= len(key) <= MAX_LENGTH and key not in _EMPTY_VALUES
+
+
+def _variant_rows(rows: Sequence, exact: dict[str, set[uuid.UUID]]) -> list:
+    """Les valeurs des rapprochements souples qui apprennent quelque chose : plusieurs écritures, et des dossiers
+    qu'aucune valeur identique ne réunit déjà tous."""
+    groups: dict[str, list] = defaultdict(list)
+    for row in rows:
+        if _is_meaningful(row.key) and _is_meaningful(row.loose):
+            groups[row.loose].append(row)
+    kept = []
+    for found in groups.values():
+        keys = {row.key for row in found}
+        dossiers = {row.dossier_id for row in found}
+        if len(keys) > 1 and len(dossiers) > 1 and not any(dossiers <= exact.get(key, set()) for key in keys):
+            kept += found
+    return kept
 
 
 def _origin(analyse_name: str | None, entity_name: str | None) -> str | None:
@@ -86,12 +113,20 @@ class DossierLinkRepository:
         items = [*await self._values(user, ids), *await self._documents(user, ids)]
         if touching:
             items = [item for item in items if set(item.dossier_ids) & set(touching)]
-        items.sort(key=lambda item: (-len(item.dossier_ids), item.kind != "identifier", item.label.casefold(), item.id))
+        items.sort(
+            key=lambda item: (
+                item.uncertain,
+                -len(item.dossier_ids),
+                item.kind != "identifier",
+                item.label.casefold(),
+                item.id,
+            )
+        )
         return items[:MAX_ITEMS]
 
     async def holders(self, user: RequestContext, ids: Collection[uuid.UUID]) -> dict[uuid.UUID, set[uuid.UUID]]:
         """Les autres dossiers visibles qui partagent un point commun avec ceux de `ids` : pour chacun, lesquels."""
-        return await self._linked_to(user, ids, among=visible_clause(user))
+        return await self._linked_to(user, ids, among=visible_clause(user), variants=_variants_enabled())
 
     async def hidden(self, user: RequestContext, ids: Collection[uuid.UUID]) -> list[HiddenLinksOut]:
         """Les dossiers **non visibles** liés à ceux de `ids`, comptés par thème (#647). Rien d'autre n'en sort : ni
@@ -99,7 +134,8 @@ class DossierLinkRepository:
         settings = CrossSearchSettings()
         if not settings.SEARCH_HIDDEN_LINKS_ENABLED or user.is_admin or not ids:
             return []
-        linked = await self._linked_to(user, ids, among=true())
+        # Valeurs identiques seulement : un rapprochement incertain n'est pas annoncé sur ce qu'on ne peut vérifier.
+        linked = await self._linked_to(user, ids, among=true(), variants=False)
         if not linked:
             return []
         visible = set(
@@ -126,7 +162,7 @@ class DossierLinkRepository:
         ]
 
     async def _linked_to(
-        self, user: RequestContext, ids: Collection[uuid.UUID], *, among: ColumnElement[bool]
+        self, user: RequestContext, ids: Collection[uuid.UUID], *, among: ColumnElement[bool], variants: bool
     ) -> dict[uuid.UUID, set[uuid.UUID]]:
         """Les dossiers de `among`, hors `ids`, qui partagent un point commun avec des dossiers visibles de `ids`."""
         found: dict[uuid.UUID, set[uuid.UUID]] = defaultdict(set)
@@ -138,8 +174,14 @@ class DossierLinkRepository:
             .join(Dossier, Dossier.id == DossierDocument.dossier_id)
             .where(visible_clause(user), Dossier.id.in_(ids), DossierDocument.file_hash.is_not(None))
         )
+        sources = [(value_keys, self._holders_of_values), (file_keys, self._holders_of_files)]
+        if variants:
+            loose_keys = _linkable(Dossier.id.label("id"), loose_value().label("key")).where(
+                visible_clause(user), Dossier.id.in_(ids)
+            )
+            sources.append((loose_keys, self._holders_of_variants))
         limit = None
-        for mine_statement, others_of in ((value_keys, self._holders_of_values), (file_keys, self._holders_of_files)):
+        for mine_statement, others_of in sources:
             mine: dict[str, set[uuid.UUID]] = defaultdict(set)
             for row in await self.db.execute(mine_statement):
                 if _is_meaningful(row.key):
@@ -160,7 +202,14 @@ class DossierLinkRepository:
         return max(COMMON_FLOOR, int((total or 0) * COMMON_SHARE))
 
     async def _holders_of_values(self, among: ColumnElement[bool], keys: list[str]) -> dict[str, set[uuid.UUID]]:
-        key = normalized_value()
+        return await self._holders_by(normalized_value(), among, keys)
+
+    async def _holders_of_variants(self, among: ColumnElement[bool], keys: list[str]) -> dict[str, set[uuid.UUID]]:
+        return await self._holders_by(loose_value(), among, keys)
+
+    async def _holders_by(
+        self, key: ColumnElement[str], among: ColumnElement[bool], keys: list[str]
+    ) -> dict[str, set[uuid.UUID]]:
         matching = select(AnalysisElementVersion.id).where(key.in_(keys)).cte().prefix_with("MATERIALIZED")
         rows = await self.db.execute(
             _linkable(key.label("key"), Dossier.id.label("id"))
@@ -191,6 +240,7 @@ class DossierLinkRepository:
             await self.db.execute(
                 _linkable(
                     key.label("key"),
+                    loose_value().label("loose"),
                     value_text().label("value"),
                     Dossier.id.label("dossier_id"),
                     AnalysisElement.document_id,
@@ -210,20 +260,36 @@ class DossierLinkRepository:
         for row in found_rows:
             if _is_meaningful(row.key):
                 sharers[row.key].add(row.dossier_id)
-        rows = [row for row in found_rows if len(sharers.get(row.key, ())) > 1]
+        exact = {key: dossiers for key, dossiers in sharers.items() if len(dossiers) > 1}
+        items = await self._value_items(
+            user, [row for row in found_rows if row.key in exact], lambda row: row.key, self._holders_of_values
+        )
+        if _variants_enabled():
+            items += await self._value_items(
+                user, _variant_rows(found_rows, exact), lambda row: row.loose, self._holders_of_variants, uncertain=True
+            )
+        return items
+
+    async def _value_items(
+        self,
+        user: RequestContext,
+        rows: list,
+        key_of: Callable[[Any], str],
+        holders_of: Callable[[ColumnElement[bool], list[str]], Awaitable[dict[str, set[uuid.UUID]]]],
+        *,
+        uncertain: bool = False,
+    ) -> list[SharedItemOut]:
         if not rows:
             return []
-
-        everywhere = await self._holders_of_values(visible_clause(user), list({row.key for row in rows}))
+        everywhere = await holders_of(visible_clause(user), list({key_of(row) for row in rows}))
         limit = await self._common_limit(user)
         grouped: dict[str, list] = defaultdict(list)
         for row in rows:
-            if len(everywhere[row.key]) <= limit:
-                grouped[row.key].append(row)
+            if len(everywhere[key_of(row)]) <= limit:
+                grouped[key_of(row)].append(row)
 
         items = []
         for value, found in grouped.items():
-            origins = [_origin(row.analyse_name, row.definition_name) for row in found]
             occurrences = [
                 LinkOccurrenceOut(
                     dossier_id=row.dossier_id,
@@ -231,20 +297,20 @@ class DossierLinkRepository:
                     document_name=row.document_name,
                     page=row.first_page_number,
                     text=row.value,
-                    origin=origin,
+                    origin=_origin(row.analyse_name, row.definition_name),
                 )
-                for row, origin in zip(found, origins, strict=True)
+                for row in found
             ]
             identifier = any(row.type == EntityType.IDENTIFIANT for row in found)
-            items.append(
-                self._item(
-                    "value",
-                    value,
-                    kind="identifier" if identifier else "value",
-                    label=_most_common([row.value for row in found]),
-                    occurrences=occurrences,
-                )
+            item = self._item(
+                "variant" if uncertain else "value",
+                value,
+                kind="identifier" if identifier else "value",
+                label=_most_common([row.value for row in found]),
+                occurrences=occurrences,
             )
+            item.uncertain = uncertain
+            items.append(item)
         return items
 
     async def _documents(self, user: RequestContext, ids: Collection[uuid.UUID]) -> list[SharedItemOut]:

@@ -56,7 +56,7 @@ export function buildLinkGraph(result: CrossSearchResult, kinds: SharedKind[]): 
       id: item.id,
       type: "item" as const,
       kind: item.kind,
-      label: item.label,
+      label: item.uncertain ? `≈ ${item.label}` : item.label,
       color: color(item.kind),
       size: 11 + item.dossierIds.length,
     })),
